@@ -1,0 +1,17 @@
+*.ipr
+*.iml
+*.iws
+*.pyc
+*.pyo
+.idea/
+.idea_modules/
+.settings
+.cache
+.DS_Store
+.project
+.classpath
+.scala_dependencies
+lib_managed/
+src_managed/
+target/
+reports/
