@@ -33,6 +33,7 @@ import scala.concurrent.ExecutionContext
 object WebServer {
   val KeystoreKey = "livy.keystore"
   val KeystorePasswordKey = "livy.keystore.password"
+  val LivyLogbackAccessConfFile = "livy.server.logback-access.conf"
 }
 
 class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Logging {
@@ -76,7 +77,11 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   // configure the access log
   val requestLogHandler = new RequestLogHandler
   val requestLog = new RequestLogImpl
-  requestLog.setResource("/logback-access.xml")
+  if (livyConf.contains(WebServer.LivyLogbackAccessConfFile)) {
+    requestLog.setFileName(livyConf.get(WebServer.LivyLogbackAccessConfFile))
+  } else {
+    requestLog.setResource("/logback-access.xml")
+  }
   requestLogHandler.setRequestLog(requestLog)
   handlers.addHandler(requestLogHandler)
 

@@ -9,6 +9,9 @@
 # Specify the keystore password.
 ## livy.keystore.password =
 
+# Specify the access log configuration file.
+## livy.server.logback-access.conf =
+
 # What host address to start the server on. Defaults to 0.0.0.0. If using the
 # `yarn` factory mode, this address must be accessible from the YARN nodes.
 ## livy.server.host = 0.0.0.0
