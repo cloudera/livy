@@ -24,8 +24,10 @@
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
-  <groupId>com.cloudera.spark</groupId>
+  <groupId>com.cloudera.hue.livy.client</groupId>
   <artifactId>livy-remote-spark-client</artifactId>
+  <version>${parent.version}</version>
+  <packaging>jar</packaging>
   <name>Spark Remote Client</name>
 
   <properties>
