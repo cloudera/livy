@@ -25,7 +25,8 @@ import scala.collection.JavaConverters._
 class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) extends Session {
   implicit val executionContext = ExecutionContext.global
   var sessionState: SessionState = SessionState.Starting()
-  SessionClientTracker.createClient(sessionId, createRequest.sparkConf.asJava)
+  SessionClientTracker.createClient(
+    sessionId, createRequest.sparkConf.asJava, createRequest.timeout)
   sessionState = SessionState.Running()
 
   def getClient(): Option[SparkClient] = {

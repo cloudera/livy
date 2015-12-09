@@ -16,4 +16,6 @@
  */
 package com.cloudera.hue.livy.spark.client
 
-case class CreateClientRequest (sparkConf: Map[String, String] = Map())
+case class CreateClientRequest (
+  timeout: Long,
+  sparkConf: Map[String, String] = Map())

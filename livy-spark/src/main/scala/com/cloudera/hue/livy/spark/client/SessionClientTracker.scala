@@ -22,12 +22,10 @@ import com.cloudera.hue.livy.Logging
 import com.cloudera.hue.livy.client.SparkClient
 import com.cloudera.hue.livy.client.SparkClientFactory
 import com.cloudera.hue.livy.client.conf.RscConf
-import com.google.common.cache._
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkException
 import java.io.IOException
 import java.util.{Collections, Map}
-import java.util.concurrent.TimeUnit
 
 import scala.util.control.NonFatal
 
@@ -39,29 +37,14 @@ object SessionClientTracker extends Logging {
   SparkClientFactory.initialize(Collections.emptyMap())
   info("Initialized Spark Client Factory")
 
-  private val clientLock: AnyRef = new AnyRef
-  private val sessions: Cache[Integer, SparkClient] = CacheBuilder.newBuilder
-    .expireAfterAccess(20, TimeUnit.MINUTES)
-    .removalListener(new RemovalListener[Integer, SparkClient]() {
-      def onRemoval(notification: RemovalNotification[Integer, SparkClient]) {
-        clientLock synchronized {
-          var msg: String = "Client for sessionId " + notification.getKey + " is being closed"
-          if (notification.getCause eq RemovalCause.EXPIRED) {
-            msg = msg + " as the session has timed out"
-          }
-          SessionClientTracker.info(msg)
-          val client: SparkClient = notification.getValue
-          if (client != null) {
-            client.stop()
-            info("Successfully stopped client for sessionId: " + notification.getKey)
-          }
-        }
-      }
-    }).build()
+  val sessions = new SessionCache()
 
   @throws(classOf[IOException])
   @throws(classOf[SparkException])
-  def createClient(sessionId: Integer, sparkConf: Map[String, String]): SparkClient = {
+  def createClient(
+    sessionId: Integer,
+    sparkConf: Map[String, String],
+    timeout: Long): SparkClient = {
     val sc = new SparkConf(true)
     for (conf <- sc.getAll) {
       sparkConf.put(conf._1, conf._2)
@@ -70,7 +53,7 @@ object SessionClientTracker extends Logging {
     sparkConf.put("spark.master", "yarn-cluster")
     info("Creating SparkClient for sessionId: " + sessionId)
     val client: SparkClient = SparkClientFactory.createClient(sparkConf, new RscConf)
-    sessions.put(sessionId, client)
+    sessions.put(sessionId, timeout, client)
     info("Started SparkClient for sessionId: " + sessionId)
     client
   }
@@ -84,22 +67,23 @@ object SessionClientTracker extends Logging {
     */
   @throws(classOf[Exception])
   def getClient(sessionId: Integer): Option[SparkClient] = {
-    Option(sessions.getIfPresent(sessionId))
+    sessions.get(sessionId)
   }
 
-  def heartbeat(sessionId: Integer) {
+  def heartbeat(sessionId: Integer): Boolean = {
     try {
       debug("Received heartbeat for sessionId: " + sessionId)
-      getClient(sessionId)
+      sessions.refresh(sessionId)
     }
     catch {
       case NonFatal(e) =>
         warn("Error while updating heartbeat for sessionId: " + sessionId)
+        false
     }
   }
 
   def closeSession(sessionId: Integer) {
     info("Closing session for sessionId: " + sessionId)
-    sessions.invalidate(sessionId)
+    sessions.remove(sessionId)
   }
 }

@@ -80,6 +80,7 @@ class SparkClientImpl implements SparkClient {
   private final Rpc driverRpc;
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
+  private final String clientId;
 
   SparkClientImpl(RpcServer rpcServer, Map<String, String> conf, RscConf rscConf) throws IOException, SparkException {
     this.conf = conf;
@@ -87,7 +88,7 @@ class SparkClientImpl implements SparkClient {
     this.childIdGenerator = new AtomicInteger();
     this.jobs = Maps.newConcurrentMap();
 
-    String clientId = UUID.randomUUID().toString();
+    clientId = UUID.randomUUID().toString();
     String secret = rpcServer.createSecret();
     this.driverThread = startDriver(rpcServer, clientId, secret);
     this.protocol = new ClientProtocol();
@@ -117,6 +118,11 @@ class SparkClientImpl implements SparkClient {
         }
     });
     isAlive = true;
+  }
+
+  @Override
+  public String clientId() {
+    return clientId;
   }
 
   @Override

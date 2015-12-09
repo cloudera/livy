@@ -34,6 +34,8 @@ public interface SparkClient extends Serializable {
    */
   <T extends Serializable> JobHandle<T> submit(Job<T> job);
 
+  String clientId();
+
   /**
    * Asks the remote context to run a job immediately.
    * <p/>
