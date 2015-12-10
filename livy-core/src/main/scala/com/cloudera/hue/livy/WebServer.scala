@@ -21,7 +21,6 @@ package com.cloudera.hue.livy
 import java.net.{InetAddress, InetSocketAddress}
 import javax.servlet.ServletContextListener
 
-import ch.qos.logback.access.jetty.RequestLogImpl
 import org.eclipse.jetty.server._
 import org.eclipse.jetty.server.handler.{HandlerCollection, RequestLogHandler}
 import org.eclipse.jetty.servlet.{ServletContextHandler, DefaultServlet}
@@ -73,11 +72,12 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   val handlers = new HandlerCollection
   handlers.addHandler(context)
 
-  // configure the access log
+//  configure the access log
   val requestLogHandler = new RequestLogHandler
-  val requestLog = new RequestLogImpl
-  requestLog.setResource("/logback-access.xml")
-  requestLogHandler.setRequestLog(requestLog)
+  val requestLog = new NCSARequestLog("/jetty-yyyy_mm_dd.request.log")
+  requestLog.setAppend(true)
+  requestLog.setExtended(false)
+  requestLog.setLogTimeZone("GMT")
   handlers.addHandler(requestLogHandler)
 
   server.setHandler(handlers)

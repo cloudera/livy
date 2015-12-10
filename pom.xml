@@ -53,7 +53,6 @@
     <javax.servlet-api.version>3.1.0</javax.servlet-api.version>
     <jetty.version>9.2.10.v20150310</jetty.version>
     <json4s.version>3.2.11</json4s.version>
-    <logback.version>1.1.2</logback.version>
     <metrics.version>3.1.0</metrics.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.8.2.1</py4j.version>
@@ -116,21 +115,16 @@
     <module>livy-server</module>
     <module>livy-spark</module>
     <module>livy-yarn</module>
+    <module>livy-remote-spark-client</module>
   </modules>
 
   <dependencyManagement>
     <dependencies>
 
       <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-access</artifactId>
-        <version>${logback.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>ch.qos.logback</groupId>
-        <artifactId>logback-classic</artifactId>
-        <version>${logback.version}</version>
+        <groupId>log4j</groupId>
+        <artifactId>log4j</artifactId>
+        <version>1.2.16</version>
       </dependency>
 
       <dependency>
@@ -379,7 +373,7 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
-        <version>1.6.1</version>
+        <version>1.7.0</version>
       </dependency>
 
     </dependencies>
