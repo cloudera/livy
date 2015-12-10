@@ -1,6 +1,0 @@
-.DS_Store
-.idea
-*.iml
-target/
-metastore_db/
-derby.log

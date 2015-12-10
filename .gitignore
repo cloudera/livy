@@ -15,3 +15,5 @@ lib_managed/
 src_managed/
 target/
 reports/
+metastore_db/
+derby.log
