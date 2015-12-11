@@ -113,7 +113,7 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
     new AsyncResult {
       val is = Future {
         val session = sessionManager.create(parsedBody)
-        Created(session,
+        Created(serializeSession(session),
           headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
         )
       }

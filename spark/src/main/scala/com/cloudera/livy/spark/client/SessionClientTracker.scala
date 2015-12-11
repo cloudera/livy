@@ -52,7 +52,7 @@ object SessionClientTracker extends Logging {
     builder
       .setAll(conf)
       .setConf("livy.client.sessionId", sessionId.toString)
-      .setConf("spark.master", "yarn-cluster")
+      .setIfMissing("spark.master", "yarn-cluster")
     val client = builder.build()
     sessions.put(sessionId, timeout, client)
     info("Started LivyClient for sessionId: " + sessionId)

@@ -16,6 +16,31 @@
  */
 package com.cloudera.livy.spark.client
 
-case class CreateClientRequest (
+import java.net.URI
+
+sealed trait ClientMessage
+
+case class JobMessage(job: String) extends ClientMessage
+
+case class CreateClientRequest(
   timeout: Long,
-  conf: Map[String, String] = Map())
+  sparkConf: Map[String, String] = Map()
+) extends ClientMessage
+
+case class SerializedJob(job: Array[Byte]) extends ClientMessage
+
+case object Stop extends ClientMessage
+
+case class AddJar(uri: URI) extends ClientMessage
+
+case class AddFile(uri: URI) extends ClientMessage
+
+case class JobSubmitted(id: Long) extends ClientMessage
+
+case class JobStatus(id: Long) extends ClientMessage
+
+case class JobCompleted(id: Long) extends ClientMessage
+
+case class JobFailed(id: Long) extends ClientMessage
+
+case class JobResult(id: Long, result: Any) extends ClientMessage

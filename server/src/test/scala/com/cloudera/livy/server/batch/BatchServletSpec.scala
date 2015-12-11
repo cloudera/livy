@@ -21,27 +21,19 @@ package com.cloudera.livy.server.batch
 import java.io.FileWriter
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
-import com.cloudera.livy.sessions.{SessionManager, SessionState}
-import com.cloudera.livy.spark.SparkProcessBuilderFactory
-import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, CreateBatchRequest}
-import com.cloudera.livy.{LivyConf, Utils}
-import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
-import org.json4s.{DefaultFormats, Formats}
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSpecLike}
-import org.scalatra.test.scalatest.ScalatraSuite
 
 import scala.concurrent.duration.Duration
 
-class BatchServletSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfterAll with BeforeAndAfter {
+import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
 
-  protected implicit def jsonFormats: Formats = DefaultFormats
+import com.cloudera.livy.Utils
+import com.cloudera.livy.server.BaseSessionServletSpec
+import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.sessions.batch.BatchSession
+import com.cloudera.livy.spark.SparkProcessBuilderFactory
+import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, CreateBatchRequest}
 
-  override protected def withFixture(test: NoArgTest) = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-    test()
-  }
+class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
@@ -58,44 +50,28 @@ class BatchServletSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfte
     script
   }
 
-  val livyConf = new LivyConf()
-  val batchFactory = new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
-  val batchManager = new SessionManager(livyConf, batchFactory)
-  val servlet = new BatchSessionServlet(batchManager)
-
-  addServlet(servlet, "/*")
-
-  after {
-    batchManager.shutdown()
+  override def sessionFactory: BatchSessionProcessFactory = {
+    new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
   }
+  override def servlet = new BatchSessionServlet(sessionManager)
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
-      get("/") {
-        status should equal (200)
-        header("Content-Type") should include("application/json")
-        val parsedBody = parse(body)
-        parsedBody \ "sessions" should equal (JArray(List()))
+      getJson("/") { data =>
+        data \ "sessions" should equal (JArray(List()))
       }
 
-      val createBatchRequest = write(CreateBatchRequest(
-        file = script.toString
-      ))
-
-      post("/", body = createBatchRequest, headers = Map("Content-Type" -> "application/json")) {
-        status should equal (201)
-        header("Content-Type") should include("application/json")
+      postJson("/", CreateBatchRequest(file = script.toString)) { data =>
         header("Location") should equal("/0")
-        val parsedBody = parse(body)
-        parsedBody \ "id" should equal (JInt(0))
+        data \ "id" should equal (JInt(0))
 
-        val batch = batchManager.get(0)
+        val batch = sessionManager.get(0)
         batch should be (defined)
       }
 
       // Wait for the process to finish.
       {
-        val batch = batchManager.get(0).get
+        val batch = sessionManager.get(0).get
         Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
         (batch.state match {
           case SessionState.Success(_) => true
@@ -103,35 +79,26 @@ class BatchServletSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfte
         }) should be (true)
       }
 
-      get("/0") {
-        status should equal (200)
-        header("Content-Type") should include("application/json")
-        val parsedBody = parse(body)
-        parsedBody \ "id" should equal (JInt(0))
-        parsedBody \ "state" should equal (JString("success"))
+      getJson("/0") { data =>
+        data \ "id" should equal (JInt(0))
+        data \ "state" should equal (JString("success"))
 
-        val batch = batchManager.get(0)
+        val batch = sessionManager.get(0)
         batch should be (defined)
       }
 
-      get("/0/log?size=1000") {
-        status should equal (200)
-        header("Content-Type") should include("application/json")
-        val parsedBody = parse(body)
-        parsedBody \ "id" should equal (JInt(0))
-        (parsedBody \ "log").extract[List[String]] should contain ("hello world")
+      getJson("/0/log?size=1000") { data =>
+        data \ "id" should equal (JInt(0))
+        (data \ "log").extract[List[String]] should contain ("hello world")
 
-        val batch = batchManager.get(0)
+        val batch = sessionManager.get(0)
         batch should be (defined)
       }
 
-      delete("/0") {
-        status should equal (200)
-        header("Content-Type") should include("application/json")
-        val parsedBody = parse(body)
-        parsedBody should equal (JObject(("msg", JString("deleted"))))
+      deleteJson("/0") { data =>
+        data should equal (JObject(("msg", JString("deleted"))))
 
-        val batch = batchManager.get(0)
+        val batch = sessionManager.get(0)
         batch should not be defined
       }
     }

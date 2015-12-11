@@ -21,27 +21,22 @@ package com.cloudera.livy.server.interactive
 import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf}
+import scala.concurrent.Future
+
+import org.json4s.{DefaultFormats, Formats}
+import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
+
+import com.cloudera.livy.ExecuteRequest
+import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
 import com.cloudera.livy.spark.interactive.{CreateInteractiveRequest, InteractiveSessionFactory}
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
-import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
-import org.json4s.{DefaultFormats, Formats}
-import org.scalatest.FunSpecLike
-import org.scalatra.test.scalatest.ScalatraSuite
 
-import scala.concurrent.Future
+class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
 
-class InteractiveSessionServletSpec extends ScalatraSuite with FunSpecLike {
-
-  protected implicit def jsonFormats: Formats = DefaultFormats ++ Serializers.SessionFormats
-
-  override protected def withFixture(test: NoArgTest) = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-    test()
+  override protected implicit def jsonFormats: Formats = {
+    DefaultFormats ++ Serializers.SessionFormats
   }
 
   class MockInteractiveSession(val id: Int) extends InteractiveSession {
@@ -95,53 +90,34 @@ class InteractiveSessionServletSpec extends ScalatraSuite with FunSpecLike {
     }
   }
 
-  val livyConf = new LivyConf()
-  val processFactory = new SparkProcessBuilderFactory(livyConf)
-  val sessionManager = new SessionManager(livyConf, new MockInteractiveSessionFactory(processFactory))
-  val servlet = new InteractiveSessionServlet(sessionManager)
+  override def sessionFactory = new MockInteractiveSessionFactory(
+    new SparkProcessBuilderFactory(livyConf))
 
-  addServlet(servlet, "/*")
+  override def servlet = new InteractiveSessionServlet(sessionManager)
 
   it("should setup and tear down an interactive session") {
-    get("/") {
-      status should equal(200)
-      header("Content-Type") should include("application/json")
-      val parsedBody = parse(body)
-      parsedBody \ "sessions" should equal(JArray(List()))
+    getJson("/") { data =>
+      data \ "sessions" should equal(JArray(List()))
     }
 
-    val createInteractiveRequest = write(CreateInteractiveRequest(
-      kind = Spark()
-    ))
-
-    post("/", body = createInteractiveRequest, headers = Map("Content-Type" -> "application/json")) {
-      status should equal (201)
-      header("Content-Type") should include("application/json")
-
+    postJson("/", CreateInteractiveRequest(kind = Spark())) { data =>
       header("Location") should equal("/0")
-      val parsedBody = parse(body)
-      parsedBody \ "id" should equal (JInt(0))
+      data \ "id" should equal (JInt(0))
 
       val session = sessionManager.get(0)
       session should be (defined)
     }
 
-    get("/0") {
-      status should equal (200)
-      header("Content-Type") should include("application/json")
-      val parsedBody = parse(body)
-      parsedBody \ "id" should equal (JInt(0))
-      parsedBody \ "state" should equal (JString("idle"))
+    getJson("/0") { data =>
+      data \ "id" should equal (JInt(0))
+      data \ "state" should equal (JString("idle"))
 
       val batch = sessionManager.get(0)
       batch should be (defined)
     }
 
-    delete("/0") {
-      status should equal (200)
-      header("Content-Type") should include("application/json")
-      val parsedBody = parse(body)
-      parsedBody should equal (JObject(("msg", JString("deleted"))))
+    deleteJson("/0") { data =>
+      data should equal (JObject(("msg", JString("deleted"))))
 
       val session = sessionManager.get(0)
       session should not be defined

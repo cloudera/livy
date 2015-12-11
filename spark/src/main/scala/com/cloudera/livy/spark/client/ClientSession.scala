@@ -16,21 +16,72 @@
  */
 package com.cloudera.livy.spark.client
 
-import com.cloudera.livy.LivyClient
-import com.cloudera.livy.sessions.{Session, SessionState}
+import java.net.URI
+import java.nio.ByteBuffer
+import java.util.concurrent
+import java.util.concurrent.{ExecutionException, TimeUnit}
+import java.util.concurrent.atomic.AtomicLong
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
+import scala.collection.mutable
+import scala.util.control.NonFatal
+
+import com.cloudera.livy.{Job, LivyClient}
+import com.cloudera.livy.client.local.LocalClient
+import com.cloudera.livy.sessions.{Session, SessionState}
 
 class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) extends Session {
   implicit val executionContext = ExecutionContext.global
   var sessionState: SessionState = SessionState.Starting()
   SessionClientTracker.createClient(
-    sessionId, createRequest.conf.asJava, createRequest.timeout)
+    sessionId, createRequest.sparkConf.asJava, createRequest.timeout)
   sessionState = SessionState.Running()
 
-  def getClient(): Option[LivyClient] = {
-    SessionClientTracker.getClient(id)
+  private val operations = mutable.Map[Long, java.util.concurrent.Future[_]]()
+  private val operationCounter = new AtomicLong(0)
+
+  def getClient(): Option[LocalClient] = {
+    SessionClientTracker.getClient(id).map(_.asInstanceOf[LocalClient])
+  }
+
+  def runJob(job: Array[Byte]): Long = {
+    performOperation(client => client.bypassSync(ByteBuffer.wrap(job)))
+  }
+
+  def submitJob(job: Array[Byte]): Long = {
+    performOperation(client => client.bypass(ByteBuffer.wrap(job)))
+  }
+
+  def addFile(uri: URI): Unit = {
+    getClient.foreach(_.addFile(uri))
+  }
+
+  def addJar(uri: URI): Unit = {
+    getClient.foreach(_.addJar(uri))
+  }
+
+  def jobStatus(id: Long) = {
+    val future = operations(id)
+    if (future.isDone) {
+      JobCompleted
+    } else {
+      try {
+        JobResult(id, future.get(1, TimeUnit.SECONDS))
+      } catch {
+        case NonFatal(e) =>
+          JobFailed(id)
+      }
+    }
+  }
+
+  private def performOperation(m: (LocalClient => concurrent.Future[_])): Long = {
+    getClient().map { client =>
+      val future = m(client)
+      val opId = operationCounter.incrementAndGet()
+      operations(opId) = future
+      opId
+    }.getOrElse(-1L)
   }
 
   override def id: Int = sessionId

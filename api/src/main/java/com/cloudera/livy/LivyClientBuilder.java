@@ -57,6 +57,13 @@ public final class LivyClientBuilder {
     return this;
   }
 
+  public LivyClientBuilder setIfMissing(String key, String value) {
+    if (!config.containsKey(key)) {
+      setConf(key, value);
+    }
+    return this;
+  }
+
   public LivyClient build() {
     ClassLoader cl = Thread.currentThread().getContextClassLoader();
     if (cl == null) {

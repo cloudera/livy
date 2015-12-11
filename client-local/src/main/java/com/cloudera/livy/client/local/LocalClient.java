@@ -62,7 +62,7 @@ import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.client.local.rpc.RpcServer;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
-class LocalClient implements LivyClient {
+public class LocalClient implements LivyClient {
   private static final Logger LOG = LoggerFactory.getLogger(LocalClient.class);
 
   private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
