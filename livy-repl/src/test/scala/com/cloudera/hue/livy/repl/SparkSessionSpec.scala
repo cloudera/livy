@@ -110,18 +110,13 @@ class SparkSessionSpec extends BaseSessionSpec {
     statement.id should equal (0)
 
     val result = Await.result(statement.result, Duration.Inf)
-    val expectedResult = Extraction.decompose(Map(
-      "status" -> "error",
-      "execution_count" -> 0,
-      "ename" -> "Error",
-      "evalue" ->
-        """<console>:8: error: not found: value x
-          |              x
-          |              ^""".stripMargin,
-      "traceback" -> List()
-    ))
 
-    result should equal (expectedResult)
+    def extract(key: String): String = (result \ key).extract[String]
+
+    extract("status") should equal ("error")
+    extract("execution_count") should equal ("0")
+    extract("ename") should equal ("Error")
+    extract("evalue") should include ("error: not found: value x")
   }
 
   it should "report an error if exception is thrown" in withSession { session =>

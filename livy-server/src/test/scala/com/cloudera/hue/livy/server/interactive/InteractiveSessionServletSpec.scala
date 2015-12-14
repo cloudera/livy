@@ -39,6 +39,11 @@ class InteractiveSessionServletSpec extends ScalatraSuite with FunSpecLike {
 
   protected implicit def jsonFormats: Formats = DefaultFormats ++ Serializers.SessionFormats
 
+  override protected def withFixture(test: NoArgTest) = {
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+    test()
+  }
+
   class MockInteractiveSession(val id: Int) extends InteractiveSession {
     var _state: SessionState = SessionState.Idle()
 

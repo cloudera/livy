@@ -36,25 +36,27 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
 
   def createSession(): InteractiveSession
 
-  before {
-    session = createSession()
-  }
-
   after {
-    session.stop()
+    if (session != null) {
+      session.stop()
+      session = null
+    }
   }
 
   describe("A spark session") {
     it("should start in the starting or idle state") {
+      session = createSession()
       session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
     }
 
     it("should eventually become the idle state") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       session.state should equal (SessionState.Idle())
     }
 
     it("should execute `1 + 2` == 3") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("1 + 2"))
       val result = Await.result(stmt.output(), Duration.Inf)
@@ -71,6 +73,7 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
     }
 
     it("should report an error if accessing an unknown variable") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("x"))
       val result = Await.result(stmt.output(), Duration.Inf)
@@ -90,6 +93,7 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
     }
 
     it("should error out the session if the interpreter dies") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("import os; os._exit(1)"))
       val result = Await.result(stmt.output(), Duration.Inf)

@@ -31,6 +31,7 @@ import org.json4s.{DefaultFormats, Extraction}
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.{JPrintWriter, Results}
+import scala.util.{Failure, Success, Try}
 
 
 object SparkInterpreter {
@@ -64,7 +65,21 @@ class SparkInterpreter extends Interpreter {
 
     val sparkConf = new SparkConf(true)
       .setAppName("Livy Spark shell")
-      .set("spark.repl.class.uri", sparkIMain.classServerUri)
+
+    // Spark 1.6 does not have "classServerUri"; instead, the local directory where class files
+    // are stored needs to be registered in SparkConf. See comment in
+    // SparkILoop::createSparkContext().
+    Try(sparkIMain.getClass().getMethod("classServerUri")) match {
+      case Success(method) =>
+        method.setAccessible(true)
+        sparkConf.set("spark.repl.class.uri", method.invoke(sparkIMain).asInstanceOf[String])
+
+      case Failure(_) =>
+        val outputDir = sparkIMain.getClass().getMethod("outputDir")
+        outputDir.setAccessible(true)
+        sparkConf.set("spark.repl.class.outputDir",
+          outputDir.invoke(sparkIMain).asInstanceOf[File].getAbsolutePath())
+    }
 
     sparkContext = SparkContext.getOrCreate(sparkConf)
 

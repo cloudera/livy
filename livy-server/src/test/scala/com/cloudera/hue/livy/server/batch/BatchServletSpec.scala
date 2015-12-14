@@ -38,6 +38,11 @@ class BatchServletSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfte
 
   protected implicit def jsonFormats: Formats = DefaultFormats
 
+  override protected def withFixture(test: NoArgTest) = {
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+    test()
+  }
+
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
     script.toFile.deleteOnExit()

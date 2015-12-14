@@ -27,6 +27,12 @@ import _root_.scala.concurrent.duration.Duration
 
 class PythonSessionSpec extends BaseSessionSpec {
 
+  override protected def withFixture(test: NoArgTest) = {
+    assume(sys.env.get("SPARK_HOME").isDefined,
+      "Test requires a Spark installation in SPARK_HOME.")
+    test()
+  }
+
   override def createInterpreter() = PythonInterpreter()
 
   it should "execute `1 + 2` == 3" in withSession { session =>

@@ -42,18 +42,22 @@
   </organization>
 
   <properties>
-    <hadoop.version>2.6.0-cdh5.4.8</hadoop.version>
-    <spark.version>1.5.1</spark.version>
+    <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
+    <spark.version>1.5.0-cdh5.5.0</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
     <dispatch.version>0.11.2</dispatch.version>
+    <guava.version>14.0.1</guava.version>
     <httpclient.version>4.5</httpclient.version>
     <httpcore.version>4.4.1</httpcore.version>
     <jackson.version>2.4.4</jackson.version>
-    <jackson-module-scala.version>2.4.4</jackson-module-scala.version>
     <javax.servlet-api.version>3.1.0</javax.servlet-api.version>
     <jetty.version>9.2.10.v20150310</jetty.version>
     <json4s.version>3.2.11</json4s.version>
+    <junit.version>4.11</junit.version>
+    <kryo.version>2.22</kryo.version>
     <metrics.version>3.1.0</metrics.version>
+    <mockito.version>1.9.5</mockito.version>
+    <netty.version>4.0.23.Final</netty.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.8.2.1</py4j.version>
     <scala.binary.version>2.10</scala.binary.version>
@@ -66,6 +70,7 @@
     <targetJavaVersion>1.7</targetJavaVersion>
     <minJavaVersion>1.7</minJavaVersion>
     <maxJavaVersion>1.8</maxJavaVersion>
+    <test.redirectToFile>true</test.redirectToFile>
   </properties>
   <repositories>
     <repository>
@@ -128,6 +133,18 @@
       </dependency>
 
       <dependency>
+        <groupId>com.esotericsoftware.kryo</groupId>
+        <artifactId>kryo</artifactId>
+        <version>${kryo.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.fasterxml.jackson.core</groupId>
+        <artifactId>jackson-annotations</artifactId>
+        <version>${jackson.version}</version>
+      </dependency>
+
+      <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-core</artifactId>
         <version>${jackson.version}</version>
@@ -142,8 +159,13 @@
       <dependency>
         <groupId>com.fasterxml.jackson.module</groupId>
         <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
-        <version>${jackson-module-scala.version}</version>
-        <scope>provided</scope>
+        <version>${jackson.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
       </dependency>
 
       <dependency>
@@ -165,15 +187,41 @@
       </dependency>
 
       <dependency>
+        <groupId>io.netty</groupId>
+        <artifactId>netty-all</artifactId>
+        <version>${netty.version}</version>
+      </dependency>
+
+      <dependency>
         <groupId>javax.servlet</groupId>
         <artifactId>javax.servlet-api</artifactId>
         <version>${javax.servlet-api.version}</version>
       </dependency>
 
       <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>${junit.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>${mockito.version}</version>
+        <scope>test</scope>
+      </dependency>
+
+      <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-common</artifactId>
         <version>${hadoop.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>javax.servlet</groupId>
+            <artifactId>servlet-api</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
 
       <dependency>
@@ -216,6 +264,31 @@
         <groupId>org.apache.spark</groupId>
         <artifactId>spark-core_${scala.binary.version}</artifactId>
         <version>${spark.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.eclipse.jetty.orbit</groupId>
+            <artifactId>javax.servlet</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-hive_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-sql_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-streaming_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
+        <scope>provided</scope>
       </dependency>
 
       <dependency>
@@ -491,9 +564,16 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>2.7</version>
+          <version>2.19</version>
           <configuration>
-            <skipTests>true</skipTests>
+            <systemPropertyVariables>
+              <java.awt.headless>true</java.awt.headless>
+              <spark.home>${spark.home}</spark.home>
+            </systemPropertyVariables>
+            <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
+            <useFile>${test.redirectToFile}</useFile>
+            <argLine>-Xmx4096m -XX:MaxPermSize=512m</argLine>
+            <failIfNoTests>false</failIfNoTests>
           </configuration>
         </plugin>
 
