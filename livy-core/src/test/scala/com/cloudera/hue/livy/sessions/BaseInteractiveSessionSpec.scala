@@ -23,12 +23,12 @@ import java.util.concurrent.TimeUnit
 import com.cloudera.hue.livy.ExecuteRequest
 import com.cloudera.hue.livy.sessions.interactive.InteractiveSession
 import org.json4s.{DefaultFormats, Extraction}
-import org.scalatest.{BeforeAndAfter, FunSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfter {
+abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 
   implicit val formats = DefaultFormats
 
@@ -36,25 +36,28 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
 
   def createSession(): InteractiveSession
 
-  before {
-    session = createSession()
-  }
-
-  after {
-    session.stop()
+  override def afterAll(): Unit = {
+    if (session != null) {
+      session.stop()
+      session = null
+    }
+    super.afterAll()
   }
 
   describe("A spark session") {
     it("should start in the starting or idle state") {
+      session = createSession()
       session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
     }
 
     it("should eventually become the idle state") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       session.state should equal (SessionState.Idle())
     }
 
     it("should execute `1 + 2` == 3") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("1 + 2"))
       val result = Await.result(stmt.output(), Duration.Inf)
@@ -71,12 +74,13 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
     }
 
     it("should report an error if accessing an unknown variable") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("x"))
       val result = Await.result(stmt.output(), Duration.Inf)
       val expectedResult = Extraction.decompose(Map(
         "status" -> "error",
-        "execution_count" -> 0,
+        "execution_count" -> 1,
         "ename" -> "NameError",
         "evalue" -> "name 'x' is not defined",
         "traceback" -> List(
@@ -90,6 +94,7 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
     }
 
     it("should error out the session if the interpreter dies") {
+      assume(session != null, "Session not started.")
       session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
       val stmt = session.executeStatement(ExecuteRequest("import os; os._exit(1)"))
       val result = Await.result(stmt.output(), Duration.Inf)

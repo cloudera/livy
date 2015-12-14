@@ -48,6 +48,7 @@ import org.apache.spark.sql.hive.HiveContext;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.junit.Test;
 import static org.junit.Assert.*;
+import static org.junit.Assume.*;
 import static org.mockito.Mockito.*;
 
 public class TestSparkClient {
@@ -151,6 +152,8 @@ public class TestSparkClient {
 
   @Test
   public void testRemoteClient() throws Exception {
+    assumeTrue("Test requires a Spark installation in SPARK_HOME.",
+      System.getenv("SPARK_HOME") != null);
     runTest(false, new TestFunction() {
       @Override
       public void call(SparkClient client) throws Exception {

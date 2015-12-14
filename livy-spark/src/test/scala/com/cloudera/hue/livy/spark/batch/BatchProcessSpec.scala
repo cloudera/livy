@@ -34,6 +34,11 @@ class BatchProcessSpec
   with BeforeAndAfterAll
   with ShouldMatchers {
 
+  override protected def withFixture(test: NoArgTest) = {
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+    test()
+  }
+
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
     script.toFile.deleteOnExit()

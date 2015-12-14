@@ -33,6 +33,7 @@ class InteractiveSessionProcessSpec
   livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
 
   def createSession() = {
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
     val processFactory = new SparkProcessBuilderFactory(livyConf)
     val interactiveFactory = new InteractiveSessionProcessFactory(processFactory)
     interactiveFactory.create(0, CreateInteractiveRequest(kind = PySpark()))

@@ -107,14 +107,14 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
   }
 
   it should "report an error if accessing an unknown variable" in withInterpreter { interpreter =>
-    val response = interpreter.execute("x")
-    response should equal(Interpreter.ExecuteError(
-      "Error",
-      """<console>:8: error: not found: value x
-        |              x
-        |              ^""".stripMargin,
-      List()
-    ))
+    interpreter.execute("x") match {
+      case Interpreter.ExecuteError(ename, evalue, _) =>
+        ename should equal ("Error")
+        evalue should include ("error: not found: value x")
+
+      case other =>
+        fail(s"Expected error, got $other.")
+    }
   }
 
   it should "execute spark commands" in withInterpreter { interpreter =>
