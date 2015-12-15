@@ -33,6 +33,6 @@ source ./bin/setup-classpath
 
 exec $SPARK_SUBMIT \
 	--driver-java-options "$LIVY_REPL_JAVA_OPTS" \
-	--class com.cloudera.hue.livy.repl.Main \
+	--class com.cloudera.livy.repl.Main \
 	"$ASSEMBLY_JAR" \
 	"$@"

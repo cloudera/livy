@@ -21,8 +21,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.cloudera.hue.livy</groupId>
-  <artifactId>livy-main</artifactId>
+  <groupId>com.cloudera.livy</groupId>
+  <artifactId>livy-main_2.10</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
@@ -71,6 +71,9 @@
     <minJavaVersion>1.7</minJavaVersion>
     <maxJavaVersion>1.8</maxJavaVersion>
     <test.redirectToFile>true</test.redirectToFile>
+
+    <MaxPermGen>512m</MaxPermGen>
+    <CodeCacheSize>512m</CodeCacheSize>
   </properties>
   <repositories>
     <repository>
@@ -114,13 +117,15 @@
   </repositories>
 
   <modules>
+    <module>livy-api</module>
     <module>livy-assembly</module>
     <module>livy-core</module>
     <module>livy-repl</module>
     <module>livy-server</module>
     <module>livy-spark</module>
     <module>livy-yarn</module>
-    <module>livy-remote-spark-client</module>
+    <module>livy-client-local</module>
+    <module>livy-client-http</module>
   </modules>
 
   <dependencyManagement>
@@ -542,10 +547,19 @@
           </executions>
           <configuration>
             <scalaVersion>${scala.version}</scalaVersion>
+            <recompileMode>incremental</recompileMode>
+            <useZincServer>true</useZincServer>
             <args>
+              <arg>-unchecked</arg>
               <arg>-deprecation</arg>
               <arg>-feature</arg>
             </args>
+            <jvmArgs>
+              <jvmArg>-Xms1024m</jvmArg>
+              <jvmArg>-Xmx1024m</jvmArg>
+              <jvmArg>-XX:MaxPermSize=${MaxPermGen}</jvmArg>
+              <jvmArg>-XX:ReservedCodeCacheSize=${CodeCacheSize}</jvmArg>
+            </jvmArgs>
           </configuration>
         </plugin>
 
@@ -566,10 +580,10 @@
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.19</version>
           <configuration>
-            <systemPropertyVariables>
+            <systemProperties>
               <java.awt.headless>true</java.awt.headless>
-              <spark.home>${spark.home}</spark.home>
-            </systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+            </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
             <argLine>-Xmx4096m -XX:MaxPermSize=512m</argLine>
@@ -582,6 +596,10 @@
           <artifactId>scalatest-maven-plugin</artifactId>
           <version>1.0</version>
           <configuration>
+            <systemProperties>
+              <java.awt.headless>true</java.awt.headless>
+              <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
+            </systemProperties>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
@@ -655,6 +673,26 @@
       <plugin>
         <groupId>net.alchim31.maven</groupId>
         <artifactId>scala-maven-plugin</artifactId>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution>
+            <id>create-tmp-dir</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.directory}/tmp" />
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
     </plugins>
 

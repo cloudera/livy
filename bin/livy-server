@@ -28,4 +28,4 @@ source ./bin/setup-classpath
 exec java \
 	$LIVY_SERVER_JAVA_OPTS \
 	-cp "$CLASSPATH" \
-	com.cloudera.hue.livy.server.Main "$@"
+	com.cloudera.livy.server.Main "$@"
