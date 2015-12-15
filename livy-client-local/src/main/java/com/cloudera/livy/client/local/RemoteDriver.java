@@ -17,13 +17,6 @@
 
 package com.cloudera.livy.client.local;
 
-import com.cloudera.livy.client.local.rpc.Rpc;
-import com.cloudera.livy.client.local.rpc.RpcConfiguration;
-import com.google.common.base.Throwables;
-import com.google.common.io.Files;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.nio.NioEventLoopGroup;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
@@ -39,9 +32,18 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import scala.Tuple2;
+
+import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.io.Files;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.io.FileUtils;
-import com.cloudera.livy.client.local.metrics.Metrics;
-import com.cloudera.livy.client.local.counter.SparkCounters;
 import org.apache.spark.JavaSparkListener;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaFutureAction;
@@ -65,13 +67,9 @@ import org.apache.spark.scheduler.SparkListenerExecutorAdded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import scala.Tuple2;
-
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.cloudera.livy.client.local.rpc.Rpc;
+import com.cloudera.livy.client.local.rpc.RpcConfiguration;
+import com.cloudera.livy.metrics.Metrics;
 
 /**
  * Driver code for the Spark client library.
@@ -264,10 +262,9 @@ public class RemoteDriver {
       clientRpc.call(new java.lang.Error(error));
     }
 
-    <T extends Serializable> void jobFinished(String jobId, T result,
-        Throwable error, SparkCounters counters) {
+    <T extends Serializable> void jobFinished(String jobId, T result, Throwable error) {
       LOG.debug("Send job({}) result to Client.", jobId);
-      clientRpc.call(new JobResult(jobId, result, error, counters));
+      clientRpc.call(new JobResult(jobId, result, error));
     }
 
     void jobStarted(String jobId) {
@@ -319,8 +316,7 @@ public class RemoteDriver {
 
       jc.setMonitorCb(new MonitorCallback() {
         @Override
-        public void call(JavaFutureAction<?> future,
-            SparkCounters sparkCounters, Set<Integer> cachedRDDIds) {
+        public void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds) {
           throw new IllegalStateException(
             "JobContext.monitor() is not available for synchronous jobs.");
         }
@@ -339,7 +335,6 @@ public class RemoteDriver {
     private final BaseProtocol.JobRequest<T> req;
     private final List<JavaFutureAction<?>> jobs;
     private final AtomicInteger completed;
-    private SparkCounters sparkCounters;
     private Set<Integer> cachedRDDIds;
 
     private Future<?> future;
@@ -348,7 +343,6 @@ public class RemoteDriver {
       this.req = req;
       this.jobs = Lists.newArrayList();
       this.completed = new AtomicInteger();
-      this.sparkCounters = null;
       this.cachedRDDIds = null;
     }
 
@@ -359,9 +353,8 @@ public class RemoteDriver {
       try {
         jc.setMonitorCb(new MonitorCallback() {
           @Override
-          public void call(JavaFutureAction<?> future,
-              SparkCounters sparkCounters, Set<Integer> cachedRDDIds) {
-            monitorJob(future, sparkCounters, cachedRDDIds);
+          public void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds) {
+            monitorJob(future, cachedRDDIds);
           }
         });
 
@@ -374,23 +367,18 @@ public class RemoteDriver {
           }
         }
 
-        SparkCounters counters = null;
-        if (sparkCounters != null) {
-          counters = sparkCounters.snapshot();
-        }
         // make sure job has really succeeded
         // at this point, future.get shall not block us
         for (JavaFutureAction<?> future : jobs) {
           future.get();
         }
-        protocol.jobFinished(req.id, result, null, counters);
+        protocol.jobFinished(req.id, result, null);
       } catch (Throwable t) {
         // Catch throwables in a best-effort to report job status back to the client. It's
         // re-thrown so that the executor can destroy the affected thread (or the JVM can
         // die or whatever would happen if the throwable bubbled up).
         LOG.info("Failed to run job " + req.id, t);
-        protocol.jobFinished(req.id, null, t,
-            sparkCounters != null ? sparkCounters.snapshot() : null);
+        protocol.jobFinished(req.id, null, t);
         throw new ExecutionException(t);
       } finally {
         jc.setMonitorCb(null);
@@ -426,14 +414,12 @@ public class RemoteDriver {
       }
     }
 
-    private void monitorJob(JavaFutureAction<?> job,
-        SparkCounters sparkCounters, Set<Integer> cachedRDDIds) {
+    private void monitorJob(JavaFutureAction<?> job, Set<Integer> cachedRDDIds) {
       jobs.add(job);
       if (!jc.getMonitoredJobs().containsKey(req.id)) {
         jc.getMonitoredJobs().put(req.id, new CopyOnWriteArrayList<JavaFutureAction<?>>());
       }
       jc.getMonitoredJobs().get(req.id).add(job);
-      this.sparkCounters = sparkCounters;
       this.cachedRDDIds = cachedRDDIds;
       protocol.jobSubmitted(req.id, job.jobIds().get(0));
     }

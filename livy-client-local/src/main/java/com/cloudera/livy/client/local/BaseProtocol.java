@@ -19,11 +19,11 @@ package com.cloudera.livy.client.local;
 
 import java.io.Serializable;
 
-import com.cloudera.livy.client.local.metrics.Metrics;
-import com.cloudera.livy.client.local.rpc.RpcDispatcher;
-import com.cloudera.livy.client.local.counter.SparkCounters;
-
 import com.google.common.base.Throwables;
+
+import com.cloudera.livy.Job;
+import com.cloudera.livy.metrics.Metrics;
+import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 
 abstract class BaseProtocol extends RpcDispatcher {
 
@@ -106,17 +106,15 @@ abstract class BaseProtocol extends RpcDispatcher {
     final String id;
     final T result;
     final String error;
-    final SparkCounters sparkCounters;
 
-    JobResult(String id, T result, Throwable error, SparkCounters sparkCounters) {
+    JobResult(String id, T result, Throwable error) {
       this.id = id;
       this.result = result;
       this.error = error != null ? Throwables.getStackTraceAsString(error) : null;
-      this.sparkCounters = sparkCounters;
     }
 
     JobResult() {
-      this(null, null, null, null);
+      this(null, null, null);
     }
 
   }

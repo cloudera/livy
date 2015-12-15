@@ -28,6 +28,8 @@ import org.mockito.runners.MockitoJUnitRunner;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import com.cloudera.livy.JobHandle;
+
 @RunWith(MockitoJUnitRunner.class)
 public class TestJobHandle {
 

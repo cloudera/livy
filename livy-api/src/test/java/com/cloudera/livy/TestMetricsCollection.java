@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+package com.cloudera.livy;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
-import com.cloudera.livy.client.local.metrics.DataReadMethod;
-import com.cloudera.livy.client.local.metrics.InputMetrics;
-import com.cloudera.livy.client.local.metrics.Metrics;
-import com.cloudera.livy.client.local.metrics.ShuffleReadMetrics;
-import com.cloudera.livy.client.local.metrics.ShuffleWriteMetrics;
+import com.cloudera.livy.metrics.DataReadMethod;
+import com.cloudera.livy.metrics.InputMetrics;
+import com.cloudera.livy.metrics.Metrics;
+import com.cloudera.livy.metrics.ShuffleReadMetrics;
+import com.cloudera.livy.metrics.ShuffleWriteMetrics;
+
 import org.junit.Test;
-
-import com.google.common.collect.ImmutableSet;
+import static org.junit.Assert.*;
 
 public class TestMetricsCollection {
 
@@ -46,9 +44,9 @@ public class TestMetricsCollection {
       }
     }
 
-    assertEquals(ImmutableSet.of(1, 2), collection.getJobIds());
-    assertEquals(ImmutableSet.of(1, 2), collection.getStageIds(1));
-    assertEquals(ImmutableSet.of(1L, 2L), collection.getTaskIds(1, 1));
+    assertEquals(setOf(1, 2), collection.getJobIds());
+    assertEquals(setOf(1, 2), collection.getStageIds(1));
+    assertEquals(setOf(1L, 2L), collection.getTaskIds(1, 1));
 
     Metrics task112 = collection.getTaskMetrics(1, 1, 2);
     checkMetrics(task112, taskValue(1, 1, 2));
@@ -166,6 +164,10 @@ public class TestMetricsCollection {
 
     assertEquals(expected, metrics.shuffleWriteMetrics.shuffleBytesWritten);
     assertEquals(expected, metrics.shuffleWriteMetrics.shuffleWriteTime);
+  }
+
+  private <T> Set<T> setOf(T... items) {
+    return new HashSet<T>(Arrays.asList(items));
   }
 
 }

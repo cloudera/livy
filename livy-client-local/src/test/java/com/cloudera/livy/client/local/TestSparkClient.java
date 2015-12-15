@@ -30,8 +30,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
-import com.cloudera.livy.client.local.conf.RscConf;
-import com.cloudera.livy.client.local.counter.SparkCounters;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
@@ -50,6 +48,13 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import static org.mockito.Mockito.*;
+
+import com.cloudera.livy.Job;
+import com.cloudera.livy.JobContext;
+import com.cloudera.livy.JobHandle;
+import com.cloudera.livy.LivyClient;
+import com.cloudera.livy.MetricsCollection;
+import com.cloudera.livy.client.local.conf.RscConf;
 
 public class TestSparkClient {
 
@@ -78,7 +83,7 @@ public class TestSparkClient {
   public void testJobSubmission() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         JobHandle.Listener<String> listener = newListener();
         JobHandle<String> handle = client.submit(new SimpleJob());
         handle.addListener(listener);
@@ -100,7 +105,7 @@ public class TestSparkClient {
   public void testSimpleSparkJob() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         JobHandle<Long> handle = client.submit(new SparkJob());
         assertEquals(Long.valueOf(5L), handle.get(TIMEOUT, TimeUnit.SECONDS));
       }
@@ -111,7 +116,7 @@ public class TestSparkClient {
   public void testErrorJob() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         JobHandle.Listener<String> listener = newListener();
         JobHandle<String> handle = client.submit(new ErrorJob());
         handle.addListener(listener);
@@ -139,7 +144,7 @@ public class TestSparkClient {
   public void testSyncRpc() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         Future<String> result = client.run(new SyncRpc());
         assertEquals("Hello", result.get(TIMEOUT, TimeUnit.SECONDS));
       }
@@ -152,7 +157,7 @@ public class TestSparkClient {
       System.getenv("SPARK_HOME") != null);
     runTest(false, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         JobHandle<Long> handle = client.submit(new SparkJob());
         assertEquals(Long.valueOf(5L), handle.get(TIMEOUT, TimeUnit.SECONDS));
       }
@@ -163,7 +168,7 @@ public class TestSparkClient {
   public void testMetricsCollection() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         JobHandle.Listener<Integer> listener = newListener();
         JobHandle<Integer> future = client.submit(new AsyncSparkJob());
         future.addListener(listener);
@@ -192,7 +197,7 @@ public class TestSparkClient {
   public void testAddJarsAndFiles() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      public void call(SparkClient client) throws Exception {
+      public void call(LivyClient client) throws Exception {
         File jar = null;
         File file = null;
 
@@ -243,28 +248,10 @@ public class TestSparkClient {
   }
 
   @Test
-  public void testCounters() throws Exception {
-    runTest(true, new TestFunction() {
-      @Override
-      public void call(SparkClient client) throws Exception {
-        JobHandle<?> job = client.submit(new CounterIncrementJob());
-        job.get(TIMEOUT, TimeUnit.SECONDS);
-
-        SparkCounters counters = job.getSparkCounters();
-        assertNotNull(counters);
-
-        long expected = 1 + 2 + 3 + 4 + 5;
-        assertEquals(expected, counters.getCounter("group1", "counter1").getValue());
-        assertEquals(expected, counters.getCounter("group2", "counter2").getValue());
-      }
-    });
-  }
-
-  @Test
   public void testSparkSQLJob() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      void call(SparkClient client) throws Exception {
+      void call(LivyClient client) throws Exception {
         JobHandle<ArrayList<String>> handle = client.submit(new SparkSQLJob());
         ArrayList<String> topTweets = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(1, topTweets.size());
@@ -278,7 +265,7 @@ public class TestSparkClient {
   public void testHiveJob() throws Exception {
     runTest(true, new TestFunction() {
       @Override
-      void call(SparkClient client) throws Exception {
+      void call(LivyClient client) throws Exception {
         JobHandle<ArrayList<String>> handle = client.submit(new HiveJob());
         ArrayList<String> topTweets = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(1, topTweets.size());
@@ -292,7 +279,7 @@ public class TestSparkClient {
   public void testStreamingContext() throws Exception{
     runTest(true, new TestFunction() {
       @Override
-      void call(SparkClient client) throws Exception {
+      void call(LivyClient client) throws Exception {
         JobHandle<Boolean> handle = client.submit(new SparkStreamingJob());
         Boolean streamingContextCreated = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(true, streamingContextCreated);
@@ -310,7 +297,7 @@ public class TestSparkClient {
   private void runTest(boolean local, TestFunction test) throws Exception {
     Map<String, String> conf = createConf(local);
     SparkClientFactory.initialize(conf);
-    SparkClient client = null;
+    LivyClient client = null;
     try {
       test.config(conf);
       client = SparkClientFactory.createClient(conf, RSC_CONF);
@@ -431,7 +418,7 @@ public class TestSparkClient {
         public void call(Integer l) throws Exception {
 
         }
-      }), null, null);
+      }), null);
 
       future.get(TIMEOUT, TimeUnit.SECONDS);
 
@@ -481,30 +468,6 @@ public class TestSparkClient {
 
   }
 
-  private static class CounterIncrementJob implements Job<String>, VoidFunction<Integer> {
-
-    private SparkCounters counters;
-
-    @Override
-    public String call(JobContext jc) {
-      counters = new SparkCounters(jc.sc());
-      counters.createCounter("group1", "counter1");
-      counters.createCounter("group2", "counter2");
-
-      jc.monitor(jc.sc().parallelize(Arrays.asList(1, 2, 3, 4, 5), 5).foreachAsync(this),
-          counters, null);
-
-      return null;
-    }
-
-    @Override
-    public void call(Integer l) throws Exception {
-      counters.getCounter("group1", "counter1").increment(l.longValue());
-      counters.getCounter("group2", "counter2").increment(l.longValue());
-    }
-
-  }
-
   private static class SyncRpc implements Job<String> {
 
     @Override
@@ -515,7 +478,7 @@ public class TestSparkClient {
   }
 
   private abstract static class TestFunction {
-    abstract void call(SparkClient client) throws Exception;
+    abstract void call(LivyClient client) throws Exception;
     void config(Map<String, String> conf) { }
   }
 

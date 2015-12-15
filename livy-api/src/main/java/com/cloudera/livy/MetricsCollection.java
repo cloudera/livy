@@ -15,47 +15,45 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.cloudera.livy.client.local.metrics.DataReadMethod;
-import com.cloudera.livy.client.local.metrics.ShuffleReadMetrics;
-import com.cloudera.livy.client.local.metrics.ShuffleWriteMetrics;
-import com.cloudera.livy.client.local.metrics.InputMetrics;
-import com.cloudera.livy.client.local.metrics.Metrics;
-
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import com.cloudera.livy.annotations.Private;
+import com.cloudera.livy.metrics.DataReadMethod;
+import com.cloudera.livy.metrics.ShuffleReadMetrics;
+import com.cloudera.livy.metrics.ShuffleWriteMetrics;
+import com.cloudera.livy.metrics.InputMetrics;
+import com.cloudera.livy.metrics.Metrics;
 
 /**
  * Provides metrics collected for a submitted job.
- *
+ * <p>
  * The collected metrics can be analysed at different levels of granularity:
- * - Global (all Spark jobs triggered by client job)
- * - Spark job
- * - Stage
- * - Task
- *
+ * <ul>
+ *   <li>Global (all Spark jobs triggered by client job)</li>
+ *   <li>Job</li>
+ *   <li>Stage</li>
+ *   <li>Task</li>
+ * </ul>
+ * <p>
  * Only successful, non-speculative tasks are considered. Metrics are updated as tasks finish,
  * so snapshots can be retrieved before the whole job completes.
  */
 public class MetricsCollection {
 
-  private final List<TaskInfo> taskMetrics = Lists.newArrayList();
+  private final List<TaskInfo> taskMetrics = new ArrayList<>();
   private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
   public Metrics getAllMetrics() {
-    return aggregate(Predicates.<TaskInfo>alwaysTrue());
+    return aggregate(new AlwaysTrue<TaskInfo>());
   }
 
   public Set<Integer> getJobIds() {
@@ -65,7 +63,7 @@ public class MetricsCollection {
         return input.jobId;
       }
     };
-    return transform(Predicates.<TaskInfo>alwaysTrue(), fun);
+    return transform(new AlwaysTrue<TaskInfo>(), fun);
   }
 
   public Metrics getJobMetrics(int jobId) {
@@ -105,9 +103,15 @@ public class MetricsCollection {
     };
     lock.readLock().lock();
     try {
-      Iterator<TaskInfo> it = Collections2.filter(taskMetrics, filter).iterator();
-      if (it.hasNext()) {
-        return it.next().metrics;
+      TaskInfo task = null;
+      for (TaskInfo ti : taskMetrics) {
+        if (filter.apply(ti)) {
+          task = ti;
+          break;
+        }
+      }
+      if (task != null) {
+        return task.metrics;
       } else {
         throw new NoSuchElementException("Task not found.");
       }
@@ -116,7 +120,8 @@ public class MetricsCollection {
     }
   }
 
-  void addMetrics(int jobId, int stageId, long taskId, Metrics metrics) {
+  @Private
+  public void addMetrics(int jobId, int stageId, long taskId, Metrics metrics) {
     lock.writeLock().lock();
     try {
       taskMetrics.add(new TaskInfo(jobId, stageId, taskId, metrics));
@@ -128,8 +133,13 @@ public class MetricsCollection {
   private <T> Set<T> transform(Predicate<TaskInfo> filter, Function<TaskInfo, T> fun) {
     lock.readLock().lock();
     try {
-      Collection<TaskInfo> filtered = Collections2.filter(taskMetrics, filter);
-      return Sets.newHashSet(Collections2.transform(filtered, fun));
+      HashSet<T> result = new HashSet<>();
+      for (TaskInfo ti : taskMetrics) {
+        if (filter.apply(ti)) {
+          result.add(fun.apply(ti));
+        }
+      }
+      return result;
     } finally {
       lock.readLock().unlock();
     }
@@ -163,7 +173,10 @@ public class MetricsCollection {
       long shuffleBytesWritten = 0L;
       long shuffleWriteTime = 0L;
 
-      for (TaskInfo info : Collections2.filter(taskMetrics, filter)) {
+      for (TaskInfo info : taskMetrics) {
+        if (!filter.apply(info)) {
+          continue;
+        }
         Metrics m = info.metrics;
         executorDeserializeTime += m.executorDeserializeTime;
         executorRunTime += m.executorRunTime;
@@ -245,6 +258,27 @@ public class MetricsCollection {
       this.stageId = stageId;
       this.taskId = taskId;
       this.metrics = metrics;
+    }
+
+  }
+
+  private interface Predicate<T> {
+
+    boolean apply(T input);
+
+  }
+
+  private interface Function<T, R> {
+
+    R apply(T input);
+
+  }
+
+  private static class AlwaysTrue<T> implements Predicate<T> {
+
+    @Override
+    public boolean apply(T input) {
+      return true;
     }
 
   }

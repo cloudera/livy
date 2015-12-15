@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.Future;
 
-import com.cloudera.livy.client.local.counter.SparkCounters;
 /**
  * A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
  */
@@ -45,11 +44,6 @@ public interface JobHandle<T extends Serializable> extends Future<T> {
    * Get corresponding spark job IDs for this job.
    */
   List<Integer> getSparkJobIds();
-
-  /**
-   * Get the SparkCounters for this job.
-   */
-  SparkCounters getSparkCounters();
 
   /**
    * Return the current state of the job.

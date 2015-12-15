@@ -20,6 +20,7 @@ package com.cloudera.livy.client.local;
 import java.io.IOException;
 import java.util.Map;
 
+import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.local.conf.RscConf;
 import com.cloudera.livy.client.local.rpc.RpcServer;
 import org.apache.spark.SparkException;
@@ -72,7 +73,7 @@ public final class SparkClientFactory {
    * @param sparkConf Configuration for the remote Spark application, contains spark.* properties.
    * @param rscConf Configuration for Hive, contains hive.* properties.
    */
-  public static synchronized SparkClient createClient(Map<String, String> sparkConf, RscConf rscConf)
+  public static synchronized LivyClient createClient(Map<String, String> sparkConf, RscConf rscConf)
       throws IOException, SparkException {
     Preconditions.checkState(server != null, "initialize() not called.");
     return new SparkClientImpl(server, sparkConf, rscConf);

@@ -24,9 +24,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.cloudera.livy.client.local.counter.SparkCounters;
 import com.google.common.collect.Lists;
 import io.netty.util.concurrent.Promise;
+
+import com.cloudera.livy.JobHandle;
+import com.cloudera.livy.MetricsCollection;
 
 /**
  * A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
@@ -40,7 +42,6 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   private final List<Integer> sparkJobIds;
   private final List<Listener> listeners;
   private volatile State state;
-  private volatile SparkCounters sparkCounters;
 
   JobHandleImpl(SparkClientImpl client, Promise<T> promise, String jobId) {
     this.client = client;
@@ -50,7 +51,6 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
     this.metrics = new MetricsCollection();
     this.sparkJobIds = new CopyOnWriteArrayList<Integer>();
     this.state = State.SENT;
-    this.sparkCounters = null;
   }
 
   /** Requests a running job to be cancelled. */
@@ -111,11 +111,6 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   }
 
   @Override
-  public SparkCounters getSparkCounters() {
-    return sparkCounters;
-  }
-
-  @Override
   public State getState() {
     return state;
   }
@@ -141,10 +136,6 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
         }
       }
     }
-  }
-
-  public void setSparkCounters(SparkCounters sparkCounters) {
-    this.sparkCounters = sparkCounters;
   }
 
   @SuppressWarnings("unchecked")

@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy;
 
-import java.util.Set;
+import java.io.Serializable;
 
-import org.apache.spark.api.java.JavaFutureAction;
+/**
+ * Interface for a Spark remote job.
+ */
+public interface Job<T extends Serializable> extends Serializable {
 
-interface MonitorCallback {
-
-  void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds);
+  T call(JobContext jc) throws Exception;
 
 }

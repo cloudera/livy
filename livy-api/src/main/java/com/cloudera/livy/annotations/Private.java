@@ -15,35 +15,16 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local.metrics;
+package com.cloudera.livy.annotations;
 
-import java.io.Serializable;
-
-import org.apache.spark.executor.TaskMetrics;
+import java.lang.annotation.Documented;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
- * Metrics pertaining to reading input data.
+ * Indicates an API that is considered private to Livy and should not be used by client
+ * applications.
  */
-public class InputMetrics implements Serializable {
-
-  public final DataReadMethod readMethod;
-  public final long bytesRead;
-
-  private InputMetrics() {
-    // For Serialization only.
-    this(null, 0L);
-  }
-
-  public InputMetrics(
-      DataReadMethod readMethod,
-      long bytesRead) {
-    this.readMethod = readMethod;
-    this.bytesRead = bytesRead;
-  }
-
-  public InputMetrics(TaskMetrics metrics) {
-    this(DataReadMethod.valueOf(metrics.inputMetrics().get().readMethod().toString()),
-      metrics.inputMetrics().get().bytesRead());
-  }
-
-}
+@Documented
+@Retention(RetentionPolicy.CLASS)
+public @interface Private { }

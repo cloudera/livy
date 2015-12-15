@@ -18,8 +18,8 @@ package com.cloudera.livy.spark.client
 
 import java.util.concurrent.{TimeUnit, Callable, Executors, ScheduledFuture}
 
+import com.cloudera.livy.LivyClient
 import com.cloudera.livy.Logging
-import com.cloudera.livy.client.local.SparkClient
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import scala.collection.mutable.HashMap
@@ -32,11 +32,11 @@ class SessionCache extends Logging{
     new ThreadFactoryBuilder().setDaemon(true).setNameFormat("Session Timeout Thread").build())
 
   /**
-    * Get the SparkClient for the given sessionId. If there is no client present, this returns None
-    * @param sessionId The sessionId for which the SparkClient is to be retrieved.
-    * @return SparkClient if session is active and has a Spark Client associated, else None.
+    * Get the LivyClient for the given sessionId. If there is no client present, this returns None
+    * @param sessionId The sessionId for which the LivyClient is to be retrieved.
+    * @return LivyClient if session is active and has a Spark Client associated, else None.
     */
-  def get(sessionId: Int): Option[SparkClient] = lock.synchronized {
+  def get(sessionId: Int): Option[LivyClient] = lock.synchronized {
     sessions.get(sessionId) match {
       case Some(tracker) =>
         val future = tracker.scheduledFuture
@@ -46,7 +46,7 @@ class SessionCache extends Logging{
         // timeout and return the client.
         if (cancelled) {
           tracker.scheduledFuture =
-            evictionExecutor.schedule(SparkClientCloser(client), tracker.timeout, TimeUnit.SECONDS)
+            evictionExecutor.schedule(ClientCloser(client), tracker.timeout, TimeUnit.SECONDS)
           info("Updated timeout for sessionId: " + sessionId)
           Some(client)
         } else {
@@ -76,11 +76,11 @@ class SessionCache extends Logging{
     *                refreshed or fetched during that interval
     * @param sparkClient The client to store.
     */
-  def put(sessionId: Int, timeout: Long, sparkClient: SparkClient): Unit = lock.synchronized {
+  def put(sessionId: Int, timeout: Long, sparkClient: LivyClient): Unit = lock.synchronized {
     sessions(sessionId) = new TimeoutTracker(
       sparkClient,
       timeout,
-      evictionExecutor.schedule(SparkClientCloser(sparkClient), timeout, TimeUnit.SECONDS))
+      evictionExecutor.schedule(ClientCloser(sparkClient), timeout, TimeUnit.SECONDS))
     info("Added client with id: " + sparkClient.clientId() + " for sessionId: " + sessionId)
   }
 
@@ -108,16 +108,16 @@ class SessionCache extends Logging{
     * the Client
     */
   class TimeoutTracker(
-    val sparkClient: SparkClient,
+    val sparkClient: LivyClient,
     val timeout: Long,
     var scheduledFuture: ScheduledFuture[Unit]
   )
 
   /**
-    * Simple class that closes the given Spark Client.
+    * Simple class that closes the given client.
     * @param client
     */
-  case class SparkClientCloser(client: SparkClient) extends Callable[Unit] {
+  case class ClientCloser(client: LivyClient) extends Callable[Unit] {
     override def call(): Unit = lock.synchronized {
       client.stop()
     }

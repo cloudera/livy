@@ -21,8 +21,6 @@ import java.io.File;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.cloudera.livy.client.local.counter.SparkCounters;
-
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SQLContext;
@@ -33,9 +31,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.cloudera.livy.JobContext;
+
 class JobContextImpl implements JobContext {
 
-  private static final Logger LOG = LoggerFactory.getLogger(JobContext.class);
+  private static final Logger LOG = LoggerFactory.getLogger(JobContextImpl.class);
 
   private final JavaSparkContext sc;
   private final ThreadLocal<MonitorCallback> monitorCb;
@@ -103,9 +103,8 @@ class JobContextImpl implements JobContext {
   }
 
   @Override
-  public <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job,
-      SparkCounters sparkCounters, Set<Integer> cachedRDDIds) {
-    monitorCb.get().call(job, sparkCounters, cachedRDDIds);
+  public <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job, Set<Integer> cachedRDDIds) {
+    monitorCb.get().call(job, cachedRDDIds);
     return job;
   }
 

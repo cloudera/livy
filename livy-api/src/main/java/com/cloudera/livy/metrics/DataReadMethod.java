@@ -15,15 +15,12 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
-
-import java.io.Serializable;
+package com.cloudera.livy.metrics;
 
 /**
- * Interface for a Spark remote job.
+ * Method by which input data was read. Network means that the data was read over the network
+ * from a remote block manager (which may have stored the data on-disk or in-memory).
  */
-public interface Job<T extends Serializable> extends Serializable {
-
-  T call(JobContext jc) throws Exception;
-
+public enum DataReadMethod {
+  Memory, Disk, Hadoop, Network, Multiple
 }
