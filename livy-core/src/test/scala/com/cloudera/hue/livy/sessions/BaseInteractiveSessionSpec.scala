@@ -23,12 +23,12 @@ import java.util.concurrent.TimeUnit
 import com.cloudera.hue.livy.ExecuteRequest
 import com.cloudera.hue.livy.sessions.interactive.InteractiveSession
 import org.json4s.{DefaultFormats, Extraction}
-import org.scalatest.{BeforeAndAfter, FunSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfter {
+abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 
   implicit val formats = DefaultFormats
 
@@ -36,11 +36,12 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
 
   def createSession(): InteractiveSession
 
-  after {
+  override def afterAll(): Unit = {
     if (session != null) {
       session.stop()
       session = null
     }
+    super.afterAll()
   }
 
   describe("A spark session") {
@@ -79,7 +80,7 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
       val result = Await.result(stmt.output(), Duration.Inf)
       val expectedResult = Extraction.decompose(Map(
         "status" -> "error",
-        "execution_count" -> 0,
+        "execution_count" -> 1,
         "ename" -> "NameError",
         "evalue" -> "name 'x' is not defined",
         "traceback" -> List(
