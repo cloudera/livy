@@ -625,6 +625,9 @@
         <configuration>
           <source>${sourceJavaVersion}</source>
           <target>${targetJavaVersion}</target>
+          <compilerArgs>
+            <arg>-Xlint:unchecked</arg>
+          </compilerArgs>
         </configuration>
       </plugin>
 

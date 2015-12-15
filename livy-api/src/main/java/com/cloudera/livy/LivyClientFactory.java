@@ -15,12 +15,30 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local.metrics;
+package com.cloudera.livy;
+
+import java.net.URI;
+import java.util.Properties;
+
+import com.cloudera.livy.annotations.Private;
 
 /**
- * Method by which input data was read. Network means that the data was read over the network
- * from a remote block manager (which may have stored the data on-disk or in-memory).
+ * A factory for Livy clients. Client implementations can register themselves by using the
+ * Java services mechanism, providing implementations of this interface.
+ * <p>
+ * Client applications do not need to use this interface directly. Instead, use
+ * {@link LivyClientBuilder}.
+ *
+ * @see java.util.ServiceLoader
  */
-public enum DataReadMethod {
-  Memory, Disk, Hadoop, Network, Multiple
+@Private
+public interface LivyClientFactory {
+
+  /**
+   * Instantiates a new client if the given URI is supported by the implementation.
+   *
+   * @param uri URI pointing at the livy backend to use.
+   */
+  LivyClient createClient(URI uri, Properties config);
+
 }

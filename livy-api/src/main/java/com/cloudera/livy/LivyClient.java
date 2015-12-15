@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy;
 
 import java.io.Serializable;
 import java.net.URI;
 import java.util.concurrent.Future;
 
 /**
- * Defines the API for the Spark remote client.
+ * A client for submitting Spark-based jobs to a Livy backend.
  */
-public interface SparkClient extends Serializable {
+public interface LivyClient {
 
   /**
    * Submits a job for asynchronous execution.
@@ -84,13 +84,4 @@ public interface SparkClient extends Serializable {
    */
   Future<?> addFile(URI uri);
 
-  /**
-   * Get the count of executors.
-   */
-  Future<Integer> getExecutorCount();
-
-  /**
-   * Get default parallelism. For standalone mode, this can be used to get total number of cores.
-   */
-  Future<Integer> getDefaultParallelism();
 }

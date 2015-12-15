@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy;
 
 import java.io.File;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.cloudera.livy.client.local.counter.SparkCounters;
 
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -66,8 +64,7 @@ public interface JobContext {
    *
    * @return The job (unmodified).
    */
-  <T> JavaFutureAction<T> monitor(
-    JavaFutureAction<T> job, SparkCounters sparkCounters, Set<Integer> cachedRDDIds);
+  <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job, Set<Integer> cachedRDDIds);
 
   /**
    * Return a map from client job Id to corresponding JavaFutureActions.

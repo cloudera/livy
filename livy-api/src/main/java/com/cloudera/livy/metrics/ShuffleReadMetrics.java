@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local.metrics;
+package com.cloudera.livy.metrics;
 
 import java.io.Serializable;
 

@@ -17,22 +17,6 @@
 
 package com.cloudera.livy.client.local;
 
-import com.cloudera.livy.client.local.conf.RscConf;
-import com.cloudera.livy.client.local.rpc.Rpc;
-import com.cloudera.livy.client.local.rpc.RpcServer;
-import com.google.common.base.Charsets;
-import com.google.common.base.Joiner;
-import com.google.common.base.Strings;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.io.Resources;
-
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.Promise;
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -52,14 +36,31 @@ import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Charsets;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.io.Resources;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.Promise;
 import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class SparkClientImpl implements SparkClient {
-  private static final long serialVersionUID = 1L;
+import com.cloudera.livy.Job;
+import com.cloudera.livy.JobContext;
+import com.cloudera.livy.JobHandle;
+import com.cloudera.livy.LivyClient;
+import com.cloudera.livy.client.local.conf.RscConf;
+import com.cloudera.livy.client.local.rpc.Rpc;
+import com.cloudera.livy.client.local.rpc.RpcServer;
 
+class SparkClientImpl implements LivyClient {
   private static final Logger LOG = LoggerFactory.getLogger(SparkClientImpl.class);
 
   private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
@@ -168,16 +169,6 @@ class SparkClientImpl implements SparkClient {
   @Override
   public Future<?> addFile(URI uri) {
     return run(new AddFileJob(uri.toString()));
-  }
-
-  @Override
-  public Future<Integer> getExecutorCount() {
-    return run(new GetExecutorCountJob());
-  }
-
-  @Override
-  public Future<Integer> getDefaultParallelism() {
-    return run(new GetDefaultParallelismJob());
   }
 
   void cancel(String jobId) {
@@ -509,7 +500,6 @@ class SparkClientImpl implements SparkClient {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {
         LOG.info("Received result for {}", msg.id);
-        handle.setSparkCounters(msg.sparkCounters);
         Throwable error = msg.error != null ? new SparkException(msg.error) : null;
         if (error == null) {
           handle.setSuccess(msg.result);

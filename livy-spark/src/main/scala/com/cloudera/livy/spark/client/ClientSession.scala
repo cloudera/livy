@@ -16,7 +16,7 @@
  */
 package com.cloudera.livy.spark.client
 
-import com.cloudera.livy.client.local.SparkClient
+import com.cloudera.livy.LivyClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,7 +29,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
     sessionId, createRequest.sparkConf.asJava, createRequest.timeout)
   sessionState = SessionState.Running()
 
-  def getClient(): Option[SparkClient] = {
+  def getClient(): Option[LivyClient] = {
     SessionClientTracker.getClient(id)
   }
 

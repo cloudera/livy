@@ -18,8 +18,8 @@
  */
 package com.cloudera.livy.spark.client
 
+import com.cloudera.livy.LivyClient
 import com.cloudera.livy.Logging
-import com.cloudera.livy.client.local.SparkClient
 import com.cloudera.livy.client.local.SparkClientFactory
 import com.cloudera.livy.client.local.conf.RscConf
 import org.apache.spark.SparkConf
@@ -30,7 +30,7 @@ import java.util.{Collections, Map}
 import scala.util.control.NonFatal
 
 /**
-  * This class is used by the Livy servlet to get access to the SparkClient instance for a
+  * This class is used by the Livy servlet to get access to the LivyClient instance for a
   * specific session. Once the client is available, the job can directly be submitted to the client.
   */
 object SessionClientTracker extends Logging {
@@ -44,17 +44,17 @@ object SessionClientTracker extends Logging {
   def createClient(
     sessionId: Integer,
     sparkConf: Map[String, String],
-    timeout: Long): SparkClient = {
+    timeout: Long): LivyClient = {
     val sc = new SparkConf(true)
     for (conf <- sc.getAll) {
       sparkConf.put(conf._1, conf._2)
     }
     sparkConf.put("livy.client.sessionId", sessionId.toString)
     sparkConf.put("spark.master", "yarn-cluster")
-    info("Creating SparkClient for sessionId: " + sessionId)
-    val client: SparkClient = SparkClientFactory.createClient(sparkConf, new RscConf)
+    info("Creating LivyClient for sessionId: " + sessionId)
+    val client: LivyClient = SparkClientFactory.createClient(sparkConf, new RscConf)
     sessions.put(sessionId, timeout, client)
-    info("Started SparkClient for sessionId: " + sessionId)
+    info("Started LivyClient for sessionId: " + sessionId)
     client
   }
 
@@ -63,10 +63,10 @@ object SessionClientTracker extends Logging {
     * been closed or if the session has been closed due to a timeout, then a new Client instance
     * is created.
     * @param sessionId
-    * @return The SparkClient for the given session, None if the session has been closed.
+    * @return The LivyClient for the given session, None if the session has been closed.
     */
   @throws(classOf[Exception])
-  def getClient(sessionId: Integer): Option[SparkClient] = {
+  def getClient(sessionId: Integer): Option[LivyClient] = {
     sessions.get(sessionId)
   }
 

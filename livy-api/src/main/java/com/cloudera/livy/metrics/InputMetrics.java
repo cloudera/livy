@@ -15,14 +15,35 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy.metrics;
 
-import java.util.Set;
+import java.io.Serializable;
 
-import org.apache.spark.api.java.JavaFutureAction;
+import org.apache.spark.executor.TaskMetrics;
 
-interface MonitorCallback {
+/**
+ * Metrics pertaining to reading input data.
+ */
+public class InputMetrics implements Serializable {
 
-  void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds);
+  public final DataReadMethod readMethod;
+  public final long bytesRead;
+
+  private InputMetrics() {
+    // For Serialization only.
+    this(null, 0L);
+  }
+
+  public InputMetrics(
+      DataReadMethod readMethod,
+      long bytesRead) {
+    this.readMethod = readMethod;
+    this.bytesRead = bytesRead;
+  }
+
+  public InputMetrics(TaskMetrics metrics) {
+    this(DataReadMethod.valueOf(metrics.inputMetrics().get().readMethod().toString()),
+      metrics.inputMetrics().get().bytesRead());
+  }
 
 }
