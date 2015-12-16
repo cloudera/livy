@@ -26,7 +26,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.security.sasl.SaslException;
 
-import com.cloudera.livy.client.local.conf.RscConf;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
@@ -40,20 +39,23 @@ import org.slf4j.LoggerFactory;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-
 import static org.junit.Assert.*;
+
+import com.cloudera.livy.client.local.LocalConf;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class TestRpc {
 
   private static final Logger LOG = LoggerFactory.getLogger(TestRpc.class);
 
   private Collection<Closeable> closeables;
-  private Map<String, String> emptyConfig =
-      ImmutableMap.of(RscConf.ConfVars.SPARK_RPC_CHANNEL_LOG_LEVEL.varname, "DEBUG");
+  private LocalConf emptyConfig;
 
   @Before
   public void setUp() {
     closeables = Lists.newArrayList();
+    emptyConfig = new LocalConf(null);
+    emptyConfig.set(RPC_CHANNEL_LOG_LEVEL.key, "DEBUG");
   }
 
   @After
@@ -174,10 +176,9 @@ public class TestRpc {
 
   @Test
   public void testEncryption() throws Exception {
-    Map<String, String> eConf = ImmutableMap.<String,String>builder()
-      .putAll(emptyConfig)
-      .put(RpcConfiguration.RPC_SASL_OPT_PREFIX + "qop", Rpc.SASL_AUTH_CONF)
-      .build();
+    LocalConf eConf = new LocalConf(null)
+      .setAll(emptyConfig)
+      .set(SASL_QOP, Rpc.SASL_AUTH_CONF);
     RpcServer server = autoClose(new RpcServer(eConf));
     Rpc[] rpcs = createRpcConnection(server, eConf);
     Rpc client = rpcs[1];
@@ -190,10 +191,7 @@ public class TestRpc {
 
   @Test
   public void testClientTimeout() throws Exception {
-    Map<String, String> conf = ImmutableMap.<String,String>builder()
-      .putAll(emptyConfig)
-      .build();
-    RpcServer server = autoClose(new RpcServer(conf));
+    RpcServer server = autoClose(new RpcServer(emptyConfig));
     String secret = server.createSecret();
 
     try {
@@ -204,7 +202,7 @@ public class TestRpc {
     }
 
     NioEventLoopGroup eloop = new NioEventLoopGroup();
-    Future<Rpc> clientRpcFuture = Rpc.createClient(conf, eloop,
+    Future<Rpc> clientRpcFuture = Rpc.createClient(emptyConfig, eloop,
         "localhost", server.getPort(), "client", secret, new TestDispatcher());
     try {
       autoClose(clientRpcFuture.get());
@@ -245,7 +243,7 @@ public class TestRpc {
     return createRpcConnection(server, emptyConfig);
   }
 
-  private Rpc[] createRpcConnection(RpcServer server, Map<String, String> clientConf)
+  private Rpc[] createRpcConnection(RpcServer server, LocalConf clientConf)
       throws Exception {
     String secret = server.createSecret();
     Future<Rpc> serverRpcFuture = server.registerClient("client", secret, new TestDispatcher());

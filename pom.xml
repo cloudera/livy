@@ -66,8 +66,7 @@
     <scalatest.version>2.2.4</scalatest.version>
     <scalatra.version>2.3.0</scalatra.version>
     <snappy-java.version>1.1.1.6</snappy-java.version>
-    <sourceJavaVersion>1.7</sourceJavaVersion>
-    <targetJavaVersion>1.7</targetJavaVersion>
+    <java.version>1.7</java.version>
     <minJavaVersion>1.7</minJavaVersion>
     <maxJavaVersion>1.8</maxJavaVersion>
     <test.redirectToFile>true</test.redirectToFile>
@@ -468,7 +467,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>2.5.1</version>
+          <version>3.3</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
@@ -554,6 +553,12 @@
               <arg>-deprecation</arg>
               <arg>-feature</arg>
             </args>
+            <javacArgs>
+              <javacArg>-source</javacArg>
+              <javacArg>${java.version}</javacArg>
+              <javacArg>-target</javacArg>
+              <javacArg>${java.version}</javacArg>
+            </javacArgs>
             <jvmArgs>
               <jvmArg>-Xms1024m</jvmArg>
               <jvmArg>-Xmx1024m</jvmArg>
@@ -622,13 +627,16 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>${sourceJavaVersion}</source>
-          <target>${targetJavaVersion}</target>
-          <compilerArgs>
-            <arg>-Xlint:unchecked</arg>
-          </compilerArgs>
-        </configuration>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>

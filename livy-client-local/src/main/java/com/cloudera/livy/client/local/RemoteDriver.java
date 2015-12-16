@@ -68,8 +68,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.client.local.rpc.Rpc;
-import com.cloudera.livy.client.local.rpc.RpcConfiguration;
 import com.cloudera.livy.metrics.Metrics;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 /**
  * Driver code for the Spark client library.
@@ -112,9 +112,9 @@ public class RemoteDriver {
       } else if (key.equals("--remote-port")) {
         serverPort = Integer.parseInt(getArg(args, idx));
       } else if (key.equals("--client-id")) {
-        conf.set(SparkClientFactory.CONF_CLIENT_ID, getArg(args, idx));
+        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key, getArg(args, idx));
       } else if (key.equals("--secret")) {
-        conf.set(SparkClientFactory.CONF_KEY_SECRET, getArg(args, idx));
+        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key, getArg(args, idx));
       } else if (key.equals("--conf")) {
         String[] val = getArg(args, idx).split("[=]", 2);
         conf.set(val[0], val[1]);
@@ -128,22 +128,24 @@ public class RemoteDriver {
 
     LOG.info("Connecting to: {}:{}", serverAddress, serverPort);
 
-    Map<String, String> mapConf = Maps.newHashMap();
+    LocalConf livyConf = new LocalConf(null);
     for (Tuple2<String, String> e : conf.getAll()) {
-      mapConf.put(e._1(), e._2());
-      LOG.debug("Remote Driver configured with: " + e._1() + "=" + e._2());
+      if (e._1().startsWith(LocalConf.SPARK_CONF_PREFIX)) {
+        String key = e._1().substring(LocalConf.SPARK_CONF_PREFIX.length());
+        livyConf.set(key, e._2());
+        LOG.debug("Remote Driver config: {} = {}", key, e._2());
+      }
     }
 
-    String clientId = mapConf.get(SparkClientFactory.CONF_CLIENT_ID);
+    String clientId = livyConf.get(CLIENT_ID);
     Preconditions.checkArgument(clientId != null, "No client ID provided.");
-    String secret = mapConf.get(SparkClientFactory.CONF_KEY_SECRET);
+    String secret = livyConf.get(CLIENT_SECRET);
     Preconditions.checkArgument(secret != null, "No secret provided.");
 
     System.out.println("MAPCONF-->");
-    System.out.println(mapConf);
-    int threadCount = new RpcConfiguration(mapConf).getRpcThreadCount();
+    System.out.println(livyConf);
     this.egroup = new NioEventLoopGroup(
-        threadCount,
+        livyConf.getInt(RPC_MAX_THREADS),
         new ThreadFactoryBuilder()
             .setNameFormat("Driver-RPC-Handler-%d")
             .setDaemon(true)
@@ -151,7 +153,7 @@ public class RemoteDriver {
     this.protocol = new DriverProtocol();
 
     // The RPC library takes care of timing out this.
-    this.clientRpc = Rpc.createClient(mapConf, egroup, serverAddress, serverPort,
+    this.clientRpc = Rpc.createClient(livyConf, egroup, serverAddress, serverPort,
       clientId, secret, protocol).get();
     this.running = true;
 

@@ -62,6 +62,9 @@ import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.client.local.LocalConf;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
+
 /**
  * Encapsulates the RPC functionality. Provides higher-level methods to talk to the remote
  * endpoint.
@@ -88,15 +91,14 @@ public class Rpc implements Closeable {
    * @return A future that can be used to monitor the creation of the RPC object.
    */
   public static Promise<Rpc> createClient(
-      Map<String, String> config,
+      final LocalConf config,
       final NioEventLoopGroup eloop,
       String host,
       int port,
       final String clientId,
       final String secret,
       final RpcDispatcher dispatcher) throws Exception {
-    final RpcConfiguration rpcConf = new RpcConfiguration(config);
-    int connectTimeoutMs = (int) rpcConf.getConnectTimeoutMs();
+    int connectTimeoutMs = (int) config.getTimeAsMs(RPC_CLIENT_CONNECT_TIMEOUT);
 
     final ChannelFuture cf = new Bootstrap()
         .group(eloop)
@@ -117,7 +119,7 @@ public class Rpc implements Closeable {
       }
     };
     final ScheduledFuture<?> timeoutFuture = eloop.schedule(timeoutTask,
-        rpcConf.getServerConnectTimeoutMs(), TimeUnit.MILLISECONDS);
+        config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
 
     // The channel listener instantiates the Rpc instance when the connection is established,
     // and initiates the SASL handshake.
@@ -125,9 +127,9 @@ public class Rpc implements Closeable {
       @Override
       public void operationComplete(ChannelFuture cf) throws Exception {
         if (cf.isSuccess()) {
-          SaslClientHandler saslHandler = new SaslClientHandler(rpcConf, clientId, promise,
+          SaslClientHandler saslHandler = new SaslClientHandler(config, clientId, promise,
             timeoutFuture, secret, dispatcher);
-          Rpc rpc = createRpc(rpcConf, saslHandler, (SocketChannel) cf.channel(), eloop);
+          Rpc rpc = createRpc(config, saslHandler, (SocketChannel) cf.channel(), eloop);
           saslHandler.rpc = rpc;
           saslHandler.sendHello(cf.channel());
         } else {
@@ -149,22 +151,23 @@ public class Rpc implements Closeable {
     return promise;
   }
 
-  static Rpc createServer(SaslHandler saslHandler, RpcConfiguration config, SocketChannel channel,
+  static Rpc createServer(SaslHandler saslHandler, LocalConf config, SocketChannel channel,
       EventExecutorGroup egroup) throws IOException {
     return createRpc(config, saslHandler, channel, egroup);
   }
 
-  private static Rpc createRpc(RpcConfiguration config,
+  private static Rpc createRpc(LocalConf config,
       SaslHandler saslHandler,
       SocketChannel client,
       EventExecutorGroup egroup)
       throws IOException {
     LogLevel logLevel = LogLevel.TRACE;
-    if (config.getRpcChannelLogLevel() != null) {
+    String logLevelStr = config.get(RPC_CHANNEL_LOG_LEVEL);
+    if (logLevelStr != null) {
       try {
-        logLevel = LogLevel.valueOf(config.getRpcChannelLogLevel());
+        logLevel = LogLevel.valueOf(logLevelStr);
       } catch (Exception e) {
-        LOG.warn("Invalid log level {}, reverting to default.", config.getRpcChannelLogLevel());
+        LOG.warn("Invalid log level {}, reverting to default.", logLevelStr);
       }
     }
 
@@ -191,7 +194,7 @@ public class Rpc implements Closeable {
       client.pipeline().addLast("logger", new LoggingHandler(Rpc.class, logLevel));
     }
 
-    KryoMessageCodec kryo = new KryoMessageCodec(config.getMaxMessageSize(),
+    KryoMessageCodec kryo = new KryoMessageCodec(config.getInt(RPC_MAX_MESSAGE_SIZE),
         MessageHeader.class, NullMessage.class, SaslMessage.class);
     saslHandler.setKryoMessageCodec(kryo);
     client.pipeline()
@@ -206,13 +209,12 @@ public class Rpc implements Closeable {
         new LoggingHandler(Rpc.class),
         new KryoMessageCodec(0, MessageHeader.class, NullMessage.class),
         dispatcher);
-    Rpc rpc = new Rpc(new RpcConfiguration(Collections.<String, String>emptyMap()),
-      c, ImmediateEventExecutor.INSTANCE);
+    Rpc rpc = new Rpc(new LocalConf(null), c, ImmediateEventExecutor.INSTANCE);
     rpc.dispatcher = dispatcher;
     return rpc;
   }
 
-  private final RpcConfiguration config;
+  private final LocalConf config;
   private final AtomicBoolean rpcClosed;
   private final AtomicLong rpcId;
   private final Channel channel;
@@ -221,7 +223,7 @@ public class Rpc implements Closeable {
   private final Object channelLock;
   private volatile RpcDispatcher dispatcher;
 
-  private Rpc(RpcConfiguration config, Channel channel, EventExecutorGroup egroup) {
+  private Rpc(LocalConf config, Channel channel, EventExecutorGroup egroup) {
     Preconditions.checkArgument(channel != null);
     Preconditions.checkArgument(egroup != null);
     this.config = config;
@@ -397,7 +399,7 @@ public class Rpc implements Closeable {
     private Rpc rpc;
 
     SaslClientHandler(
-        RpcConfiguration config,
+        LocalConf config,
         String clientId,
         Promise<Rpc> promise,
         ScheduledFuture<?> timeout,
@@ -410,7 +412,7 @@ public class Rpc implements Closeable {
       this.timeout = timeout;
       this.secret = secret;
       this.dispatcher = dispatcher;
-      this.client = Sasl.createSaslClient(new String[] { config.getSaslMechanism() },
+      this.client = Sasl.createSaslClient(new String[] { config.get(SASL_MECHANISMS) },
         null, SASL_PROTOCOL, SASL_REALM, config.getSaslOptions(), this);
     }
 

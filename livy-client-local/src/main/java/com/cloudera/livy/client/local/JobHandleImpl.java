@@ -35,7 +35,7 @@ import com.cloudera.livy.MetricsCollection;
  */
 class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
 
-  private final SparkClientImpl client;
+  private final LocalClient client;
   private final String jobId;
   private final MetricsCollection metrics;
   private final Promise<T> promise;
@@ -43,7 +43,7 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   private final List<Listener> listeners;
   private volatile State state;
 
-  JobHandleImpl(SparkClientImpl client, Promise<T> promise, String jobId) {
+  JobHandleImpl(LocalClient client, Promise<T> promise, String jobId) {
     this.client = client;
     this.jobId = jobId;
     this.promise = promise;

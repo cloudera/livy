@@ -26,7 +26,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
   implicit val executionContext = ExecutionContext.global
   var sessionState: SessionState = SessionState.Starting()
   SessionClientTracker.createClient(
-    sessionId, createRequest.sparkConf.asJava, createRequest.timeout)
+    sessionId, createRequest.conf.asJava, createRequest.timeout)
   sessionState = SessionState.Running()
 
   def getClient(): Option[LivyClient] = {

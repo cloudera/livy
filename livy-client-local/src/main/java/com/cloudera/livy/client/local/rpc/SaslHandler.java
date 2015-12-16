@@ -26,6 +26,8 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.client.local.LocalConf;
+
 /**
  * Abstract SASL handler. Abstracts the auth protocol handling and encryption, if it's enabled.
  * Needs subclasses to provide access to the actual underlying SASL implementation (client or
@@ -41,8 +43,8 @@ abstract class SaslHandler extends SimpleChannelInboundHandler<Rpc.SaslMessage>
   private KryoMessageCodec kryo;
   private boolean hasAuthResponse = false;
 
-  protected SaslHandler(RpcConfiguration config) {
-    this.requiresEncryption = Rpc.SASL_AUTH_CONF.equals(config.getSaslOptions().get(Sasl.QOP));
+  protected SaslHandler(LocalConf config) {
+    this.requiresEncryption = Rpc.SASL_AUTH_CONF.equals(config.get(LocalConf.Entry.SASL_QOP.key));
     this.LOG = LoggerFactory.getLogger(getClass());
   }
 

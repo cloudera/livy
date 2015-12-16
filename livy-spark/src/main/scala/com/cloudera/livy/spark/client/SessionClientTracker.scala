@@ -18,41 +18,42 @@
  */
 package com.cloudera.livy.spark.client
 
-import com.cloudera.livy.LivyClient
-import com.cloudera.livy.Logging
-import com.cloudera.livy.client.local.SparkClientFactory
-import com.cloudera.livy.client.local.conf.RscConf
-import org.apache.spark.SparkConf
-import org.apache.spark.SparkException
 import java.io.IOException
-import java.util.{Collections, Map}
+import java.net.URI
+import java.util.{Collections, Map => JMap, Properties}
 
 import scala.util.control.NonFatal
+
+import org.apache.spark.SparkConf
+import org.apache.spark.SparkException
+
+import com.cloudera.livy.LivyClient
+import com.cloudera.livy.LivyClientBuilder
+import com.cloudera.livy.Logging
 
 /**
   * This class is used by the Livy servlet to get access to the LivyClient instance for a
   * specific session. Once the client is available, the job can directly be submitted to the client.
   */
 object SessionClientTracker extends Logging {
-  SparkClientFactory.initialize(Collections.emptyMap())
-  info("Initialized Spark Client Factory")
 
   val sessions = new SessionCache()
 
   @throws(classOf[IOException])
   @throws(classOf[SparkException])
   def createClient(
-    sessionId: Integer,
-    sparkConf: Map[String, String],
-    timeout: Long): LivyClient = {
-    val sc = new SparkConf(true)
-    for (conf <- sc.getAll) {
-      sparkConf.put(conf._1, conf._2)
-    }
-    sparkConf.put("livy.client.sessionId", sessionId.toString)
-    sparkConf.put("spark.master", "yarn-cluster")
+      sessionId: Integer,
+      conf: JMap[String, String],
+      timeout: Long): LivyClient = {
     info("Creating LivyClient for sessionId: " + sessionId)
-    val client: LivyClient = SparkClientFactory.createClient(sparkConf, new RscConf)
+
+    val builder = new LivyClientBuilder(new URI("local:spark"))
+    new SparkConf(true).getAll.foreach { case (k, v) => builder.setConf(k, v) }
+    builder
+      .setAll(conf)
+      .setConf("livy.client.sessionId", sessionId.toString)
+      .setConf("spark.master", "yarn-cluster")
+    val client = builder.build()
     sessions.put(sessionId, timeout, client)
     info("Started LivyClient for sessionId: " + sessionId)
     client

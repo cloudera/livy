@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +55,9 @@ import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.client.local.LocalConf;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
+
 /**
  * An RPC server. The server matches remote clients based on a secret that is generated on
  * the server - the secret needs to be given to the client through some other mechanism for
@@ -69,12 +73,12 @@ public class RpcServer implements Closeable {
   private final EventLoopGroup group;
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
-  private final RpcConfiguration config;
+  private final LocalConf config;
 
-  public RpcServer(Map<String, String> mapConf) throws IOException, InterruptedException {
-    this.config = new RpcConfiguration(mapConf);
+  public RpcServer(LocalConf lconf) throws IOException, InterruptedException {
+    this.config = lconf;
     this.group = new NioEventLoopGroup(
-        this.config.getRpcThreadCount(),
+        this.config.getInt(RPC_MAX_THREADS),
         new ThreadFactoryBuilder()
             .setNameFormat("RPC-Handler-%d")
             .setDaemon(true)
@@ -97,9 +101,8 @@ public class RpcServer implements Closeable {
                 }
             };
             saslHandler.cancelTask = group.schedule(cancelTask,
-                RpcServer.this.config.getServerConnectTimeoutMs(),
+                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
                 TimeUnit.MILLISECONDS);
-
           }
       })
       .option(ChannelOption.SO_BACKLOG, 1)
@@ -110,7 +113,12 @@ public class RpcServer implements Closeable {
       .channel();
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = Maps.newConcurrentMap();
-    this.address = this.config.getServerAddress();
+
+    String address = config.get(RPC_SERVER_ADDRESS);
+    if (address == null) {
+      address = config.findLocalAddress();
+    }
+    this.address = address;
   }
 
   /**
@@ -124,7 +132,8 @@ public class RpcServer implements Closeable {
    */
   public Future<Rpc> registerClient(final String clientId, String secret,
       RpcDispatcher serverDispatcher) {
-    return registerClient(clientId, secret, serverDispatcher, config.getServerConnectTimeoutMs());
+    return registerClient(clientId, secret, serverDispatcher,
+      config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT));
   }
 
   @VisibleForTesting
@@ -182,7 +191,7 @@ public class RpcServer implements Closeable {
    * Creates a secret for identifying a client connection.
    */
   public String createSecret() {
-    byte[] secret = new byte[config.getSecretBits() / 8];
+    byte[] secret = new byte[config.getInt(RPC_SECRET_RANDOM_BITS) / 8];
     RND.nextBytes(secret);
 
     StringBuilder sb = new StringBuilder();
@@ -224,9 +233,9 @@ public class RpcServer implements Closeable {
     private String clientId;
     private ClientInfo client;
 
-    SaslServerHandler(RpcConfiguration config) throws IOException {
+    SaslServerHandler(LocalConf config) throws IOException {
       super(config);
-      this.server = Sasl.createSaslServer(config.getSaslMechanism(), Rpc.SASL_PROTOCOL,
+      this.server = Sasl.createSaslServer(config.get(SASL_MECHANISMS), Rpc.SASL_PROTOCOL,
         Rpc.SASL_REALM, config.getSaslOptions(), this);
     }
 

@@ -53,19 +53,19 @@ import com.cloudera.livy.Job;
 import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
+import com.cloudera.livy.LivyClientBuilder;
 import com.cloudera.livy.MetricsCollection;
-import com.cloudera.livy.client.local.conf.RscConf;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class TestSparkClient {
 
   // Timeouts are bad... mmmkay.
   private static final long TIMEOUT = 40;
-  private static final RscConf RSC_CONF = new RscConf();
 
-  private Map<String, String> createConf(boolean local) {
-    Map<String, String> conf = new HashMap<String, String>();
+  private Properties createConf(boolean local) {
+    Properties conf = new Properties();
     if (local) {
-      conf.put(SparkClientFactory.CONF_KEY_IN_PROCESS, "true");
+      conf.put(CLIENT_IN_PROCESS.key, "true");
       conf.put("spark.master", "local");
       conf.put("spark.app.name", "SparkClientSuite Local App");
     } else {
@@ -295,18 +295,18 @@ public class TestSparkClient {
   }
 
   private void runTest(boolean local, TestFunction test) throws Exception {
-    Map<String, String> conf = createConf(local);
-    SparkClientFactory.initialize(conf);
+    Properties conf = createConf(local);
     LivyClient client = null;
     try {
       test.config(conf);
-      client = SparkClientFactory.createClient(conf, RSC_CONF);
+      client = new LivyClientBuilder(new URI("local:spark"))
+        .setAll(conf)
+        .build();
       test.call(client);
     } finally {
       if (client != null) {
         client.stop();
       }
-      SparkClientFactory.stop();
     }
   }
 
@@ -479,7 +479,7 @@ public class TestSparkClient {
 
   private abstract static class TestFunction {
     abstract void call(LivyClient client) throws Exception;
-    void config(Map<String, String> conf) { }
+    void config(Properties conf) { }
   }
 
 }

@@ -18,6 +18,7 @@
 package com.cloudera.livy;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.logging.Level;
@@ -43,6 +44,11 @@ public final class LivyClientBuilder {
 
   public LivyClientBuilder setConf(String key, String value) {
     config.setProperty(key, value);
+    return this;
+  }
+
+  public LivyClientBuilder setAll(Map<String, String> props) {
+    config.putAll(props);
     return this;
   }
 

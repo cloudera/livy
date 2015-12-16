@@ -33,7 +33,7 @@ import com.cloudera.livy.JobHandle;
 @RunWith(MockitoJUnitRunner.class)
 public class TestJobHandle {
 
-  @Mock private SparkClientImpl client;
+  @Mock private LocalClient client;
   @Mock private Promise<Serializable> promise;
   @Mock private JobHandle.Listener<Serializable> listener;
   @Mock private JobHandle.Listener<Serializable> listener2;

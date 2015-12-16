@@ -56,12 +56,12 @@ import com.cloudera.livy.Job;
 import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
-import com.cloudera.livy.client.local.conf.RscConf;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.client.local.rpc.RpcServer;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
-class SparkClientImpl implements LivyClient {
-  private static final Logger LOG = LoggerFactory.getLogger(SparkClientImpl.class);
+class LocalClient implements LivyClient {
+  private static final Logger LOG = LoggerFactory.getLogger(LocalClient.class);
 
   private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
 
@@ -73,8 +73,8 @@ class SparkClientImpl implements LivyClient {
   private static final String DRIVER_EXTRA_CLASSPATH = "spark.driver.extraClassPath";
   private static final String EXECUTOR_EXTRA_CLASSPATH = "spark.executor.extraClassPath";
 
-  private final Map<String, String> conf;
-  private final RscConf rscConf;
+  private final LocalClientFactory factory;
+  private final LocalConf conf;
   private final AtomicInteger childIdGenerator;
   private final Thread driverThread;
   private final Map<String, JobHandleImpl<?>> jobs;
@@ -83,20 +83,20 @@ class SparkClientImpl implements LivyClient {
   private volatile boolean isAlive;
   private final String clientId;
 
-  SparkClientImpl(RpcServer rpcServer, Map<String, String> conf, RscConf rscConf) throws IOException, SparkException {
+  LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException, SparkException {
+    this.factory = factory;
     this.conf = conf;
-    this.rscConf = rscConf;
     this.childIdGenerator = new AtomicInteger();
     this.jobs = Maps.newConcurrentMap();
 
     clientId = UUID.randomUUID().toString();
-    String secret = rpcServer.createSecret();
-    this.driverThread = startDriver(rpcServer, clientId, secret);
+    String secret = factory.getServer().createSecret();
+    this.driverThread = startDriver(factory.getServer(), clientId, secret);
     this.protocol = new ClientProtocol();
 
     try {
       // The RPC server will take care of timeouts here.
-      this.driverRpc = rpcServer.registerClient(clientId, secret, protocol).get();
+      this.driverRpc = factory.getServer().registerClient(clientId, secret, protocol).get();
     } catch (Throwable e) {
       LOG.warn("Error while waiting for client to connect.", e);
       driverThread.interrupt();
@@ -146,6 +146,7 @@ class SparkClientImpl implements LivyClient {
         LOG.warn("Exception while waiting for end session reply.", e);
       } finally {
         driverRpc.close();
+        factory.unref();
       }
     }
 
@@ -181,7 +182,7 @@ class SparkClientImpl implements LivyClient {
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
 
-    if (conf.containsKey(SparkClientFactory.CONF_KEY_IN_PROCESS)) {
+    if (conf.get(CLIENT_IN_PROCESS) != null) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
       runnable = new Runnable() {
@@ -197,9 +198,13 @@ class SparkClientImpl implements LivyClient {
           args.add("--secret");
           args.add(secret);
 
-          for (Map.Entry<String, String> e : conf.entrySet()) {
+          for (Map.Entry<String, String> e : conf) {
+            String key = e.getKey();
+            if (!key.startsWith("spark.")) {
+              key = LocalConf.SPARK_CONF_PREFIX + key;
+            }
             args.add("--conf");
-            args.add(String.format("%s=%s", e.getKey(), conf.get(e.getKey())));
+            args.add(String.format("%s=%s", key, e.getValue()));
           }
           try {
             RemoteDriver.main(args.toArray(new String[args.size()]));
@@ -219,14 +224,6 @@ class SparkClientImpl implements LivyClient {
       if (sparkHome == null) {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
-      String sparkLogDir = conf.get("hive.spark.log.dir");
-      if (sparkLogDir == null) {
-        if (sparkHome == null) {
-          sparkLogDir = "./target/";
-        } else {
-          sparkLogDir = sparkHome + "/logs/";
-        }
-      }
 
       String osxTestOpts = "";
       if (Strings.nullToEmpty(System.getProperty("os.name")).toLowerCase().contains("mac")) {
@@ -234,9 +231,9 @@ class SparkClientImpl implements LivyClient {
       }
 
       String driverJavaOpts = Joiner.on(" ").skipNulls().join(
-          "-Dhive.spark.log.dir=" + sparkLogDir, osxTestOpts, conf.get(DRIVER_OPTS_KEY));
+          osxTestOpts, conf.get(DRIVER_OPTS_KEY));
       String executorJavaOpts = Joiner.on(" ").skipNulls().join(
-          "-Dhive.spark.log.dir=" + sparkLogDir, osxTestOpts, conf.get(EXECUTOR_OPTS_KEY));
+          osxTestOpts, conf.get(EXECUTOR_OPTS_KEY));
 
       // Create a file with all the job properties to be read by spark-submit. Change the
       // file's permissions so that only the owner can read it. This avoid having the
@@ -260,35 +257,17 @@ class SparkClientImpl implements LivyClient {
         throw new IOException(msg, e);
       }
       // then load the SparkClientImpl config
-      for (Map.Entry<String, String> e : conf.entrySet()) {
-        allProps.put(e.getKey(), conf.get(e.getKey()));
+      for (Map.Entry<String, String> e : conf) {
+        String key = e.getKey();
+        if (!key.startsWith("spark.")) {
+          key = LocalConf.SPARK_CONF_PREFIX + key;
+        }
+        allProps.put(key, e.getValue());
       }
-      allProps.put(SparkClientFactory.CONF_CLIENT_ID, clientId);
-      allProps.put(SparkClientFactory.CONF_KEY_SECRET, secret);
+      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key, clientId);
+      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key, secret);
       allProps.put(DRIVER_OPTS_KEY, driverJavaOpts);
       allProps.put(EXECUTOR_OPTS_KEY, executorJavaOpts);
-
-      String isTesting = conf.get("spark.testing");
-      if (isTesting != null && isTesting.equalsIgnoreCase("true")) {
-        String hiveHadoopTestClasspath = Strings.nullToEmpty(System.getenv("HIVE_HADOOP_TEST_CLASSPATH"));
-        if (!hiveHadoopTestClasspath.isEmpty()) {
-          String extraDriverClasspath = Strings.nullToEmpty((String)allProps.get(DRIVER_EXTRA_CLASSPATH));
-          if (extraDriverClasspath.isEmpty()) {
-            allProps.put(DRIVER_EXTRA_CLASSPATH, hiveHadoopTestClasspath);
-          } else {
-            extraDriverClasspath = extraDriverClasspath.endsWith(File.pathSeparator) ? extraDriverClasspath : extraDriverClasspath + File.pathSeparator;
-            allProps.put(DRIVER_EXTRA_CLASSPATH, extraDriverClasspath + hiveHadoopTestClasspath);
-          }
-
-          String extraExecutorClasspath = Strings.nullToEmpty((String)allProps.get(EXECUTOR_EXTRA_CLASSPATH));
-          if (extraExecutorClasspath.isEmpty()) {
-            allProps.put(EXECUTOR_EXTRA_CLASSPATH, hiveHadoopTestClasspath);
-          } else {
-            extraExecutorClasspath = extraExecutorClasspath.endsWith(File.pathSeparator) ? extraExecutorClasspath : extraExecutorClasspath + File.pathSeparator;
-            allProps.put(EXECUTOR_EXTRA_CLASSPATH, extraExecutorClasspath + hiveHadoopTestClasspath);
-          }
-        }
-      }
 
       Writer writer = new OutputStreamWriter(new FileOutputStream(properties), Charsets.UTF_8);
       try {
@@ -378,20 +357,8 @@ class SparkClientImpl implements LivyClient {
       argv.add("--remote-port");
       argv.add(serverPort);
 
-      // only set values already present in conf
-      for (String s : conf.keySet()) {
-        String val = conf.get(s);
-        argv.add("--conf");
-        argv.add(String.format("%s=%s", s, val));
-      }
-
       LOG.info("Running client driver with argv: {}", Joiner.on(" ").join(argv));
-
-      ProcessBuilder pb = new ProcessBuilder(argv.toArray(new String[argv.size()]));
-      if (isTesting != null) {
-        pb.environment().put("SPARK_TESTING", isTesting);
-      }
-      final Process child = pb.start();
+      final Process child = new ProcessBuilder(argv.toArray(new String[argv.size()])).start();
 
       int childId = childIdGenerator.incrementAndGet();
       redirect("stdout-redir-" + childId, child.getInputStream());
@@ -436,7 +403,7 @@ class SparkClientImpl implements LivyClient {
     <T extends Serializable> JobHandleImpl<T> submit(Job<T> job) {
       final String jobId = UUID.randomUUID().toString();
       final Promise<T> promise = driverRpc.createPromise();
-      final JobHandleImpl<T> handle = new JobHandleImpl<T>(SparkClientImpl.this, promise, jobId);
+      final JobHandleImpl<T> handle = new JobHandleImpl<T>(LocalClient.this, promise, jobId);
       jobs.put(jobId, handle);
 
       final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(new JobRequest(jobId, job));
