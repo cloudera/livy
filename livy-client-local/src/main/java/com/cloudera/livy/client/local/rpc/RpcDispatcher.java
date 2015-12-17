@@ -178,7 +178,7 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
     super.channelInactive(ctx);
   }
 
-  void registerRpc(long id, Promise promise, String type) {
+  void registerRpc(long id, Promise<?> promise, String type) {
     LOG.debug("[{}] Registered outstanding rpc {} ({}).", name(), id, type);
     rpcs.add(new OutstandingRpc(id, promise));
   }
@@ -190,11 +190,12 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
 
   private static class OutstandingRpc {
     final long id;
-    final Promise future;
+    final Promise<Object> future;
 
-    OutstandingRpc(long id, Promise future) {
+    @SuppressWarnings("unchecked")
+    OutstandingRpc(long id, Promise<?> future) {
       this.id = id;
-      this.future = future;
+      this.future = (Promise<Object>) future;
     }
   }
 

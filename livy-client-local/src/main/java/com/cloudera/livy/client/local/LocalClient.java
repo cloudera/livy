@@ -406,7 +406,8 @@ class LocalClient implements LivyClient {
       final JobHandleImpl<T> handle = new JobHandleImpl<T>(LocalClient.this, promise, jobId);
       jobs.put(jobId, handle);
 
-      final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(new JobRequest(jobId, job));
+      final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(
+        new JobRequest<T>(jobId, job));
       LOG.debug("Send JobRequest[{}].", jobId);
 
       // Link the RPC and the promise so that events from one are propagated to the other as
@@ -522,7 +523,6 @@ class LocalClient implements LivyClient {
   }
 
   private static class AddJarJob implements Job<Serializable> {
-    private static final long serialVersionUID = 1L;
 
     private final String path;
 
@@ -537,16 +537,12 @@ class LocalClient implements LivyClient {
     @Override
     public Serializable call(JobContext jc) throws Exception {
       jc.sc().addJar(path);
-      // Following remote job may refer to classes in this jar, and the remote job would be executed
-      // in a different thread, so we add this jar path to JobContext for further usage.
-      jc.getAddedJars().add(path);
       return null;
     }
 
   }
 
   private static class AddFileJob implements Job<Serializable> {
-    private static final long serialVersionUID = 1L;
 
     private final String path;
 
@@ -567,7 +563,6 @@ class LocalClient implements LivyClient {
   }
 
   private static class GetExecutorCountJob implements Job<Integer> {
-      private static final long serialVersionUID = 1L;
 
       @Override
       public Integer call(JobContext jc) throws Exception {
@@ -579,7 +574,6 @@ class LocalClient implements LivyClient {
   }
 
   private static class GetDefaultParallelismJob implements Job<Integer> {
-    private static final long serialVersionUID = 1L;
 
     @Override
     public Integer call(JobContext jc) throws Exception {

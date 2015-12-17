@@ -18,8 +18,6 @@
 package com.cloudera.livy.client.local;
 
 import java.io.File;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -39,8 +37,6 @@ class JobContextImpl implements JobContext {
 
   private final JavaSparkContext sc;
   private final ThreadLocal<MonitorCallback> monitorCb;
-  private final Map<String, List<JavaFutureAction<?>>> monitoredJobs;
-  private final Set<String> addedJars;
   private final File localTmpDir;
   private volatile SQLContext sqlctx;
   private volatile HiveContext hivectx;
@@ -49,8 +45,6 @@ class JobContextImpl implements JobContext {
   public JobContextImpl(JavaSparkContext sc, File localTmpDir) {
     this.sc = sc;
     this.monitorCb = new ThreadLocal<MonitorCallback>();
-    monitoredJobs = new ConcurrentHashMap<String, List<JavaFutureAction<?>>>();
-    addedJars = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
     this.localTmpDir = localTmpDir;
   }
 
@@ -103,19 +97,9 @@ class JobContextImpl implements JobContext {
   }
 
   @Override
-  public <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job, Set<Integer> cachedRDDIds) {
-    monitorCb.get().call(job, cachedRDDIds);
+  public <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job) {
+    monitorCb.get().call(job);
     return job;
-  }
-
-  @Override
-  public Map<String, List<JavaFutureAction<?>>> getMonitoredJobs() {
-    return monitoredJobs;
-  }
-
-  @Override
-  public Set<String> getAddedJars() {
-    return addedJars;
   }
 
   @Override
@@ -128,7 +112,6 @@ class JobContextImpl implements JobContext {
   }
 
   void stop() {
-    monitoredJobs.clear();
     sc.stop();
   }
 

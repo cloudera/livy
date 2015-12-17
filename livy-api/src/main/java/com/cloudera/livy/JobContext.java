@@ -49,32 +49,24 @@ public interface JobContext {
   JavaStreamingContext streamingctx();
 
   /**
-   * Creates the SparkStreaming Context using the batchDuration provided.
+   * Creates the SparkStreaming context.
    *
-   * @param batchDuration is time interval at which streaming data will be divided into batches
+   * @param batchDuration Time interval at which streaming data will be divided into batches,
+   *                      in milliseconds.
    */
   void createStreamingContext(long batchDuration);
 
-  /** Stops the SparkStreaming Context. */
+  /** Stops the SparkStreaming context. */
   void stopStreamingCtx();
 
   /**
    * Monitor a job. This allows job-related information (such as metrics) to be communicated
    * back to the client.
    *
+   * @param job The asynchronous job to monitor.
    * @return The job (unmodified).
    */
-  <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job, Set<Integer> cachedRDDIds);
-
-  /**
-   * Return a map from client job Id to corresponding JavaFutureActions.
-   */
-  Map<String, List<JavaFutureAction<?>>> getMonitoredJobs();
-
-  /**
-   * Return all added jar path which added through AddJarJob.
-   */
-  Set<String> getAddedJars();
+  <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job);
 
   /**
    * Returns a local tmp dir specific to the context

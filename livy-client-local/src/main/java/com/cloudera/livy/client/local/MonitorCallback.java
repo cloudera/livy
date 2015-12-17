@@ -17,12 +17,10 @@
 
 package com.cloudera.livy.client.local;
 
-import java.util.Set;
-
 import org.apache.spark.api.java.JavaFutureAction;
 
 interface MonitorCallback {
 
-  void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds);
+  void call(JavaFutureAction<?> future);
 
 }

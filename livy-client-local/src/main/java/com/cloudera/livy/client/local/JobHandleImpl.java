@@ -40,7 +40,7 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   private final MetricsCollection metrics;
   private final Promise<T> promise;
   private final List<Integer> sparkJobIds;
-  private final List<Listener> listeners;
+  private final List<Listener<T>> listeners;
   private volatile State state;
 
   JobHandleImpl(LocalClient client, Promise<T> promise, String jobId) {
@@ -116,7 +116,7 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   }
 
   @Override
-  public void addListener(Listener l) {
+  public void addListener(Listener<T> l) {
     synchronized (listeners) {
       listeners.add(l);
       // If current state is a final state, notify of Spark job IDs before notifying about the
@@ -168,7 +168,7 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
     synchronized (listeners) {
       if (newState.ordinal() > state.ordinal() && state.ordinal() < State.CANCELLED.ordinal()) {
         state = newState;
-        for (Listener l : listeners) {
+        for (Listener<T> l : listeners) {
           fireStateChange(newState, l);
         }
         return true;
@@ -180,13 +180,13 @@ class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
   void addSparkJobId(int sparkJobId) {
     synchronized (listeners) {
       sparkJobIds.add(sparkJobId);
-      for (Listener l : listeners) {
+      for (Listener<T> l : listeners) {
         l.onSparkJobStarted(this, sparkJobId);
       }
     }
   }
 
-  private void fireStateChange(State s, Listener l) {
+  private void fireStateChange(State s, Listener<T> l) {
     switch (s) {
     case SENT:
       break;

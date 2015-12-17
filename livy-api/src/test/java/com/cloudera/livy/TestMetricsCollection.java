@@ -166,7 +166,8 @@ public class TestMetricsCollection {
     assertEquals(expected, metrics.shuffleWriteMetrics.shuffleWriteTime);
   }
 
-  private <T> Set<T> setOf(T... items) {
+  @SafeVarargs
+  private final <T> Set<T> setOf(T... items) {
     return new HashSet<T>(Arrays.asList(items));
   }
 

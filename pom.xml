@@ -558,6 +558,7 @@
               <javacArg>${java.version}</javacArg>
               <javacArg>-target</javacArg>
               <javacArg>${java.version}</javacArg>
+              <javacArg>-Xlint:unchecked</javacArg>
             </javacArgs>
             <jvmArgs>
               <jvmArg>-Xms1024m</jvmArg>

@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -48,22 +47,9 @@ import org.apache.spark.JavaSparkListener;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.scheduler.SparkListenerApplicationEnd;
-import org.apache.spark.scheduler.SparkListenerApplicationStart;
-import org.apache.spark.scheduler.SparkListenerBlockManagerAdded;
-import org.apache.spark.scheduler.SparkListenerBlockManagerRemoved;
-import org.apache.spark.scheduler.SparkListenerEnvironmentUpdate;
-import org.apache.spark.scheduler.SparkListenerExecutorMetricsUpdate;
 import org.apache.spark.scheduler.SparkListenerJobEnd;
 import org.apache.spark.scheduler.SparkListenerJobStart;
-import org.apache.spark.scheduler.SparkListenerStageCompleted;
-import org.apache.spark.scheduler.SparkListenerStageSubmitted;
 import org.apache.spark.scheduler.SparkListenerTaskEnd;
-import org.apache.spark.scheduler.SparkListenerTaskGettingResult;
-import org.apache.spark.scheduler.SparkListenerTaskStart;
-import org.apache.spark.scheduler.SparkListenerUnpersistRDD;
-import org.apache.spark.scheduler.SparkListenerExecutorRemoved;
-import org.apache.spark.scheduler.SparkListenerExecutorAdded;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -166,9 +152,10 @@ public class RemoteDriver {
     });
 
     try {
-      LOG.info("Time start: "+System.currentTimeMillis());
+      long t1 = System.currentTimeMillis();
+      LOG.info("Starting Spark context at {}", t1);
       JavaSparkContext sc = new JavaSparkContext(conf);
-      LOG.info("Time end: "+System.currentTimeMillis());
+      LOG.info("Spark context finished initialization in {}ms", System.currentTimeMillis() - t1);
       sc.sc().addSparkListener(new ClientListener());
       synchronized (jcLock) {
         jc = new JobContextImpl(sc, localTmpDir);
@@ -184,9 +171,10 @@ public class RemoteDriver {
     }
 
     synchronized (jcLock) {
-      for (Iterator<JobWrapper<?>> it = jobQueue.iterator(); it.hasNext();) {
-        it.next().submit();
+      for (JobWrapper<?> job : jobQueue) {
+        job.submit();
       }
+      jobQueue.clear();
     }
   }
 
@@ -266,7 +254,7 @@ public class RemoteDriver {
 
     <T extends Serializable> void jobFinished(String jobId, T result, Throwable error) {
       LOG.debug("Send job({}) result to Client.", jobId);
-      clientRpc.call(new JobResult(jobId, result, error));
+      clientRpc.call(new JobResult<T>(jobId, result, error));
     }
 
     void jobStarted(String jobId) {
@@ -295,9 +283,9 @@ public class RemoteDriver {
       shutdown(null);
     }
 
-    private void handle(ChannelHandlerContext ctx, JobRequest msg) {
+    private void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
       LOG.info("Received job request {}", msg.id);
-      JobWrapper<?> wrapper = new JobWrapper<Serializable>(msg);
+      JobWrapper<?> wrapper = new JobWrapper<>(msg);
       activeJobs.put(msg.id, wrapper);
       submit(wrapper);
     }
@@ -318,7 +306,7 @@ public class RemoteDriver {
 
       jc.setMonitorCb(new MonitorCallback() {
         @Override
-        public void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds) {
+        public void call(JavaFutureAction<?> future) {
           throw new IllegalStateException(
             "JobContext.monitor() is not available for synchronous jobs.");
         }
@@ -337,7 +325,6 @@ public class RemoteDriver {
     private final BaseProtocol.JobRequest<T> req;
     private final List<JavaFutureAction<?>> jobs;
     private final AtomicInteger completed;
-    private Set<Integer> cachedRDDIds;
 
     private Future<?> future;
 
@@ -345,7 +332,6 @@ public class RemoteDriver {
       this.req = req;
       this.jobs = Lists.newArrayList();
       this.completed = new AtomicInteger();
-      this.cachedRDDIds = null;
     }
 
     @Override
@@ -355,8 +341,8 @@ public class RemoteDriver {
       try {
         jc.setMonitorCb(new MonitorCallback() {
           @Override
-          public void call(JavaFutureAction<?> future, Set<Integer> cachedRDDIds) {
-            monitorJob(future, cachedRDDIds);
+          public void call(JavaFutureAction<?> future) {
+            monitorJob(future);
           }
         });
 
@@ -385,7 +371,6 @@ public class RemoteDriver {
       } finally {
         jc.setMonitorCb(null);
         activeJobs.remove(req.id);
-        releaseCache();
       }
       return null;
     }
@@ -401,28 +386,8 @@ public class RemoteDriver {
       }
     }
 
-    /**
-     * Release cached RDDs as soon as the job is done.
-     * This is different from local Spark client so as
-     * to save a RPC call/trip, avoid passing cached RDD
-     * id information around. Otherwise, we can follow
-     * the local Spark client way to be consistent.
-     */
-    void releaseCache() {
-      if (cachedRDDIds != null) {
-        for (Integer cachedRDDId: cachedRDDIds) {
-          jc.sc().sc().unpersistRDD(cachedRDDId, false);
-        }
-      }
-    }
-
-    private void monitorJob(JavaFutureAction<?> job, Set<Integer> cachedRDDIds) {
+    private void monitorJob(JavaFutureAction<?> job) {
       jobs.add(job);
-      if (!jc.getMonitoredJobs().containsKey(req.id)) {
-        jc.getMonitoredJobs().put(req.id, new CopyOnWriteArrayList<JavaFutureAction<?>>());
-      }
-      jc.getMonitoredJobs().get(req.id).add(job);
-      this.cachedRDDIds = cachedRDDIds;
       protocol.jobSubmitted(req.id, job.jobIds().get(0));
     }
 
@@ -431,16 +396,6 @@ public class RemoteDriver {
   private class ClientListener extends JavaSparkListener {
 
     private final Map<Integer, Integer> stageToJobId = Maps.newHashMap();
-
-    @Override
-    public void onExecutorRemoved(SparkListenerExecutorRemoved removed) {
-
-    }
-
-    @Override
-    public void onExecutorAdded(SparkListenerExecutorAdded added) {
-
-    }
 
     @Override
     public void onJobStart(SparkListenerJobStart jobStart) {
@@ -489,39 +444,6 @@ public class RemoteDriver {
         }
       }
     }
-
-    @Override
-    public void onStageCompleted(SparkListenerStageCompleted stageCompleted) { }
-
-    @Override
-    public void onStageSubmitted(SparkListenerStageSubmitted stageSubmitted) { }
-
-    @Override
-    public void onTaskStart(SparkListenerTaskStart taskStart) { }
-
-    @Override
-    public void onTaskGettingResult(SparkListenerTaskGettingResult taskGettingResult) { }
-
-    @Override
-    public void onEnvironmentUpdate(SparkListenerEnvironmentUpdate environmentUpdate) { }
-
-    @Override
-    public void onBlockManagerAdded(SparkListenerBlockManagerAdded blockManagerAdded) { }
-
-    @Override
-    public void onBlockManagerRemoved(SparkListenerBlockManagerRemoved blockManagerRemoved) { }
-
-    @Override
-    public void onUnpersistRDD(SparkListenerUnpersistRDD unpersistRDD) { }
-
-    @Override
-    public void onApplicationStart(SparkListenerApplicationStart applicationStart) { }
-
-    @Override
-    public void onApplicationEnd(SparkListenerApplicationEnd applicationEnd) { }
-
-    @Override
-    public void onExecutorMetricsUpdate(SparkListenerExecutorMetricsUpdate executorMetricsUpdate) { }
 
     /**
      * Returns the client job ID for the given Spark job ID.
