@@ -9,10 +9,9 @@ Livy is an open source REST interface for interacting with Spark from anywhere. 
 * Can be used for submitting jobs from anywhere with REST
 * Does not require any code change to your programs
 
-The code is currently incubating in Hue but hopefully will eventually graduate in its top
-project. `Pull requests`_ are welcomed!
+`Pull requests`_ are welcomed!
 
-.. _Pull requests: https://github.com/cloudera/hue/pulls
+.. _Pull requests: https://github.com/cloudera/livy/pulls
 
 
 Quick Start
@@ -70,15 +69,11 @@ MacOS:
 Building Livy
 =============
 
-Livy is currently built by the `Hue Build System`_, it can also be built on
-it's own (aka without any other Hue dependency) with `Apache Maven`_. To
-checkout and build Livy, run:
+Livy is built using `Apache Maven`_. To checkout and build Livy, run:
 
 .. code:: shell
 
-    % git clone git@github.com:cloudera/hue.git
-    % cd hue
-    % cd apps/spark/java
+    % git clone git@github.com:cloudera/livy.git
     % mvn -DskipTests clean package
 
 By default Livy is built with the Cloudera distribution of Spark (currently
@@ -89,7 +84,6 @@ Spark 1.4.1, by compiling Livy with:
 
     % mvn -DskipTests -Dspark.version=1.4.1 clean package
 
-.. _Hue Build System: https://github.com/cloudera/hue/#getting-started
 .. _Apache Maven: http://maven.apache.org
 
 
@@ -146,7 +140,7 @@ In particular the ``YARN mode`` (default is ``local`` process for development) c
 
     livy.server.session.factory = yarn
 
-.. _livy-defaults.conf.template: https://github.com/cloudera/hue/blob/master/apps/spark/java/conf/livy-defaults.conf.template
+.. _livy-defaults.conf.template: https://github.com/cloudera/livy/blob/master/apps/spark/java/conf/livy-defaults.conf.template
 
 Spark Configuration
 ===================
@@ -171,7 +165,7 @@ read files that are accessible by the Livy Server process user. Among other thin
 allow a user to access the Livy TLS private key, Kerberos tickets, or more.
 
 .. _Spark configuration: https://spark.apache.org/docs/latest/configuration.html
-.. _spark-user-configurable-options.template: https://github.com/cloudera/hue/blob/master/apps/spark/java/conf/spark-user-configurable-options.template
+.. _spark-user-configurable-options.template: https://github.com/cloudera/livy/blob/master/apps/spark/java/conf/spark-user-configurable-options.template
 
 
 Spark Example
@@ -350,9 +344,10 @@ The PI example from before then can be run as:
 Community
 =========
 
- * User group: http://groups.google.com/a/cloudera.org/group/hue-user
- * Umbrella Jira: https://issues.cloudera.org/browse/HUE-2588
- * Pull requests: https://github.com/cloudera/hue/pulls
+ * User group: http://groups.google.com/a/cloudera.org/group/livy-user
+ * Dev group: http://groups.google.com/a/cloudera.org/group/livy-dev
+ * Jira: https://issues.cloudera.org/browse/LIVY
+ * Pull requests: https://github.com/cloudera/livy/pulls
 
 
 REST API
