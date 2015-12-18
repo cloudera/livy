@@ -1,118 +1,114 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <parent>
-        <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main_2.10</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
-
-    <artifactId>livy-assembly_2.10</artifactId>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.cloudera.livy</groupId>
+    <artifactId>livy-main_2.10</artifactId>
     <version>0.2.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
-    <properties>
-        <livy.jar.dir>scala-${scala.binary.version}</livy.jar.dir>
-        <livy.jar.basename>livy-assembly-${project.version}.jar</livy.jar.basename>
-        <livy.jar>${project.build.directory}/${livy.jar.dir}/${livy.jar.basename}</livy.jar>
-    </properties>
+  <artifactId>livy-assembly_2.10</artifactId>
+  <version>0.2.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
 
-    <dependencies>
+  <properties>
+    <install.dir>livy-server</install.dir>
+    <assembly.finalName>livy-server-${project.version}_${scala.binary.version}</assembly.finalName>
+  </properties>
 
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-repl_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+  <dependencies>
 
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-yarn_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-client-local_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-server_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-repl_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
-    </dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-yarn_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
-    <build>
-        <plugins>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-server_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-deploy-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
+  </dependencies>
 
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-install-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
+  <build>
+    <plugins>
 
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-dependencies</id>
+            <phase>package</phase>
+            <goals>
+              <goal>copy-dependencies</goal>
+            </goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/jars</outputDirectory>
+              <useSubDirectoryPerType>false</useSubDirectoryPerType>
+              <includeScope>runtime</includeScope>
+              <silent>true</silent>
+              <overWriteReleases>true</overWriteReleases>
+              <overWriteSnapshots>true</overWriteSnapshots>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
-                <configuration>
-                    <shadedArtifactAttached>false</shadedArtifactAttached>
-                    <outputFile>${livy.jar}</outputFile>
+      <plugin>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <configuration>
+          <appendAssemblyId>false</appendAssemblyId>
+          <descriptors>
+            <descriptor>assembly.xml</descriptor>
+          </descriptors>
+        </configuration>
+        <executions>
+          <execution>
+            <id>livy-assembly</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <finalName>${assembly.finalName}</finalName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
-                    <artifactSet>
-                        <includes>
-                            <include>*:*</include>
-                        </includes>
-                    </artifactSet>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
 
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>
-                                <exclude>META-INF/*.SF</exclude>
-                                <exclude>org/datanucleus/**</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
 
-                    <relocations>
-                        <relocation>
-                            <pattern>org.eclipse.jetty</pattern>
-                            <shadedPattern>com.cloudera.livy.jetty</shadedPattern>
-                            <excludes>
-                                <exclude>com/google/common/base/Absent*</exclude>
-                                <exclude>com/google/common/base/Function*</exclude>
-                                <exclude>com/google/common/base/Optional*</exclude>
-                                <exclude>com/google/common/base/Present*</exclude>
-                                <exclude>com/google/common/base/Supplier</exclude>
-                            </excludes>
-                        </relocation>
-                    </relocations>
-                </configuration>
-
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-        </plugins>
-    </build>
+    </plugins>
+  </build>
 
 </project>

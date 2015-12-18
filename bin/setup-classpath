@@ -16,16 +16,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ASSEMBLY_DIR="$LIVY_HOME/livy-assembly/target/scala-2.10"
-
-for f in $ASSEMBLY_DIR/livy-assembly-*.jar; do
-	ASSEMBLY_JAR="$f"
-done
-
-if [[ ! -f "$ASSEMBLY_JAR" ]]; then
-	echo "failed to find $ASSEMBLY_JAR" 1>&2
-	echo "you need to build Livy before running this program" 1>&2
-	exit 1
+LIBDIR="$LIVY_HOME/jars"
+if [ ! -d "$LIBDIR" ]; then
+  LIBDIR="$LIVY_HOME/livy-assembly/target/jars"
+fi
+if [ ! -d "$LIBDIR" ]; then
+  echo "Could not find Livy jars directory." 1>&2
+  exit 1
 fi
 
-CLASSPATH="$ASSEMBLY_JAR:$CLASSPATH"
+CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
