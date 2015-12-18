@@ -29,6 +29,7 @@ import java.io.Serializable;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -47,7 +48,6 @@ import com.google.common.io.Resources;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
-import org.apache.spark.SparkContext;
 import org.apache.spark.SparkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,12 +66,11 @@ class LocalClient implements LivyClient {
   private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
 
   private static final String OSX_TEST_OPTS = "SPARK_OSX_TEST_OPTS";
+  private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
   private static final String SPARK_HOME_KEY = "spark.home";
   private static final String DRIVER_OPTS_KEY = "spark.driver.extraJavaOptions";
   private static final String EXECUTOR_OPTS_KEY = "spark.executor.extraJavaOptions";
-  private static final String DRIVER_EXTRA_CLASSPATH = "spark.driver.extraClassPath";
-  private static final String EXECUTOR_EXTRA_CLASSPATH = "spark.executor.extraClassPath";
 
   private final LocalClientFactory factory;
   private final LocalConf conf;
@@ -347,11 +346,33 @@ class LocalClient implements LivyClient {
       argv.add(RemoteDriver.class.getName());
 
       String jar = "spark-internal";
-      if (SparkContext.jarOfClass(this.getClass()).isDefined()) {
-        jar = SparkContext.jarOfClass(this.getClass()).get();
-      }
-      argv.add(jar);
+      String livyJars = conf.get(LIVY_JARS);
+      if (livyJars == null) {
+        String livyHome = System.getenv("LIVY_HOME");
+        Preconditions.checkState(livyHome != null,
+          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key);
 
+        File clientJars = new File(livyHome, "client-jars");
+        Preconditions.checkState(clientJars.isDirectory(),
+          "Cannot find 'client-jars' directory under LIVY_HOME.");
+
+        List<String> jars = new ArrayList<>();
+        for (File f : clientJars.listFiles()) {
+          jars.add(f.getAbsolutePath());
+        }
+        livyJars = Joiner.on(",").join(jars);
+      }
+
+      String userJars = conf.get(SPARK_JARS_KEY);
+      if (userJars != null) {
+        String allJars = Joiner.on(",").join(livyJars, userJars);
+        conf.set(SPARK_JARS_KEY, allJars);
+      } else {
+        argv.add("--jars");
+        argv.add(livyJars);
+      }
+
+      argv.add(jar);
       argv.add("--remote-host");
       argv.add(serverAddress);
       argv.add("--remote-port");
