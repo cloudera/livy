@@ -548,6 +548,7 @@
             <scalaVersion>${scala.version}</scalaVersion>
             <recompileMode>incremental</recompileMode>
             <useZincServer>true</useZincServer>
+            <checkMultipleScalaVersions>false</checkMultipleScalaVersions>
             <args>
               <arg>-unchecked</arg>
               <arg>-deprecation</arg>

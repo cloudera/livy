@@ -84,10 +84,14 @@ class InteractiveSessionServletSpec extends ScalatraSuite with FunSpecLike {
   class MockInteractiveSessionFactory(processFactory: SparkProcessBuilderFactory)
     extends InteractiveSessionFactory(processFactory) {
 
+    override def create(id: Int, request: CreateInteractiveRequest): InteractiveSession = {
+      new MockInteractiveSession(id)
+    }
+
     protected override def create(id: Int,
                                   process: SparkProcess,
                                   request: CreateInteractiveRequest): InteractiveSession = {
-      new MockInteractiveSession(id)
+      throw new UnsupportedOperationException()
     }
   }
 
