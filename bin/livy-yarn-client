@@ -22,7 +22,7 @@ set -e
 
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
 
-CLASSPATH="$LIVY_HOME/livy-server/target/lib/*:$LIVY_HOME/livy-server/target/livy-server-3.7.0-SNAPSHOT.jar:`hadoop classpath`:$CLASSPATH"
+CLASSPATH="$LIVY_HOME/server/target/lib/*:$LIVY_HOME/server/target/livy-server-3.7.0-SNAPSHOT.jar:`hadoop classpath`:$CLASSPATH"
 
 exec java \
 	-cp "$CLASSPATH" \
