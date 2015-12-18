@@ -62,6 +62,8 @@ public class LocalConf extends Configuration {
     CLIENT_SECRET("client.auth.secret", null),
     CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", null),
 
+    LIVY_JARS("jars", null),
+
     RPC_SERVER_ADDRESS("rpc.server.address", null),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90000ms"),
     RPC_CLIENT_CONNECT_TIMEOUT("client.connect.timeout", "10000ms"),

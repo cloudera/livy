@@ -74,6 +74,7 @@ public class TestSparkClient {
       conf.put("spark.app.name", "SparkClientSuite Remote App");
       conf.put("spark.driver.extraClassPath", classpath);
       conf.put("spark.executor.extraClassPath", classpath);
+      conf.put(LIVY_JARS.key, "");
     }
 
     return conf;
