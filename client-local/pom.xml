@@ -35,6 +35,11 @@
       <artifactId>livy-api_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <dependency>
       <groupId>com.esotericsoftware.kryo</groupId>
@@ -89,15 +94,6 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <scope>provided</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.mockito</groupId>
-      <artifactId>mockito-all</artifactId>
     </dependency>
   </dependencies>
 

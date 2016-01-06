@@ -17,7 +17,6 @@
 
 package com.cloudera.livy;
 
-import java.io.Serializable;
 import java.net.URI;
 import java.util.concurrent.Future;
 
@@ -32,7 +31,7 @@ public interface LivyClient {
    * @param job The job to execute.
    * @return A handle that be used to monitor the job.
    */
-  <T extends Serializable> JobHandle<T> submit(Job<T> job);
+  <T> JobHandle<T> submit(Job<T> job);
 
   String clientId();
 
@@ -51,7 +50,7 @@ public interface LivyClient {
    * @param job The job to execute.
    * @return A future to monitor the result of the job.
    */
-  <T extends Serializable> Future<T> run(Job<T> job);
+  <T> Future<T> run(Job<T> job);
 
   /**
    * Stops the remote context.

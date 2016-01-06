@@ -15,33 +15,28 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.metrics;
+package com.cloudera.livy.client.common;
 
-import org.apache.spark.executor.TaskMetrics;
+import java.nio.ByteBuffer;
+
+import com.cloudera.livy.annotations.Private;
 
 /**
- * Metrics pertaining to reading input data.
+ * Utility methods for dealing with byte buffers and byte arrays.
  */
-public class InputMetrics {
+@Private
+public class BufferUtils {
 
-  public final DataReadMethod readMethod;
-  public final long bytesRead;
-
-  private InputMetrics() {
-    // For Serialization only.
-    this(null, 0L);
-  }
-
-  public InputMetrics(
-      DataReadMethod readMethod,
-      long bytesRead) {
-    this.readMethod = readMethod;
-    this.bytesRead = bytesRead;
-  }
-
-  public InputMetrics(TaskMetrics metrics) {
-    this(DataReadMethod.valueOf(metrics.inputMetrics().get().readMethod().toString()),
-      metrics.inputMetrics().get().bytesRead());
+  public static byte[] toByteArray(ByteBuffer buf) {
+    byte[] bytes;
+    if (buf.hasArray() && buf.arrayOffset() == 0 &&
+        buf.remaining() == buf.array().length) {
+      bytes = buf.array();
+    } else {
+      bytes = new byte[buf.remaining()];
+      buf.get(bytes);
+    }
+    return bytes;
   }
 
 }

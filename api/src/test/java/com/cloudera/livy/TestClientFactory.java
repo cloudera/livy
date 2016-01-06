@@ -17,7 +17,6 @@
 
 package com.cloudera.livy;
 
-import java.io.Serializable;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.Future;
@@ -47,7 +46,7 @@ public class TestClientFactory implements LivyClientFactory {
     }
 
     @Override
-    public <T extends Serializable> JobHandle<T> submit(Job<T> job) {
+    public <T> JobHandle<T> submit(Job<T> job) {
       throw new UnsupportedOperationException();
     }
 
@@ -57,7 +56,7 @@ public class TestClientFactory implements LivyClientFactory {
     }
 
     @Override
-    public <T extends Serializable> Future<T> run(Job<T> job) {
+    public <T> Future<T> run(Job<T> job) {
       throw new UnsupportedOperationException();
     }
 

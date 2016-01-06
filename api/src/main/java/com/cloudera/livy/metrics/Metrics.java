@@ -17,8 +17,6 @@
 
 package com.cloudera.livy.metrics;
 
-import java.io.Serializable;
-
 import org.apache.spark.executor.TaskMetrics;
 
 /**
@@ -27,7 +25,7 @@ import org.apache.spark.executor.TaskMetrics;
  * Depending on how the metrics object is obtained (by calling methods in the `MetricsCollection`
  * class), metrics will refer to one or more tasks.
  */
-public class Metrics implements Serializable {
+public class Metrics {
 
   /** Time taken on the executor to deserialize tasks. */
   public final long executorDeserializeTime;

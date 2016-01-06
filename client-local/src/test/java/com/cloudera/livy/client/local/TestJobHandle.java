@@ -17,8 +17,6 @@
 
 package com.cloudera.livy.client.local;
 
-import java.io.Serializable;
-
 import io.netty.util.concurrent.Promise;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,13 +32,13 @@ import com.cloudera.livy.JobHandle;
 public class TestJobHandle {
 
   @Mock private LocalClient client;
-  @Mock private Promise<Serializable> promise;
-  @Mock private JobHandle.Listener<Serializable> listener;
-  @Mock private JobHandle.Listener<Serializable> listener2;
+  @Mock private Promise<Object> promise;
+  @Mock private JobHandle.Listener<Object> listener;
+  @Mock private JobHandle.Listener<Object> listener2;
 
   @Test
   public void testStateChanges() throws Exception {
-    JobHandleImpl<Serializable> handle = new JobHandleImpl<Serializable>(client, promise, "job");
+    JobHandleImpl<Object> handle = new JobHandleImpl<Object>(client, promise, "job");
     handle.addListener(listener);
 
     assertTrue(handle.changeState(JobHandle.State.QUEUED));
@@ -62,7 +60,7 @@ public class TestJobHandle {
 
   @Test
   public void testFailedJob() throws Exception {
-    JobHandleImpl<Serializable> handle = new JobHandleImpl<Serializable>(client, promise, "job");
+    JobHandleImpl<Object> handle = new JobHandleImpl<Object>(client, promise, "job");
     handle.addListener(listener);
 
     Throwable cause = new Exception();
@@ -75,10 +73,10 @@ public class TestJobHandle {
 
   @Test
   public void testSucceededJob() throws Exception {
-    JobHandleImpl<Serializable> handle = new JobHandleImpl<Serializable>(client, promise, "job");
+    JobHandleImpl<Object> handle = new JobHandleImpl<Object>(client, promise, "job");
     handle.addListener(listener);
 
-    Serializable result = new Exception();
+    Object result = new Exception();
     when(promise.get()).thenReturn(result);
 
     assertTrue(handle.changeState(JobHandle.State.SUCCEEDED));
@@ -88,7 +86,7 @@ public class TestJobHandle {
 
   @Test
   public void testImmediateCallback() throws Exception {
-    JobHandleImpl<Serializable> handle = new JobHandleImpl<Serializable>(client, promise, "job");
+    JobHandleImpl<Object> handle = new JobHandleImpl<Object>(client, promise, "job");
     assertTrue(handle.changeState(JobHandle.State.QUEUED));
     handle.addListener(listener);
     verify(listener).onJobQueued(handle);

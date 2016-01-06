@@ -23,6 +23,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -55,6 +56,7 @@ import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientBuilder;
 import com.cloudera.livy.MetricsCollection;
+import com.cloudera.livy.client.common.Serializer;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class TestSparkClient {
@@ -288,7 +290,38 @@ public class TestSparkClient {
     });
   }
 
-  private <T extends Serializable> JobHandle.Listener<T> newListener() {
+  @Test
+  public void testBypass() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      public void call(LivyClient client) throws Exception {
+        Serializer s = new Serializer();
+        LocalClient lclient = (LocalClient) client;
+        ByteBuffer job = s.serialize(new SparkJob());
+        JobHandle<byte[]> handle = lclient.bypass(job);
+        byte[] result = handle.get(TIMEOUT, TimeUnit.SECONDS);
+        Long resultVal = (Long) s.deserialize(ByteBuffer.wrap(result));
+        assertEquals(Long.valueOf(5L), resultVal);
+      }
+    });
+  }
+
+  @Test
+  public void testBypassSync() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      public void call(LivyClient client) throws Exception {
+        Serializer s = new Serializer();
+        LocalClient lclient = (LocalClient) client;
+        ByteBuffer job = s.serialize(new SparkJob());
+        byte[] result = lclient.bypassSync(job).get(TIMEOUT, TimeUnit.SECONDS);
+        Long resultVal = (Long) s.deserialize(ByteBuffer.wrap(result));
+        assertEquals(Long.valueOf(5L), resultVal);
+      }
+    });
+  }
+
+  private <T> JobHandle.Listener<T> newListener() {
     @SuppressWarnings("unchecked")
     JobHandle.Listener<T> listener =
       (JobHandle.Listener<T>) mock(JobHandle.Listener.class);

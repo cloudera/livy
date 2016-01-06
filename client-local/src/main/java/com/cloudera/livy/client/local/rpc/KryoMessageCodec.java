@@ -32,9 +32,10 @@ import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.cloudera.livy.client.common.Serializer;
 
 /**
  * Codec that serializes / deserializes objects using Kryo. Objects are encoded with a 4-byte
@@ -44,31 +45,13 @@ class KryoMessageCodec extends ByteToMessageCodec<Object> {
 
   private static final Logger LOG = LoggerFactory.getLogger(KryoMessageCodec.class);
 
-  // Kryo docs say 0-8 are taken. Strange things happen if you don't set an ID when registering
-  // classes.
-  private static final int REG_ID_BASE = 16;
-
   private final int maxMessageSize;
-  private final List<Class<?>> messages;
-  private final ThreadLocal<Kryo> kryos = new ThreadLocal<Kryo>() {
-    @Override
-    protected Kryo initialValue() {
-      Kryo kryo = new Kryo();
-      int count = 0;
-      for (Class<?> klass : messages) {
-        kryo.register(klass, REG_ID_BASE + count);
-        count++;
-      }
-      kryo.setInstantiatorStrategy(new StdInstantiatorStrategy());
-      return kryo;
-    }
-  };
-
+  private final Serializer serializer;
   private volatile EncryptionHandler encryptionHandler;
 
   public KryoMessageCodec(int maxMessageSize, Class<?>... messages) {
     this.maxMessageSize = maxMessageSize;
-    this.messages = Arrays.asList(messages);
+    this.serializer = new Serializer(messages);
     this.encryptionHandler = null;
   }
 
@@ -91,9 +74,7 @@ class KryoMessageCodec extends ByteToMessageCodec<Object> {
 
     try {
       ByteBuffer nioBuffer = maybeDecrypt(in.nioBuffer(in.readerIndex(), msgSize));
-      Input kryoIn = new Input(new ByteBufferInputStream(nioBuffer));
-
-      Object msg = kryos.get().readClassAndObject(kryoIn);
+      Object msg = serializer.deserialize(nioBuffer);
       LOG.debug("Decoded message of type {} ({} bytes)",
           msg != null ? msg.getClass().getName() : msg, msgSize);
       out.add(msg);
@@ -105,17 +86,13 @@ class KryoMessageCodec extends ByteToMessageCodec<Object> {
   @Override
   protected void encode(ChannelHandlerContext ctx, Object msg, ByteBuf buf)
       throws Exception {
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    Output kryoOut = new Output(bytes);
-    kryos.get().writeClassAndObject(kryoOut, msg);
-    kryoOut.flush();
+    ByteBuffer msgData = maybeEncrypt(serializer.serialize(msg));
+    LOG.debug("Encoded message of type {} ({} bytes)", msg.getClass().getName(),
+      msgData.remaining());
+    checkSize(msgData.remaining());
 
-    byte[] msgData = maybeEncrypt(bytes.toByteArray());
-    LOG.debug("Encoded message of type {} ({} bytes)", msg.getClass().getName(), msgData.length);
-    checkSize(msgData.length);
-
-    buf.ensureWritable(msgData.length + 4);
-    buf.writeInt(msgData.length);
+    buf.ensureWritable(msgData.remaining() + 4);
+    buf.writeInt(msgData.remaining());
     buf.writeBytes(msgData);
   }
 
@@ -133,28 +110,39 @@ class KryoMessageCodec extends ByteToMessageCodec<Object> {
         "Message (%s bytes) exceeds maximum allowed size (%s bytes).", msgSize, maxMessageSize);
   }
 
-  private byte[] maybeEncrypt(byte[] data) throws Exception {
-    return (encryptionHandler != null) ? encryptionHandler.wrap(data, 0, data.length) : data;
+  private ByteBuffer maybeEncrypt(ByteBuffer data) throws Exception {
+    return doWrapOrUnWrap(data, true);
   }
 
   private ByteBuffer maybeDecrypt(ByteBuffer data) throws Exception {
-    if (encryptionHandler != null) {
-      byte[] encrypted;
-      int len = data.limit() - data.position();
-      int offset;
-      if (data.hasArray()) {
-        encrypted = data.array();
-        offset = data.position() + data.arrayOffset();
-        data.position(data.limit());
-      } else {
-        encrypted = new byte[len];
-        offset = 0;
-        data.get(encrypted);
-      }
-      return ByteBuffer.wrap(encryptionHandler.unwrap(encrypted, offset, len));
-    } else {
+    return doWrapOrUnWrap(data, false);
+  }
+
+  private ByteBuffer doWrapOrUnWrap(ByteBuffer data, boolean wrap) throws IOException {
+    if (encryptionHandler == null) {
       return data;
     }
+
+    byte[] byteData;
+    int len = data.limit() - data.position();
+    int offset;
+    if (data.hasArray()) {
+      byteData = data.array();
+      offset = data.position() + data.arrayOffset();
+      data.position(data.limit());
+    } else {
+      byteData = new byte[len];
+      offset = 0;
+      data.get(byteData);
+    }
+
+    byte[] result;
+    if (wrap) {
+      result = encryptionHandler.wrap(byteData, offset, len);
+    } else {
+      result = encryptionHandler.unwrap(byteData, offset, len);
+    }
+    return ByteBuffer.wrap(result);
   }
 
   void setEncryptionHandler(EncryptionHandler handler) {

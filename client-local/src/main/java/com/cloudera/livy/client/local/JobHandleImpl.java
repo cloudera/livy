@@ -17,7 +17,6 @@
 
 package com.cloudera.livy.client.local;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -33,7 +32,7 @@ import com.cloudera.livy.MetricsCollection;
 /**
  * A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
  */
-class JobHandleImpl<T extends Serializable> implements JobHandle<T> {
+class JobHandleImpl<T> implements JobHandle<T> {
 
   private final LocalClient client;
   private final String jobId;

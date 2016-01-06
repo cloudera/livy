@@ -30,4 +30,3 @@ Future work:
 
 - Random initial RPC id + id wrapping.
 - SSL / security in general.
-- Remove "Serializable" from the API. Not needed with kryo.

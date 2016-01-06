@@ -22,7 +22,7 @@ import java.io.Serializable;
 /**
  * Interface for a Spark remote job.
  */
-public interface Job<T extends Serializable> extends Serializable {
+public interface Job<T> extends Serializable {
 
   T call(JobContext jc) throws Exception;
 

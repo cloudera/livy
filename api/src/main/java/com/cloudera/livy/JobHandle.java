@@ -17,14 +17,13 @@
 
 package com.cloudera.livy;
 
-import java.io.Serializable;
 import java.util.List;
 import java.util.concurrent.Future;
 
 /**
  * A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
  */
-public interface JobHandle<T extends Serializable> extends Future<T> {
+public interface JobHandle<T> extends Future<T> {
 
   /**
    * The client job ID. This is unrelated to any Spark jobs that might be triggered by the
@@ -74,7 +73,7 @@ public interface JobHandle<T extends Serializable> extends Future<T> {
    * A listener for monitoring the state of the job in the remote context. Callbacks are called
    * when the corresponding state change occurs.
    */
-  static interface Listener<T extends Serializable> {
+  static interface Listener<T> {
 
     void onJobQueued(JobHandle<T> job);
 

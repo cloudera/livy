@@ -17,14 +17,12 @@
 
 package com.cloudera.livy.metrics;
 
-import java.io.Serializable;
-
 import org.apache.spark.executor.TaskMetrics;
 
 /**
  * Metrics pertaining to reading shuffle data.
  */
-public class ShuffleReadMetrics implements Serializable {
+public class ShuffleReadMetrics {
 
   /** Number of remote blocks fetched in shuffles by tasks. */
   public final int remoteBlocksFetched;

@@ -25,10 +25,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Serializable;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +56,7 @@ import com.cloudera.livy.Job;
 import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
+import com.cloudera.livy.client.common.BufferUtils;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.client.local.rpc.RpcServer;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
@@ -126,12 +127,12 @@ class LocalClient implements LivyClient {
   }
 
   @Override
-  public <T extends Serializable> JobHandle<T> submit(Job<T> job) {
+  public <T> JobHandle<T> submit(Job<T> job) {
     return protocol.submit(job);
   }
 
   @Override
-  public <T extends Serializable> Future<T> run(Job<T> job) {
+  public <T> Future<T> run(Job<T> job) {
     return protocol.run(job);
   }
 
@@ -169,6 +170,14 @@ class LocalClient implements LivyClient {
   @Override
   public Future<?> addFile(URI uri) {
     return run(new AddFileJob(uri.toString()));
+  }
+
+  public JobHandle<byte[]> bypass(ByteBuffer serializedJob) {
+    return protocol.bypass(serializedJob);
+  }
+
+  public Future<byte[]> bypassSync(ByteBuffer serializedJob) {
+    return protocol.bypassSync(serializedJob);
   }
 
   void cancel(String jobId) {
@@ -421,14 +430,13 @@ class LocalClient implements LivyClient {
 
   private class ClientProtocol extends BaseProtocol {
 
-    <T extends Serializable> JobHandleImpl<T> submit(Job<T> job) {
-      final String jobId = UUID.randomUUID().toString();
-      final Promise<T> promise = driverRpc.createPromise();
-      final JobHandleImpl<T> handle = new JobHandleImpl<T>(LocalClient.this, promise, jobId);
+    private JobHandleImpl<?> sendJob(final String jobId, Object msg) {
+      final Promise<Object> promise = driverRpc.createPromise();
+      final JobHandleImpl<Object> handle = new JobHandleImpl<Object>(LocalClient.this,
+        promise, jobId);
       jobs.put(jobId, handle);
 
-      final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(
-        new JobRequest<T>(jobId, job));
+      final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(msg);
       LOG.debug("Send JobRequest[{}].", jobId);
 
       // Link the RPC and the promise so that events from one are propagated to the other as
@@ -443,9 +451,9 @@ class LocalClient implements LivyClient {
           }
         }
       });
-      promise.addListener(new GenericFutureListener<Promise<T>>() {
+      promise.addListener(new GenericFutureListener<Promise<Object>>() {
         @Override
-        public void operationComplete(Promise<T> p) {
+        public void operationComplete(Promise<Object> p) {
           if (jobId != null) {
             jobs.remove(jobId);
           }
@@ -457,11 +465,32 @@ class LocalClient implements LivyClient {
       return handle;
     }
 
-    <T extends Serializable> Future<T> run(Job<T> job) {
+    <T> JobHandleImpl<T> submit(Job<T> job) {
+      String jobId = UUID.randomUUID().toString();
+      Object msg = new JobRequest<T>(jobId, job);
+      @SuppressWarnings("unchecked")
+      JobHandleImpl<T> handle = (JobHandleImpl<T>) sendJob(jobId, msg);
+      return handle;
+    }
+
+    <T> Future<T> run(Job<T> job) {
       @SuppressWarnings("unchecked")
       final io.netty.util.concurrent.Future<T> rpc = (io.netty.util.concurrent.Future<T>)
-        driverRpc.call(new SyncJobRequest(job), Serializable.class);
+        driverRpc.call(new SyncJobRequest(job), Object.class);
       return rpc;
+    }
+
+    JobHandleImpl<byte[]> bypass(ByteBuffer serializedJob) {
+      String jobId = UUID.randomUUID().toString();
+      Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob));
+      @SuppressWarnings("unchecked")
+      JobHandleImpl<byte[]> handle = (JobHandleImpl<byte[]>) sendJob(jobId, msg);
+      return handle;
+    }
+
+    Future<byte[]> bypassSync(ByteBuffer serializedJob) {
+      return driverRpc.call(new BypassSyncJob(BufferUtils.toByteArray(serializedJob)),
+        byte[].class);
     }
 
     void cancel(String jobId) {
@@ -543,7 +572,7 @@ class LocalClient implements LivyClient {
 
   }
 
-  private static class AddJarJob implements Job<Serializable> {
+  private static class AddJarJob implements Job<Object> {
 
     private final String path;
 
@@ -556,14 +585,14 @@ class LocalClient implements LivyClient {
     }
 
     @Override
-    public Serializable call(JobContext jc) throws Exception {
+    public Object call(JobContext jc) throws Exception {
       jc.sc().addJar(path);
       return null;
     }
 
   }
 
-  private static class AddFileJob implements Job<Serializable> {
+  private static class AddFileJob implements Job<Object> {
 
     private final String path;
 
@@ -576,30 +605,11 @@ class LocalClient implements LivyClient {
     }
 
     @Override
-    public Serializable call(JobContext jc) throws Exception {
+    public Object call(JobContext jc) throws Exception {
       jc.sc().addFile(path);
       return null;
     }
 
-  }
-
-  private static class GetExecutorCountJob implements Job<Integer> {
-
-      @Override
-      public Integer call(JobContext jc) throws Exception {
-        // minus 1 here otherwise driver is also counted as an executor
-        int count = jc.sc().sc().getExecutorMemoryStatus().size() - 1;
-        return Integer.valueOf(count);
-      }
-
-  }
-
-  private static class GetDefaultParallelismJob implements Job<Integer> {
-
-    @Override
-    public Integer call(JobContext jc) throws Exception {
-      return jc.sc().sc().defaultParallelism();
-    }
   }
 
 }

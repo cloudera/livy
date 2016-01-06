@@ -17,8 +17,6 @@
 
 package com.cloudera.livy.client.local;
 
-import java.io.Serializable;
-
 import com.google.common.base.Throwables;
 
 import com.cloudera.livy.Job;
@@ -27,7 +25,7 @@ import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 
 abstract class BaseProtocol extends RpcDispatcher {
 
-  protected static class CancelJob implements Serializable {
+  protected static class CancelJob {
 
     final String id;
 
@@ -41,11 +39,11 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class EndSession implements Serializable {
+  protected static class EndSession {
 
   }
 
-  protected static class Error implements Serializable {
+  protected static class Error {
 
     final String cause;
 
@@ -63,7 +61,7 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class JobMetrics implements Serializable {
+  protected static class JobMetrics {
 
     final String jobId;
     final int sparkJobId;
@@ -85,7 +83,23 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class JobRequest<T extends Serializable> implements Serializable {
+  protected static class BypassJobRequest {
+
+    final String id;
+    final byte[] serializedJob;
+
+    BypassJobRequest(String id, byte[] serializedJob) {
+      this.id = id;
+      this.serializedJob = serializedJob;
+    }
+
+    BypassJobRequest() {
+      this(null, null);
+    }
+
+  }
+
+  protected static class JobRequest<T> {
 
     final String id;
     final Job<T> job;
@@ -101,7 +115,7 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class JobResult<T extends Serializable> implements Serializable {
+  protected static class JobResult<T> {
 
     final String id;
     final T result;
@@ -119,7 +133,7 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class JobStarted implements Serializable {
+  protected static class JobStarted {
 
     final String id;
 
@@ -136,7 +150,7 @@ abstract class BaseProtocol extends RpcDispatcher {
   /**
    * Inform the client that a new spark job has been submitted for the client job.
    */
-  protected static class JobSubmitted implements Serializable {
+  protected static class JobSubmitted {
     final String clientJobId;
     final int sparkJobId;
 
@@ -150,7 +164,7 @@ abstract class BaseProtocol extends RpcDispatcher {
     }
   }
 
-  protected static class SyncJobRequest<T extends Serializable> implements Serializable {
+  protected static class SyncJobRequest<T> {
 
     final Job<T> job;
 
@@ -159,6 +173,20 @@ abstract class BaseProtocol extends RpcDispatcher {
     }
 
     SyncJobRequest() {
+      this(null);
+    }
+
+  }
+
+  protected static class BypassSyncJob {
+
+    final byte[] serializedJob;
+
+    BypassSyncJob(byte[] serializedJob) {
+      this.serializedJob = serializedJob;
+    }
+
+    BypassSyncJob() {
       this(null);
     }
 

@@ -19,7 +19,7 @@ package com.cloudera.livy.client.local;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +53,10 @@ import org.apache.spark.scheduler.SparkListenerTaskEnd;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.Job;
+import com.cloudera.livy.JobContext;
+import com.cloudera.livy.client.common.BufferUtils;
+import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.metrics.Metrics;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
@@ -73,6 +77,7 @@ public class RemoteDriver {
   private final DriverProtocol protocol;
   // a local temp dir specific to this driver
   private final File localTmpDir;
+  private final Serializer serializer;
 
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
@@ -136,6 +141,7 @@ public class RemoteDriver {
             .setNameFormat("Driver-RPC-Handler-%d")
             .setDaemon(true)
             .build());
+    this.serializer = new Serializer();
     this.protocol = new DriverProtocol();
 
     // The RPC library takes care of timing out this.
@@ -252,7 +258,7 @@ public class RemoteDriver {
       clientRpc.call(new java.lang.Error(error));
     }
 
-    <T extends Serializable> void jobFinished(String jobId, T result, Throwable error) {
+    <T> void jobFinished(String jobId, T result, Throwable error) {
       LOG.debug("Send job({}) result to Client.", jobId);
       clientRpc.call(new JobResult<T>(jobId, result, error));
     }
@@ -285,12 +291,29 @@ public class RemoteDriver {
 
     private void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
       LOG.info("Received job request {}", msg.id);
-      JobWrapper<?> wrapper = new JobWrapper<>(msg);
+      JobWrapper<?> wrapper = new JobWrapper<>(msg.id, msg.job);
       activeJobs.put(msg.id, wrapper);
       submit(wrapper);
     }
 
+    private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) {
+      LOG.info("Received bypass job request {}", msg.id);
+      JobWrapper<?> wrapper = new JobWrapper<>(msg.id, new BypassJob(msg.serializedJob));
+      activeJobs.put(msg.id, wrapper);
+      submit(wrapper);
+    }
+
+    @SuppressWarnings("unchecked")
     private Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
+      return  runSyncJob(msg.job);
+    }
+
+    private byte[] handle(ChannelHandlerContext ctx, BypassSyncJob msg) throws Exception {
+      Job<byte[]> job = new BypassJob(msg.serializedJob);
+      return runSyncJob(job);
+    }
+
+    private <T> T runSyncJob(Job<T> job) throws Exception {
       // In case the job context is not up yet, let's wait, since this is supposed to be a
       // "synchronous" RPC.
       if (jc == null) {
@@ -312,7 +335,7 @@ public class RemoteDriver {
         }
       });
       try {
-        return msg.job.call(jc);
+        return job.call(jc);
       } finally {
         jc.setMonitorCb(null);
       }
@@ -320,23 +343,25 @@ public class RemoteDriver {
 
   }
 
-  private class JobWrapper<T extends Serializable> implements Callable<Void> {
+  private class JobWrapper<T> implements Callable<Void> {
 
-    private final BaseProtocol.JobRequest<T> req;
+    private final String jobId;
+    private final Job<T> job;
     private final List<JavaFutureAction<?>> jobs;
     private final AtomicInteger completed;
 
     private Future<?> future;
 
-    JobWrapper(BaseProtocol.JobRequest<T> req) {
-      this.req = req;
+    JobWrapper(String jobId, Job<T> job) {
+      this.jobId = jobId;
+      this.job = job;
       this.jobs = Lists.newArrayList();
       this.completed = new AtomicInteger();
     }
 
     @Override
     public Void call() throws Exception {
-      protocol.jobStarted(req.id);
+      protocol.jobStarted(jobId);
 
       try {
         jc.setMonitorCb(new MonitorCallback() {
@@ -346,11 +371,11 @@ public class RemoteDriver {
           }
         });
 
-        T result = req.job.call(jc);
+        T result = job.call(jc);
         synchronized (completed) {
           while (completed.get() < jobs.size()) {
             LOG.debug("Client job {} finished, {} of {} Spark jobs finished.",
-                req.id, completed.get(), jobs.size());
+                jobId, completed.get(), jobs.size());
             completed.wait();
           }
         }
@@ -360,17 +385,17 @@ public class RemoteDriver {
         for (JavaFutureAction<?> future : jobs) {
           future.get();
         }
-        protocol.jobFinished(req.id, result, null);
+        protocol.jobFinished(jobId, result, null);
       } catch (Throwable t) {
         // Catch throwables in a best-effort to report job status back to the client. It's
         // re-thrown so that the executor can destroy the affected thread (or the JVM can
         // die or whatever would happen if the throwable bubbled up).
-        LOG.info("Failed to run job " + req.id, t);
-        protocol.jobFinished(req.id, null, t);
+        LOG.info("Failed to run job " + jobId, t);
+        protocol.jobFinished(jobId, null, t);
         throw new ExecutionException(t);
       } finally {
         jc.setMonitorCb(null);
-        activeJobs.remove(req.id);
+        activeJobs.remove(jobId);
       }
       return null;
     }
@@ -388,7 +413,7 @@ public class RemoteDriver {
 
     private void monitorJob(JavaFutureAction<?> job) {
       jobs.add(job);
-      protocol.jobSubmitted(req.id, job.jobIds().get(0));
+      protocol.jobSubmitted(jobId, job.jobIds().get(0));
     }
 
   }
@@ -460,6 +485,30 @@ public class RemoteDriver {
         }
       }
       return null;
+    }
+
+  }
+
+  private class BypassJob implements Job<byte[]> {
+
+    private final byte[] serializedJob;
+
+    BypassJob(byte[] serializedJob) {
+      this.serializedJob = serializedJob;
+    }
+
+    @Override
+    public byte[] call(JobContext jc) throws Exception {
+      Job<?> job = (Job<?>) serializer.deserialize(ByteBuffer.wrap(serializedJob));
+      Object result = job.call(jc);
+      byte[] serializedResult;
+      if (result != null) {
+        ByteBuffer data = serializer.serialize(result);
+        serializedResult = BufferUtils.toByteArray(data);
+      } else {
+        serializedResult = null;
+      }
+      return serializedResult;
     }
 
   }

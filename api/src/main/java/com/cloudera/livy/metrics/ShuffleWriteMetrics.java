@@ -17,14 +17,12 @@
 
 package com.cloudera.livy.metrics;
 
-import java.io.Serializable;
-
 import org.apache.spark.executor.TaskMetrics;
 
 /**
  * Metrics pertaining to writing shuffle data.
  */
-public class ShuffleWriteMetrics implements Serializable {
+public class ShuffleWriteMetrics {
 
   /** Number of bytes written for the shuffle by tasks. */
   public final long shuffleBytesWritten;
