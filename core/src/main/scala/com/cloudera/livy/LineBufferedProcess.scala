@@ -41,7 +41,10 @@ class LineBufferedProcess(process: Process) extends Logging {
   }
 
   def waitFor(): Int = {
-    process.waitFor()
+    val returnCode = process.waitFor()
+    _inputStream.waitUntilClose()
+    _errorStream.waitUntilClose()
+    returnCode
   }
 }
 
