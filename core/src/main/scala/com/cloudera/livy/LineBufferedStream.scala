@@ -62,6 +62,8 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
   def iterator: Iterator[String] = {
     new LinesIterator
   }
+  
+  def waitUntilClose(): Unit = thread.join()
 
   private class LinesIterator extends Iterator[String] {
     private[this] var index = 0
