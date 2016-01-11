@@ -57,6 +57,7 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
+import com.cloudera.livy.client.local.driver.RemoteDriver;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.client.local.rpc.RpcServer;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;

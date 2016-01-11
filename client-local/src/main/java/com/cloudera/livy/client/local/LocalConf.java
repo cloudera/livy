@@ -44,7 +44,7 @@ public class LocalConf extends Configuration {
    * Prefix for Livy configurations embedded in SparkConf properties, since SparkConf
    * disallows anything that does not start with "spark.".
    */
-  static final String SPARK_CONF_PREFIX = "spark.__livy__.";
+  public static final String SPARK_CONF_PREFIX = "spark.__livy__.";
 
   private static final ImmutableMap<String, TimeUnit> TIME_SUFFIXES =
     ImmutableMap.<String, TimeUnit>builder()

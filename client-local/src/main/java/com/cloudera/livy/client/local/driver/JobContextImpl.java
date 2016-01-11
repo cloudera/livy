@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.client.local;
+package com.cloudera.livy.client.local.driver;
 
 import java.io.File;
 
