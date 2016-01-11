@@ -23,11 +23,11 @@ import com.cloudera.livy.Job;
 import com.cloudera.livy.metrics.Metrics;
 import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 
-abstract class BaseProtocol extends RpcDispatcher {
+public abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class CancelJob {
 
-    final String id;
+    public final String id;
 
     CancelJob(String id) {
       this.id = id;
@@ -45,9 +45,9 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class Error {
 
-    final String cause;
+    public final String cause;
 
-    Error(Throwable cause) {
+    public Error(Throwable cause) {
       if (cause == null) {
         this.cause = "";
       } else {
@@ -55,7 +55,7 @@ abstract class BaseProtocol extends RpcDispatcher {
       }
     }
 
-    Error() {
+    public Error() {
       this(null);
     }
 
@@ -63,13 +63,13 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class JobMetrics {
 
-    final String jobId;
-    final int sparkJobId;
-    final int stageId;
-    final long taskId;
-    final Metrics metrics;
+    public final String jobId;
+    public final int sparkJobId;
+    public final int stageId;
+    public final long taskId;
+    public final Metrics metrics;
 
-    JobMetrics(String jobId, int sparkJobId, int stageId, long taskId, Metrics metrics) {
+    public JobMetrics(String jobId, int sparkJobId, int stageId, long taskId, Metrics metrics) {
       this.jobId = jobId;
       this.sparkJobId = sparkJobId;
       this.stageId = stageId;
@@ -77,7 +77,7 @@ abstract class BaseProtocol extends RpcDispatcher {
       this.metrics = metrics;
     }
 
-    JobMetrics() {
+    public JobMetrics() {
       this(null, -1, -1, -1, null);
     }
 
@@ -85,15 +85,15 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class BypassJobRequest {
 
-    final String id;
-    final byte[] serializedJob;
+    public final String id;
+    public final byte[] serializedJob;
 
-    BypassJobRequest(String id, byte[] serializedJob) {
+    public BypassJobRequest(String id, byte[] serializedJob) {
       this.id = id;
       this.serializedJob = serializedJob;
     }
 
-    BypassJobRequest() {
+    public BypassJobRequest() {
       this(null, null);
     }
 
@@ -101,15 +101,15 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class JobRequest<T> {
 
-    final String id;
-    final Job<T> job;
+    public final String id;
+    public final Job<T> job;
 
-    JobRequest(String id, Job<T> job) {
+    public JobRequest(String id, Job<T> job) {
       this.id = id;
       this.job = job;
     }
 
-    JobRequest() {
+    public JobRequest() {
       this(null, null);
     }
 
@@ -117,17 +117,17 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class JobResult<T> {
 
-    final String id;
-    final T result;
-    final String error;
+    public final String id;
+    public final T result;
+    public final String error;
 
-    JobResult(String id, T result, Throwable error) {
+    public JobResult(String id, T result, Throwable error) {
       this.id = id;
       this.result = result;
       this.error = error != null ? Throwables.getStackTraceAsString(error) : null;
     }
 
-    JobResult() {
+    public JobResult() {
       this(null, null, null);
     }
 
@@ -135,13 +135,13 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class JobStarted {
 
-    final String id;
+    public final String id;
 
-    JobStarted(String id) {
+    public JobStarted(String id) {
       this.id = id;
     }
 
-    JobStarted() {
+    public JobStarted() {
       this(null);
     }
 
@@ -151,28 +151,28 @@ abstract class BaseProtocol extends RpcDispatcher {
    * Inform the client that a new spark job has been submitted for the client job.
    */
   protected static class JobSubmitted {
-    final String clientJobId;
-    final int sparkJobId;
+    public final String clientJobId;
+    public final int sparkJobId;
 
-    JobSubmitted(String clientJobId, int sparkJobId) {
+    public JobSubmitted(String clientJobId, int sparkJobId) {
       this.clientJobId = clientJobId;
       this.sparkJobId = sparkJobId;
     }
 
-    JobSubmitted() {
+    public JobSubmitted() {
       this(null, -1);
     }
   }
 
   protected static class SyncJobRequest<T> {
 
-    final Job<T> job;
+    public final Job<T> job;
 
-    SyncJobRequest(Job<T> job) {
+    public SyncJobRequest(Job<T> job) {
       this.job = job;
     }
 
-    SyncJobRequest() {
+    public SyncJobRequest() {
       this(null);
     }
 
@@ -180,13 +180,13 @@ abstract class BaseProtocol extends RpcDispatcher {
 
   protected static class BypassSyncJob {
 
-    final byte[] serializedJob;
+    public final byte[] serializedJob;
 
-    BypassSyncJob(byte[] serializedJob) {
+    public BypassSyncJob(byte[] serializedJob) {
       this.serializedJob = serializedJob;
     }
 
-    BypassSyncJob() {
+    public BypassSyncJob() {
       this(null);
     }
 
