@@ -30,6 +30,7 @@ import com.cloudera.livy.{LivyConf, Utils}
 import org.json4s.{DefaultFormats, Formats, JValue}
 
 object InteractiveSessionFactory {
+  private val LivyReplAdditionalFiles = "livy.repl.additional.files"
   private val LivyReplDriverClassPath = "livy.repl.driverClassPath"
   private val LivyReplJar = "livy.repl.jar"
   private val LivyServerUrl = "livy.server.serverUrl"
@@ -106,6 +107,8 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
 
     processFactory.livyConf.getOption(LivyReplDriverClassPath)
       .foreach(builder.driverClassPath)
+
+    builder.files(processFactory.livyConf.getOption(LivyReplAdditionalFiles).map(AbsolutePath))
 
     sys.props.get(LivyServerUrl).foreach { serverUrl =>
       val callbackUrl = f"$serverUrl/sessions/$id/callback"

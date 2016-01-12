@@ -38,3 +38,7 @@
 # or an hdfs:// directory. Be careful setting this option, as it may allow users to access
 # any file the Livy process can access, such as Livy's SSL certificate.
 ## livy.files.dir = /var/run/livy/uploaded-files
+
+# Additional files livy will include when starting interactive sessions.
+# It is equivalent to setting "--files" on every session request.
+## livy.repl.additional.files = hdfs://localhost:8020/hive-site.xml
