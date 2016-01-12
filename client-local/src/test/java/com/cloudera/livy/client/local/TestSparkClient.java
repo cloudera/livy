@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
@@ -57,6 +58,7 @@ import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientBuilder;
 import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.common.Serializer;
+import com.cloudera.livy.client.local.rpc.RpcException;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class TestSparkClient {
@@ -178,7 +180,7 @@ public class TestSparkClient {
         future.get(TIMEOUT, TimeUnit.SECONDS);
         MetricsCollection metrics = future.getMetrics();
         assertEquals(1, metrics.getJobIds().size());
-        assertTrue(metrics.getAllMetrics().executorRunTime >= 0L);
+        assertTrue(metrics.getAllMetrics().executorRunTime > 0L);
         verify(listener).onSparkJobStarted(same(future),
           eq(metrics.getJobIds().iterator().next()));
 
@@ -189,7 +191,7 @@ public class TestSparkClient {
         MetricsCollection metrics2 = future2.getMetrics();
         assertEquals(1, metrics2.getJobIds().size());
         assertFalse(Objects.equal(metrics.getJobIds(), metrics2.getJobIds()));
-        assertTrue(metrics2.getAllMetrics().executorRunTime >= 0L);
+        assertTrue(metrics2.getAllMetrics().executorRunTime > 0L);
         verify(listener2).onSparkJobStarted(same(future2),
           eq(metrics2.getJobIds().iterator().next()));
       }
@@ -292,31 +294,60 @@ public class TestSparkClient {
 
   @Test
   public void testBypass() throws Exception {
-    runTest(true, new TestFunction() {
-      @Override
-      public void call(LivyClient client) throws Exception {
-        Serializer s = new Serializer();
-        LocalClient lclient = (LocalClient) client;
-        ByteBuffer job = s.serialize(new SparkJob());
-        JobHandle<byte[]> handle = lclient.bypass(job);
-        byte[] result = handle.get(TIMEOUT, TimeUnit.SECONDS);
-        Long resultVal = (Long) s.deserialize(ByteBuffer.wrap(result));
-        assertEquals(Long.valueOf(5L), resultVal);
-      }
-    });
+    runBypassTest(false);
   }
 
   @Test
   public void testBypassSync() throws Exception {
+    runBypassTest(true);
+  }
+
+  private void runBypassTest(final boolean sync) throws Exception {
     runTest(true, new TestFunction() {
       @Override
       public void call(LivyClient client) throws Exception {
         Serializer s = new Serializer();
         LocalClient lclient = (LocalClient) client;
-        ByteBuffer job = s.serialize(new SparkJob());
-        byte[] result = lclient.bypassSync(job).get(TIMEOUT, TimeUnit.SECONDS);
-        Long resultVal = (Long) s.deserialize(ByteBuffer.wrap(result));
-        assertEquals(Long.valueOf(5L), resultVal);
+        ByteBuffer job = s.serialize(new AsyncSparkJob());
+        String jobId = lclient.bypass(job, sync);
+
+        // Try to fetch the result, trying several times until the timeout runs out, and
+        // backing off as attempts fail.
+        long deadline = System.nanoTime() + TimeUnit.NANOSECONDS.convert(TIMEOUT, TimeUnit.SECONDS);
+        long sleep = 100;
+        BypassJobStatus status = null;
+        while (System.nanoTime() < deadline) {
+          BypassJobStatus currStatus = lclient.getBypassJobStatus(jobId).get(TIMEOUT,
+            TimeUnit.SECONDS);
+          assertNotEquals(JobHandle.State.CANCELLED, currStatus.state);
+          assertNotEquals(JobHandle.State.FAILED, currStatus.state);
+          if (currStatus.state.equals(JobHandle.State.SUCCEEDED)) {
+            status = currStatus;
+            break;
+          } else if (deadline - System.nanoTime() > sleep * 2) {
+            Thread.sleep(sleep);
+            sleep *= 2;
+          }
+        }
+        assertNotNull("Failed to fetch bypass job status.", status);
+        assertEquals(JobHandle.State.SUCCEEDED, status.state);
+
+        Integer resultVal = (Integer) s.deserialize(ByteBuffer.wrap(status.result));
+        assertEquals(Integer.valueOf(1), resultVal);
+
+        assertNotNull("Missing metrics in job status.", status.metrics);
+        assertTrue(status.metrics.getAllMetrics().executorRunTime > 0L);
+
+        // After the result is retrieved, the driver should stop tracking the job and release
+        // resources associated with it.
+        try {
+          lclient.getBypassJobStatus(jobId).get(TIMEOUT, TimeUnit.SECONDS);
+          fail("Should have failed to retrieve status of released job.");
+        } catch (ExecutionException ee) {
+          assertTrue(ee.getCause() instanceof RpcException);
+          assertTrue(ee.getCause().getMessage().contains(
+            "java.util.NoSuchElementException: " + jobId));
+        }
       }
     });
   }
@@ -450,7 +481,7 @@ public class TestSparkClient {
       JavaFutureAction<?> future = jc.monitor(rdd.foreachAsync(new VoidFunction<Integer>() {
         @Override
         public void call(Integer l) throws Exception {
-
+          Thread.sleep(1);
         }
       }));
 

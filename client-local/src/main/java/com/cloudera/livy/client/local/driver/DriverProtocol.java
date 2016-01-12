@@ -17,7 +17,12 @@
 
 package com.cloudera.livy.client.local.driver;
 
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
+
 import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.slf4j.Logger;
@@ -26,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import com.cloudera.livy.Job;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.BaseProtocol;
+import com.cloudera.livy.client.local.BypassJobStatus;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.metrics.Metrics;
 
@@ -35,10 +41,12 @@ class DriverProtocol extends BaseProtocol {
 
   private final Object jcLock;
   private final RemoteDriver driver;
+  private final List<BypassJobWrapper> bypassJobs;
 
   DriverProtocol(RemoteDriver driver, Object jcLock) {
     this.driver = driver;
     this.jcLock = jcLock;
+    this.bypassJobs = Lists.newArrayList();
   }
 
   void sendError(Throwable error) {
@@ -84,27 +92,65 @@ class DriverProtocol extends BaseProtocol {
     driver.submit(wrapper);
   }
 
-  private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) {
+  private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    JobWrapper<?> wrapper = new JobWrapper<>(this.driver, msg.id,
-      new BypassJob(driver.serializer, msg.serializedJob));
+    BypassJobWrapper wrapper = new BypassJobWrapper(this.driver, msg.id, msg.serializedJob);
+    bypassJobs.add(wrapper);
     driver.activeJobs.put(msg.id, wrapper);
-    driver.submit(wrapper);
+    if (msg.synchronous) {
+      waitForJobContext();
+      try {
+        wrapper.call();
+      } catch (Throwable t) {
+        // Wrapper already logged and saved the exception, just avoid it bubbling up
+        // to the RPC layer.
+      }
+    } else {
+      driver.submit(wrapper);
+    }
   }
 
   @SuppressWarnings("unchecked")
   private Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
-    return runSyncJob(msg.job);
+    waitForJobContext();
+    driver.jc.setMonitorCb(new MonitorCallback() {
+      @Override
+      public void call(JavaFutureAction<?> future) {
+        throw new IllegalStateException(
+          "JobContext.monitor() is not available for synchronous jobs.");
+      }
+    });
+    try {
+      return msg.job.call(driver.jc);
+    } finally {
+      driver.jc.setMonitorCb(null);
+    }
   }
 
-  private byte[] handle(ChannelHandlerContext ctx, BypassSyncJob msg) throws Exception {
-    Job<byte[]> job = new BypassJob(driver.serializer, msg.serializedJob);
-    return runSyncJob(job);
+  private BypassJobStatus handle(ChannelHandlerContext ctx, GetBypassJobStatus msg) {
+    for (Iterator<BypassJobWrapper> it = bypassJobs.iterator(); it.hasNext();) {
+      BypassJobWrapper job = it.next();
+      if (job.jobId.equals(msg.id)) {
+        BypassJobStatus status = job.getStatus();
+        switch (status.state) {
+          case CANCELLED:
+          case FAILED:
+          case SUCCEEDED:
+            it.remove();
+            break;
+
+          default:
+            // No-op.
+        }
+        return status;
+      }
+    }
+
+    throw new NoSuchElementException(msg.id);
   }
 
-  private <T> T runSyncJob(Job<T> job) throws Exception {
-    // In case the job context is not up yet, let's wait, since this is supposed to be a
-    // "synchronous" RPC.
+  private void waitForJobContext() throws InterruptedException {
+    // Wait until initialization finishes.
     if (driver.jc == null) {
       synchronized (jcLock) {
         while (driver.jc == null) {
@@ -114,19 +160,6 @@ class DriverProtocol extends BaseProtocol {
           }
         }
       }
-    }
-
-    driver.jc.setMonitorCb(new MonitorCallback() {
-      @Override
-      public void call(JavaFutureAction<?> future) {
-        throw new IllegalStateException(
-          "JobContext.monitor() is not available for synchronous jobs.");
-      }
-    });
-    try {
-      return job.call(driver.jc);
-    } finally {
-      driver.jc.setMonitorCb(null);
     }
   }
 

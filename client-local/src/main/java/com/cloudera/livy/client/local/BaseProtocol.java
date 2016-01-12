@@ -87,14 +87,30 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
     public final String id;
     public final byte[] serializedJob;
+    public final boolean synchronous;
 
-    public BypassJobRequest(String id, byte[] serializedJob) {
+    public BypassJobRequest(String id, byte[] serializedJob, boolean synchronous) {
       this.id = id;
       this.serializedJob = serializedJob;
+      this.synchronous = synchronous;
     }
 
     public BypassJobRequest() {
-      this(null, null);
+      this(null, null, false);
+    }
+
+  }
+
+  protected static class GetBypassJobStatus {
+
+    public final String id;
+
+    public GetBypassJobStatus(String id) {
+      this.id = id;
+    }
+
+    public GetBypassJobStatus() {
+      this(null);
     }
 
   }
@@ -173,20 +189,6 @@ public abstract class BaseProtocol extends RpcDispatcher {
     }
 
     public SyncJobRequest() {
-      this(null);
-    }
-
-  }
-
-  protected static class BypassSyncJob {
-
-    public final byte[] serializedJob;
-
-    public BypassSyncJob(byte[] serializedJob) {
-      this.serializedJob = serializedJob;
-    }
-
-    public BypassSyncJob() {
       this(null);
     }
 

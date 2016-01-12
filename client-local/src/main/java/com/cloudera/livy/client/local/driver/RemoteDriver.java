@@ -171,8 +171,12 @@ public class RemoteDriver {
 
   private void run() throws InterruptedException {
     synchronized (shutdownLock) {
-      while (running) {
-        shutdownLock.wait();
+      try {
+        while (running) {
+          shutdownLock.wait();
+        }
+      } catch (InterruptedException ie) {
+        // Nothing to do.
       }
     }
     executor.shutdownNow();
