@@ -17,3 +17,4 @@ target/
 reports/
 metastore_db/
 derby.log
+dependency-reduced-pom.xml
