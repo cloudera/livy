@@ -18,7 +18,13 @@
 
 package com.cloudera.livy.server.client
 
+import java.nio.ByteBuffer
+
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.json4s.JsonAST._
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{Job, JobContext}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
@@ -66,21 +72,9 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession] {
       }
     }
 
-    withSessionId("should handle asynchronous jobs") { id =>
-      val ser = new Serializer()
-      val job = BufferUtils.toByteArray(ser.serialize(new TestJob()))
-      postJson(s"/$id/submit-job", SerializedJob(job)) { data =>
-        // TODO: more checks; API for result.
-      }
-    }
+    withSessionId("should handle asynchronous jobs") { testJobSubmission(_, false) }
 
-    withSessionId("should handle synchronous jobs") { id =>
-      val ser = new Serializer()
-      val job = BufferUtils.toByteArray(ser.serialize(new TestJob()))
-      postJson(s"/$id/run-job", SerializedJob(job)) { data =>
-        // TODO: more checks; API for result.
-      }
-    }
+    withSessionId("should handle synchronous jobs") { testJobSubmission(_, true) }
 
     withSessionId("should tear down sessions") { id =>
       deleteJson(s"/$id") { data =>
@@ -94,6 +88,24 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession] {
       }
     }
 
+  }
+
+  private def testJobSubmission(sid: Int, sync: Boolean): Unit = {
+    val ser = new Serializer()
+    val job = BufferUtils.toByteArray(ser.serialize(new TestJob()))
+    val route = if (sync) s"/$sid/submit-job" else s"/$sid/run-job"
+    var jobId: Long = -1L
+    postJson(route, SerializedJob(job)) { data =>
+      jobId = data.extract[JobSubmitted].id
+    }
+    eventually(timeout(1 minute), interval(100 millis)) {
+      getJson(s"/$sid/jobs/$jobId") { statusData =>
+        val status = statusData.extract[JobSucceeded]
+        status.id should be (jobId)
+        val result = ser.deserialize(ByteBuffer.wrap(status.result))
+        result should be (42)
+      }
+    }
   }
 
 }

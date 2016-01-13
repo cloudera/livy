@@ -20,18 +20,16 @@ package com.cloudera.livy.spark.client
 
 import java.net.URI
 import java.nio.ByteBuffer
-import java.util.concurrent
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.util.control.NonFatal
 
 import org.apache.spark.SparkConf
 
-import com.cloudera.livy.{Logging, LivyClientBuilder}
+import com.cloudera.livy.{JobHandle, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.local.LocalClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
@@ -70,17 +68,27 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   }
 
   def addFile(uri: URI): Unit = {
-    recordActivity()
-    client.addFile(uri)
+    client.addFile(uri).get()
   }
 
   def addJar(uri: URI): Unit = {
-    recordActivity()
-    client.addJar(uri)
+    client.addJar(uri).get()
   }
 
-  def jobStatus(id: Long) = {
-    throw new UnsupportedOperationException()
+  def jobStatus(id: Long): ClientMessage = {
+    val clientJobId = operations(id)
+    // TODO: don't block indefinitely?
+    val status = client.getBypassJobStatus(clientJobId).get()
+    status.state match {
+      case JobHandle.State.SUCCEEDED =>
+        JobSucceeded(id, status.result)
+      case JobHandle.State.FAILED =>
+        JobFailed(id, status.error)
+      case JobHandle.State.CANCELLED =>
+        JobCancelled(id)
+      case other =>
+        JobRunning(id, other.toString)
+    }
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {

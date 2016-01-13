@@ -22,8 +22,6 @@ import java.net.URI
 
 sealed trait ClientMessage
 
-case class JobMessage(job: String) extends ClientMessage
-
 case class CreateClientRequest(
   timeout: Long,
   sparkConf: Map[String, String] = Map()
@@ -33,16 +31,14 @@ case class SerializedJob(job: Array[Byte]) extends ClientMessage
 
 case object Stop extends ClientMessage
 
-case class AddJar(uri: URI) extends ClientMessage
-
-case class AddFile(uri: URI) extends ClientMessage
+case class AddResource(uri: URI) extends ClientMessage
 
 case class JobSubmitted(id: Long) extends ClientMessage
 
-case class JobStatus(id: Long) extends ClientMessage
+case class JobRunning(id: Long, state: String) extends ClientMessage
 
-case class JobCompleted(id: Long) extends ClientMessage
+case class JobCancelled(id: Long) extends ClientMessage
 
-case class JobFailed(id: Long) extends ClientMessage
+case class JobFailed(id: Long, error: String) extends ClientMessage
 
-case class JobResult(id: Long, result: Any) extends ClientMessage
+case class JobSucceeded(id: Long, result: Array[Byte]) extends ClientMessage

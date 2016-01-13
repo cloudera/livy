@@ -20,6 +20,8 @@ package com.cloudera.livy.server.client
 
 import java.io.{ByteArrayInputStream, ObjectInputStream}
 
+import scala.concurrent.Future
+
 import org.json4s.JValue
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
@@ -34,52 +36,41 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession])
   extends SessionServlet[ClientSession](sessionManager) {
 
   post("/:id/submit-job") {
-    sessionManager.get(params("id").toInt) match {
-      case Some(session) =>
-        val req = parsedBody.extract[SerializedJob]
-        if (req.job != null && req.job.length > 0) {
-          Created(session.submitJob(req.job))
-        } else {
-          BadRequest("No job provided.")
-        }
-      case None =>
+    withSession { session =>
+      val req = parsedBody.extract[SerializedJob]
+      require(req.job != null && req.job.length > 0, "no job provided.")
+      val jobId = session.submitJob(req.job)
+      Created(JobSubmitted(jobId))
     }
   }
 
   post("/:id/run-job") {
-    sessionManager.get(params("id").toInt) match {
-      case Some(session) =>
-        val req = parsedBody.extract[SerializedJob]
-        if (req.job != null && req.job.length > 0) {
-          val jobId = session.runJob(req.job)
-          Created(JobSubmitted(jobId))
-        } else {
-          BadRequest("No job provided.")
-        }
-      case None =>
+    withSession { session =>
+      val req = parsedBody.extract[SerializedJob]
+      require(req.job != null && req.job.length > 0, "no job provided.")
+      val jobId = session.runJob(req.job)
+      Created(JobSubmitted(jobId))
     }
   }
 
   post("/:id/add-jar") {
-    sessionManager.get(params("id").toInt) match {
-      case Some(session) =>
-        session.addJar(parsedBody.extract[AddJar].uri)
-      case None =>
+    withSession { lsession =>
+      val uri = parsedBody.extract[AddResource].uri
+      doAsync { lsession.addJar(uri) }
     }
   }
 
   post("/:id/add-file") {
-    sessionManager.get(params("id").toInt) match {
-      case Some(session) =>
-        session.addFile(parsedBody.extract[AddFile].uri)
-      case None =>
+    withSession { lsession =>
+      val uri = parsedBody.extract[AddResource].uri
+      doAsync { lsession.addFile(uri) }
     }
   }
 
-  post("/:id/job-status") {
-    sessionManager.get(params("id").toInt) match {
-      case Some(session) =>
-      case None =>
+  get("/:id/jobs/:jobid") {
+    withSession { lsession =>
+      val jobId = params("jobid").toLong
+      doAsync { Ok(lsession.jobStatus(jobId)) }
     }
   }
 

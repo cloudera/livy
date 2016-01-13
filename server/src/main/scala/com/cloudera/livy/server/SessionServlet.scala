@@ -18,17 +18,18 @@
 
 package com.cloudera.livy.server
 
-import com.cloudera.livy.Logging
-import com.cloudera.livy.sessions.{SessionManager, Session}
-import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
-import com.cloudera.livy.spark.ConfigOptionNotAllowed
+import scala.concurrent.{ExecutionContext, Future}
+
 import com.fasterxml.jackson.core.JsonParseException
 import org.json4s.JsonDSL._
 import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 import org.scalatra._
 import org.scalatra.json.JacksonJsonSupport
 
-import scala.concurrent.{ExecutionContext, Future}
+import com.cloudera.livy.Logging
+import com.cloudera.livy.sessions.{SessionManager, Session}
+import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
+import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
 
@@ -126,9 +127,26 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
     case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
     case e: SessionFailedToStart => InternalServerError(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
+    case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>
       SessionServlet.error("internal error", e)
       InternalServerError(e.toString)
+  }
+
+  protected val sessionIdParam: String = "id"
+
+  protected def doAsync(fn: => Any): AsyncResult = {
+    new AsyncResult {
+      val is = Future { fn }
+    }
+  }
+
+  protected def withSession(fn: (S => Any)): Any = {
+    val sessionId = params(sessionIdParam).toInt
+    sessionManager.get(sessionId) match {
+      case Some(session) => fn(session)
+      case None => NotFound(s"Session '$sessionId' not found.")
+    }
   }
 
   private def serializeLogs(session: S, fromOpt: Option[Int], sizeOpt: Option[Int]) = {
