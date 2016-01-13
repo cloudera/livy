@@ -55,7 +55,7 @@ public class TestRpc {
   public void setUp() {
     closeables = Lists.newArrayList();
     emptyConfig = new LocalConf(null);
-    emptyConfig.set(RPC_CHANNEL_LOG_LEVEL.key, "DEBUG");
+    emptyConfig.set(RPC_CHANNEL_LOG_LEVEL.key(), "DEBUG");
   }
 
   @After

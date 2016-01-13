@@ -69,7 +69,7 @@ public class TestSparkClient {
   private Properties createConf(boolean local) {
     Properties conf = new Properties();
     if (local) {
-      conf.put(CLIENT_IN_PROCESS.key, "true");
+      conf.put(CLIENT_IN_PROCESS.key(), "true");
       conf.put("spark.master", "local");
       conf.put("spark.app.name", "SparkClientSuite Local App");
     } else {
@@ -78,7 +78,7 @@ public class TestSparkClient {
       conf.put("spark.app.name", "SparkClientSuite Remote App");
       conf.put("spark.driver.extraClassPath", classpath);
       conf.put("spark.executor.extraClassPath", classpath);
-      conf.put(LIVY_JARS.key, "");
+      conf.put(LIVY_JARS.key(), "");
     }
 
     return conf;

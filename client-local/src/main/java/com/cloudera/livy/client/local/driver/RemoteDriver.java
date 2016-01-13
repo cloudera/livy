@@ -88,9 +88,9 @@ public class RemoteDriver {
       } else if (key.equals("--remote-port")) {
         serverPort = Integer.parseInt(getArg(args, idx));
       } else if (key.equals("--client-id")) {
-        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key, getArg(args, idx));
+        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key(), getArg(args, idx));
       } else if (key.equals("--secret")) {
-        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key, getArg(args, idx));
+        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key(), getArg(args, idx));
       } else if (key.equals("--conf")) {
         String[] val = getArg(args, idx).split("[=]", 2);
         conf.set(val[0], val[1]);

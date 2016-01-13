@@ -51,11 +51,6 @@ public class TestClientFactory implements LivyClientFactory {
     }
 
     @Override
-    public String clientId() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public <T> Future<T> run(Job<T> job) {
       throw new UnsupportedOperationException();
     }

@@ -33,8 +33,6 @@ public interface LivyClient {
    */
   <T> JobHandle<T> submit(Job<T> job);
 
-  String clientId();
-
   /**
    * Asks the remote context to run a job immediately.
    * <p/>

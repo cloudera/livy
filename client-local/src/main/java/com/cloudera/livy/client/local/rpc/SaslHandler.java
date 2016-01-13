@@ -44,7 +44,7 @@ abstract class SaslHandler extends SimpleChannelInboundHandler<Rpc.SaslMessage>
   private boolean hasAuthResponse = false;
 
   protected SaslHandler(LocalConf config) {
-    this.requiresEncryption = Rpc.SASL_AUTH_CONF.equals(config.get(LocalConf.Entry.SASL_QOP.key));
+    this.requiresEncryption = Rpc.SASL_AUTH_CONF.equals(config.get(LocalConf.Entry.SASL_QOP));
     this.LOG = LoggerFactory.getLogger(getClass());
   }
 

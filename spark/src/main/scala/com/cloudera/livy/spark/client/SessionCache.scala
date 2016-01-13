@@ -83,7 +83,7 @@ class SessionCache extends Logging{
       sparkClient,
       timeout,
       evictionExecutor.schedule(ClientCloser(sparkClient), timeout, TimeUnit.SECONDS))
-    info("Added client with id: " + sparkClient.clientId() + " for sessionId: " + sessionId)
+    info("Added client for sessionId: " + sessionId)
   }
 
   /**

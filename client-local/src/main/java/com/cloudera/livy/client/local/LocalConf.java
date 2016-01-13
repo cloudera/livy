@@ -26,17 +26,15 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.security.sasl.Sasl;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.hadoop.conf.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LocalConf extends Configuration {
+import com.cloudera.livy.client.common.ClientConf;
+
+public class LocalConf extends ClientConf<LocalConf> {
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalConf.class);
 
@@ -46,18 +44,7 @@ public class LocalConf extends Configuration {
    */
   public static final String SPARK_CONF_PREFIX = "spark.__livy__.";
 
-  private static final ImmutableMap<String, TimeUnit> TIME_SUFFIXES =
-    ImmutableMap.<String, TimeUnit>builder()
-      .put("us", TimeUnit.MICROSECONDS)
-      .put("ms", TimeUnit.MILLISECONDS)
-      .put("s", TimeUnit.SECONDS)
-      .put("m", TimeUnit.MINUTES)
-      .put("min", TimeUnit.MINUTES)
-      .put("h", TimeUnit.HOURS)
-      .put("d", TimeUnit.DAYS)
-      .build();
-
-  public static enum Entry {
+  public static enum Entry implements ConfEntry {
     CLIENT_ID("client.auth.id", null),
     CLIENT_SECRET("client.auth.secret", null),
     CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", null),
@@ -75,81 +62,23 @@ public class LocalConf extends Configuration {
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
     SASL_QOP("rpc.sasl.qop", null);
 
-    public final String key;
-    private final String defaultValStr;
-    private final int defaultValInt;
-    private final long defaultValLong;
+    private final String key;
+    private final Object dflt;
 
-    Entry(String key, Object defaultVal) {
+    private Entry(String key, Object dflt) {
       this.key = "livy.local." + key;
-      if (defaultVal == null || defaultVal instanceof String) {
-        this.defaultValStr = defaultVal == null ? null : defaultVal.toString();
-        this.defaultValInt = -1;
-        this.defaultValLong = -1;
-      } else if (defaultVal instanceof Integer) {
-        this.defaultValStr = null;
-        this.defaultValInt = (Integer) defaultVal;
-        this.defaultValLong = -1;
-      } else if (defaultVal instanceof Long) {
-        this.defaultValStr = null;
-        this.defaultValInt = -1;
-        this.defaultValLong = (Long) defaultVal;
-      } else {
-        throw new IllegalArgumentException("Not supported type value " + defaultVal.getClass() +
-          " for key " + this.key);
-      }
+      this.dflt = dflt;
     }
+
+    @Override
+    public String key() { return key; }
+
+    @Override
+    public Object dflt() { return dflt; }
   }
 
   public LocalConf(Properties config) {
-    super(false);
-    if (config != null) {
-      for (String key : config.stringPropertyNames()) {
-        set(key, config.getProperty(key));
-      }
-    }
-  }
-
-  public String get(Entry e) {
-    return get(e.key, e.defaultValStr);
-  }
-
-  public int getInt(Entry e) {
-    return getInt(e.key, e.defaultValInt);
-  }
-
-  public long getLong(Entry e) {
-    return getLong(e.key, e.defaultValLong);
-  }
-
-  public LocalConf setAll(Configuration other) {
-    for (Map.Entry<String, String> e : other) {
-      set(e.getKey(), e.getValue());
-    }
-    return this;
-  }
-
-  public LocalConf set(Entry e, String value) {
-    set(e.key, value);
-    return this;
-  }
-
-  public long getTimeAsMs(Entry var) {
-    String time = get(var);
-    Matcher m = Pattern.compile("(-?[0-9]+)([a-z]+)?").matcher(time.toLowerCase());
-    if (!m.matches()) {
-      throw new NumberFormatException("Invalid time string: " + time);
-    }
-
-    long val = Long.parseLong(m.group(1));
-    String suffix = m.group(2);
-
-    if (suffix != null && !TIME_SUFFIXES.containsKey(suffix)) {
-      throw new NumberFormatException("Invalid suffix: \"" + suffix + "\"");
-    }
-
-    return TimeUnit.MILLISECONDS.convert(val,
-      suffix != null ? TIME_SUFFIXES.get(suffix) : TimeUnit.MILLISECONDS);
+    super(config);
   }
 
   public Map<String, String> getSaslOptions() {

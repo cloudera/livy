@@ -82,7 +82,6 @@ public class LocalClient implements LivyClient {
   private final Rpc driverRpc;
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
-  private final String clientId;
 
   LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException, SparkException {
     this.factory = factory;
@@ -90,7 +89,7 @@ public class LocalClient implements LivyClient {
     this.childIdGenerator = new AtomicInteger();
     this.jobs = Maps.newConcurrentMap();
 
-    clientId = UUID.randomUUID().toString();
+    String clientId = UUID.randomUUID().toString();
     String secret = factory.getServer().createSecret();
     this.driverThread = startDriver(factory.getServer(), clientId, secret);
     this.protocol = new ClientProtocol();
@@ -120,11 +119,6 @@ public class LocalClient implements LivyClient {
         }
     });
     isAlive = true;
-  }
-
-  @Override
-  public String clientId() {
-    return clientId;
   }
 
   @Override
@@ -273,8 +267,8 @@ public class LocalClient implements LivyClient {
         }
         allProps.put(key, e.getValue());
       }
-      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key, clientId);
-      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key, secret);
+      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key(), clientId);
+      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key(), secret);
       allProps.put(DRIVER_OPTS_KEY, driverJavaOpts);
       allProps.put(EXECUTOR_OPTS_KEY, executorJavaOpts);
 
@@ -360,7 +354,7 @@ public class LocalClient implements LivyClient {
       if (livyJars == null) {
         String livyHome = System.getenv("LIVY_HOME");
         Preconditions.checkState(livyHome != null,
-          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key);
+          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
 
         File clientJars = new File(livyHome, "client-jars");
         Preconditions.checkState(clientJars.isDirectory(),
