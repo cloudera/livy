@@ -189,7 +189,13 @@ abstract class InteractiveWebSession(val id: Int,
             stop()
           }
         case SessionState.Error(_) | SessionState.Dead(_) | SessionState.Success(_) =>
-          Future.successful(Unit)
+          if (process.isAlive) {
+            Future {
+              process.destroy()
+            }
+          } else {
+            Future.successful(Unit)
+          }
       }
     }
 

@@ -23,11 +23,7 @@ import com.cloudera.livy.sessions.{BaseInteractiveSessionSpec, PySpark}
 import com.cloudera.livy.spark.SparkProcessBuilderFactory
 import org.scalatest.{BeforeAndAfter, FunSpecLike, Matchers}
 
-class InteractiveSessionProcessSpec
-  extends BaseInteractiveSessionSpec
-  with FunSpecLike
-  with Matchers
-  with BeforeAndAfter {
+class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
 
   val livyConf = new LivyConf()
   livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
