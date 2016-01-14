@@ -19,31 +19,46 @@ package com.cloudera.livy.spark.client
 import java.net.URI
 import java.nio.ByteBuffer
 import java.util.concurrent
-import java.util.concurrent.{ExecutionException, TimeUnit}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+
+import org.apache.spark.SparkConf
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-import com.cloudera.livy.{Job, LivyClient}
+import com.cloudera.livy.{Logging, LivyClientBuilder}
 import com.cloudera.livy.client.local.LocalClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
-class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) extends Session {
+class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
+  extends Session with Logging {
   implicit val executionContext = ExecutionContext.global
+
   var sessionState: SessionState = SessionState.Starting()
-  SessionClientTracker.createClient(
-    sessionId, createRequest.sparkConf.asJava, createRequest.timeout)
+
+  private val _timeout = createRequest.timeout
+
+  private val client = {
+    info("Creating LivyClient for sessionId: " + sessionId)
+    val builder = new LivyClientBuilder(new URI("local:spark"))
+    new SparkConf(true).getAll.foreach { case (k, v) => builder.setConf(k, v) }
+    builder
+      .setAll(createRequest.sparkConf.asJava)
+      .setConf("livy.client.sessionId", sessionId.toString)
+      .setIfMissing("spark.master", "yarn-cluster")
+      .build()
+  }
+  info("Livy client created.")
+
   sessionState = SessionState.Running()
 
   private val operations = mutable.Map[Long, java.util.concurrent.Future[_]]()
   private val operationCounter = new AtomicLong(0)
 
-  def getClient(): Option[LocalClient] = {
-    SessionClientTracker.getClient(id).map(_.asInstanceOf[LocalClient])
-  }
+  @volatile private var _lastActivity = System.currentTimeMillis()
 
   def runJob(job: Array[Byte]): Long = {
     performOperation(client => client.bypassSync(ByteBuffer.wrap(job)))
@@ -54,14 +69,17 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
   }
 
   def addFile(uri: URI): Unit = {
-    getClient.foreach(_.addFile(uri))
+    _lastActivity = System.currentTimeMillis()
+    client.addFile(uri)
   }
 
   def addJar(uri: URI): Unit = {
-    getClient.foreach(_.addJar(uri))
+    _lastActivity = System.currentTimeMillis()
+    client.addJar(uri)
   }
 
   def jobStatus(id: Long) = {
+    _lastActivity = System.currentTimeMillis()
     val future = operations(id)
     if (future.isDone) {
       JobCompleted
@@ -76,12 +94,11 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
   }
 
   private def performOperation(m: (LocalClient => concurrent.Future[_])): Long = {
-    getClient().map { client =>
-      val future = m(client)
+    _lastActivity = System.currentTimeMillis()
+      val future = m(client.asInstanceOf[LocalClient])
       val opId = operationCounter.incrementAndGet()
       operations(opId) = future
       opId
-    }.getOrElse(-1L)
   }
 
   override def id: Int = sessionId
@@ -89,7 +106,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
   override def stop(): Future[Unit] = {
     Future {
       sessionState = SessionState.ShuttingDown()
-      SessionClientTracker.closeSession(id)
+      client.stop()
       sessionState = SessionState.Dead()
     }
   }
@@ -98,6 +115,10 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest) exte
   override def logLines(): IndexedSeq[String] = {
     null
   }
+
+  override def lastActivity: Option[Long] = Some(_lastActivity)
+
+  override def timeout: Int = _timeout
 
   override def state: SessionState = sessionState
 }

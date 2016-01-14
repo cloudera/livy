@@ -83,7 +83,7 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
       session.lastActivity.orElse(session.stoppedTime) match {
         case Some(lastActivity) =>
           val currentTime = System.currentTimeMillis()
-          currentTime - lastActivity > sessionTimeout
+          currentTime - lastActivity > math.max(sessionTimeout, session.timeout)
         case None =>
           false
       }

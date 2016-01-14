@@ -34,6 +34,8 @@ trait Session {
     }
   }
 
+  def timeout: Int = 1000 * 60 * 60
+
   def state: SessionState
 
   def stop(): Future[Unit]
