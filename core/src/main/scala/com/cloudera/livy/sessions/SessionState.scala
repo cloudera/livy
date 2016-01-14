@@ -61,19 +61,19 @@ object SessionState {
     override def toString = "shutting_down"
   }
 
-  case class Error(time: Long = System.currentTimeMillis()) extends SessionState {
+  case class Error(time: Long = System.nanoTime()) extends SessionState {
     override def isActive = true
 
     override def toString = "error"
   }
 
-  case class Dead(time: Long = System.currentTimeMillis()) extends SessionState {
+  case class Dead(time: Long = System.nanoTime()) extends SessionState {
     override def isActive = false
 
     override def toString = "dead"
   }
 
-  case class Success(time: Long = System.currentTimeMillis()) extends SessionState {
+  case class Success(time: Long = System.nanoTime()) extends SessionState {
     override def isActive = false
 
     override def toString = "success"

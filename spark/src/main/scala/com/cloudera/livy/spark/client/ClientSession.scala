@@ -22,12 +22,12 @@ import java.util.concurrent
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import org.apache.spark.SparkConf
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
+
+import org.apache.spark.SparkConf
 
 import com.cloudera.livy.{Logging, LivyClientBuilder}
 import com.cloudera.livy.client.local.LocalClient
@@ -39,7 +39,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
 
   var sessionState: SessionState = SessionState.Starting()
 
-  private val _timeout = createRequest.timeout
+  override val timeout = TimeUnit.MILLISECONDS.toNanos(createRequest.timeout)
 
   private val client = {
     info("Creating LivyClient for sessionId: " + sessionId)
@@ -58,8 +58,6 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   private val operations = mutable.Map[Long, java.util.concurrent.Future[_]]()
   private val operationCounter = new AtomicLong(0)
 
-  @volatile private var _lastActivity = System.currentTimeMillis()
-
   def runJob(job: Array[Byte]): Long = {
     performOperation(client => client.bypassSync(ByteBuffer.wrap(job)))
   }
@@ -69,17 +67,17 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   }
 
   def addFile(uri: URI): Unit = {
-    _lastActivity = System.currentTimeMillis()
+    recordActivity()
     client.addFile(uri)
   }
 
   def addJar(uri: URI): Unit = {
-    _lastActivity = System.currentTimeMillis()
+    recordActivity()
     client.addJar(uri)
   }
 
   def jobStatus(id: Long) = {
-    _lastActivity = System.currentTimeMillis()
+    recordActivity()
     val future = operations(id)
     if (future.isDone) {
       JobCompleted
@@ -94,11 +92,11 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   }
 
   private def performOperation(m: (LocalClient => concurrent.Future[_])): Long = {
-    _lastActivity = System.currentTimeMillis()
-      val future = m(client.asInstanceOf[LocalClient])
-      val opId = operationCounter.incrementAndGet()
-      operations(opId) = future
-      opId
+    recordActivity()
+    val future = m(client.asInstanceOf[LocalClient])
+    val opId = operationCounter.incrementAndGet()
+    operations(opId) = future
+    opId
   }
 
   override def id: Int = sessionId
@@ -115,10 +113,6 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   override def logLines(): IndexedSeq[String] = {
     null
   }
-
-  override def lastActivity: Option[Long] = Some(_lastActivity)
-
-  override def timeout: Int = _timeout
 
   override def state: SessionState = sessionState
 }

@@ -46,7 +46,6 @@ abstract class InteractiveWebSession(val id: Int,
 
   protected[this] var _state: SessionState = SessionState.Starting()
 
-  private[this] var _lastActivity = Long.MaxValue
   private[this] var _url: Option[URL] = None
 
   private[this] var _executedStatements = 0
@@ -72,14 +71,12 @@ abstract class InteractiveWebSession(val id: Int,
     dispatch.url(url.toString)
   }
 
-  override def lastActivity: Option[Long] = Some(_lastActivity)
-
   override def state: SessionState = _state
 
   override def executeStatement(content: ExecuteRequest): Statement = {
     ensureRunning {
       _state = SessionState.Busy()
-      touchLastActivity()
+      recordActivity()
 
       val req = (svc / "execute").setContentType("application/json", "UTF-8") << write(content)
 
@@ -201,10 +198,6 @@ abstract class InteractiveWebSession(val id: Int,
 
   private def transition(state: SessionState) = synchronized {
     _state = state
-  }
-
-  private def touchLastActivity() = {
-    _lastActivity = System.currentTimeMillis()
   }
 
   private def ensureState[A](state: SessionState, f: => A) = {
