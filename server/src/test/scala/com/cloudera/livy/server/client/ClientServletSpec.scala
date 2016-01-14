@@ -50,7 +50,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession] {
         "spark.executor.extraClassPath" -> classpath
         )
 
-      postJson("/", CreateClientRequest(10000, conf)) { data =>
+      postJson("/", CreateClientRequest(10000L, conf)) { data =>
         header("Location") should equal("/0")
         data \ "id" should equal (JInt(0))
         sessionId = (data \ "id").extract[Int]

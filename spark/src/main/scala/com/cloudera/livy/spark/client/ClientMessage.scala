@@ -23,7 +23,7 @@ sealed trait ClientMessage
 case class JobMessage(job: String) extends ClientMessage
 
 case class CreateClientRequest(
-  timeout: Int,
+  timeout: Long,
   sparkConf: Map[String, String] = Map()
 ) extends ClientMessage
 
