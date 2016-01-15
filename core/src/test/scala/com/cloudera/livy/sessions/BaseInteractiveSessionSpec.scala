@@ -38,7 +38,7 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
 
   override def afterAll(): Unit = {
     if (session != null) {
-      session.stop()
+      Await.ready(session.stop(), Duration.Inf)
       session = null
     }
     super.afterAll()
