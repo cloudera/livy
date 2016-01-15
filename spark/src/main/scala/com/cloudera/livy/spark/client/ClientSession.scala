@@ -50,20 +50,21 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
       .setConf("livy.client.sessionId", sessionId.toString)
       .setIfMissing("spark.master", "yarn-cluster")
       .build()
-  }
+  }.asInstanceOf[LocalClient]
+
   info("Livy client created.")
 
   sessionState = SessionState.Running()
 
-  private val operations = mutable.Map[Long, java.util.concurrent.Future[_]]()
+  private val operations = mutable.Map[Long, String]()
   private val operationCounter = new AtomicLong(0)
 
   def runJob(job: Array[Byte]): Long = {
-    performOperation(client => client.bypassSync(ByteBuffer.wrap(job)))
+    performOperation(job, true)
   }
 
   def submitJob(job: Array[Byte]): Long = {
-    performOperation(client => client.bypass(ByteBuffer.wrap(job)))
+    performOperation(job, false)
   }
 
   def addFile(uri: URI): Unit = {
@@ -77,27 +78,16 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
   }
 
   def jobStatus(id: Long) = {
-    recordActivity()
-    val future = operations(id)
-    if (future.isDone) {
-      JobCompleted
-    } else {
-      try {
-        JobResult(id, future.get(1, TimeUnit.SECONDS))
-      } catch {
-        case NonFatal(e) =>
-          JobFailed(id)
-      }
-    }
+    throw new UnsupportedOperationException()
   }
 
-  private def performOperation(m: (LocalClient => concurrent.Future[_])): Long = {
+  private def performOperation(job: Array[Byte], sync: Boolean): Long = {
     recordActivity()
-    val future = m(client.asInstanceOf[LocalClient])
+    val future = client.bypass(ByteBuffer.wrap(job), sync)
     val opId = operationCounter.incrementAndGet()
     operations(opId) = future
     opId
-  }
+   }
 
   override def id: Int = sessionId
 

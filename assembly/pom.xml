@@ -87,6 +87,9 @@
             </goals>
             <configuration>
               <finalName>${assembly.finalName}</finalName>
+              <formats>
+                <format>zip</format>
+              </formats>
             </configuration>
           </execution>
         </executions>

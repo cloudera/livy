@@ -36,9 +36,10 @@ class JobWrapper<T> implements Callable<Void> {
 
   private static final Logger LOG = LoggerFactory.getLogger(JobWrapper.class);
 
+  public final String jobId;
+
   private final RemoteDriver driver;
   private final List<JavaFutureAction<?>> sparkJobs;
-  private final String jobId;
   private final Job<T> job;
   private final AtomicInteger completed;
 
@@ -54,13 +55,13 @@ class JobWrapper<T> implements Callable<Void> {
 
   @Override
   public Void call() throws Exception {
-    driver.protocol.jobStarted(jobId);
-
     try {
+      jobStarted();
       driver.jc.setMonitorCb(new MonitorCallback() {
         @Override
         public void call(JavaFutureAction<?> future) {
-          monitorJob(future);
+          sparkJobs.add(future);
+          jobSubmitted(future);
         }
       });
 
@@ -78,13 +79,13 @@ class JobWrapper<T> implements Callable<Void> {
       for (JavaFutureAction<?> future : sparkJobs) {
         future.get();
       }
-      driver.protocol.jobFinished(jobId, result, null);
+      finished(result, null);
     } catch (Throwable t) {
       // Catch throwables in a best-effort to report job status back to the client. It's
       // re-thrown so that the executor can destroy the affected thread (or the JVM can
       // die or whatever would happen if the throwable bubbled up).
       LOG.info("Failed to run job " + jobId, t);
-      driver.protocol.jobFinished(jobId, null, t);
+      finished(null, t);
       throw new ExecutionException(t);
     } finally {
       driver.jc.setMonitorCb(null);
@@ -125,9 +126,20 @@ class JobWrapper<T> implements Callable<Void> {
     driver.protocol.sendMetrics(jobId, sparkJobId, stageId, taskId, metrics);
   }
 
-  private void monitorJob(JavaFutureAction<?> job) {
-    sparkJobs.add(job);
+  protected void finished(T result, Throwable error) {
+    if (error == null) {
+      driver.protocol.jobFinished(jobId, result, null);
+    } else {
+      driver.protocol.jobFinished(jobId, null, error);
+    }
+  }
+
+  protected void jobSubmitted(JavaFutureAction<?> job) {
     driver.protocol.jobSubmitted(jobId, job.jobIds().get(0));
+  }
+
+  protected void jobStarted() {
+    driver.protocol.jobStarted(jobId);
   }
 
 }

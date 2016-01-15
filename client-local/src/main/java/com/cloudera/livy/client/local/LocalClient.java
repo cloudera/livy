@@ -173,12 +173,12 @@ public class LocalClient implements LivyClient {
     return run(new AddFileJob(uri.toString()));
   }
 
-  public JobHandle<byte[]> bypass(ByteBuffer serializedJob) {
-    return protocol.bypass(serializedJob);
+  public String bypass(ByteBuffer serializedJob, boolean sync) {
+    return protocol.bypass(serializedJob, sync);
   }
 
-  public Future<byte[]> bypassSync(ByteBuffer serializedJob) {
-    return protocol.bypassSync(serializedJob);
+  public Future<BypassJobStatus> getBypassJobStatus(String id) {
+    return protocol.getBypassJobStatus(id);
   }
 
   void cancel(String jobId) {
@@ -431,9 +431,12 @@ public class LocalClient implements LivyClient {
 
   private class ClientProtocol extends BaseProtocol {
 
-    private JobHandleImpl<?> sendJob(final String jobId, Object msg) {
-      final Promise<Object> promise = driverRpc.createPromise();
-      final JobHandleImpl<Object> handle = new JobHandleImpl<Object>(LocalClient.this,
+    <T> JobHandleImpl<T> submit(Job<T> job) {
+      final String jobId = UUID.randomUUID().toString();
+      Object msg = new JobRequest<T>(jobId, job);
+
+      final Promise<T> promise = driverRpc.createPromise();
+      final JobHandleImpl<T> handle = new JobHandleImpl<T>(LocalClient.this,
         promise, jobId);
       jobs.put(jobId, handle);
 
@@ -452,9 +455,9 @@ public class LocalClient implements LivyClient {
           }
         }
       });
-      promise.addListener(new GenericFutureListener<Promise<Object>>() {
+      promise.addListener(new GenericFutureListener<Promise<T>>() {
         @Override
-        public void operationComplete(Promise<Object> p) {
+        public void operationComplete(Promise<T> p) {
           if (jobId != null) {
             jobs.remove(jobId);
           }
@@ -466,14 +469,6 @@ public class LocalClient implements LivyClient {
       return handle;
     }
 
-    <T> JobHandleImpl<T> submit(Job<T> job) {
-      String jobId = UUID.randomUUID().toString();
-      Object msg = new JobRequest<T>(jobId, job);
-      @SuppressWarnings("unchecked")
-      JobHandleImpl<T> handle = (JobHandleImpl<T>) sendJob(jobId, msg);
-      return handle;
-    }
-
     <T> Future<T> run(Job<T> job) {
       @SuppressWarnings("unchecked")
       final io.netty.util.concurrent.Future<T> rpc = (io.netty.util.concurrent.Future<T>)
@@ -481,17 +476,15 @@ public class LocalClient implements LivyClient {
       return rpc;
     }
 
-    JobHandleImpl<byte[]> bypass(ByteBuffer serializedJob) {
+    String bypass(ByteBuffer serializedJob, boolean sync) {
       String jobId = UUID.randomUUID().toString();
-      Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob));
-      @SuppressWarnings("unchecked")
-      JobHandleImpl<byte[]> handle = (JobHandleImpl<byte[]>) sendJob(jobId, msg);
-      return handle;
+      Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob), sync);
+      driverRpc.call(msg);
+      return jobId;
     }
 
-    Future<byte[]> bypassSync(ByteBuffer serializedJob) {
-      return driverRpc.call(new BypassSyncJob(BufferUtils.toByteArray(serializedJob)),
-        byte[].class);
+    Future<BypassJobStatus> getBypassJobStatus(String id) {
+      return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
     }
 
     void cancel(String jobId) {
