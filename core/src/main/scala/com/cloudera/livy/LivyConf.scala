@@ -93,6 +93,9 @@ class LivyConf(loadDefaults: Boolean) {
   /** Get a parameter as an Int */
   def getInt(key: String, default: Int) = getOption(key).map(_.toInt).getOrElse(default)
 
+  /** Get a parameter as a Long */
+  def getLong(key: String, default: Long) = getOption(key).map(_.toLong).getOrElse(default)
+
   /** Return if the configuration includes this setting */
   def contains(key: String): Boolean = settings.containsKey(key)
 

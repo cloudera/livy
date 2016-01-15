@@ -117,7 +117,7 @@ class Session(interpreter: Interpreter)
           (EVALUE -> evalue) ~
           (TRACEBACK -> traceback)
         case Interpreter.ExecuteAborted(message) =>
-          _state = SessionState.Error(System.currentTimeMillis())
+          _state = SessionState.Error(System.nanoTime())
 
           (STATUS -> ERROR) ~
           (EXECUTION_COUNT -> executionCount) ~
