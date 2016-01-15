@@ -18,12 +18,17 @@
 
 package com.cloudera.livy.sessions
 
+import java.util.concurrent.TimeUnit
+
 import scala.concurrent.Future
 
 trait Session {
+
+  private var _lastActivity = 0L
+
   def id: Int
 
-  def lastActivity: Option[Long] = None
+  def lastActivity: Option[Long] = if (_lastActivity == 0L) None else Some(_lastActivity)
 
   def stoppedTime: Option[Long] = {
     state match {
@@ -34,9 +39,15 @@ trait Session {
     }
   }
 
+  val timeout: Long = TimeUnit.HOURS.toNanos(1)
+
   def state: SessionState
 
   def stop(): Future[Unit]
+
+  def recordActivity(): Unit = {
+    _lastActivity = System.nanoTime()
+  }
 
   def logLines(): IndexedSeq[String]
 }

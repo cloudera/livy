@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.sessions
 
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.cloudera.livy.{LivyConf, Logging}
@@ -38,7 +39,9 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
   private[this] final val _idCounter = new AtomicInteger()
   private[this] final val _sessions = mutable.Map[Int, S]()
 
-  private[this] final val sessionTimeout = livyConf.getInt(SessionManager.SESSION_TIMEOUT, 1000 * 60 * 60)
+  private[this] final val sessionTimeout =
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getLong(SessionManager.SESSION_TIMEOUT, 1000 * 60 * 60))
+
   private[this] final val garbageCollector = new GarbageCollector
 
   garbageCollector.setDaemon(true)
@@ -82,8 +85,8 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
     def expired(session: Session): Boolean = {
       session.lastActivity.orElse(session.stoppedTime) match {
         case Some(lastActivity) =>
-          val currentTime = System.currentTimeMillis()
-          currentTime - lastActivity > sessionTimeout
+          val currentTime = System.nanoTime()
+          currentTime - lastActivity > math.max(sessionTimeout, session.timeout)
         case None =>
           false
       }
