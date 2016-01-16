@@ -19,8 +19,8 @@
 package com.cloudera.livy.server
 
 import com.cloudera.livy.Logging
-import com.cloudera.livy.sessions.{SessionManager, Session}
 import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
+import com.cloudera.livy.sessions.{Session, SessionManager}
 import com.cloudera.livy.spark.ConfigOptionNotAllowed
 import com.fasterxml.jackson.core.JsonParseException
 import org.json4s.JsonDSL._
@@ -34,6 +34,7 @@ object SessionServlet extends Logging
 
 abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
   extends ScalatraServlet
+  with ApiVersioningSupport
   with FutureSupport
   with MethodOverride
   with JacksonJsonSupport
