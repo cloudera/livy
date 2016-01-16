@@ -37,6 +37,7 @@ object SessionServlet extends Logging
  */
 abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: SessionManager[S, R])
   extends JsonServlet
+  with ApiVersioningSupport
   with MethodOverride
   with UrlGeneratorSupport
 {
