@@ -29,7 +29,8 @@ import scala.collection.mutable
 
 import org.apache.spark.SparkConf
 
-import com.cloudera.livy.{JobHandle, LivyClientBuilder, Logging}
+import com.cloudera.livy.{LivyClientBuilder, Logging}
+import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.LocalClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
@@ -46,7 +47,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
     val builder = new LivyClientBuilder(new URI("local:spark"))
     new SparkConf(true).getAll.foreach { case (k, v) => builder.setConf(k, v) }
     builder
-      .setAll(createRequest.sparkConf.asJava)
+      .setAll(createRequest.conf)
       .setConf("livy.client.sessionId", sessionId.toString)
       .setIfMissing("spark.master", "yarn-cluster")
       .build()
@@ -75,20 +76,11 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
     client.addJar(uri).get()
   }
 
-  def jobStatus(id: Long): ClientMessage = {
+  def jobStatus(id: Long): Any = {
     val clientJobId = operations(id)
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
-    status.state match {
-      case JobHandle.State.SUCCEEDED =>
-        JobSucceeded(id, status.result)
-      case JobHandle.State.FAILED =>
-        JobFailed(id, status.error)
-      case JobHandle.State.CANCELLED =>
-        JobCancelled(id)
-      case other =>
-        JobRunning(id, other.toString)
-    }
+    new JobStatus(id, status.state, status.result, status.error)
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {

@@ -27,8 +27,8 @@ import com.cloudera.livy.metrics.Metrics;
 
 class BypassJobWrapper extends JobWrapper<byte[]> {
 
-  private byte[] result;
-  private Throwable error;
+  private volatile byte[] result;
+  private volatile Throwable error;
   private volatile MetricsCollection metrics;
   private volatile JobHandle.State state;
 
@@ -44,7 +44,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   }
 
   @Override
-  protected void finished(byte[] result, Throwable error) {
+  protected synchronized void finished(byte[] result, Throwable error) {
     if (error == null) {
       this.result = result;
       this.state = JobHandle.State.SUCCEEDED;
@@ -85,7 +85,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
     // Do nothing; just avoid sending data back to the driver.
   }
 
-  BypassJobStatus getStatus() {
+  synchronized BypassJobStatus getStatus() {
     String stackTrace = error != null ? Throwables.getStackTraceAsString(error) : null;
     return new BypassJobStatus(state, result, stackTrace, metrics);
   }

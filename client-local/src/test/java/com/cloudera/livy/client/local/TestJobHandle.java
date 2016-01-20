@@ -77,10 +77,10 @@ public class TestJobHandle {
     handle.addListener(listener);
 
     Object result = new Exception();
-    when(promise.get()).thenReturn(result);
+    when(promise.getNow()).thenReturn(result);
 
     assertTrue(handle.changeState(JobHandle.State.SUCCEEDED));
-    verify(promise).get();
+    verify(promise).getNow();
     verify(listener).onJobSucceeded(handle, result);
   }
 

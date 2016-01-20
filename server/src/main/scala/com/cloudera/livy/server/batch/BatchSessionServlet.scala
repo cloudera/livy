@@ -33,7 +33,7 @@ class BatchSessionServlet(batchManager: SessionManager[BatchSession])
   extends SessionServlet[BatchSession](batchManager)
 {
   override protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
-  override protected implicit def jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
+  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
   override protected def serializeSession(session: BatchSession) = Serializers.serializeBatch(session)
 

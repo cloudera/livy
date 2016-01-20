@@ -26,12 +26,6 @@ import java.util.concurrent.Future;
 public interface JobHandle<T> extends Future<T> {
 
   /**
-   * The client job ID. This is unrelated to any Spark jobs that might be triggered by the
-   * submitted job.
-   */
-  String getClientJobId();
-
-  /**
    * A collection of metrics collected from the Spark jobs triggered by this job.
    *
    * To collect job metrics on the client, Spark jobs must be registered with JobContext::monitor()

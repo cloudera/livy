@@ -133,11 +133,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.scalatra</groupId>
             <artifactId>scalatra_${scala.binary.version}</artifactId>
         </dependency>
@@ -157,12 +152,6 @@
                     <artifactId>akka-actor_${scala.binary.version}</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra-scalatest_${scala.binary.version}</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -211,7 +200,6 @@
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
-                <version>1.0</version>
                 <configuration>
                     <systemProperties>
                         <spark.master>local</spark.master>

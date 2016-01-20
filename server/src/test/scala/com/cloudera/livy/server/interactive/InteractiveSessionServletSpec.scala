@@ -35,9 +35,7 @@ import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
 
 class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
 
-  override protected implicit def jsonFormats: Formats = {
-    DefaultFormats ++ Serializers.SessionFormats
-  }
+  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
   class MockInteractiveSession(val id: Int) extends InteractiveSession {
     var _state: SessionState = SessionState.Idle()

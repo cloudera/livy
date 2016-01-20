@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
 
+import org.json4s.{DefaultFormats, Formats}
 import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
 
 import com.cloudera.livy.Utils
@@ -34,6 +35,8 @@ import com.cloudera.livy.spark.SparkProcessBuilderFactory
 import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, CreateBatchRequest}
 
 class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
+
+  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")

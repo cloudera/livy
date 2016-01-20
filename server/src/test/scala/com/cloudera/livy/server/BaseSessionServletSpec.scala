@@ -30,7 +30,7 @@ import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager}
 abstract class BaseSessionServletSpec[S <: Session] extends ScalatraSuite
   with FunSpecLike with BeforeAndAfterAll {
 
-  protected implicit def jsonFormats: Formats = DefaultFormats
+  protected implicit lazy val jsonFormats: Formats = DefaultFormats
 
   override protected def withFixture(test: NoArgTest) = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")

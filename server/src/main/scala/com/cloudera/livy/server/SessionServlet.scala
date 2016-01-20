@@ -42,7 +42,7 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
 {
   override protected implicit def executor: ExecutionContext = ExecutionContext.global
 
-  override protected implicit def jsonFormats: Formats = DefaultFormats
+  override protected implicit lazy val jsonFormats: Formats = DefaultFormats
 
   protected def serializeSession(session: S): JValue
 

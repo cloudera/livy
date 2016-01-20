@@ -37,7 +37,7 @@ object InteractiveSessionServlet extends Logging
 class InteractiveSessionServlet(sessionManager: SessionManager[InteractiveSession])
   extends SessionServlet(sessionManager)
 {
-  override protected implicit def jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
+  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
   override protected def serializeSession(session: InteractiveSession) = Serializers.serializeSession(session)
 

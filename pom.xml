@@ -142,6 +142,21 @@
       <version>${mockito.version}</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.binary.version}</artifactId>
+      <version>${scalatest.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.scalatra</groupId>
+      <artifactId>scalatra-scalatest_${scala.binary.version}</artifactId>
+      <version>${scalatra.version}</version>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <dependencyManagement>
@@ -389,13 +404,6 @@
       </dependency>
 
       <dependency>
-        <groupId>org.scalatest</groupId>
-        <artifactId>scalatest_${scala.binary.version}</artifactId>
-        <version>${scalatest.version}</version>
-        <scope>test</scope>
-      </dependency>
-
-      <dependency>
         <groupId>org.scalatra</groupId>
         <artifactId>scalatra_${scala.binary.version}</artifactId>
         <version>${scalatra.version}</version>
@@ -411,13 +419,6 @@
         <groupId>org.scalatra</groupId>
         <artifactId>scalatra-json_${scala.binary.version}</artifactId>
         <version>${scalatra.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.scalatra</groupId>
-        <artifactId>scalatra-scalatest_${scala.binary.version}</artifactId>
-        <version>${scalatra.version}</version>
-        <scope>test</scope>
       </dependency>
 
       <dependency>
