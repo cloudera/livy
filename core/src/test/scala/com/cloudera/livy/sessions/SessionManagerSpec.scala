@@ -35,8 +35,8 @@ class SessionManagerSpec extends FlatSpec with Matchers {
     override def state: SessionState = SessionState.Success(0)
   }
 
-  class MockSessionFactory extends SessionFactory[MockSession] {
-    override def create(id: Int, createRequest: JValue): MockSession = new MockSession(id)
+  class MockSessionFactory extends SessionFactory[MockSession, AnyRef] {
+    override def create(id: Int, createRequest: AnyRef): MockSession = new MockSession(id)
   }
 
   it should "garbage collect old sessions" in {

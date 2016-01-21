@@ -23,8 +23,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.Future
 
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
+import org.json4s.JsonAST._
+import org.json4s.jackson.Json4sScalaModule
 
 import com.cloudera.livy.ExecuteRequest
 import com.cloudera.livy.server.BaseSessionServletSpec
@@ -33,9 +33,11 @@ import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
 import com.cloudera.livy.spark.interactive.{CreateInteractiveRequest, InteractiveSessionFactory}
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
 
-class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
+class InteractiveSessionServletSpec
+  extends BaseSessionServletSpec[InteractiveSession, CreateInteractiveRequest] {
 
-  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
+  mapper.registerModule(new SessionKindModule())
+    .registerModule(new Json4sScalaModule())
 
   class MockInteractiveSession(val id: Int) extends InteractiveSession {
     var _state: SessionState = SessionState.Idle()
@@ -58,7 +60,7 @@ class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSe
       val statement = new Statement(
         id,
         executeRequest,
-        Future.successful(JObject()))
+        Future.successful(JObject(JField("value", JInt(42)))))
 
       _statements :+= statement
 
@@ -94,28 +96,33 @@ class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSe
   override def servlet = new InteractiveSessionServlet(sessionManager)
 
   it("should setup and tear down an interactive session") {
-    getJson("/") { data =>
-      data \ "sessions" should equal(JArray(List()))
+    jget[Map[String, Any]]("/") { data =>
+      data("sessions") should equal(Seq())
     }
 
-    postJson("/", CreateInteractiveRequest(kind = Spark())) { data =>
+    jpost[Map[String, Any]]("/", CreateInteractiveRequest(kind = Spark())) { data =>
       header("Location") should equal("/0")
-      data \ "id" should equal (JInt(0))
+      data("id") should equal (0)
 
       val session = sessionManager.get(0)
       session should be (defined)
     }
 
-    getJson("/0") { data =>
-      data \ "id" should equal (JInt(0))
-      data \ "state" should equal (JString("idle"))
+    jget[Map[String, Any]]("/0") { data =>
+      data("id") should equal (0)
+      data("state") should equal ("idle")
 
       val batch = sessionManager.get(0)
       batch should be (defined)
     }
 
-    deleteJson("/0") { data =>
-      data should equal (JObject(("msg", JString("deleted"))))
+    jpost[Map[String, Any]]("/0/statements", ExecuteRequest("foo")) { data =>
+      data("id") should be (0)
+      data("output") should be (Map("value" -> 42))
+    }
+
+    jdelete[Map[String, Any]]("/0") { data =>
+      data should equal (Map("msg" -> "deleted"))
 
       val session = sessionManager.get(0)
       session should not be defined

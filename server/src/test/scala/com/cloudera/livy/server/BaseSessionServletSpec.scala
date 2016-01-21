@@ -18,19 +18,14 @@
 
 package com.cloudera.livy.server
 
-import org.json4s.{DefaultFormats, Formats, JValue}
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
-import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
-import org.scalatra.test.scalatest.ScalatraSuite
+import org.scalatest.BeforeAndAfterAll
 
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager}
 
-abstract class BaseSessionServletSpec[S <: Session] extends ScalatraSuite
-  with FunSpecLike with BeforeAndAfterAll {
-
-  protected implicit lazy val jsonFormats: Formats = DefaultFormats
+abstract class BaseSessionServletSpec[S <: Session, R]
+  extends BaseJsonServletSpec
+  with BeforeAndAfterAll {
 
   override protected def withFixture(test: NoArgTest) = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
@@ -42,36 +37,14 @@ abstract class BaseSessionServletSpec[S <: Session] extends ScalatraSuite
     sessionManager.shutdown()
   }
 
-
-  def sessionFactory: SessionFactory[S]
-  def servlet: SessionServlet[S]
+  def sessionFactory: SessionFactory[S, R]
+  def servlet: SessionServlet[S, R]
 
   val livyConf = new LivyConf()
   val sessionManager = new SessionManager(livyConf, sessionFactory)
 
   addServlet(servlet, "/*")
 
-  protected def toJson(msg: AnyRef): String = write(msg)
-
-  protected def headers: Map[String, String] = Map("Content-Type" -> "application/json")
-
-  protected def getJson(uri: String, expectedStatus: Int = 200)(fn: (JValue) => Unit): Unit = {
-    get(uri)(doTest(expectedStatus, fn))
-  }
-
-  protected def postJson(uri: String, body: AnyRef, expectedStatus: Int = 201)
-      (fn: (JValue) => Unit): Unit = {
-    post(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))
-  }
-
-  protected def deleteJson(uri: String, expectedStatus: Int = 200)(fn: (JValue) => Unit): Unit = {
-    delete(uri)(doTest(expectedStatus, fn))
-  }
-
-  private def doTest(expectedStatus: Int, fn: (JValue) => Unit): Unit = {
-    status should be (expectedStatus)
-    header("Content-Type") should include("application/json")
-    fn(parse(body))
-  }
+  protected def toJson(msg: AnyRef): Array[Byte] = mapper.writeValueAsBytes(msg)
 
 }

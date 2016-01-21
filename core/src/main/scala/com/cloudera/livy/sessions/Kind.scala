@@ -18,8 +18,9 @@
 
 package com.cloudera.livy.sessions
 
-import org.json4s.CustomSerializer
-import org.json4s.JsonAST.JString
+import com.fasterxml.jackson.core.{JsonGenerator, JsonParser, JsonToken}
+import com.fasterxml.jackson.databind._
+import com.fasterxml.jackson.databind.module.SimpleModule
 
 sealed trait Kind
 case class Spark() extends Kind {
@@ -34,12 +35,24 @@ case class SparkR() extends Kind {
   override def toString = "sparkr"
 }
 
-case object SessionKindSerializer extends CustomSerializer[Kind](implicit formats => ( {
-  case JString("spark") | JString("scala") => Spark()
-  case JString("pyspark") | JString("python") => PySpark()
-  case JString("sparkr") | JString("r") => SparkR()
-}, {
-  case kind: Kind => JString(kind.toString)
+class SessionKindModule extends SimpleModule("SessionKind") {
+
+  addSerializer(classOf[Kind], new JsonSerializer[Kind]() {
+    override def serialize(value: Kind, jgen: JsonGenerator, provider: SerializerProvider): Unit = {
+      jgen.writeString(value.toString)
+    }
+  })
+
+  addDeserializer(classOf[Kind], new JsonDeserializer[Kind]() {
+    override def deserialize(jp: JsonParser, ctxt: DeserializationContext): Kind = {
+      require(jp.getCurrentToken() == JsonToken.VALUE_STRING, "Kind should be a string.")
+      jp.getText() match {
+        case "spark" | "scala" => Spark()
+        case "pyspark" | "python" => PySpark()
+        case "sparkr" | "r" => SparkR()
+        case other => throw new IllegalArgumentException(s"Invalid kind: $other")
+      }
+    }
+  })
+
 }
-  )
-)

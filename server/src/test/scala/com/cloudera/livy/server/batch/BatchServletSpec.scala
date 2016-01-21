@@ -24,9 +24,6 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
 
-import org.json4s.{DefaultFormats, Formats}
-import org.json4s.JsonAST.{JArray, JInt, JObject, JString}
-
 import com.cloudera.livy.Utils
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions.SessionState
@@ -34,9 +31,7 @@ import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.spark.SparkProcessBuilderFactory
 import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, CreateBatchRequest}
 
-class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
-
-  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
+class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchRequest] {
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
@@ -60,13 +55,13 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
-      getJson("/") { data =>
-        data \ "sessions" should equal (JArray(List()))
+      jget[Map[String, Any]]("/") { data =>
+        data("sessions") should equal (Seq())
       }
 
-      postJson("/", CreateBatchRequest(file = script.toString)) { data =>
+      jpost[Map[String, Any]]("/", CreateBatchRequest(file = script.toString)) { data =>
         header("Location") should equal("/0")
-        data \ "id" should equal (JInt(0))
+        data("id") should equal (0)
 
         val batch = sessionManager.get(0)
         batch should be (defined)
@@ -82,24 +77,24 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
         }) should be (true)
       }
 
-      getJson("/0") { data =>
-        data \ "id" should equal (JInt(0))
-        data \ "state" should equal (JString("success"))
+      jget[Map[String, Any]]("/0") { data =>
+        data("id") should equal (0)
+        data("state") should equal ("success")
 
         val batch = sessionManager.get(0)
         batch should be (defined)
       }
 
-      getJson("/0/log?size=1000") { data =>
-        data \ "id" should equal (JInt(0))
-        (data \ "log").extract[List[String]] should contain ("hello world")
+      jget[Map[String, Any]]("/0/log?size=1000") { data =>
+        data("id") should equal (0)
+        data("log").asInstanceOf[Seq[String]] should contain ("hello world")
 
         val batch = sessionManager.get(0)
         batch should be (defined)
       }
 
-      deleteJson("/0") { data =>
-        data should equal (JObject(("msg", JString("deleted"))))
+      jdelete[Map[String, Any]]("/0") { data =>
+        data should equal (Map("msg" -> "deleted"))
 
         val batch = sessionManager.get(0)
         batch should not be defined

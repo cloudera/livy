@@ -18,13 +18,10 @@
 
 package com.cloudera.livy.server
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.Future
+import scala.reflect.ClassTag
 
-import com.fasterxml.jackson.core.JsonParseException
-import org.json4s.JsonDSL._
-import org.json4s.{DefaultFormats, Formats, JValue, MappingException}
 import org.scalatra._
-import org.scalatra.json.JacksonJsonSupport
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.sessions.{SessionManager, Session}
@@ -33,24 +30,27 @@ import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
 
-abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
-  extends ScalatraServlet
-  with FutureSupport
+/**
+ * Type parameters:
+ *  S: the session type
+ *  R: the type representing the session create parameters.
+ */
+abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: SessionManager[S, R])
+  extends JsonServlet
   with MethodOverride
-  with JacksonJsonSupport
   with UrlGeneratorSupport
 {
-  override protected implicit def executor: ExecutionContext = ExecutionContext.global
 
-  override protected implicit lazy val jsonFormats: Formats = DefaultFormats
-
-  protected def serializeSession(session: S): JValue
+  /**
+   * Returns a object representing the session data to be sent back to the client.
+   */
+  protected def clientSessionView(session: S): Any = session
 
   before() {
-    contentType = formats("json")
+    contentType = "application/json"
   }
 
-  get("/") {
+  jget("/") {
     val from = params.get("from").map(_.toInt).getOrElse(0)
     val size = params.get("size").map(_.toInt).getOrElse(100)
 
@@ -59,30 +59,30 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
     Map(
       "from" -> from,
       "total" -> sessionManager.size(),
-      "sessions" -> sessions.view(from, from + size).map(serializeSession)
+      "sessions" -> sessions.view(from, from + size).map(clientSessionView)
     )
   }
 
-  val getSession = get("/:id") {
+  val getSession = jget("/:id") {
     val id = params("id").toInt
 
     sessionManager.get(id) match {
       case None => NotFound("session not found")
-      case Some(session) => serializeSession(session)
+      case Some(session) => clientSessionView(session)
     }
   }
 
-  get("/:id/state") {
+  jget("/:id/state") {
     val id = params("id").toInt
 
     sessionManager.get(id) match {
       case None => NotFound("batch not found")
       case Some(batch) =>
-        ("id", batch.id) ~ ("state", batch.state.toString)
+        Map("id" -> batch.id, "state" -> batch.state.toString)
     }
   }
 
-  get("/:id/log") {
+  jget("/:id/log") {
     val id = params("id").toInt
 
     sessionManager.get(id) match {
@@ -92,14 +92,15 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
         val size = params.get("size").map(_.toInt)
         val (from_, total, logLines) = serializeLogs(session, from, size)
 
-        ("id", session.id) ~
-          ("from", from_) ~
-          ("total", total) ~
-          ("log", logLines)
+        Map(
+          "id" -> session.id,
+          "from" -> from_,
+          "total" -> total,
+          "log" -> logLines)
     }
   }
 
-  delete("/:id") {
+  jdelete("/:id") {
     val id = params("id").toInt
 
     sessionManager.delete(id) match {
@@ -110,11 +111,11 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
     }
   }
 
-  post("/") {
+  jpost[R]("/") { createRequest =>
     new AsyncResult {
       val is = Future {
-        val session = sessionManager.create(parsedBody)
-        Created(serializeSession(session),
+        val session = sessionManager.create(createRequest)
+        Created(clientSessionView(session),
           headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
         )
       }
@@ -122,8 +123,6 @@ abstract class SessionServlet[S <: Session](sessionManager: SessionManager[S])
   }
 
   error {
-    case e: JsonParseException => BadRequest(e.getMessage)
-    case e: MappingException => BadRequest(e.getMessage)
     case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
     case e: SessionFailedToStart => InternalServerError(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)

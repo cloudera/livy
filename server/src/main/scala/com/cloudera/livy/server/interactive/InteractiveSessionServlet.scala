@@ -24,9 +24,9 @@ import java.util.concurrent.TimeUnit
 import com.cloudera.livy.{ExecuteRequest, Logging}
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement, StatementState}
-import org.json4s.JsonAST.JString
-import org.json4s._
+import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
+import com.cloudera.livy.spark.interactive.CreateInteractiveRequest
+import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
 
 import scala.concurrent._
@@ -34,16 +34,45 @@ import scala.concurrent.duration._
 
 object InteractiveSessionServlet extends Logging
 
-class InteractiveSessionServlet(sessionManager: SessionManager[InteractiveSession])
+class InteractiveSessionServlet(
+    sessionManager: SessionManager[InteractiveSession, CreateInteractiveRequest])
   extends SessionServlet(sessionManager)
 {
-  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
-  override protected def serializeSession(session: InteractiveSession) = Serializers.serializeSession(session)
+  mapper.registerModule(new SessionKindModule())
+    .registerModule(new Json4sScalaModule())
 
-  post("/:sessionId/callback") {
+  override protected def clientSessionView(session: InteractiveSession): Any = {
+    val lines = session.logLines()
+
+    val size = 10
+    var from = math.max(0, lines.length - size)
+    val until = from + size
+
+    val logs = lines.view(from, until)
+
+    Map(
+      "id" -> session.id,
+      "state" -> session.state.toString,
+      "kind" -> session.kind.toString,
+      "proxyUser" -> session.proxyUser,
+      "logs" -> logs)
+  }
+
+  private def statementView(statement: Statement): Any = {
+    val output = try {
+      Await.result(statement.output(), Duration(100, TimeUnit.MILLISECONDS))
+    } catch {
+      case _: TimeoutException => null
+    }
+    Map(
+      "id" -> statement.id,
+      "state" -> statement.state.toString,
+      "output" -> output)
+  }
+
+  jpost[CallbackRequest]("/:sessionId/callback") { callback =>
     val sessionId = params("sessionId").toInt
-    val callback = parsedBody.extract[CallbackRequest]
 
     sessionManager.get(sessionId) match {
       case Some(session) =>
@@ -95,7 +124,7 @@ class InteractiveSessionServlet(sessionManager: SessionManager[InteractiveSessio
 
         Map(
           "total_statements" -> session.statements.length,
-          "statements" -> session.statements.view(from, from + size)
+          "statements" -> session.statements.view(from, from + size).map(statementView)
         )
     }
   }
@@ -113,20 +142,19 @@ class InteractiveSessionServlet(sessionManager: SessionManager[InteractiveSessio
         session.statements.lift(statementId) match {
           case None => NotFound("Statement not found")
           case Some(statement) =>
-            Serializers.serializeStatement(statement, from, size)
+            statementView(statement)
         }
     }
   }
 
-  post("/:sessionId/statements") {
+  jpost[ExecuteRequest]("/:sessionId/statements") { req =>
     val sessionId = params("sessionId").toInt
-    val req = parsedBody.extract[ExecuteRequest]
 
     sessionManager.get(sessionId) match {
       case Some(session) =>
         val statement = session.executeStatement(req)
 
-        Created(statement,
+        Created(statementView(statement),
           headers = Map(
             "Location" -> url(getStatement,
               "sessionId" -> session.id.toString,
@@ -137,87 +165,3 @@ class InteractiveSessionServlet(sessionManager: SessionManager[InteractiveSessio
 }
 
 private case class CallbackRequest(url: String)
-
-private object Serializers {
-  import JsonDSL._
-
-  def SessionFormats: List[CustomSerializer[_]] = List(SessionSerializer, SessionKindSerializer, SessionStateSerializer)
-  def StatementFormats: List[CustomSerializer[_]] = List(StatementSerializer, StatementStateSerializer)
-  def Formats: List[CustomSerializer[_]] = SessionFormats ++ StatementFormats
-
-  private def serializeSessionState(state: SessionState) = JString(state.toString)
-
-  private def serializeSessionKind(kind: Kind) = JString(kind.toString)
-
-  private def serializeStatementState(state: StatementState) = JString(state.toString)
-
-  def serializeSession(session: InteractiveSession): JValue = {
-    ("id", session.id) ~
-      ("state", serializeSessionState(session.state)) ~
-      ("kind", serializeSessionKind(session.kind)) ~
-      ("proxyUser", session.proxyUser) ~
-      ("log", getLogs(session, None, Some(10))._3)
-  }
-
-  def getLogs(session: InteractiveSession, fromOpt: Option[Int], sizeOpt: Option[Int]) = {
-    val lines = session.logLines()
-
-    val size = sizeOpt.getOrElse(100)
-    var from = fromOpt.getOrElse(-1)
-    if (from < 0) {
-      from = math.max(0, lines.length - size)
-    }
-    val until = from + size
-
-    (from, lines.length, lines.view(from, until))
-  }
-
-  def serializeStatement(statement: Statement, from: Option[Int], size: Option[Int]): JValue = {
-    // Take a couple milliseconds to see if the statement has finished.
-    val output = try {
-      Await.result(statement.output(), Duration(100, TimeUnit.MILLISECONDS))
-    } catch {
-      case _: TimeoutException => null
-    }
-
-    ("id" -> statement.id) ~
-      ("state" -> serializeStatementState(statement.state)) ~
-      ("output" -> output)
-  }
-
-  case object SessionSerializer extends CustomSerializer[InteractiveSession](implicit formats => ( {
-    // We don't support deserialization.
-    PartialFunction.empty
-  }, {
-    case session: InteractiveSession =>
-      serializeSession(session)
-  }
-    )
-  )
-
-  case object SessionStateSerializer extends CustomSerializer[SessionState](implicit formats => ( {
-    // We don't support deserialization.
-    PartialFunction.empty
-  }, {
-    case state: SessionState => JString(state.toString)
-  }
-    )
-  )
-
-  case object StatementSerializer extends CustomSerializer[Statement](implicit formats => ( {
-    // We don't support deserialization.
-    PartialFunction.empty
-  }, {
-    case statement: Statement =>
-      serializeStatement(statement, None, None)
-  }))
-
-  case object StatementStateSerializer extends CustomSerializer[StatementState](implicit formats => ( {
-    // We don't support deserialization.
-    PartialFunction.empty
-  }, {
-    case state: StatementState => JString(state.toString)
-  }
-    )
-  )
-}

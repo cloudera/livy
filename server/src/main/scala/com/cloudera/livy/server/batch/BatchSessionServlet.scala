@@ -22,53 +22,25 @@ import com.cloudera.livy.Logging
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.sessions.batch.BatchSession
-import org.json4s.JsonDSL._
-import org.json4s._
-
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import com.cloudera.livy.spark.batch.CreateBatchRequest
 
 object BatchSessionServlet extends Logging
 
-class BatchSessionServlet(batchManager: SessionManager[BatchSession])
-  extends SessionServlet[BatchSession](batchManager)
+case class BatchSessionView(id: Long, state: String, log: Seq[String])
+
+class BatchSessionServlet(batchManager: SessionManager[BatchSession, CreateBatchRequest])
+  extends SessionServlet(batchManager)
 {
-  override protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
-  override protected implicit lazy val jsonFormats: Formats = DefaultFormats ++ Serializers.Formats
 
-  override protected def serializeSession(session: BatchSession) = Serializers.serializeBatch(session)
+  override protected def clientSessionView(session: BatchSession): Any = {
+    val lines = session.logLines()
 
-}
-
-private object Serializers {
-
-  def Formats: List[CustomSerializer[_]] = List(BatchSerializer)
-
-  def serializeBatch(batch: BatchSession): JValue = {
-    ("id", batch.id) ~
-      ("state", batch.state.toString) ~
-      ("log", getLogs(batch, None, Some(10))._3)
-  }
-
-  def getLogs(batch: BatchSession, fromOpt: Option[Int], sizeOpt: Option[Int]) = {
-    val lines = batch.logLines()
-
-    val size = sizeOpt.getOrElse(100)
-    var from = fromOpt.getOrElse(-1)
-    if (from < 0) {
-      from = math.max(0, lines.length - size)
-    }
+    val size = 10
+    val from =  math.max(0, lines.length - size)
     val until = from + size
 
-    (from, lines.length, lines.view(from, until))
+    val logs = lines.view(from, until).toSeq
+    BatchSessionView(session.id, session.state.toString, logs)
   }
 
-  case object BatchSerializer extends CustomSerializer[BatchSession](
-    implicit formats => ( {
-    // We don't support deserialization.
-    PartialFunction.empty
-  }, {
-    case batch: BatchSession => serializeBatch(batch)
-  }
-    )
-  )
 }

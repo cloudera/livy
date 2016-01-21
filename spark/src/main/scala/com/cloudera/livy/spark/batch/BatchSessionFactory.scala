@@ -26,9 +26,8 @@ import com.cloudera.livy.spark.SparkProcessBuilder.RelativePath
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
 import org.json4s.JValue
 
-abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory) extends SessionFactory[BatchSession] {
-  override def create(id: Int, createRequest: JValue) =
-    create(id, createRequest.extract[CreateBatchRequest])
+abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory)
+  extends SessionFactory[BatchSession, CreateBatchRequest] {
 
   def create(id: Int, request: CreateBatchRequest): BatchSession = {
     val builder = sparkBuilder(request)

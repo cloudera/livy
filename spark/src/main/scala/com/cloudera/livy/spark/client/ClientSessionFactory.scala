@@ -25,13 +25,9 @@ import org.json4s.{JObject, JValue}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionFactory
 
-class ClientSessionFactory extends SessionFactory[ClientSession]{
+class ClientSessionFactory extends SessionFactory[ClientSession, CreateClientRequest]{
 
-  override def create(id: Int, req: JValue): ClientSession = {
-    // json4s doesn't like Java types, so we can't read CreateClientRequest directly; instead,
-    // use the ugly hack below.
-    val timeout = (req \ "timeout").extract[Long]
-    val conf = (req \ "conf").extract[Map[String, String]]
-    new ClientSession(id, new CreateClientRequest(timeout, conf.asJava))
+  override def create(id: Int, request: CreateClientRequest): ClientSession = {
+    new ClientSession(id, request)
   }
 }

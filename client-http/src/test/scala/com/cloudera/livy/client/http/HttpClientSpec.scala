@@ -25,7 +25,6 @@ import javax.servlet.ServletContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.json4s.JValue
 import org.mockito.Matchers.{eq => meq, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -204,19 +203,20 @@ private class HttpClientTestBootstrap extends LifeCycle {
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
   override def init(context: ServletContext): Unit = {
-    val factory = mock(classOf[SessionFactory[ClientSession]])
-    when(factory.create(anyInt(), any(classOf[JValue]))).thenAnswer(new Answer[ClientSession]() {
-      override def answer(args: InvocationOnMock): ClientSession = {
-        val session = mock(classOf[ClientSession])
-        val id = args.getArguments()(0).asInstanceOf[Int]
-        when(session.id).thenReturn(id)
-        when(session.state).thenReturn(SessionState.Idle())
-        when(session.stop()).thenReturn(Future { })
-        require(HttpClientSpec.session == null, "Session already created?")
-        HttpClientSpec.session = session
-        session
-      }
-    })
+    val factory = mock(classOf[SessionFactory[ClientSession, CreateClientRequest]])
+    when(factory.create(anyInt(), any(classOf[CreateClientRequest]))).thenAnswer(
+      new Answer[ClientSession]() {
+        override def answer(args: InvocationOnMock): ClientSession = {
+          val session = mock(classOf[ClientSession])
+          val id = args.getArguments()(0).asInstanceOf[Int]
+          when(session.id).thenReturn(id)
+          when(session.state).thenReturn(SessionState.Idle())
+          when(session.stop()).thenReturn(Future { })
+          require(HttpClientSpec.session == null, "Session already created?")
+          HttpClientSpec.session = session
+          session
+        }
+      })
 
     val mgr = new SessionManager(new LivyConf(), factory)
     context.mount(new ClientSessionServlet(mgr), "/clients/*")

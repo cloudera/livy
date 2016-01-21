@@ -25,11 +25,10 @@ import java.nio.file.{Paths, Files}
 import scala.collection.JavaConverters._
 
 import com.cloudera.livy.sessions.interactive.InteractiveSession
-import com.cloudera.livy.sessions.{PySpark, SessionFactory, SessionKindSerializer}
+import com.cloudera.livy.sessions.{PySpark, SessionFactory}
 import com.cloudera.livy.spark.SparkProcessBuilder.{AbsolutePath, RelativePath}
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
 import com.cloudera.livy.{LivyConf, Utils}
-import org.json4s.{DefaultFormats, Formats, JValue}
 
 object InteractiveSessionFactory {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -43,14 +42,9 @@ object InteractiveSessionFactory {
 }
 
 abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFactory)
-  extends SessionFactory[InteractiveSession] {
+  extends SessionFactory[InteractiveSession, CreateInteractiveRequest] {
 
   import InteractiveSessionFactory._
-
-  override protected implicit def jsonFormats: Formats = DefaultFormats ++ List(SessionKindSerializer)
-
-  override def create(id: Int, createRequest: JValue) =
-    create(id, createRequest.extract[CreateInteractiveRequest])
 
   def create(id: Int, request: CreateInteractiveRequest): InteractiveSession = {
     val builder = sparkBuilder(id, request)

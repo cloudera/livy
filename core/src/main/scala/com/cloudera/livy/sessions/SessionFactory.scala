@@ -18,13 +18,9 @@
 
 package com.cloudera.livy.sessions
 
-import org.json4s.{DefaultFormats, Formats, JValue}
+abstract class SessionFactory[S <: Session, R] {
 
-abstract class SessionFactory[S <: Session] {
-
-  protected implicit def jsonFormats: Formats = DefaultFormats
-
-  def create(id: Int, createRequest: JValue): S
+  def create(id: Int, createRequest: R): S
 
   def close(): Unit = {}
 }

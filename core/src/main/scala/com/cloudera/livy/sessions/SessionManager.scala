@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.cloudera.livy.{LivyConf, Logging}
-import org.json4s.JValue
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,7 +30,7 @@ object SessionManager {
   val SESSION_TIMEOUT = "livy.server.session.timeout"
 }
 
-class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S])
+class SessionManager[S <: Session, R](livyConf: LivyConf, factory: SessionFactory[S, R])
   extends Logging {
 
   private implicit def executor: ExecutionContext = ExecutionContext.global
@@ -47,7 +46,7 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
   garbageCollector.setDaemon(true)
   garbageCollector.start()
 
-  def create(createRequest: JValue): S = {
+  def create(createRequest: R): S = {
     val id = _idCounter.getAndIncrement
     val session: S = factory.create(id, createRequest)
 

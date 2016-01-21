@@ -23,8 +23,8 @@ import com.cloudera.livy.LivyConf.{Process, Yarn}
 import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.sessions.interactive.InteractiveSession
-import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, BatchSessionYarnFactory}
-import com.cloudera.livy.spark.interactive.{InteractiveSessionProcessFactory, InteractiveSessionYarnFactory}
+import com.cloudera.livy.spark.batch._
+import com.cloudera.livy.spark.interactive._
 import com.cloudera.livy.yarn.Client
 
 import scala.io.Source
@@ -61,9 +61,9 @@ object SparkManager {
 }
 
 trait SparkManager {
-  def batchManager: SessionManager[BatchSession]
+  def batchManager: SessionManager[BatchSession, CreateBatchRequest]
 
-  def interactiveManager: SessionManager[InteractiveSession]
+  def interactiveManager: SessionManager[InteractiveSession, CreateInteractiveRequest]
 
   def shutdown()
 }
