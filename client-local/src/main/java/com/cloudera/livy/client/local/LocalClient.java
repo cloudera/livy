@@ -29,13 +29,17 @@ import java.io.Writer;
 import java.net.URI;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.attribute.PosixFilePermission.*;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
@@ -67,7 +71,6 @@ public class LocalClient implements LivyClient {
 
   private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
 
-  private static final String OSX_TEST_OPTS = "SPARK_OSX_TEST_OPTS";
   private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
   private static final String SPARK_HOME_KEY = "spark.home";
@@ -202,12 +205,8 @@ public class LocalClient implements LivyClient {
           args.add(secret);
 
           for (Map.Entry<String, String> e : conf) {
-            String key = e.getKey();
-            if (!key.startsWith("spark.")) {
-              key = LocalConf.SPARK_CONF_PREFIX + key;
-            }
             args.add("--conf");
-            args.add(String.format("%s=%s", key, e.getValue()));
+            args.add(String.format("%s=%s", e.getKey(), e.getValue()));
           }
           try {
             RemoteDriver.main(args.toArray(new String[args.size()]));
@@ -228,56 +227,14 @@ public class LocalClient implements LivyClient {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
 
-      String osxTestOpts = "";
-      if (Strings.nullToEmpty(System.getProperty("os.name")).toLowerCase().contains("mac")) {
-        osxTestOpts = Strings.nullToEmpty(System.getenv(OSX_TEST_OPTS));
-      }
+      conf.set(CLIENT_ID, clientId);
+      conf.set(CLIENT_SECRET, secret);
 
-      String driverJavaOpts = Joiner.on(" ").skipNulls().join(
-          osxTestOpts, conf.get(DRIVER_OPTS_KEY));
-      String executorJavaOpts = Joiner.on(" ").skipNulls().join(
-          osxTestOpts, conf.get(EXECUTOR_OPTS_KEY));
-
-      // Create a file with all the job properties to be read by spark-submit. Change the
-      // file's permissions so that only the owner can read it. This avoid having the
-      // connection secret show up in the child process's command line.
-      File properties = File.createTempFile("spark-submit.", ".properties");
-      if (!properties.setReadable(false) || !properties.setReadable(true, true)) {
-        throw new IOException("Cannot change permissions of job properties file.");
-      }
-      properties.deleteOnExit();
-
-      Properties allProps = new Properties();
-      // first load the defaults from spark-defaults.conf if available
-      try {
-        URL sparkDefaultsUrl = Thread.currentThread().getContextClassLoader().getResource("spark-defaults.conf");
-        if (sparkDefaultsUrl != null) {
-          LOG.info("Loading spark defaults: " + sparkDefaultsUrl);
-          allProps.load(new ByteArrayInputStream(Resources.toByteArray(sparkDefaultsUrl)));
-        }
-      } catch (Exception e) {
-        String msg = "Exception trying to load spark-defaults.conf: " + e;
-        throw new IOException(msg, e);
-      }
-      // then load the SparkClientImpl config
-      for (Map.Entry<String, String> e : conf) {
-        String key = e.getKey();
-        if (!key.startsWith("spark.")) {
-          key = LocalConf.SPARK_CONF_PREFIX + key;
-        }
-        allProps.put(key, e.getValue());
-      }
-      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key(), clientId);
-      allProps.put(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key(), secret);
-      allProps.put(DRIVER_OPTS_KEY, driverJavaOpts);
-      allProps.put(EXECUTOR_OPTS_KEY, executorJavaOpts);
-
-      Writer writer = new OutputStreamWriter(new FileOutputStream(properties), Charsets.UTF_8);
-      try {
-        allProps.store(writer, "Spark Context configuration");
-      } finally {
-        writer.close();
-      }
+      // Create two config files: one with Spark configuration, provided to spark-submit, and
+      // one with Livy configuration, provided to RemoteDriver. Make the files readable only
+      // by their owner, since they may contain private information.
+      File sparkConf = writeConfToFile(true);
+      File livyConf = writeConfToFile(false);
 
       // Define how to pass options to the child process. If launching in client (or local)
       // mode, the driver options need to be passed directly on the command line. Otherwise,
@@ -345,7 +302,7 @@ public class LocalClient implements LivyClient {
       }
 
       argv.add("--properties-file");
-      argv.add(properties.getAbsolutePath());
+      argv.add(sparkConf.getAbsolutePath());
       argv.add("--class");
       argv.add(RemoteDriver.class.getName());
 
@@ -381,6 +338,8 @@ public class LocalClient implements LivyClient {
       argv.add(serverAddress);
       argv.add("--remote-port");
       argv.add(serverPort);
+      argv.add("--config-file");
+      argv.add(livyConf.getAbsolutePath());
 
       LOG.info("Running client driver with argv: {}", Joiner.on(" ").join(argv));
       final Process child = new ProcessBuilder(argv.toArray(new String[argv.size()])).start();
@@ -421,6 +380,35 @@ public class LocalClient implements LivyClient {
     thread.setName(name);
     thread.setDaemon(true);
     thread.start();
+  }
+
+  /**
+   * Write either Livy or Spark configuration to a file readable only by the process's owner.
+   */
+  private File writeConfToFile(boolean spark) throws IOException {
+    Properties confView = new Properties();
+    for (Map.Entry<String, String> e : conf) {
+      String key = e.getKey();
+      boolean isSparkOpt = key.startsWith(LocalConf.SPARK_CONF_PREFIX);
+      if ((spark && isSparkOpt) || (!spark && !isSparkOpt)) {
+        confView.setProperty(key, e.getValue());
+      }
+    }
+
+    String prefix = spark ? "spark." : "livy.";
+    File file = File.createTempFile(prefix, ".properties");
+    Files.setPosixFilePermissions(file.toPath(), EnumSet.of(OWNER_READ, OWNER_WRITE));
+    file.deleteOnExit();
+
+    prefix = spark ? "Spark" : "Livy";
+    Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
+    try {
+      confView.store(writer, prefix + " Configuration");
+    } finally {
+      writer.close();
+    }
+
+    return file;
   }
 
   private class ClientProtocol extends BaseProtocol {

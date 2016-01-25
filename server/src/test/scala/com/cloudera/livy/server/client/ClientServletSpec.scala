@@ -57,7 +57,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession] {
     it("should create client sessions") {
       val classpath = sys.props("java.class.path")
       val conf = new HashMap[String, String]
-      conf.put("master", "local")
+      conf.put("spark.master", "local")
       conf.put("livy.local.jars", "")
       conf.put("spark.driver.extraClassPath", classpath)
       conf.put("spark.executor.extraClassPath", classpath)

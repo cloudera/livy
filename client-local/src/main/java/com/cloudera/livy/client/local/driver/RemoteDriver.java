@@ -18,13 +18,16 @@
 package com.cloudera.livy.client.local.driver;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.Reader;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
-
-import scala.Tuple2;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -79,6 +82,7 @@ public class RemoteDriver {
     localTmpDir = Files.createTempDir();
 
     SparkConf conf = new SparkConf();
+    LocalConf livyConf = new LocalConf(null);
     String serverAddress = null;
     int serverPort = -1;
     for (int idx = 0; idx < args.length; idx += 2) {
@@ -88,12 +92,29 @@ public class RemoteDriver {
       } else if (key.equals("--remote-port")) {
         serverPort = Integer.parseInt(getArg(args, idx));
       } else if (key.equals("--client-id")) {
-        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_ID.key(), getArg(args, idx));
+        livyConf.set(CLIENT_ID, getArg(args, idx));
       } else if (key.equals("--secret")) {
-        conf.set(LocalConf.SPARK_CONF_PREFIX + CLIENT_SECRET.key(), getArg(args, idx));
+        livyConf.set(CLIENT_SECRET.key(), getArg(args, idx));
       } else if (key.equals("--conf")) {
         String[] val = getArg(args, idx).split("[=]", 2);
-        conf.set(val[0], val[1]);
+        if (val[0].startsWith(LocalConf.SPARK_CONF_PREFIX)) {
+          conf.set(val[0], val[1]);
+        } else {
+          livyConf.set(val[0], val[1]);
+        }
+      } else if (key.equals("--config-file")) {
+        String path = getArg(args, idx);
+        Properties p = new Properties();
+        Reader r = new InputStreamReader(new FileInputStream(path), UTF_8);
+        try {
+          p.load(r);
+        } finally {
+          r.close();
+        }
+
+        for (String k : p.stringPropertyNames()) {
+          livyConf.set(k, p.getProperty(k));
+        }
       } else {
         throw new IllegalArgumentException("Invalid command line: "
           + Joiner.on(" ").join(args));
@@ -103,15 +124,6 @@ public class RemoteDriver {
     executor = Executors.newCachedThreadPool();
 
     LOG.info("Connecting to: {}:{}", serverAddress, serverPort);
-
-    LocalConf livyConf = new LocalConf(null);
-    for (Tuple2<String, String> e : conf.getAll()) {
-      if (e._1().startsWith(LocalConf.SPARK_CONF_PREFIX)) {
-        String key = e._1().substring(LocalConf.SPARK_CONF_PREFIX.length());
-        livyConf.set(key, e._2());
-        LOG.debug("Remote Driver config: {} = {}", key, e._2());
-      }
-    }
 
     String clientId = livyConf.get(CLIENT_ID);
     Preconditions.checkArgument(clientId != null, "No client ID provided.");

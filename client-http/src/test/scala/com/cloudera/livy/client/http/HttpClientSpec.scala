@@ -88,7 +88,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       // WebServer does this internally instad of respecting "0.0.0.0", so try to use the same
       // address.
       val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}/"
-      client = new LivyClientBuilder(new URI(uri)).build()
+      client = new LivyClientBuilder(false).setURI(new URI(uri)).build()
     }
 
     withClient("should run and monitor asynchronous jobs") {

@@ -364,7 +364,7 @@ public class TestSparkClient {
     LivyClient client = null;
     try {
       test.config(conf);
-      client = new LivyClientBuilder(new URI("local:spark"))
+      client = new LivyClientBuilder(false).setURI(new URI("local:spark"))
         .setAll(conf)
         .build();
       test.call(client);

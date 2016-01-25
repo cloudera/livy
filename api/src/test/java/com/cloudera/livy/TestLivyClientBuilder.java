@@ -32,7 +32,8 @@ public class TestLivyClientBuilder {
     props.setProperty("prop3", "prop3");
 
     TestClientFactory.Client client = (TestClientFactory.Client)
-      new LivyClientBuilder(new URI("match"))
+      new LivyClientBuilder(false)
+        .setURI(new URI("match"))
         .setConf("prop1", "prop1")
         .setConf("prop2", "prop2")
         .setAll(props)
@@ -45,23 +46,30 @@ public class TestLivyClientBuilder {
   }
 
   @Test(expected = IllegalArgumentException.class)
-  public void testMissingUri() {
-    new LivyClientBuilder(null);
+  public void testMissingUri() throws Exception {
+    new LivyClientBuilder(false).build();
   }
 
   @Test(expected = IllegalArgumentException.class)
   public void testMismatch() throws Exception {
-    assertNull(new LivyClientBuilder(new URI("mismatch")).build());
+    assertNull(new LivyClientBuilder(false).setURI(new URI("mismatch")).build());
   }
 
   @Test
   public void testFactoryError() throws Exception {
     try {
-      assertNull(new LivyClientBuilder(new URI("error")).build());
+      assertNull(new LivyClientBuilder(false).setURI(new URI("error")).build());
     } catch (IllegalArgumentException e) {
       assertNotNull(e.getCause());
       assertTrue(e.getCause() instanceof IllegalStateException);
     }
+  }
+
+  @Test
+  public void testDefaultConfig() throws Exception {
+    TestClientFactory.Client client = (TestClientFactory.Client)
+      new LivyClientBuilder().build();
+    assertEquals("override", client.config.getProperty("spark.config"));
   }
 
 }

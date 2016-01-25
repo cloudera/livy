@@ -36,13 +36,9 @@ import com.cloudera.livy.client.common.ClientConf;
 
 public class LocalConf extends ClientConf<LocalConf> {
 
-  private static final Logger LOG = LoggerFactory.getLogger(LocalConf.class);
+  public static final String SPARK_CONF_PREFIX = "spark.";
 
-  /**
-   * Prefix for Livy configurations embedded in SparkConf properties, since SparkConf
-   * disallows anything that does not start with "spark.".
-   */
-  public static final String SPARK_CONF_PREFIX = "spark.__livy__.";
+  private static final Logger LOG = LoggerFactory.getLogger(LocalConf.class);
 
   public static enum Entry implements ConfEntry {
     CLIENT_ID("client.auth.id", null),

@@ -27,8 +27,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import org.apache.spark.SparkConf
-
 import com.cloudera.livy.{LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.LocalClient
@@ -44,12 +42,11 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
 
   private val client = {
     info("Creating LivyClient for sessionId: " + sessionId)
-    val builder = new LivyClientBuilder(new URI("local:spark"))
-    new SparkConf(true).getAll.foreach { case (k, v) => builder.setConf(k, v) }
-    builder
+    new LivyClientBuilder()
+      .setConf("spark.master", "yarn-cluster")
       .setAll(createRequest.conf)
+      .setURI(new URI("local:spark"))
       .setConf("livy.client.sessionId", sessionId.toString)
-      .setIfMissing("spark.master", "yarn-cluster")
       .build()
   }.asInstanceOf[LocalClient]
 
