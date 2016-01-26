@@ -127,20 +127,27 @@ class ScalatraBootstrap extends LifeCycle with Logging {
     info(s"Notifying $callbackUrl that we're up")
 
     Future {
-      session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
+      try {
+        session.waitForStateChange(SessionState.Starting(), Duration(1, TimeUnit.MINUTES))
 
-      // Wait for our url to be discovered.
-      val replUrl = waitForReplUrl()
+        // Wait for our url to be discovered.
+        val replUrl = waitForReplUrl()
 
-      var req = url(callbackUrl).setContentType("application/json", "UTF-8")
-      req = req << write(Map("url" -> replUrl))
+        var req = url(callbackUrl).setContentType("application/json", "UTF-8")
+        req = req << write(Map("url" -> replUrl))
 
-      val rep = Http(req OK as.String)
-      rep.onFailure {
-        case _ => System.exit(1)
+        info(s"Calling $callbackUrl...")
+        val rep = Http(req OK as.String)
+        rep.onFailure {
+          case _ => System.exit(1)
+        }
+
+        Await.result(rep, Duration(10, TimeUnit.SECONDS))
+      } catch {
+        case e: Throwable =>
+          error("Exception is thrown in notifyCallback()", e)
+          System.exit(1)
       }
-
-      Await.result(rep, Duration(10, TimeUnit.SECONDS))
     }
   }
 
