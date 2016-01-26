@@ -42,6 +42,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -53,6 +54,7 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -63,6 +65,13 @@
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+          <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -112,16 +121,19 @@
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-ast_${scala.binary.version}</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-core_${scala.binary.version}</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-jackson_${scala.binary.version}</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -161,6 +173,7 @@
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -184,6 +197,27 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/jars</outputDirectory>
+                            <useSubDirectoryPerType>false</useSubDirectoryPerType>
+                            <includeScope>runtime</includeScope>
+                            <silent>true</silent>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -194,6 +228,7 @@
                             <mainClass>com.cloudera.livy.repl.Main</mainClass>
                         </manifest>
                     </archive>
+                    <outputDirectory>${project.build.directory}/jars</outputDirectory>
                 </configuration>
             </plugin>
 

@@ -23,7 +23,16 @@ set -e
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
 cd $LIVY_HOME
 
-source ./bin/setup-classpath
+LIBDIR="$LIVY_HOME/jars"
+if [ ! -d "$LIBDIR" ]; then
+  LIBDIR="$LIVY_HOME/assembly/target/jars"
+fi
+if [ ! -d "$LIBDIR" ]; then
+  echo "Could not find Livy jars directory." 1>&2
+  exit 1
+fi
+
+CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
 
 exec java \
 	$LIVY_SERVER_JAVA_OPTS \

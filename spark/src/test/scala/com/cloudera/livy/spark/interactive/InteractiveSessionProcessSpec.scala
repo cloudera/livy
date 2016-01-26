@@ -27,6 +27,7 @@ class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
 
   val livyConf = new LivyConf()
   livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
+  livyConf.set(InteractiveSessionFactory.LivyReplJars, "")
 
   def createSession() = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")

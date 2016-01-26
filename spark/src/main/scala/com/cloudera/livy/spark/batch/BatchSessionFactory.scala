@@ -32,7 +32,7 @@ abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory) extends 
 
   def create(id: Int, request: CreateBatchRequest): BatchSession = {
     val builder = sparkBuilder(request)
-    val process = builder.start(RelativePath(request.file), request.args)
+    val process = builder.start(Some(RelativePath(request.file)), request.args)
     create(id, process)
   }
 

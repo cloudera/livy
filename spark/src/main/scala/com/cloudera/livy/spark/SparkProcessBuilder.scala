@@ -219,7 +219,7 @@ class SparkProcessBuilder(livyConf: LivyConf, userConfigurableOptions: Set[Strin
     this
   }
 
-  def start(file: Path, args: Traversable[String]): SparkProcess = {
+  def start(file: Option[Path], args: Traversable[String]): SparkProcess = {
     var arguments = ArrayBuffer(fromPath(_executable))
 
     def addOpt(option: String, value: Option[String]): Unit = {
@@ -256,7 +256,7 @@ class SparkProcessBuilder(livyConf: LivyConf, userConfigurableOptions: Set[Strin
     addOpt("--queue", _queue)
     addList("--archives", _archives.map(fromPath))
 
-    arguments += fromPath(file)
+    arguments += file.map(fromPath).getOrElse("spark-internal")
     arguments ++= args
 
     val argsString = arguments

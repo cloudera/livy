@@ -34,8 +34,15 @@
       </includes>
     </fileSet>
     <fileSet>
-      <directory>${project.parent.basedir}/livy-client-local/target/jars</directory>
+      <directory>${project.parent.basedir}/client-local/target/jars</directory>
       <outputDirectory>${install.dir}/client-jars</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.parent.basedir}/repl/target/jars</directory>
+      <outputDirectory>${install.dir}/repl-jars</outputDirectory>
       <includes>
         <include>*</include>
       </includes>

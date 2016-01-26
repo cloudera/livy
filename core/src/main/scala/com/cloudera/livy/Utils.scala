@@ -74,20 +74,6 @@ object Utils {
     }
   }
 
-  def jarOfClass(cls: Class[_]): Option[String] = {
-    val uri = cls.getResource("/" + cls.getName.replace('.', '/') + ".class")
-    if (uri != null) {
-      val uriStr = uri.toString
-      if (uriStr.startsWith("jar:file:")) {
-        Some(uriStr.substring("jar:file:".length, uriStr.indexOf("!")))
-      } else {
-        None
-      }
-    } else {
-      None
-    }
-  }
-
   /**
    * Checks if event has occurred during some time period. This performs an exponential backoff
    * to limit the poll calls.

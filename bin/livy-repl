@@ -29,10 +29,19 @@ else
 	SPARK_SUBMIT=spark-submit
 fi
 
-source ./bin/setup-classpath
+LIBDIR="$LIVY_HOME/repl-jars"
+if [ ! -d "$LIBDIR" ]; then
+  LIBDIR="$LIVY_HOME/repl/target/jars"
+fi
+if [ ! -d "$LIBDIR" ]; then
+  echo "Could not find Livy REPL jars directory." 1>&2
+  exit 1
+fi
 
+JARS=$(find $LIBDIR | paste -sd,)
 exec $SPARK_SUBMIT \
+  --jars "$JARS" \
 	--driver-java-options "$LIVY_REPL_JAVA_OPTS" \
 	--class com.cloudera.livy.repl.Main \
-	"$ASSEMBLY_JAR" \
+	"spark-internal" \
 	"$@"
