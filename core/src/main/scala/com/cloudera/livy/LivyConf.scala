@@ -27,6 +27,7 @@ object LivyConf {
   val SESSION_FACTORY_KEY = "livy.server.session.factory"
   val SPARK_HOME_KEY = "livy.server.spark-home"
   val SPARK_SUBMIT_KEY = "livy.server.spark-submit"
+  val YARN_FILESYSTEM_ROOT = "livy.server.yarn-filesystem-root"
   val IMPERSONATION_ENABLED_KEY = "livy.impersonation.enabled"
 
   sealed trait SessionKind
@@ -106,6 +107,9 @@ class LivyConf(loadDefaults: Boolean) {
       .getOrElse("spark-submit")
   }
 
+  /** Return the filesystem root used in YARN mode. Livy will automatically prefix relative path with it. Default to hdfs://. */
+  def yarnFileSystemRoot(): String = get(YARN_FILESYSTEM_ROOT, "hdfs://")
+
   def sessionKind(): SessionKind = getOption(SESSION_FACTORY_KEY).getOrElse("process") match {
     case "process" => Process()
     case "yarn" => Yarn()
@@ -115,6 +119,6 @@ class LivyConf(loadDefaults: Boolean) {
   /** Return the filesystem root. Defaults to the local filesystem. */
   def filesystemRoot(): String = sessionKind() match {
     case Process() => "file://"
-    case Yarn() => "hdfs://"
+    case Yarn() => yarnFileSystemRoot
   }
 }

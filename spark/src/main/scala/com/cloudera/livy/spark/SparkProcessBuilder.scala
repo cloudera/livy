@@ -282,7 +282,7 @@ class SparkProcessBuilder(livyConf: LivyConf, userConfigurableOptions: Set[Strin
   private def fromPath(path: Path) = path match {
     case AbsolutePath(p) => p
     case RelativePath(p) =>
-      if (p.startsWith("hdfs://")) {
+      if (p.startsWith(fsRoot)) {
         p
       } else {
         fsRoot + "/" + p
