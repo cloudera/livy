@@ -71,9 +71,9 @@ object Main extends Logging {
     server.context.setInitParameter(SESSION_KIND, session_kind)
     callbackUrl.foreach(server.context.setInitParameter(CALLBACK_URL, _))
 
-    server.start()
-
     try {
+      server.start()
+
       val replUrl = s"http://${server.host}:${server.port}"
       System.setProperty("livy.repl.url", replUrl)
 
@@ -81,8 +81,8 @@ object Main extends Logging {
       Console.flush()
 
       server.join()
-      server.stop()
     } finally {
+      server.stop()
       // Make sure to close all our outstanding http requests.
       Http.shutdown()
     }
