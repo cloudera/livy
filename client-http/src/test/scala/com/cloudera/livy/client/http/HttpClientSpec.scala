@@ -181,6 +181,10 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === jobId)
     }
 
+    withClient("should handle null responses") {
+      testJob(false, response = Some(null))
+    }
+
     withClient("should tear down clients") {
       client.stop()
       verify(session, times(1)).stop()
@@ -219,12 +223,12 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     (jobId, handle)
   }
 
-  private def testJob(sync: Boolean): Unit = {
+  private def testJob(sync: Boolean, response: Option[Any] = None): Unit = {
     val (jobId, handle) = runJob(sync, { id => Seq(
         new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
+        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(response.getOrElse(id)), null, null))
       })
-    assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === jobId)
+    assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === response.getOrElse(jobId))
     verify(session, times(2)).jobStatus(meq(jobId))
   }
 
