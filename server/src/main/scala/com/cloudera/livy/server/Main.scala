@@ -55,14 +55,15 @@ object Main {
     server.context.setInitParameter(ScalatraListener.LifeCycleKey, classOf[ScalatraBootstrap].getCanonicalName)
     server.context.addEventListener(new ScalatraListener)
 
-    server.start()
-
     try {
+      server.start()
+
       if (!sys.props.contains("livy.server.serverUrl")) {
         sys.props("livy.server.serverUrl") = f"http://${server.host}:${server.port}"
       }
-    } finally {
+
       server.join()
+    } finally {
       server.stop()
 
       // Make sure to close all our outstanding http requests.
