@@ -20,6 +20,8 @@ package com.cloudera.livy.client.common;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -48,8 +50,9 @@ public class TestHttpMessages {
 
       Constructor c = msg.getConstructors()[0];
       Object[] params = new Object[c.getParameterTypes().length];
+      Type[] genericTypes = c.getGenericParameterTypes();
       for (int i = 0; i < params.length; i++) {
-        params[i] = dummyValue(c.getParameterTypes()[i]);
+        params[i] = dummyValue(c.getParameterTypes()[i], genericTypes[i]);
       }
 
       Object o1 = c.newInstance(params);
@@ -64,19 +67,37 @@ public class TestHttpMessages {
 
   }
 
-  private Object dummyValue(Class<?> type) {
-    switch (type.getSimpleName()) {
-      case "int": return 42;
+  private Object dummyValue(Class<?> klass, Type type) {
+    switch (klass.getSimpleName()) {
+      case "int":
+      case "Integer":
+        return 42;
       case "long": return 84L;
       case "byte[]": return new byte[] { (byte) 0x42, (byte) 0x84 };
       case "String": return "test";
       case "State": return State.SUCCEEDED;
-      case "Map" :
+      case "Map":
         Map<String, String> map = new HashMap<>();
         map.put("dummy1", "dummy2");
         return map;
-      default: throw new IllegalArgumentException("FIX ME: " + type.getSimpleName());
+      case "List":
+        Class<?> genericType = getGenericArgType(type);
+        return Arrays.asList(dummyValue(genericType, null), dummyValue(genericType, null));
+      default: throw new IllegalArgumentException("FIX ME: " + klass.getSimpleName());
     }
+  }
+
+  private Class<?> getGenericArgType(Type type) {
+    assertNotNull("FIX ME: null type argument.", type);
+
+    ParameterizedType ptype = (ParameterizedType) type;
+    assertEquals("FIX ME: no support for multiple type arguments.",
+      1, ptype.getActualTypeArguments().length);
+
+    Type argType = ptype.getActualTypeArguments()[0];
+    assertTrue("FIX ME: type argument is not a class.", argType instanceof Class);
+
+    return (Class<?>) argType;
   }
 
   private void checkEquals(String name, Field f, Object o1, Object o2) throws Exception {

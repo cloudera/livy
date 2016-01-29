@@ -19,6 +19,7 @@
 package com.cloudera.livy.client.http;
 
 import java.nio.ByteBuffer;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -34,6 +35,7 @@ import static com.cloudera.livy.client.http.HttpConf.Entry.*;
 
 class JobHandleImpl<T> extends AbstractJobHandle<T> {
 
+  private final long sessionId;
   private final LivyConnection conn;
   private final ScheduledExecutorService executor;
   private final Object lock;
@@ -47,14 +49,17 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
   private Throwable error;
   private volatile boolean isDone;
   private volatile boolean isCancelled;
+  private volatile boolean isCancelPending;
   private volatile ScheduledFuture<?> pollTask;
 
   JobHandleImpl(
       HttpConf config,
       LivyConnection conn,
+      long sessionId,
       ScheduledExecutorService executor,
       Serializer s) {
     this.conn = conn;
+    this.sessionId = sessionId;
     this.executor = executor;
     this.lock = new Object();
     this.serializer = s;
@@ -70,6 +75,14 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
       throw new IllegalArgumentException(
         "Invalid max poll interval, or lower than initial interval.");
     }
+
+    // The job ID is set asynchronously, and there might be a call to cancel() before it's
+    // set. So cancel() will always set the isCancelPending flag, even if there's no job
+    // ID yet. If the thread setting the job ID sees that flag, it will send a cancel request
+    // to the server. There's still a possibility that two cancel requests will be sent,
+    // but that doesn't cause any harm.
+    this.isCancelPending = false;
+    this.jobId = -1;
   }
 
   @Override
@@ -99,8 +112,18 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
   }
 
   @Override
-  public boolean cancel(boolean mayInterrupt) {
-    throw new UnsupportedOperationException();
+  public boolean cancel(final boolean mayInterrupt) {
+    // Do a best-effort to detect if already cancelled, but the final say is always
+    // on the server side. Don't block the caller, though.
+    if (!isCancelled && !isCancelPending) {
+      isCancelPending = true;
+      if (jobId > -1) {
+        sendCancelRequest(jobId);
+      }
+      return true;
+    }
+
+    return false;
   }
 
   @Override
@@ -113,20 +136,21 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
     return error;
   }
 
-  void start(
-      final int sessionId,
-      final String command,
-      final ByteBuffer serializedJob) {
-
+  void start(final String command, final ByteBuffer serializedJob) {
     Runnable task = new Runnable() {
       @Override
       public void run() {
         try {
           ClientMessage msg = new SerializedJob(BufferUtils.toByteArray(serializedJob));
           JobStatus status = conn.post(msg, JobStatus.class, "/%d/%s", sessionId, command);
+
+          if (isCancelPending) {
+            sendCancelRequest(status.id);
+          }
+
           jobId = status.id;
 
-          pollTask = executor.schedule(new JobPollTask(sessionId, jobId, initialPollInterval),
+          pollTask = executor.schedule(new JobPollTask(initialPollInterval),
             initialPollInterval, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
           setResult(null, e);
@@ -135,6 +159,20 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
       }
     };
     executor.submit(task);
+  }
+
+  private void sendCancelRequest(final long id) {
+    executor.submit(new Runnable() {
+      @Override
+      public void run() {
+        try {
+          conn.post(null, Void.class, "/%d/jobs/%d/cancel", sessionId, id);
+        } catch (Exception e) {
+          setResult(null, e);
+          changeState(State.FAILED);
+        }
+      }
+    });
   }
 
   private T get(boolean waitIndefinitely, long timeout, TimeUnit unit)
@@ -158,6 +196,9 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
         }
       }
     }
+    if (isCancelled) {
+      throw new CancellationException();
+    }
     if (error != null) {
       throw new ExecutionException(error);
     }
@@ -165,23 +206,23 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
   }
 
   private void setResult(T result, Throwable error) {
-    synchronized (lock) {
-      this.result = result;
-      this.error = error;
-      this.isDone = true;
-      lock.notifyAll();
+    if (!isDone) {
+      synchronized (lock) {
+        if (!isDone) {
+          this.result = result;
+          this.error = error;
+          this.isDone = true;
+        }
+        lock.notifyAll();
+      }
     }
   }
 
   private class JobPollTask implements Runnable {
 
-    private final int sessionId;
-    private final long jobId;
     private long currentInterval;
 
-    JobPollTask(int sessionId, long jobId, long currentInterval) {
-      this.sessionId = sessionId;
-      this.jobId = jobId;
+    JobPollTask(long currentInterval) {
       this.currentInterval = currentInterval;
     }
 
@@ -192,9 +233,18 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
         T result = null;
         Throwable error = null;
         boolean finished = false;
+
+        if (status.newSparkJobs != null) {
+          for (Integer i : status.newSparkJobs) {
+            addSparkJobId(i);
+          }
+        }
+
         switch (status.state) {
           case SUCCEEDED:
-            result = (T) serializer.deserialize(ByteBuffer.wrap(status.result));
+            @SuppressWarnings("unchecked")
+            T localResult = (T) serializer.deserialize(ByteBuffer.wrap(status.result));
+            result = localResult;
             finished = true;
             break;
 

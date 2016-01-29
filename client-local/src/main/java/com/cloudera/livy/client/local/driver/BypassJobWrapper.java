@@ -17,6 +17,9 @@
 
 package com.cloudera.livy.client.local.driver;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.google.common.base.Throwables;
 import org.apache.spark.api.java.JavaFutureAction;
 
@@ -31,6 +34,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   private volatile Throwable error;
   private volatile MetricsCollection metrics;
   private volatile JobHandle.State state;
+  private volatile List<Integer> newSparkJobs;
 
   BypassJobWrapper(RemoteDriver driver, String jobId, byte[] serializedJob) {
     super(driver, jobId, new BypassJob(driver.serializer, serializedJob));
@@ -76,8 +80,18 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   }
 
   @Override
-  protected void jobSubmitted(JavaFutureAction<?> job) {
-    // Do nothing; just avoid sending data back to the driver.
+  synchronized void recordNewJob(int sparkJobId) {
+    if (newSparkJobs == null) {
+      newSparkJobs = new ArrayList<>();
+    }
+    newSparkJobs.add(sparkJobId);
+  }
+
+  @Override
+  protected synchronized void jobSubmitted(JavaFutureAction<?> job) {
+    for (Integer i : job.jobIds()) {
+      recordNewJob(i);
+    }
   }
 
   @Override
@@ -87,7 +101,9 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
 
   synchronized BypassJobStatus getStatus() {
     String stackTrace = error != null ? Throwables.getStackTraceAsString(error) : null;
-    return new BypassJobStatus(state, result, stackTrace, metrics);
+    List<Integer> jobs = newSparkJobs;
+    newSparkJobs = null;
+    return new BypassJobStatus(state, result, stackTrace, metrics, jobs);
   }
 
 }

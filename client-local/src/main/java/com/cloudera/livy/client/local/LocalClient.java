@@ -188,7 +188,7 @@ public class LocalClient implements LivyClient {
     return protocol.getBypassJobStatus(id);
   }
 
-  void cancel(String jobId) {
+  public void cancel(String jobId) {
     protocol.cancel(jobId);
   }
 
