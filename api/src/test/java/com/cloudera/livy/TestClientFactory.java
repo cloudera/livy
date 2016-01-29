@@ -17,6 +17,7 @@
 
 package com.cloudera.livy;
 
+import java.io.File;
 import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.Future;
@@ -61,7 +62,17 @@ public class TestClientFactory implements LivyClientFactory {
     }
 
     @Override
+    public Future<?> uploadJar(File jar) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Future<?> addJar(URI uri) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Future<?> uploadFile(File file) {
       throw new UnsupportedOperationException();
     }
 

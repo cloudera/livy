@@ -39,9 +39,8 @@ abstract class BaseSessionServletSpec[S <: Session, R]
 
   def sessionFactory: SessionFactory[S, R]
   def servlet: SessionServlet[S, R]
-
   val livyConf = new LivyConf()
-  val sessionManager = new SessionManager(livyConf, sessionFactory)
+  lazy val sessionManager = new SessionManager(livyConf, sessionFactory)
 
   addServlet(servlet, "/*")
 

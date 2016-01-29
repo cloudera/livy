@@ -18,21 +18,25 @@
 
 package com.cloudera.livy.spark.client
 
+import java.io.InputStream
 import java.net.URI
 import java.nio.ByteBuffer
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 import com.cloudera.livy.{LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.LocalClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
-class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
+class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livyHome: String)
   extends Session with Logging {
   implicit val executionContext = ExecutionContext.global
 
@@ -50,6 +54,13 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
       .build()
   }.asInstanceOf[LocalClient]
 
+  private val fs = FileSystem.get(new Configuration())
+
+  // TODO: It is important that each session's home be readable only by the user that created
+  // that session and not by anyone else. Else, one session might be able to read files uploaded
+  // by another. Fix this when we add security support.
+  private val sessionHome = new Path(livyHome + "/" + sessionId.toString)
+
   info("Livy client created.")
 
   sessionState = SessionState.Running()
@@ -65,6 +76,14 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
     performOperation(job, false)
   }
 
+  def addFile(fileStream: InputStream, fileName: String): Unit = {
+    addFile(copyResourceToHDFS(fileStream, fileName))
+  }
+
+  def addJar(jarStream: InputStream, jarName: String): Unit = {
+    addJar(copyResourceToHDFS(jarStream, jarName))
+  }
+
   def addFile(uri: URI): Unit = {
     client.addFile(uri).get()
   }
@@ -78,6 +97,21 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest)
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
     new JobStatus(id, status.state, status.result, status.error)
+  }
+
+  private def copyResourceToHDFS(dataStream: InputStream, name: String): URI = {
+    val filePath = new Path(sessionHome, name)
+    val outFile = fs.create(filePath, true)
+    val buffer = new Array[Byte](512 * 1024)
+    var read = -1
+    try {
+      while ({read = dataStream.read(buffer); read != -1}) {
+        outFile.write(buffer, 0, read)
+      }
+    } finally {
+      outFile.close()
+    }
+    filePath.toUri
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {

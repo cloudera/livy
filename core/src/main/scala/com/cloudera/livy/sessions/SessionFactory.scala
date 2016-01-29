@@ -20,7 +20,13 @@ package com.cloudera.livy.sessions
 
 abstract class SessionFactory[S <: Session, R] {
 
+  protected var livyHome: String = null
+
   def create(id: Int, createRequest: R): S
+
+  def setLivyHome(livyHome: String): Unit = {
+    this.livyHome = livyHome
+  }
 
   def close(): Unit = {}
 }

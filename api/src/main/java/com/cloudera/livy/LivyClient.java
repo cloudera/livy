@@ -17,6 +17,7 @@
 
 package com.cloudera.livy;
 
+import java.io.File;
 import java.net.URI;
 import java.util.concurrent.Future;
 
@@ -58,6 +59,13 @@ public interface LivyClient {
   void stop();
 
   /**
+   * Upload a jar to be added to the Spark application classpath
+   * @param jar The local file to be uploaded
+   * @return A future that can be used to monitor this operation
+   */
+  Future<?> uploadJar(File jar);
+
+  /**
    * Adds a jar file to the running remote context.
    *
    * Note that the URL should be reachable by the Spark driver process. If running the driver
@@ -68,6 +76,13 @@ public interface LivyClient {
    * @return A future that can be used to monitor the operation.
    */
   Future<?> addJar(URI uri);
+
+  /**
+   * Upload a file to be passed to the Spark application
+   * @param file The local file to be uploaded
+   * @return A future that can be used to monitor this operation
+   */
+  Future<?> uploadFile(File file);
 
   /**
    * Adds a file to the running remote context.

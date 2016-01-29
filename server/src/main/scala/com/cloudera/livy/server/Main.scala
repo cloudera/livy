@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
+import com.cloudera.livy.server.client.ClientSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.spark.SparkManager
 
@@ -159,6 +160,7 @@ class ScalatraBootstrap
 
       context.mount(new InteractiveSessionServlet(sparkManager.interactiveManager), "/sessions/*")
       context.mount(new BatchSessionServlet(sparkManager.batchManager), "/batches/*")
+      context.mount(new ClientSessionServlet(sparkManager.clientManager), "/clients/*")
       context.mountMetricsAdminServlet("/")
 
       context.initParameters(org.scalatra.EnvironmentKey) =

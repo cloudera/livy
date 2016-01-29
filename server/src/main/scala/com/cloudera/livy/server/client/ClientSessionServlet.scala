@@ -21,6 +21,7 @@ package com.cloudera.livy.server.client
 import java.net.URI
 
 import org.scalatra._
+import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
 import com.cloudera.livy.JobHandle
 import com.cloudera.livy.client.common.HttpMessages._
@@ -29,7 +30,10 @@ import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.spark.client._
 
 class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateClientRequest])
-  extends SessionServlet(sessionManager) {
+  extends SessionServlet(sessionManager) with FileUploadSupport {
+
+  configureMultipartHandling(MultipartConfig(maxFileSize =
+    Some(sessionManager.livyConf.getLong("livy.file.upload.max.size", 100 * 1024 * 1024))))
 
   jpost[SerializedJob]("/:id/submit-job") { req =>
     withSession { session =>
@@ -53,17 +57,47 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
     }
   }
 
+  jpost[Unit]("/:id/upload-jar") { _ =>
+    withSession { lsession =>
+      fileParams.get("jar") match {
+        case Some(file) =>
+          doAsync {
+            lsession.addJar(file.getInputStream, file.name)
+          }
+        case None =>
+          BadRequest("No jar uploaded!")
+      }
+    }
+  }
+
+  jpost[Unit]("/:id/upload-file") { _ =>
+    withSession { lsession =>
+      fileParams.get("file") match {
+        case Some(file) =>
+          doAsync {
+            lsession.addFile(file.getInputStream, file.name)
+          }
+        case None =>
+          BadRequest("No file sent!")
+      }
+    }
+  }
+
   jpost[AddResource]("/:id/add-jar") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync { lsession.addJar(uri) }
+      doAsync {
+        lsession.addJar(uri)
+      }
     }
   }
 
   jpost[AddResource]("/:id/add-file") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync { lsession.addFile(uri) }
+      doAsync {
+        lsession.addFile(uri)
+      }
     }
   }
 

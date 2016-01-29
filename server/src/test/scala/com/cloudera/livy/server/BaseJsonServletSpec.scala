@@ -61,6 +61,11 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
     post(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))
   }
 
+  protected def jpost[R: ClassTag](uri: String, files: Iterable[(String, Any)], expectedStatus: Int)
+    (fn: R => Unit): Unit = {
+    post(uri, Map.empty, files)(doTest(expectedStatus, fn))
+  }
+
   protected def jput[R: ClassTag](uri: String, body: AnyRef, expectedStatus: Int = 200)
       (fn: R => Unit): Unit = {
     put(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))

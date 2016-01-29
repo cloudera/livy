@@ -30,14 +30,14 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 
 import com.cloudera.livy.{LineBufferedProcess, LivyConf, Logging}
 
-object Client {
+object LivyYarnClient {
   private lazy val regex = """Application report for (\w+)""".r.unanchored
 }
 
 class FailedToSubmitApplication extends Exception
 
-class Client(livyConf: LivyConf) extends Logging {
-  import Client._
+class LivyYarnClient(livyConf: LivyConf) extends Logging {
+  import LivyYarnClient._
 
   protected implicit def executor: ExecutionContext = ExecutionContext.global
 

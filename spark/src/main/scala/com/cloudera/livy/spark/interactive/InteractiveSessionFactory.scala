@@ -22,9 +22,7 @@ import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.{Files, Paths}
 
-import scala.collection.JavaConverters._
-
-import com.cloudera.livy.{LivyConf, Utils}
+import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{PySpark, SessionFactory}
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}

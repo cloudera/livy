@@ -22,10 +22,12 @@ import scala.concurrent.ExecutionContext
 
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
-import com.cloudera.livy.yarn.Client
+import com.cloudera.livy.yarn.LivyYarnClient
 
-class InteractiveSessionYarnFactory(client: Client, processFactory: SparkProcessBuilderFactory)
-  extends InteractiveSessionFactory(processFactory) {
+class InteractiveSessionYarnFactory(
+    client: LivyYarnClient,
+    processFactory: SparkProcessBuilderFactory
+  ) extends InteractiveSessionFactory(processFactory) {
 
   implicit def executor: ExecutionContext = ExecutionContext.global
 

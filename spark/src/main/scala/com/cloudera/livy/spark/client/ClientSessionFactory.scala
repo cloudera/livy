@@ -18,16 +18,12 @@
 
 package com.cloudera.livy.spark.client
 
-import scala.collection.JavaConverters._
-
-import org.json4s.{JObject, JValue}
-
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionFactory
 
 class ClientSessionFactory extends SessionFactory[ClientSession, CreateClientRequest]{
 
   override def create(id: Int, request: CreateClientRequest): ClientSession = {
-    new ClientSession(id, request)
+    new ClientSession(id, request, livyHome)
   }
 }

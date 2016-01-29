@@ -18,10 +18,14 @@
 
 package com.cloudera.livy.server.client
 
+import java.io.File
+import java.net.URI
 import java.nio.ByteBuffer
+import java.nio.file.{Paths, Files}
 import java.util.HashMap
 
 import scala.concurrent.duration._
+import scala.io.Source
 import scala.language.postfixOps
 
 import org.scalatest.concurrent.Eventually._
@@ -34,7 +38,12 @@ import com.cloudera.livy.spark.client._
 
 class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClientRequest] {
 
+  override protected def withFixture(test: NoArgTest) = {
+    test()
+  }
+
   override def sessionFactory = new ClientSessionFactory()
+
   override def servlet = new ClientSessionServlet(sessionManager)
 
   private var sessionId: Int = -1
@@ -76,6 +85,16 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
 
     withSessionId("should handle synchronous jobs") { testJobSubmission(_, true) }
 
+    // Test that the file does get copied over to the live home dir on HDFS - does not test end
+    // to end that the LocalClient class copies it over to the app.
+    withSessionId("should support file uploads") { id =>
+      testResourceUpload("file", id)
+    }
+
+    withSessionId("should support jar uploads") { id =>
+      testResourceUpload("jar", id)
+    }
+
     withSessionId("should tear down sessions") { id =>
       jdelete[Map[String, Any]](s"/$id") { data =>
         data should equal (Map("msg" -> "deleted"))
@@ -89,6 +108,18 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
     }
   }
 
+  private def testResourceUpload(cmd: String, sessionId: Int): Unit = {
+    val f = File.createTempFile("uploadTestFile", cmd)
+
+    Files.write(Paths.get(f.getAbsolutePath), "Test data".getBytes())
+
+    jpost[Unit](s"/$sessionId/upload-$cmd", Map(cmd -> f), 200) { _ =>
+      val resultFile = new File(new URI(s"${sessionManager.livyHome}/$sessionId/${f.getName}"))
+      resultFile.deleteOnExit()
+      resultFile.exists() should be(true)
+      Source.fromFile(resultFile).mkString should be("Test data")
+    }
+  }
   private def testJobSubmission(sid: Int, sync: Boolean): Unit = {
     val ser = new Serializer()
     val job = BufferUtils.toByteArray(ser.serialize(new TestJob()))

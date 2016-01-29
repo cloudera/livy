@@ -26,14 +26,14 @@ import scala.concurrent.duration._
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcess
-import com.cloudera.livy.yarn.Client
+import com.cloudera.livy.yarn.LivyYarnClient
 
 object InteractiveSessionYarn {
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
   private lazy val regex = """Application report for (\w+)""".r.unanchored
 
-  def apply(client: Client,
+  def apply(client: LivyYarnClient,
             id: Int,
             process: SparkProcess,
             request: CreateInteractiveRequest): InteractiveSession = {
@@ -42,7 +42,7 @@ object InteractiveSessionYarn {
 }
 
 private class InteractiveSessionYarn(id: Int,
-                                     client: Client,
+                                     client: LivyYarnClient,
                                      process: SparkProcess,
                                      request: CreateInteractiveRequest)
   extends InteractiveWebSession(id, process, request) {
