@@ -316,11 +316,15 @@ public class TestSparkClient {
         long deadline = System.nanoTime() + TimeUnit.NANOSECONDS.convert(TIMEOUT, TimeUnit.SECONDS);
         long sleep = 100;
         BypassJobStatus status = null;
+        List<Integer> collectedIds = new ArrayList<>();
         while (System.nanoTime() < deadline) {
           BypassJobStatus currStatus = lclient.getBypassJobStatus(jobId).get(TIMEOUT,
             TimeUnit.SECONDS);
           assertNotEquals(JobHandle.State.CANCELLED, currStatus.state);
           assertNotEquals(JobHandle.State.FAILED, currStatus.state);
+          if (currStatus.newSparkJobs != null) {
+            collectedIds.addAll(currStatus.newSparkJobs);
+          }
           if (currStatus.state.equals(JobHandle.State.SUCCEEDED)) {
             status = currStatus;
             break;
@@ -337,6 +341,8 @@ public class TestSparkClient {
 
         assertNotNull("Missing metrics in job status.", status.metrics);
         assertTrue(status.metrics.getAllMetrics().executorRunTime > 0L);
+
+        assertNotEquals(0, collectedIds.size());
 
         // After the result is retrieved, the driver should stop tracking the job and release
         // resources associated with it.

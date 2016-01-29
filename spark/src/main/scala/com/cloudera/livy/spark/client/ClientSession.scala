@@ -96,7 +96,11 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livy
     val clientJobId = operations(id)
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
-    new JobStatus(id, status.state, status.result, status.error)
+    new JobStatus(id, status.state, status.result, status.error, status.newSparkJobs)
+  }
+
+  def cancel(id: Long): Unit = {
+    operations.remove(id).foreach { client.cancel }
   }
 
   private def copyResourceToHDFS(dataStream: InputStream, name: String): URI = {

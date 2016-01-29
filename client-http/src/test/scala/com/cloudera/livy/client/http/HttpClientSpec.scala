@@ -21,14 +21,14 @@ package com.cloudera.livy.client.http
 import java.io.{File, InputStream}
 import java.net.{InetAddress, URI}
 import java.nio.file.{Files, Paths}
-import java.util.concurrent.{ExecutionException, Future => JFuture, TimeoutException, TimeUnit}
+import java.util.concurrent.{Future => JFuture, _}
 import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.ServletContext
 
-import org.mockito.ArgumentCaptor
-
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
+import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => meq, _}
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -101,7 +101,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     withClient("should propagate errors from jobs") {
       val errorMessage = "This job throws an error."
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.FAILED, null, errorMessage))
+          new JobStatus(id, JobHandle.State.FAILED, null, errorMessage, null))
         })
 
       val error = intercept[ExecutionException] {
@@ -132,15 +132,46 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       uploadAndVerify("jar")
     }
 
+    withClient("should cancel jobs") {
+      val (jobId, handle) = runJob(false, { id => Seq(
+          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+          new JobStatus(id, JobHandle.State.CANCELLED, null, null, null))
+        })
+      handle.cancel(true)
+
+      intercept[CancellationException] {
+        handle.get(TIMEOUT_S, TimeUnit.SECONDS)
+      }
+
+      verify(session, times(1)).cancel(meq(jobId))
+    }
+
+    withClient("should notify listeners of new Spark jobs") {
+      val (jobId, handle) = runJob(false, { id => Seq(
+          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+          new JobStatus(id, JobHandle.State.STARTED, null, null, List[Integer](1, 2, 3).asJava),
+          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
+        })
+
+      val listener = mock(classOf[JobHandle.Listener[Long]])
+      handle.asInstanceOf[JobHandle[Long]].addListener(listener)
+
+      assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === jobId)
+      verify(listener, times(1)).onJobSucceeded(any(), any())
+      verify(listener, times(1)).onSparkJobStarted(any(), meq(1))
+      verify(listener, times(1)).onSparkJobStarted(any(), meq(2))
+      verify(listener, times(1)).onSparkJobStarted(any(), meq(3))
+    }
+
     withClient("should time out handle get() call") {
       // JobHandleImpl does exponential backoff checking the result of a job. Given an initial
       // wait of 100ms, 4 iterations should result in a wait of 800ms, so the handle should at that
       // point timeout a wait of 100ms.
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.STARTED, null, null),
-          new JobStatus(id, JobHandle.State.STARTED, null, null),
-          new JobStatus(id, JobHandle.State.STARTED, null, null),
-          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null))
+          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
         })
 
       intercept[TimeoutException] {
@@ -185,13 +216,13 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     when(session.jobStatus(meq(jobId))).thenReturn(first, remaining: _*)
 
     val handle = if (sync) client.run(new DummyJob()) else client.submit(new DummyJob())
-      (jobId, handle)
+    (jobId, handle)
   }
 
   private def testJob(sync: Boolean): Unit = {
     val (jobId, handle) = runJob(sync, { id => Seq(
-        new JobStatus(id, JobHandle.State.STARTED, null, null),
-        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null))
+        new JobStatus(id, JobHandle.State.STARTED, null, null, null),
+        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
       })
     assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === jobId)
     verify(session, times(2)).jobStatus(meq(jobId))

@@ -22,15 +22,21 @@ import java.io.File
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Paths, Files}
-import java.util.HashMap
+import java.util.{ArrayList, HashMap}
+import java.util.concurrent.TimeUnit
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
 
+import org.apache.spark.api.java.function.VoidFunction
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization.write
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.{Job, JobContext}
+import com.cloudera.livy.{Job, JobContext, JobHandle}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.BaseSessionServletSpec
@@ -95,6 +101,30 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
       testResourceUpload("jar", id)
     }
 
+    withSessionId("should monitor async Spark jobs") { sid =>
+      val ser = new Serializer()
+      val job = BufferUtils.toByteArray(ser.serialize(new AsyncTestJob()))
+      var jobId: Long = -1L
+      val collectedSparkJobs = new ArrayList[Integer]()
+      jpost[JobStatus](s"/$sid/submit-job", new SerializedJob(job)) { status =>
+        jobId = status.id
+        if (status.newSparkJobs != null) {
+          collectedSparkJobs.addAll(status.newSparkJobs)
+        }
+      }
+
+      eventually(timeout(1 minute), interval(100 millis)) {
+        jget[JobStatus](s"/$sid/jobs/$jobId") { status =>
+          if (status.newSparkJobs != null) {
+            collectedSparkJobs.addAll(status.newSparkJobs)
+          }
+          status.state should be (JobHandle.State.SUCCEEDED)
+        }
+      }
+
+      collectedSparkJobs.size should be (1)
+    }
+
     withSessionId("should tear down sessions") { id =>
       jdelete[Map[String, Any]](s"/$id") { data =>
         data should equal (Map("msg" -> "deleted"))
@@ -142,5 +172,19 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
 class TestJob extends Job[Int] {
 
   override def call(jc: JobContext): Int = 42
+
+}
+
+class AsyncTestJob extends Job[Int] {
+
+  override def call(jc: JobContext): Int = {
+    val future = jc.sc().parallelize(List[Integer](1, 2, 3).asJava).foreachAsync(
+      new VoidFunction[Integer]() {
+        override def call(l: Integer): Unit = Thread.sleep(1)
+      })
+    jc.monitor(future)
+    future.get(10, TimeUnit.SECONDS)
+    42
+  }
 
 }

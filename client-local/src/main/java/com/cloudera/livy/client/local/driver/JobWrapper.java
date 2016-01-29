@@ -122,6 +122,10 @@ class JobWrapper<T> implements Callable<Void> {
     return false;
   }
 
+  void recordNewJob(int sparkJobId) {
+    driver.protocol.jobSubmitted(jobId, sparkJobId);
+  }
+
   void updateMetrics(int sparkJobId, int stageId, long taskId, Metrics metrics) {
     driver.protocol.sendMetrics(jobId, sparkJobId, stageId, taskId, metrics);
   }
