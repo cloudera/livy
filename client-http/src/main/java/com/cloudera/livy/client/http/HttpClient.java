@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.client.http;
 
+import java.io.File;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
@@ -112,14 +113,33 @@ class HttpClient implements LivyClient {
     }
   }
 
+  public Future<?> uploadJar(File jar) {
+    return uploadResource(jar, "upload-jar", "jar");
+  }
+
   @Override
   public Future<?> addJar(URI uri) {
     return addResource("add-jar", uri);
   }
 
+  public Future<?> uploadFile(File file) {
+    return uploadResource(file, "upload-file", "file");
+  }
+
   @Override
   public Future<?> addFile(URI uri) {
     return addResource("add-file", uri);
+  }
+
+  private Future<?> uploadResource(final File file, final String command, final String paramName) {
+    Callable<Void> task = new Callable<Void>() {
+      @Override
+      public Void call() throws Exception {
+        conn.post(file, Void.class,  paramName, "/%d/%s", sessionId, command);
+        return null;
+      }
+    };
+    return executor.submit(task);
   }
 
   private Future<?> addResource(final String command, final URI resource) {

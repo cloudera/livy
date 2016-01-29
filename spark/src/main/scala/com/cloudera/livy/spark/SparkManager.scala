@@ -21,13 +21,15 @@ package com.cloudera.livy.spark
 import scala.io.Source
 
 import com.cloudera.livy.{LivyConf, Utils}
+import com.cloudera.livy.client.common.HttpMessages.CreateClientRequest
+import com.cloudera.livy.spark.client.{ClientSession, ClientSessionFactory}
+import com.cloudera.livy.yarn.LivyYarnClient
 import com.cloudera.livy.LivyConf.{Process, Yarn}
 import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.batch._
 import com.cloudera.livy.spark.interactive._
-import com.cloudera.livy.yarn.Client
 
 object SparkManager {
   def apply(livyConf: LivyConf): SparkManager = {
@@ -65,6 +67,8 @@ trait SparkManager {
 
   def interactiveManager: SessionManager[InteractiveSession, CreateInteractiveRequest]
 
+  def clientManager: SessionManager[ClientSession, CreateClientRequest]
+
   def shutdown()
 }
 
@@ -76,6 +80,10 @@ private class SparkProcessManager(processFactory: SparkProcessBuilderFactory) ex
 
   val interactiveManager = new SessionManager(processFactory.livyConf, interactiveFactory)
 
+  def clientManager: SessionManager[ClientSession, CreateClientRequest] = {
+    throw new UnsupportedOperationException
+  }
+
   override def shutdown(): Unit = {
     batchManager.shutdown()
     interactiveManager.shutdown()
@@ -83,9 +91,13 @@ private class SparkProcessManager(processFactory: SparkProcessBuilderFactory) ex
 }
 
 private class SparkYarnManager(processFactory: SparkProcessBuilderFactory) extends SparkManager {
-  private[this] val client = new Client(processFactory.livyConf)
+  private[this] val client = new LivyYarnClient(processFactory.livyConf)
   private[this] val batchFactory = new BatchSessionYarnFactory(client, processFactory)
   private[this] val interactiveFactory = new InteractiveSessionYarnFactory(client, processFactory)
+  private val clientFactory = new ClientSessionFactory()
+
+  override val clientManager = new SessionManager(processFactory.livyConf, clientFactory)
+  clientFactory.setLivyHome(clientManager.livyHome)
 
   val batchManager = new SessionManager(processFactory.livyConf, batchFactory)
 

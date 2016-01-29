@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.client.http;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
@@ -25,17 +26,17 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
-import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -96,11 +97,11 @@ class LivyConnection {
   }
 
   synchronized <V> V delete(Class<V> retType, String uri, Object... uriParams) throws Exception {
-    return sendRequest(new HttpDelete(), retType, uri, uriParams);
+    return sendJSONRequest(new HttpDelete(), retType, uri, uriParams);
   }
 
   synchronized <V> V get(Class<V> retType, String uri, Object... uriParams) throws Exception {
-    return sendRequest(new HttpGet(), retType, uri, uriParams);
+    return sendJSONRequest(new HttpGet(), retType, uri, uriParams);
   }
 
   synchronized <V> V post(
@@ -111,7 +112,31 @@ class LivyConnection {
     HttpPost post = new HttpPost();
     byte[] bodyBytes = mapper.writeValueAsBytes(body);
     post.setEntity(new ByteArrayEntity(bodyBytes));
+    return sendJSONRequest(post, retType, uri, uriParams);
+  }
+
+  synchronized <V> V post(
+      File f,
+      Class<V> retType,
+      String paramName,
+      String uri,
+      Object... uriParams) throws Exception {
+    HttpPost post = new HttpPost();
+    MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+    builder.addPart(paramName, new FileBody(f));
+    post.setEntity(builder.build());
     return sendRequest(post, retType, uri, uriParams);
+  }
+
+  private <V> V sendJSONRequest(
+      HttpRequestBase req,
+      Class<V> retType,
+      String uri,
+      Object... uriParams) throws Exception {
+    req.setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON);
+    req.setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON);
+    req.setHeader(HttpHeaders.CONTENT_ENCODING, "UTF-8");
+    return sendRequest(req, retType, uri, uriParams);
   }
 
   private <V> V sendRequest(
@@ -121,12 +146,10 @@ class LivyConnection {
       Object... uriParams) throws Exception {
     req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
       uriRoot + String.format(uri, uriParams), null, null));
-    req.setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON);
-    req.setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON);
-    req.setHeader(HttpHeaders.CONTENT_ENCODING, "UTF-8");
+    req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
+      uriRoot + String.format(uri, uriParams), null, null));
 
-    CloseableHttpResponse res = client.execute(req);
-    try {
+    try (CloseableHttpResponse res = client.execute(req)) {
       int status = (res.getStatusLine().getStatusCode() / 100) * 100;
       HttpEntity entity = res.getEntity();
       if (status == HttpStatus.SC_OK) {
@@ -140,8 +163,6 @@ class LivyConnection {
         throw new IOException(String.format("%s: %s", res.getStatusLine().getReasonPhrase(),
           error));
       }
-    } finally {
-      res.close();
     }
   }
 

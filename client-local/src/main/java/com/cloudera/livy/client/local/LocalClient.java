@@ -161,8 +161,18 @@ public class LocalClient implements LivyClient {
   }
 
   @Override
+  public Future<?> uploadJar(File jar) {
+    throw new UnsupportedOperationException("Use addJar to add the jar to the remote context!");
+  }
+
+  @Override
   public Future<?> addJar(URI uri) {
     return run(new AddJarJob(uri.toString()));
+  }
+
+  @Override
+  public Future<?> uploadFile(File file) {
+    throw new UnsupportedOperationException("Use addFile to add the file to the remote context!");
   }
 
   @Override

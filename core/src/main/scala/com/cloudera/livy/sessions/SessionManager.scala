@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.sessions
 
+import java.nio.file.Files
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -30,7 +31,7 @@ object SessionManager {
   val SESSION_TIMEOUT = "livy.server.session.timeout"
 }
 
-class SessionManager[S <: Session, R](livyConf: LivyConf, factory: SessionFactory[S, R])
+class SessionManager[S <: Session, R](val livyConf: LivyConf, factory: SessionFactory[S, R])
   extends Logging {
 
   private implicit def executor: ExecutionContext = ExecutionContext.global
@@ -40,6 +41,19 @@ class SessionManager[S <: Session, R](livyConf: LivyConf, factory: SessionFactor
 
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getLong(SessionManager.SESSION_TIMEOUT, 1000 * 60 * 60))
+
+  val livyHome = livyConf.livyHome().getOrElse {
+    val isTest = sys.env.get("livy.test").map(_ == "true").isDefined
+    if (isTest) {
+       Files.createTempDirectory("livyTemp").toUri.toString
+    } else {
+      throw new RuntimeException("livy.home must be specified!")
+    }
+  }
+
+  factory.setLivyHome(livyHome)
+
+  logger.info(s"Live Home = $livyHome")
 
   private[this] final val garbageCollector = new GarbageCollector
 

@@ -28,6 +28,7 @@ object LivyConf {
   val SPARK_HOME_KEY = "livy.server.spark-home"
   val SPARK_SUBMIT_KEY = "livy.server.spark-submit"
   val IMPERSONATION_ENABLED_KEY = "livy.impersonation.enabled"
+  val LIVY_HOME_KEY = "livy.home"
 
   sealed trait SessionKind
   case class Process() extends SessionKind
@@ -107,6 +108,8 @@ class LivyConf(loadDefaults: Boolean) {
 
   /** Return the location of the spark home directory */
   def sparkHome(): Option[String] = getOption(SPARK_HOME_KEY).orElse(sys.env.get("SPARK_HOME"))
+
+  def livyHome(): Option[String] = getOption(LIVY_HOME_KEY).orElse(sys.env.get("LIVY_HOME"))
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {

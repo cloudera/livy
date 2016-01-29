@@ -18,10 +18,14 @@
 
 package com.cloudera.livy.client.http
 
+import java.io.{File, InputStream}
 import java.net.{InetAddress, URI}
+import java.nio.file.{Files, Paths}
 import java.util.concurrent.{ExecutionException, Future => JFuture, TimeoutException, TimeUnit}
 import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.ServletContext
+
+import org.mockito.ArgumentCaptor
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -123,6 +127,11 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       verify(session, times(1)).addJar(meq(juri))
     }
 
+    withClient("should upload files and jars") {
+      uploadAndVerify("file")
+      uploadAndVerify("jar")
+    }
+
     withClient("should time out handle get() call") {
       // JobHandleImpl does exponential backoff checking the result of a job. Given an initial
       // wait of 100ms, 4 iterations should result in a wait of 800ms, so the handle should at that
@@ -146,6 +155,24 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       verify(session, times(1)).stop()
     }
 
+  }
+
+  private def uploadAndVerify(cmd: String): Unit = {
+    val f = File.createTempFile("uploadTestFile", cmd)
+    val expectedStr = "Test data"
+    val expectedData = expectedStr.getBytes()
+    Files.write(Paths.get(f.getAbsolutePath), expectedData)
+    val b = new Array[Byte](expectedData.length)
+    val captor = ArgumentCaptor.forClass(classOf[InputStream])
+    if (cmd == "file") {
+      client.uploadFile(f).get(TIMEOUT_S, TimeUnit.SECONDS)
+      verify(session, times(1)).addFile(captor.capture(), meq(f.getName))
+    } else {
+      client.uploadJar(f).get(TIMEOUT_S, TimeUnit.SECONDS)
+      verify(session, times(1)).addJar(captor.capture(), meq(f.getName))
+    }
+    captor.getValue.read(b)
+    assert(expectedStr === new String(b))
   }
 
   private def runJob(sync: Boolean, genStatusFn: Long => Seq[JobStatus]): (Long, JFuture[Long]) = {

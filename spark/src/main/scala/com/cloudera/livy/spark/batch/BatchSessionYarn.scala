@@ -30,7 +30,7 @@ import com.cloudera.livy.yarn._
 object BatchSessionYarn {
   implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
-  def apply(client: Client, id: Int, process: SparkProcess): BatchSession = {
+  def apply(client: LivyYarnClient, id: Int, process: SparkProcess): BatchSession = {
     val job = Future {
       client.getJobFromProcess(process)
     }
