@@ -9,10 +9,10 @@ Livy is an open source REST interface for interacting with Spark from anywhere. 
 * Can be used for submitting jobs from anywhere with REST
 * Does not require any code change to your programs
 
-`Pull requests`_ are welcomed!
+`Pull requests`_ are welcomed! But before you begin, please check out the `Wiki`_.
 
 .. _Pull requests: https://github.com/cloudera/livy/pulls
-
+.. _Wiki: https://github.com/cloudera/livy/wiki/Contributing-to-Livy
 
 Quick Start
 ===========
