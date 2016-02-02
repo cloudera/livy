@@ -28,6 +28,10 @@
   <version>0.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
+  <properties>
+    <copyright.header>${asf.copyright.header}</copyright.header>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.spark</groupId>

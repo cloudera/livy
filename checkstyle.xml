@@ -24,7 +24,11 @@
 
   <property name="severity" value="error"/>
 
-  <property name="fileExtensions" value="java, properties, xml"/>
+  <property name="fileExtensions" value="java"/>
+
+  <module name="Header">
+    <property name="headerFile" value="{{HEADER_FILE}}"/>
+  </module>
 
   <module name="SuppressionFilter">
     <property name="file" value="checkstyle-suppressions.xml"/>
