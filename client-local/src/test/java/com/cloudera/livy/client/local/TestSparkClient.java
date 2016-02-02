@@ -378,7 +378,7 @@ public class TestSparkClient {
   private static class HiveJob implements Job<ArrayList<String>> {
 
     @Override
-    public ArrayList<String> call (JobContext jc){
+    public ArrayList<String> call(JobContext jc){
       String inputFile = "src/test/resources/testweet.json";
       HiveContext hivectx = jc.hivectx();
 
@@ -405,7 +405,8 @@ public class TestSparkClient {
       DataFrame input = sqlctx.jsonFile(inputFile);
       input.registerTempTable("tweets");
 
-      DataFrame topTweets = sqlctx.sql("SELECT text, retweetCount FROM tweets ORDER BY retweetCount LIMIT 10");
+      DataFrame topTweets = sqlctx.sql(
+        "SELECT text, retweetCount FROM tweets ORDER BY retweetCount LIMIT 10");
       ArrayList<String> tweetList = new ArrayList<>();
       for (Row r : topTweets.collect()) {
          tweetList.add(r.toString());
@@ -425,18 +426,24 @@ public class TestSparkClient {
       try {
         jc.streamingctx();
         fail("Access before creation: Should throw IllegalStateException");
-      } catch (IllegalStateException ex) {}
+      } catch (IllegalStateException ex) {
+        // Expected.
+      }
       try {
         jc.stopStreamingCtx();
         fail("Stop before creation: Should throw IllegalStateException");
-      } catch (IllegalStateException ex) {}
+      } catch (IllegalStateException ex) {
+        // Expected.
+      }
       try {
         jc.createStreamingContext(1000L);
         JavaStreamingContext streamingContext = jc.streamingctx();
         jc.stopStreamingCtx();
         jc.streamingctx();
         fail();
-      } catch (IllegalStateException ex) {}
+      } catch (IllegalStateException ex) {
+        // Expected.
+      }
 
       jc.createStreamingContext(1000L);
       JavaStreamingContext streamingContext = jc.streamingctx();

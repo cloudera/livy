@@ -22,7 +22,7 @@ import java.io.{File, FileInputStream, InputStreamReader}
 import java.util.Properties
 
 import scala.annotation.tailrec
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 
@@ -32,7 +32,9 @@ object Utils {
     try {
       val properties = new Properties()
       properties.load(inReader)
-      properties.stringPropertyNames().map(k => (k, properties(k).trim())).toMap
+      properties.stringPropertyNames().asScala.map { k =>
+        (k, properties.getProperty(k).trim())
+      }.toMap
     } finally {
       inReader.close()
     }
@@ -59,7 +61,7 @@ object Utils {
     getLivyConfigFile("livy-defaults.conf")
   }
 
-  def loadDefaultLivyProperties(conf: LivyConf, filePath: String = null) = {
+  def loadDefaultLivyProperties(conf: LivyConf, filePath: String = null): Unit = {
     val file: Option[File] = Option(filePath)
       .map(new File(_))
       .orElse(getDefaultPropertiesFile)
@@ -86,7 +88,7 @@ object Utils {
    */
   @throws(classOf[TimeoutException])
   @throws(classOf[InterruptedException])
-  final def waitUntil(checkForEvent: () => Boolean, atMost: Duration) = {
+  final def waitUntil(checkForEvent: () => Boolean, atMost: Duration): Unit = {
     val endTime = System.currentTimeMillis() + atMost.toMillis
 
     @tailrec

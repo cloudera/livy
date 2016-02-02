@@ -20,13 +20,13 @@ package com.cloudera.livy.spark.interactive
 
 import java.util.concurrent.TimeUnit
 
+import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.duration._
+
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcess
 import com.cloudera.livy.yarn.Client
-
-import scala.concurrent.duration._
-import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 
 object InteractiveSessionYarn {
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
@@ -57,7 +57,7 @@ private class InteractiveSessionYarn(id: Int,
     _state = SessionState.Error()
   }
 
-  override def logLines() = process.inputLines
+  override def logLines(): IndexedSeq[String] = process.inputLines
 
   override def stop(): Future[Unit] = {
     super.stop().andThen {

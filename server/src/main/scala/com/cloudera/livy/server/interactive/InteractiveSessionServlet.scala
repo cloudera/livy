@@ -21,16 +21,17 @@ package com.cloudera.livy.server.interactive
 import java.net.URL
 import java.util.concurrent.TimeUnit
 
+import scala.concurrent._
+import scala.concurrent.duration._
+
+import org.json4s.jackson.Json4sScalaModule
+import org.scalatra._
+
 import com.cloudera.livy.{ExecuteRequest, Logging}
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
 import com.cloudera.livy.spark.interactive.CreateInteractiveRequest
-import org.json4s.jackson.Json4sScalaModule
-import org.scalatra._
-
-import scala.concurrent._
-import scala.concurrent.duration._
 
 object InteractiveSessionServlet extends Logging
 

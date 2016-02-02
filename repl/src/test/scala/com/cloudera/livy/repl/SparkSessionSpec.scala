@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.repl
 
-import com.cloudera.livy.repl.scala.SparkInterpreter
+import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import org.json4s.Extraction
 import org.json4s.JsonAST.{JArray, JValue}
 

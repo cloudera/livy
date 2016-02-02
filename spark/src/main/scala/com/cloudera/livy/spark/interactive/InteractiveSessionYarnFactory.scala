@@ -18,11 +18,11 @@
 
 package com.cloudera.livy.spark.interactive
 
-import com.cloudera.livy.sessions.interactive.InteractiveSession
-import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
-import com.cloudera.livy.yarn.Client
-
 import scala.concurrent.ExecutionContext
+
+import com.cloudera.livy.sessions.interactive.InteractiveSession
+import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
+import com.cloudera.livy.yarn.Client
 
 class InteractiveSessionYarnFactory(client: Client, processFactory: SparkProcessBuilderFactory)
   extends InteractiveSessionFactory(processFactory) {
@@ -35,7 +35,7 @@ class InteractiveSessionYarnFactory(client: Client, processFactory: SparkProcess
     InteractiveSessionYarn(client, id, process, request)
   }
 
-  override def sparkBuilder(id: Int, request: CreateInteractiveRequest) = {
+  override def sparkBuilder(id: Int, request: CreateInteractiveRequest): SparkProcessBuilder = {
     val builder = super.sparkBuilder(id, request)
     builder.master("yarn-cluster")
     builder

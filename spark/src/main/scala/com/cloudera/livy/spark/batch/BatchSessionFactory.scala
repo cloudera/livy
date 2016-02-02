@@ -20,11 +20,12 @@ package com.cloudera.livy.spark.batch
 
 import java.lang.ProcessBuilder.Redirect
 
+import org.json4s.JValue
+
 import com.cloudera.livy.sessions.SessionFactory
 import com.cloudera.livy.sessions.batch.BatchSession
-import com.cloudera.livy.spark.SparkProcessBuilder.RelativePath
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
-import org.json4s.JValue
+import com.cloudera.livy.spark.SparkProcessBuilder.RelativePath
 
 abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory)
   extends SessionFactory[BatchSession, CreateBatchRequest] {

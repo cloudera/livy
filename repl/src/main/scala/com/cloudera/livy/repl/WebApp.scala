@@ -20,15 +20,16 @@ package com.cloudera.livy.repl
 
 import java.util.concurrent.TimeUnit
 
-import com.cloudera.livy.{ExecuteRequest, Logging}
-import com.cloudera.livy.sessions._
+import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
+import scala.concurrent.duration.Duration
+
 import com.fasterxml.jackson.core.JsonParseException
 import org.json4s.{DefaultFormats, JsonDSL, MappingException, _}
 import org.scalatra._
 import org.scalatra.json.JacksonJsonSupport
 
-import _root_.scala.concurrent.duration.Duration
-import _root_.scala.concurrent.{Await, ExecutionContext, Future, TimeoutException}
+import com.cloudera.livy.{ExecuteRequest, Logging}
+import com.cloudera.livy.sessions._
 
 object WebApp extends Logging
 

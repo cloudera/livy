@@ -18,15 +18,16 @@
 
 package com.cloudera.livy.repl.process
 
-import java.io.{BufferedReader, IOException, InputStreamReader, PrintWriter}
+import java.io.{BufferedReader, InputStreamReader, IOException, PrintWriter}
 import java.util.concurrent.locks.ReentrantLock
-
-import com.cloudera.livy.{Utils, Logging}
-import com.cloudera.livy.repl.Interpreter
-import org.json4s.JValue
 
 import scala.concurrent.Promise
 import scala.io.Source
+
+import org.json4s.JValue
+
+import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.repl.Interpreter
 
 private sealed trait Request
 private case class ExecuteRequest(code: String, promise: Promise[JValue]) extends Request
@@ -46,7 +47,7 @@ abstract class ProcessInterpreter(process: Process)
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
 
-  override def start() = {
+  override def start(): Unit = {
     waitUntilReady()
   }
 

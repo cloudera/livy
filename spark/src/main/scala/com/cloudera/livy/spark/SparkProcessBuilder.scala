@@ -18,11 +18,11 @@
 
 package com.cloudera.livy.spark
 
-import com.cloudera.livy.{LivyConf, Logging}
-
-import scala.collection.JavaConversions._
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
+import com.cloudera.livy.{LivyConf, Logging}
 
 object SparkProcessBuilder {
   /**
@@ -34,7 +34,9 @@ object SparkProcessBuilder {
   case class RelativePath(path: String) extends Path
 }
 
-class SparkProcessBuilder(livyConf: LivyConf, userConfigurableOptions: Set[String]) extends Logging {
+class SparkProcessBuilder(
+    livyConf: LivyConf,
+    userConfigurableOptions: Set[String]) extends Logging {
   import SparkProcessBuilder._
 
   private[this] val fsRoot = livyConf.filesystemRoot()
@@ -265,7 +267,7 @@ class SparkProcessBuilder(livyConf: LivyConf, userConfigurableOptions: Set[Strin
 
     info(s"Running $argsString")
 
-    val pb = new ProcessBuilder(arguments)
+    val pb = new ProcessBuilder(arguments.asJava)
     val env = pb.environment()
 
     for ((key, value) <- _env) {

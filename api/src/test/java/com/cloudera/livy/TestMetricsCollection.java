@@ -21,14 +21,14 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import org.junit.Test;
+import static org.junit.Assert.*;
+
 import com.cloudera.livy.metrics.DataReadMethod;
 import com.cloudera.livy.metrics.InputMetrics;
 import com.cloudera.livy.metrics.Metrics;
 import com.cloudera.livy.metrics.ShuffleReadMetrics;
 import com.cloudera.livy.metrics.ShuffleWriteMetrics;
-
-import org.junit.Test;
-import static org.junit.Assert.*;
 
 public class TestMetricsCollection {
 

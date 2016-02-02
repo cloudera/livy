@@ -18,14 +18,14 @@
 
 package com.cloudera.livy.spark.batch
 
+import scala.annotation.tailrec
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+
 import com.cloudera.livy.LineBufferedProcess
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.spark.SparkProcess
 import com.cloudera.livy.yarn._
-
-import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object BatchSessionYarn {
   implicit def executor: ExecutionContextExecutor = ExecutionContext.global
@@ -38,7 +38,10 @@ object BatchSessionYarn {
   }
 }
 
-private class BatchSessionYarn(val id: Int, process: LineBufferedProcess, jobFuture: Future[Job]) extends BatchSession {
+private class BatchSessionYarn(
+    val id: Int,
+    process: LineBufferedProcess,
+    jobFuture: Future[Job]) extends BatchSession {
 
   implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 

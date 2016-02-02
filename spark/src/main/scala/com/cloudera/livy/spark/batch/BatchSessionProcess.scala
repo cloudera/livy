@@ -18,12 +18,12 @@
 
 package com.cloudera.livy.spark.batch
 
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+
 import com.cloudera.livy.LineBufferedProcess
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.spark.SparkProcess
-
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 object BatchSessionProcess {
   def apply(id: Int, process: SparkProcess): BatchSession = {

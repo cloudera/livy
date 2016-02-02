@@ -18,7 +18,9 @@
 
 package com.cloudera.livy.spark
 
-import com.cloudera.livy.{Utils, LivyConf}
+import scala.io.Source
+
+import com.cloudera.livy.{LivyConf, Utils}
 import com.cloudera.livy.LivyConf.{Process, Yarn}
 import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.sessions.batch.BatchSession
@@ -26,8 +28,6 @@ import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.batch._
 import com.cloudera.livy.spark.interactive._
 import com.cloudera.livy.yarn.Client
-
-import scala.io.Source
 
 object SparkManager {
   def apply(livyConf: LivyConf): SparkManager = {

@@ -16,23 +16,23 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl.scala
+package com.cloudera.livy.repl.scalaRepl
 
 import java.io._
-
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.Interpreter
-import org.apache.spark.rdd.RDD
-import org.apache.spark.repl.SparkIMain
-import org.apache.spark.{SparkConf, SparkContext}
-import org.json4s.JsonAST._
-import org.json4s.JsonDSL._
-import org.json4s.{DefaultFormats, Extraction}
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.{JPrintWriter, Results}
 import scala.util.{Failure, Success, Try}
 
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.repl.SparkIMain
+import org.json4s.{DefaultFormats, Extraction}
+import org.json4s.JsonAST._
+import org.json4s.JsonDSL._
+
+import com.cloudera.livy.repl
+import com.cloudera.livy.repl.Interpreter
 
 object SparkInterpreter {
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
@@ -52,9 +52,9 @@ class SparkInterpreter extends Interpreter {
   private var sparkIMain: SparkIMain = _
   private var sparkContext: SparkContext = _
 
-  def kind = "spark"
+  def kind: String = "spark"
 
-  override def start() = {
+  override def start(): Unit = {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()
@@ -224,7 +224,9 @@ class SparkInterpreter extends Interpreter {
     }
   }
 
-  private def executeLines(lines: List[String], result: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
+  private def executeLines(
+      lines: List[String],
+      result: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
     lines match {
       case Nil => result
       case head :: tail =>

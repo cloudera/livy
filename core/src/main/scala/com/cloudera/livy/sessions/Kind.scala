@@ -24,15 +24,15 @@ import com.fasterxml.jackson.databind.module.SimpleModule
 
 sealed trait Kind
 case class Spark() extends Kind {
-  override def toString = "spark"
+  override def toString: String = "spark"
 }
 
 case class PySpark() extends Kind {
-  override def toString = "pyspark"
+  override def toString: String = "pyspark"
 }
 
 case class SparkR() extends Kind {
-  override def toString = "sparkr"
+  override def toString: String = "sparkr"
 }
 
 class SessionKindModule extends SimpleModule("SessionKind") {

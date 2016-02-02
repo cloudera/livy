@@ -18,13 +18,14 @@
 
 package com.cloudera.livy.spark.client
 
-import java.util.concurrent.{TimeUnit, Callable, Executors, ScheduledFuture}
+import java.util.concurrent.{Callable, Executors, ScheduledFuture, TimeUnit}
+
+import scala.collection.mutable.HashMap
+
+import com.google.common.util.concurrent.ThreadFactoryBuilder
 
 import com.cloudera.livy.LivyClient
 import com.cloudera.livy.Logging
-import com.google.common.util.concurrent.ThreadFactoryBuilder
-
-import scala.collection.mutable.HashMap
 
 class SessionCache extends Logging{
 

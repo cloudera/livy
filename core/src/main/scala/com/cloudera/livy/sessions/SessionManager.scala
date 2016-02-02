@@ -21,10 +21,10 @@ package com.cloudera.livy.sessions
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import com.cloudera.livy.{LivyConf, Logging}
-
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
+
+import com.cloudera.livy.{LivyConf, Logging}
 
 object SessionManager {
   val SESSION_TIMEOUT = "livy.server.session.timeout"

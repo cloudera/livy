@@ -19,7 +19,7 @@
 package com.cloudera.livy.repl
 
 import com.cloudera.livy.repl
-import com.cloudera.livy.repl.scala.SparkInterpreter
+import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import org.json4s.JsonDSL._
 import org.json4s.{DefaultFormats, JValue}
 

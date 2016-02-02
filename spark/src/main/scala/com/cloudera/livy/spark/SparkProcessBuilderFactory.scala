@@ -25,7 +25,7 @@ class SparkProcessBuilderFactory(val livyConf: LivyConf, userConfigurableOptions
     this(livyConf, Set())
   }
 
-  def builder() = {
+  def builder(): SparkProcessBuilder = {
     new SparkProcessBuilder(livyConf, userConfigurableOptions)
   }
 }

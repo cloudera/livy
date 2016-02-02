@@ -36,7 +36,7 @@ class BatchSessionServlet(batchManager: SessionManager[BatchSession, CreateBatch
     val lines = session.logLines()
 
     val size = 10
-    val from =  math.max(0, lines.length - size)
+    val from = math.max(0, lines.length - size)
     val until = from + size
 
     val logs = lines.view(from, until).toSeq

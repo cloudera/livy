@@ -20,9 +20,9 @@ package com.cloudera.livy.spark
 
 import java.io.File
 
-import com.cloudera.livy.Utils
-
 import scala.io.Source
+
+import com.cloudera.livy.Utils
 
 object SparkUserConfigurableOptions {
   def apply(): Set[String] = {
