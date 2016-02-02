@@ -106,7 +106,7 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
       builder.conf(SparkDriverExtraJavaOptions, javaOpts, admin = true)
     }
 
-    processFactory.livyConf.getOption(LivyReplDriverClassPath)
+    Option(processFactory.livyConf.get(LivyReplDriverClassPath))
       .foreach(builder.driverClassPath)
 
     sys.props.get(LivyServerUrl).foreach { serverUrl =>
@@ -123,7 +123,7 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
   }
 
   private def livyJars(livyConf: LivyConf): Seq[String] = {
-    livyConf.getOption(LivyReplJars).map(_.split(",").toSeq).getOrElse {
+    Option(livyConf.get(LivyReplJars)).map(_.split(",").toSeq).getOrElse {
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())

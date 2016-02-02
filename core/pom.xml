@@ -33,6 +33,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
     </dependency>

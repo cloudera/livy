@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import com.cloudera.livy.{LivyConf, Logging}
 
 object SessionManager {
-  val SESSION_TIMEOUT = "livy.server.session.timeout"
+  val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
 }
 
 class SessionManager[S <: Session, R](val livyConf: LivyConf, factory: SessionFactory[S, R])
@@ -40,7 +40,7 @@ class SessionManager[S <: Session, R](val livyConf: LivyConf, factory: SessionFa
   private[this] final val _sessions = mutable.Map[Int, S]()
 
   private[this] final val sessionTimeout =
-    TimeUnit.MILLISECONDS.toNanos(livyConf.getLong(SessionManager.SESSION_TIMEOUT, 1000 * 60 * 60))
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
 
   val livyHome = livyConf.livyHome().getOrElse {
     val isTest = sys.env.get("livy.test").map(_ == "true").isDefined
