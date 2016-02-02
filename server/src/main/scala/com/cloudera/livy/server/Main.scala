@@ -19,13 +19,11 @@
 package com.cloudera.livy.server
 
 import java.io.{File, IOException}
-import javax.servlet.ServletContext
+import javax.servlet._
 
-import org.scalatra._
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
-import org.scalatra.servlet.ScalatraListener
-import org.slf4j.LoggerFactory
+import org.scalatra.servlet.ServletApiImplicits
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
@@ -33,19 +31,16 @@ import com.cloudera.livy.server.client.ClientSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.spark.SparkManager
 
-object Main {
+object Main extends Logging {
 
-  val SESSION_KIND = "livy-server.session.kind"
-  val PROCESS_SESSION = "process"
-  val YARN_SESSION = "yarn"
-  lazy val logger = LoggerFactory.getLogger(this.getClass)
+  private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
+  private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
+  private val SERVER_PORT = LivyConf.Entry("livy.server.port", 8998)
 
   def main(args: Array[String]): Unit = {
-    val livyConf = new LivyConf()
-    Utils.loadDefaultLivyProperties(livyConf)
-
-    val host = livyConf.get("livy.server.host", "0.0.0.0")
-    val port = livyConf.getInt("livy.server.port", 8998)
+    val livyConf = new LivyConf().loadFromFile("livy-defaults.conf")
+    val host = livyConf.get(SERVER_HOST)
+    val port = livyConf.getInt(SERVER_PORT)
 
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
@@ -54,9 +49,37 @@ object Main {
     val server = new WebServer(livyConf, host, port)
 
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
-    server.context.setInitParameter(ScalatraListener.LifeCycleKey,
-      classOf[ScalatraBootstrap].getCanonicalName)
-    server.context.addEventListener(new ScalatraListener)
+    server.context.addEventListener(
+      new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
+
+        private var sparkManager: SparkManager = _
+
+        override def contextDestroyed(sce: ServletContextEvent): Unit = {
+          if (sparkManager != null) {
+            sparkManager.shutdown()
+            sparkManager = null
+          }
+        }
+
+        override def contextInitialized(sce: ServletContextEvent): Unit = {
+          try {
+            val context = sce.getServletContext()
+            sparkManager = SparkManager(livyConf)
+            context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
+            context.mount(new InteractiveSessionServlet(sparkManager.interactiveManager),
+              "/sessions/*")
+            context.mount(new BatchSessionServlet(sparkManager.batchManager), "/batches/*")
+            context.mount(new ClientSessionServlet(sparkManager.clientManager), "/clients/*")
+            context.mountMetricsAdminServlet("/")
+          } catch {
+            case e: Throwable =>
+              error("Exception thrown when initializing server", e)
+              sys.exit(1)
+          }
+
+        }
+
+      })
 
     try {
       server.start()
@@ -144,38 +167,4 @@ object Main {
     }
   }
 
-}
-
-class ScalatraBootstrap
-  extends LifeCycle
-  with Logging
-  with MetricsBootstrap {
-
-  var sparkManager: SparkManager = null
-
-  override def init(context: ServletContext): Unit = {
-    try {
-      val livyConf = new LivyConf()
-      sparkManager = SparkManager(livyConf)
-
-      context.mount(new InteractiveSessionServlet(sparkManager.interactiveManager), "/sessions/*")
-      context.mount(new BatchSessionServlet(sparkManager.batchManager), "/batches/*")
-      context.mount(new ClientSessionServlet(sparkManager.clientManager), "/clients/*")
-      context.mountMetricsAdminServlet("/")
-
-      context.initParameters(org.scalatra.EnvironmentKey) =
-        livyConf.get("livy.environment", "development")
-    } catch {
-      case e: Throwable =>
-        error("Exception thrown when initializing server", e)
-        sys.exit(1)
-    }
-  }
-
-  override def destroy(context: ServletContext): Unit = {
-    if (sparkManager != null) {
-      sparkManager.shutdown()
-      sparkManager = null
-    }
-  }
 }

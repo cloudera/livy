@@ -1,7 +1,7 @@
 # Specifies Livy's environment. May either be "production" or "development". In "development"
 # mode, Livy will enable debugging options, such as reporting possible routes on a 404.
 # defaults to development
-## livy.environment = development
+## livy.environment = production
 
 # Use this keystore for the SSL certificate and key.
 ## livy.keystore =

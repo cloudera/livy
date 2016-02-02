@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -61,10 +63,10 @@ public abstract class ClientConf<T extends ClientConf>
     TIME_SUFFIXES.put("d", TimeUnit.DAYS);
   }
 
-  protected final Map<String, String> config;
+  protected final ConcurrentMap<String, String> config;
 
   protected ClientConf(Properties config) {
-    this.config = new HashMap<>();
+    this.config = new ConcurrentHashMap<>();
     if (config != null) {
       for (String key : config.stringPropertyNames()) {
         this.config.put(key, config.getProperty(key));
@@ -79,6 +81,12 @@ public abstract class ClientConf<T extends ClientConf>
   @SuppressWarnings("unchecked")
   public T set(String key, String value) {
     config.put(key, value);
+    return (T) this;
+  }
+
+  @SuppressWarnings("unchecked")
+  public T setIfMissing(String key, String value) {
+    config.putIfAbsent(key, value);
     return (T) this;
   }
 

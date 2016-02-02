@@ -23,7 +23,7 @@ import java.net.URI
 import org.scalatra._
 import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
-import com.cloudera.livy.JobHandle
+import com.cloudera.livy.{JobHandle, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
@@ -33,7 +33,7 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
   extends SessionServlet(sessionManager) with FileUploadSupport {
 
   configureMultipartHandling(MultipartConfig(maxFileSize =
-    Some(sessionManager.livyConf.getLong("livy.file.upload.max.size", 100 * 1024 * 1024))))
+    Some(sessionManager.livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))))
 
   jpost[SerializedJob]("/:id/submit-job") { req =>
     withSession { session =>

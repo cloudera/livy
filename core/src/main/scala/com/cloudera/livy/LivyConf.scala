@@ -19,16 +19,27 @@
 package com.cloudera.livy
 
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
+import java.lang.{Boolean => JBoolean, Long => JLong}
 
-import scala.collection.JavaConverters._
+import com.cloudera.livy.client.common.ClientConf
+import com.cloudera.livy.client.common.ClientConf.ConfEntry
 
 object LivyConf {
-  val SESSION_FACTORY_KEY = "livy.server.session.factory"
-  val SPARK_HOME_KEY = "livy.server.spark-home"
-  val SPARK_SUBMIT_KEY = "livy.server.spark-submit"
-  val IMPERSONATION_ENABLED_KEY = "livy.impersonation.enabled"
-  val LIVY_HOME_KEY = "livy.home"
+
+  case class Entry(override val key: String, override val dflt: AnyRef) extends ConfEntry
+
+  object Entry {
+    def apply(key: String, dflt: Boolean): Entry = Entry(key, dflt: JBoolean)
+    def apply(key: String, dflt: Int): Entry = Entry(key, dflt: Integer)
+    def apply(key: String, dflt: Long): Entry = Entry(key, dflt: JLong)
+  }
+
+  val SESSION_FACTORY = Entry("livy.server.session.factory", "process")
+  val SPARK_HOME = Entry("livy.server.spark-home", null)
+  val SPARK_SUBMIT_KEY = Entry("livy.server.spark-submit", null)
+  val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
+  val LIVY_HOME = Entry("livy.home", null)
+  val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
 
   sealed trait SessionKind
   case class Process() extends SessionKind
@@ -39,7 +50,7 @@ object LivyConf {
  *
  * @param loadDefaults whether to also load values from the Java system properties
  */
-class LivyConf(loadDefaults: Boolean) {
+class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   import LivyConf._
 
@@ -49,76 +60,30 @@ class LivyConf(loadDefaults: Boolean) {
    */
   def this() = this(true)
 
-  private val settings = new ConcurrentHashMap[String, String]
-
   if (loadDefaults) {
-    for ((k, v) <- System.getProperties.asScala if k.startsWith("livy.")) {
-      settings.put(k, v)
-    }
+    loadFromMap(sys.props)
   }
 
-  /** Set a configuration variable */
-  def set(key: String, value: String): LivyConf = {
-    if (key == null) {
-      throw new NullPointerException("null key")
-    }
-
-    if (value == null) {
-      throw new NullPointerException("null key")
-    }
-
-    settings.put(key, value)
+  def loadFromFile(name: String): LivyConf = {
+    Utils.getLivyConfigFile(name)
+      .map(Utils.getPropertiesFromFile)
+      .foreach(loadFromMap)
     this
   }
-
-  /** Set if a parameter is not already configured */
-  def setIfMissing(key: String, value: String): LivyConf = {
-    if (!settings.contains(key)) {
-      settings.put(key, value)
-    }
-    this
-  }
-
-  /** Get a configuration variable */
-  def get(key: String): String = getOption(key).getOrElse(throw new NoSuchElementException(key))
-
-  /** Get a configuration variable */
-  def get(key: String, default: String): String = getOption(key).getOrElse(default)
-
-  /** Get a parameter as an Option */
-  def getOption(key: String): Option[String] = Option(settings.get(key))
-
-  /** Get a parameter as a Boolean */
-  def getBoolean(key: String, default: Boolean): Boolean = {
-    getOption(key).map(_.toBoolean).getOrElse(default)
-  }
-
-  /** Get a parameter as an Int */
-  def getInt(key: String, default: Int): Int = {
-    getOption(key).map(_.toInt).getOrElse(default)
-  }
-
-  /** Get a parameter as a Long */
-  def getLong(key: String, default: Long): Long = {
-    getOption(key).map(_.toLong).getOrElse(default)
-  }
-
-  /** Return if the configuration includes this setting */
-  def contains(key: String): Boolean = settings.containsKey(key)
 
   /** Return the location of the spark home directory */
-  def sparkHome(): Option[String] = getOption(SPARK_HOME_KEY).orElse(sys.env.get("SPARK_HOME"))
+  def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
 
-  def livyHome(): Option[String] = getOption(LIVY_HOME_KEY).orElse(sys.env.get("LIVY_HOME"))
+  def livyHome(): Option[String] = Option(get(LIVY_HOME)).orElse(sys.env.get("LIVY_HOME"))
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {
-    getOption(SPARK_SUBMIT_KEY)
+    Option(get(SPARK_SUBMIT_KEY))
       .orElse { sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" } }
       .getOrElse("spark-submit")
   }
 
-  def sessionKind(): SessionKind = getOption(SESSION_FACTORY_KEY).getOrElse("process") match {
+  def sessionKind(): SessionKind = get(SESSION_FACTORY) match {
     case "process" => Process()
     case "yarn" => Yarn()
     case kind => throw new IllegalStateException(f"unknown kind $kind")
@@ -129,4 +94,13 @@ class LivyConf(loadDefaults: Boolean) {
     case Process() => "file://"
     case Yarn() => "hdfs://"
   }
+
+  private def loadFromMap(map: Iterable[(String, String)]): Unit = {
+    map.foreach { case (k, v) =>
+      if (k.startsWith("livy.")) {
+        set(k, v)
+      }
+    }
+  }
+
 }

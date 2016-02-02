@@ -251,7 +251,7 @@ class SparkProcessBuilder(
     }
     addList("--driver-class-path", _driverClassPath)
 
-    if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED_KEY, true)) {
+    if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
       addOpt("--proxy-user", _proxyUser)
     }
 

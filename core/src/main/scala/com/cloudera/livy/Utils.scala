@@ -51,31 +51,6 @@ object Utils {
     getLivyConfDir().map(new File(_, name)).filter(_.exists())
   }
 
-  def getLivyConfigFileOrError(name: String): File = {
-    getLivyConfigFile(name).getOrElse {
-      throw new Exception(s"$name does not exist")
-    }
-  }
-
-  def getDefaultPropertiesFile: Option[File] = {
-    getLivyConfigFile("livy-defaults.conf")
-  }
-
-  def loadDefaultLivyProperties(conf: LivyConf, filePath: String = null): Unit = {
-    val file: Option[File] = Option(filePath)
-      .map(new File(_))
-      .orElse(getDefaultPropertiesFile)
-
-    file.foreach { f =>
-      getPropertiesFromFile(f)
-        .filterKeys(_.startsWith("livy."))
-        .foreach { case (k, v) =>
-          conf.setIfMissing(k, v)
-          sys.props.getOrElseUpdate(k, v)
-        }
-    }
-  }
-
   /**
    * Checks if event has occurred during some time period. This performs an exponential backoff
    * to limit the poll calls.

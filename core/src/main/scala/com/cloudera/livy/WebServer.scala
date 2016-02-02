@@ -40,7 +40,7 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   server.setStopTimeout(1000)
   server.setStopAtShutdown(true)
 
-  val connector = livyConf.getOption(WebServer.KeystoreKey) match {
+  val connector = Option(livyConf.get(WebServer.KeystoreKey)) match {
     case None =>
       new ServerConnector(server)
 
@@ -50,9 +50,9 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
       val sslContextFactory = new SslContextFactory()
       sslContextFactory.setKeyStorePath(keystore)
-      livyConf.getOption(WebServer.KeystorePasswordKey)
+      Option(livyConf.get(WebServer.KeystorePasswordKey))
         .foreach(sslContextFactory.setKeyStorePassword)
-      livyConf.getOption(WebServer.KeystorePasswordKey)
+      Option(livyConf.get(WebServer.KeystorePasswordKey))
         .foreach(sslContextFactory.setKeyManagerPassword)
 
       new ServerConnector(server,
