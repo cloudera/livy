@@ -28,10 +28,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.cloudera.livy.annotations.Private;
 import com.cloudera.livy.metrics.DataReadMethod;
-import com.cloudera.livy.metrics.ShuffleReadMetrics;
-import com.cloudera.livy.metrics.ShuffleWriteMetrics;
 import com.cloudera.livy.metrics.InputMetrics;
 import com.cloudera.livy.metrics.Metrics;
+import com.cloudera.livy.metrics.ShuffleReadMetrics;
+import com.cloudera.livy.metrics.ShuffleWriteMetrics;
 
 /**
  * Provides metrics collected for a submitted job.

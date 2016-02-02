@@ -105,12 +105,4 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
     }
   }
 
-  /** Last attempt at preventing stray jobs from accumulating in SparkClientImpl. */
-  @Override
-  protected void finalize() {
-    if (!isDone()) {
-      cancel(true);
-    }
-  }
-
 }

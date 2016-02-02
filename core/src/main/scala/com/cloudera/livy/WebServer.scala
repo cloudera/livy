@@ -21,13 +21,13 @@ package com.cloudera.livy
 import java.net.{InetAddress, InetSocketAddress}
 import javax.servlet.ServletContextListener
 
+import scala.concurrent.ExecutionContext
+
 import org.eclipse.jetty.server._
 import org.eclipse.jetty.server.handler.{HandlerCollection, RequestLogHandler}
-import org.eclipse.jetty.servlet.{ServletContextHandler, DefaultServlet}
+import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler}
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.scalatra.servlet.AsyncSupport
-
-import scala.concurrent.ExecutionContext
 
 object WebServer {
   val KeystoreKey = "livy.keystore"
@@ -50,8 +50,10 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
       val sslContextFactory = new SslContextFactory()
       sslContextFactory.setKeyStorePath(keystore)
-      livyConf.getOption(WebServer.KeystorePasswordKey).foreach(sslContextFactory.setKeyStorePassword)
-      livyConf.getOption(WebServer.KeystorePasswordKey).foreach(sslContextFactory.setKeyManagerPassword)
+      livyConf.getOption(WebServer.KeystorePasswordKey)
+        .foreach(sslContextFactory.setKeyStorePassword)
+      livyConf.getOption(WebServer.KeystorePasswordKey)
+        .foreach(sslContextFactory.setKeyManagerPassword)
 
       new ServerConnector(server,
         new SslConnectionFactory(sslContextFactory, "http/1.1"),
@@ -82,11 +84,11 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
   server.setHandler(handlers)
 
-  def addEventListener(listener: ServletContextListener) = {
+  def addEventListener(listener: ServletContextListener): Unit = {
     context.addEventListener(listener)
   }
 
-  def start() = {
+  def start(): Unit = {
     server.start()
 
     val connector = server.getConnectors()(0).asInstanceOf[NetworkConnector]
@@ -99,11 +101,11 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
     info("Starting server on %s" format port)
   }
 
-  def join() = {
+  def join(): Unit = {
     server.join()
   }
 
-  def stop() = {
+  def stop(): Unit = {
     context.stop()
     server.stop()
   }

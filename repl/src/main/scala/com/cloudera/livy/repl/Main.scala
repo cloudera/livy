@@ -21,21 +21,23 @@ package com.cloudera.livy.repl
 import java.util.concurrent.TimeUnit
 import javax.servlet.ServletContext
 
-import com.cloudera.livy.repl.python.PythonInterpreter
-import com.cloudera.livy.repl.scala.SparkInterpreter
-import com.cloudera.livy.repl.sparkr.SparkRInterpreter
-import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.{LivyConf, Logging, WebServer}
+import scala.annotation.tailrec
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration._
+
 import dispatch._
-import org.json4s.jackson.Serialization.write
 import org.json4s.{DefaultFormats, Formats}
+import org.json4s.jackson.Serialization.write
 import org.scalatra.LifeCycle
 import org.scalatra.servlet.ScalatraListener
 
-import _root_.scala.annotation.tailrec
-import _root_.scala.concurrent.duration._
-import _root_.scala.concurrent.{Await, ExecutionContext}
+import com.cloudera.livy.{LivyConf, Logging, WebServer}
+import com.cloudera.livy.repl.python.PythonInterpreter
+import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
+import com.cloudera.livy.repl.sparkr.SparkRInterpreter
+import com.cloudera.livy.sessions.SessionState
 
+// scalastyle:off println
 object Main extends Logging {
   val SESSION_KIND = "livy.repl.session.kind"
   val CALLBACK_URL = "livy.repl.callbackUrl"
@@ -67,7 +69,8 @@ object Main extends Logging {
 
     server.context.setResourceBase("src/main/com/cloudera/livy/repl")
     server.context.addEventListener(new ScalatraListener)
-    server.context.setInitParameter(ScalatraListener.LifeCycleKey, classOf[ScalatraBootstrap].getCanonicalName)
+    server.context.setInitParameter(ScalatraListener.LifeCycleKey,
+      classOf[ScalatraBootstrap].getCanonicalName)
     server.context.setInitParameter(SESSION_KIND, session_kind)
     callbackUrl.foreach(server.context.setInitParameter(CALLBACK_URL, _))
 
@@ -163,3 +166,4 @@ class ScalatraBootstrap extends LifeCycle with Logging {
     }
   }
 }
+// scalastyle:on println

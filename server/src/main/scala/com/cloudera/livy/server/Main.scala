@@ -21,15 +21,16 @@ package com.cloudera.livy.server
 import java.io.{File, IOException}
 import javax.servlet.ServletContext
 
-import com.cloudera.livy._
-import com.cloudera.livy.server.batch.BatchSessionServlet
-import com.cloudera.livy.server.interactive.InteractiveSessionServlet
-import com.cloudera.livy.spark.SparkManager
 import org.scalatra._
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.ScalatraListener
 import org.slf4j.LoggerFactory
+
+import com.cloudera.livy._
+import com.cloudera.livy.server.batch.BatchSessionServlet
+import com.cloudera.livy.server.interactive.InteractiveSessionServlet
+import com.cloudera.livy.spark.SparkManager
 
 object Main {
 
@@ -52,7 +53,8 @@ object Main {
     val server = new WebServer(livyConf, host, port)
 
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
-    server.context.setInitParameter(ScalatraListener.LifeCycleKey, classOf[ScalatraBootstrap].getCanonicalName)
+    server.context.setInitParameter(ScalatraListener.LifeCycleKey,
+      classOf[ScalatraBootstrap].getCanonicalName)
     server.context.addEventListener(new ScalatraListener)
 
     try {
@@ -74,18 +76,14 @@ object Main {
   /**
    * Sets the spark-submit path if it's not configured in the LivyConf
    */
-  private def testSparkHome(livyConf: LivyConf) = {
+  private def testSparkHome(livyConf: LivyConf): Unit = {
     val sparkHome = livyConf.sparkHome().getOrElse {
-      System.err.println("Livy requires the SPARK_HOME environment variable")
-      sys.exit(1)
+      throw new IllegalArgumentException("Livy requires the SPARK_HOME environment variable")
     }
 
     val sparkHomeFile = new File(sparkHome)
 
-    if (!sparkHomeFile.exists) {
-      System.err.println("SPARK_HOME path does not exist")
-      sys.exit(1)
-    }
+    require(sparkHomeFile.exists, "SPARK_HOME path does not exist")
   }
 
   /**
@@ -93,7 +91,7 @@ object Main {
    *
    * @param livyConf
    */
-  private def testSparkSubmit(livyConf: LivyConf) = {
+  private def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
       val versions_regex = (
         """^(?:""" +
@@ -116,8 +114,7 @@ object Main {
       }
     } catch {
       case e: IOException =>
-        System.err.println("Failed to run spark-submit executable: " + e.toString)
-        System.exit(1)
+        throw new IOException("Failed to run spark-submit executable", e)
     }
   }
 
@@ -141,7 +138,8 @@ object Main {
 
     output match {
       case regex(version) => version
-      case _ => throw new IOException(f"Unable to determine spark-submit version [$exitCode]:\n$output")
+      case _ =>
+        throw new IOException(f"Unable to determine spark-submit version [$exitCode]:\n$output")
     }
   }
 
@@ -163,10 +161,11 @@ class ScalatraBootstrap
       context.mount(new BatchSessionServlet(sparkManager.batchManager), "/batches/*")
       context.mountMetricsAdminServlet("/")
 
-      context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get("livy.environment", "development")
+      context.initParameters(org.scalatra.EnvironmentKey) =
+        livyConf.get("livy.environment", "development")
     } catch {
       case e: Throwable =>
-        println(f"Exception thrown when initializing server: $e")
+        error("Exception thrown when initializing server", e)
         sys.exit(1)
     }
   }

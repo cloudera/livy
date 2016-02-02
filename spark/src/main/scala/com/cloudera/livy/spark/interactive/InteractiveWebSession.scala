@@ -21,19 +21,19 @@ package com.cloudera.livy.spark.interactive
 import java.net.{ConnectException, URL}
 import java.util.concurrent.TimeUnit
 
-import com.cloudera.livy._
-import com.cloudera.livy.ExecuteRequest
-import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.{Statement, InteractiveSession}
-import com.cloudera.livy.spark.SparkProcess
+import scala.annotation.tailrec
+import scala.concurrent.{Future, _}
+import scala.concurrent.duration.Duration
+
 import dispatch._
+import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.Serialization.write
-import org.json4s.{DefaultFormats, Formats, JValue}
 
-import scala.annotation.tailrec
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Future, _}
+import com.cloudera.livy._
+import com.cloudera.livy.sessions._
+import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
+import com.cloudera.livy.spark.SparkProcess
 
 abstract class InteractiveWebSession(val id: Int,
                                      process: SparkProcess,
@@ -51,15 +51,15 @@ abstract class InteractiveWebSession(val id: Int,
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
 
-  override def kind = request.kind
+  override def kind: Kind = request.kind
 
-  override def logLines() = process.inputLines
+  override def logLines(): IndexedSeq[String] = process.inputLines
 
-  override def proxyUser = request.proxyUser
+  override def proxyUser: Option[String] = request.proxyUser
 
   override def url: Option[URL] = _url
 
-  override def url_=(url: URL) = {
+  override def url_=(url: URL): Unit = {
     ensureState(SessionState.Starting(), {
       _state = SessionState.Idle()
       _url = Some(url)

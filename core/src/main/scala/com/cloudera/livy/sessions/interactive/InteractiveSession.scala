@@ -21,11 +21,11 @@ package com.cloudera.livy.sessions.interactive
 import java.net.URL
 import java.util.concurrent.TimeoutException
 
-import com.cloudera.livy.{ExecuteRequest, Utils}
-import com.cloudera.livy.sessions.{Kind, Session, SessionState}
-
 import scala.concurrent._
 import scala.concurrent.duration.Duration
+
+import com.cloudera.livy.{ExecuteRequest, Utils}
+import com.cloudera.livy.sessions.{Kind, Session, SessionState}
 
 object InteractiveSession {
   class SessionFailedToStart(msg: String) extends Exception(msg)
@@ -52,7 +52,7 @@ trait InteractiveSession extends Session {
 
   @throws(classOf[TimeoutException])
   @throws(classOf[InterruptedException])
-  final def waitForStateChange(oldState: SessionState, atMost: Duration) = {
+  final def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
     Utils.waitUntil({ () => state != oldState }, atMost)
   }
 }

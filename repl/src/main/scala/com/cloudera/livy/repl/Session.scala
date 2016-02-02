@@ -20,13 +20,14 @@ package com.cloudera.livy.repl
 
 import java.util.concurrent.Executors
 
-import com.cloudera.livy.{Utils, Logging}
-import com.cloudera.livy.sessions._
-import org.json4s.JsonDSL._
-import org.json4s.{JValue, DefaultFormats, Extraction}
+import scala.concurrent.{ExecutionContext, Future, TimeoutException}
+import scala.concurrent.duration.Duration
 
-import _root_.scala.concurrent.duration.Duration
-import _root_.scala.concurrent.{TimeoutException, ExecutionContext, Future}
+import org.json4s.{DefaultFormats, Extraction, JValue}
+import org.json4s.JsonDSL._
+
+import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.sessions._
 
 object Session {
   val STATUS = "status"
@@ -46,7 +47,8 @@ class Session(interpreter: Interpreter)
 {
   import Session._
 
-  private implicit val executor = ExecutionContext.fromExecutorService(Executors.newSingleThreadExecutor())
+  private implicit val executor = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor())
   private implicit val formats = DefaultFormats
 
   private var _state: SessionState = SessionState.NotStarted()
@@ -62,7 +64,7 @@ class Session(interpreter: Interpreter)
 
   def kind: String = interpreter.kind
 
-  def state = _state
+  def state: SessionState = _state
 
   def history: IndexedSeq[Statement] = _history
 
@@ -78,13 +80,13 @@ class Session(interpreter: Interpreter)
     interpreter.close()
   }
 
-  def clearHistory() = synchronized {
+  def clearHistory(): Unit = synchronized {
     _history = IndexedSeq()
   }
 
   @throws(classOf[TimeoutException])
   @throws(classOf[InterruptedException])
-  def waitForStateChange(oldState: SessionState, atMost: Duration) = {
+  def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
     Utils.waitUntil({ () => state != oldState }, atMost)
   }
 

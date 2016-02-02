@@ -20,12 +20,12 @@ package com.cloudera.livy.spark.interactive
 
 import java.net.URL
 
+import scala.annotation.tailrec
+import scala.concurrent.Future
+
 import com.cloudera.livy.Logging
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcess
-
-import scala.annotation.tailrec
-import scala.concurrent.Future
 
 object InteractiveSessionProcess extends Logging {
 

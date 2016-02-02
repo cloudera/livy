@@ -22,14 +22,14 @@ sealed trait StatementState
 
 object StatementState {
   case class Running() extends StatementState {
-    override def toString = "running"
+    override def toString: String = "running"
   }
 
   case class Available() extends StatementState {
-    override def toString = "available"
+    override def toString: String = "available"
   }
 
   case class Error() extends StatementState {
-    override def toString = "error"
+    override def toString: String = "error"
   }
 }

@@ -20,15 +20,15 @@ package com.cloudera.livy.spark.interactive
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 
 import scala.collection.JavaConverters._
 
-import com.cloudera.livy.sessions.interactive.InteractiveSession
-import com.cloudera.livy.sessions.{PySpark, SessionFactory}
-import com.cloudera.livy.spark.SparkProcessBuilder.{AbsolutePath, RelativePath}
-import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
 import com.cloudera.livy.{LivyConf, Utils}
+import com.cloudera.livy.sessions.{PySpark, SessionFactory}
+import com.cloudera.livy.sessions.interactive.InteractiveSession
+import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
+import com.cloudera.livy.spark.SparkProcessBuilder.{AbsolutePath, RelativePath}
 
 object InteractiveSessionFactory {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -54,7 +54,10 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
     create(id, process, request)
   }
 
-  protected def create(id: Int, process: SparkProcess, request: CreateInteractiveRequest): InteractiveSession
+  protected def create(
+      id: Int,
+      process: SparkProcess,
+      request: CreateInteractiveRequest): InteractiveSession
 
   protected def sparkBuilder(id: Int, request: CreateInteractiveRequest): SparkProcessBuilder = {
     val builder = processFactory.builder()
@@ -91,7 +94,8 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
         // the Python shell.
         builder.files(request.pyFiles.map(RelativePath))
 
-        builder.conf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","), admin = true)
+        builder.conf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","),
+          admin = true)
       case _ =>
     }
 
@@ -138,7 +142,7 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
           val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
           val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
           require(pyArchivesFile.exists(),
-            "pyspark.zip not found in Spark environment; cannot run pyspark application in YARN mode.")
+            "pyspark.zip not found; cannot run pyspark application in YARN mode.")
 
           val py4jFile = Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
             .iterator()
@@ -146,7 +150,7 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
             .toFile
 
           require(py4jFile.exists(),
-            "py4j-*-src.zip not found in Spark environment; cannot run pyspark application in YARN mode.")
+            "py4j-*-src.zip not found; cannot run pyspark application in YARN mode.")
           Seq(pyArchivesFile.getAbsolutePath, py4jFile.getAbsolutePath)
         }.getOrElse(Seq())
       }

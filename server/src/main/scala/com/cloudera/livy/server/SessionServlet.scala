@@ -24,7 +24,7 @@ import scala.reflect.ClassTag
 import org.scalatra._
 
 import com.cloudera.livy.Logging
-import com.cloudera.livy.sessions.{SessionManager, Session}
+import com.cloudera.livy.sessions.{Session, SessionManager}
 import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
 import com.cloudera.livy.spark.ConfigOptionNotAllowed
 

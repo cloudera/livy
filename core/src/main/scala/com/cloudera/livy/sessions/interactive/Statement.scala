@@ -18,19 +18,20 @@
 
 package com.cloudera.livy.sessions.interactive
 
-import com.cloudera.livy.ExecuteRequest
-import org.json4s.JValue
-import org.json4s.JsonAST.{JArray, JField, JObject, JString}
-
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}
+
+import org.json4s.JsonAST.{JArray, JField, JObject, JString}
+import org.json4s.JValue
+
+import com.cloudera.livy.ExecuteRequest
 
 class Statement(val id: Int, val request: ExecuteRequest, _output: Future[JValue]) {
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
   private[this] var _state: StatementState = StatementState.Running()
 
-  def state = _state
+  def state: StatementState = _state
 
   def output(from: Option[Int] = None, size: Option[Int] = None): Future[JValue] = {
     _output.map { case output =>

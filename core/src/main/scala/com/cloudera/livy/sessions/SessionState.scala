@@ -26,56 +26,56 @@ sealed trait SessionState {
 object SessionState {
 
   case class NotStarted() extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "not_started"
+    override def toString: String = "not_started"
   }
 
   case class Starting() extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "starting"
+    override def toString: String = "starting"
   }
 
   case class Idle() extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "idle"
+    override def toString: String = "idle"
   }
 
   case class Running() extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "running"
+    override def toString: String = "running"
   }
 
   case class Busy() extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "busy"
+    override def toString: String = "busy"
   }
 
   case class ShuttingDown() extends SessionState {
-    override def isActive = false
+    override def isActive: Boolean = false
 
-    override def toString = "shutting_down"
+    override def toString: String = "shutting_down"
   }
 
   case class Error(time: Long = System.nanoTime()) extends SessionState {
-    override def isActive = true
+    override def isActive: Boolean = true
 
-    override def toString = "error"
+    override def toString: String = "error"
   }
 
   case class Dead(time: Long = System.nanoTime()) extends SessionState {
-    override def isActive = false
+    override def isActive: Boolean = false
 
-    override def toString = "dead"
+    override def toString: String = "dead"
   }
 
   case class Success(time: Long = System.nanoTime()) extends SessionState {
-    override def isActive = false
+    override def isActive: Boolean = false
 
-    override def toString = "success"
+    override def toString: String = "success"
   }
 }

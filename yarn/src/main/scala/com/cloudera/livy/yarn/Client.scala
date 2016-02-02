@@ -20,14 +20,15 @@ package com.cloudera.livy.yarn
 
 import java.io.File
 
-import com.cloudera.livy.{LineBufferedProcess, LivyConf, Logging}
+import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext
+
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.util.ConverterUtils
 
-import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext
+import com.cloudera.livy.{LineBufferedProcess, LivyConf, Logging}
 
 object Client {
   private lazy val regex = """Application report for (\w+)""".r.unanchored
@@ -42,7 +43,8 @@ class Client(livyConf: LivyConf) extends Logging {
 
   private[this] val yarnConf = new YarnConfiguration()
   private[this] val yarnClient = YarnClient.createYarnClient()
-  val path = new Path(sys.env("HADOOP_CONF_DIR") + File.separator + YarnConfiguration.YARN_SITE_CONFIGURATION_FILE)
+  val path = new Path(sys.env("HADOOP_CONF_DIR") + File.separator +
+    YarnConfiguration.YARN_SITE_CONFIGURATION_FILE)
   yarnConf.addResource(path)
   val rm_address = yarnConf.get(YarnConfiguration.RM_ADDRESS)
   info(s"Resource Manager address: $rm_address")
@@ -57,7 +59,7 @@ class Client(livyConf: LivyConf) extends Logging {
     }
   }
 
-  def close() = {
+  def close(): Unit = {
     yarnClient.close()
   }
 

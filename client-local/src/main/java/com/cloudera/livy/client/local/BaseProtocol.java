@@ -20,8 +20,8 @@ package com.cloudera.livy.client.local;
 import com.google.common.base.Throwables;
 
 import com.cloudera.livy.Job;
-import com.cloudera.livy.metrics.Metrics;
 import com.cloudera.livy.client.local.rpc.RpcDispatcher;
+import com.cloudera.livy.metrics.Metrics;
 
 public abstract class BaseProtocol extends RpcDispatcher {
 

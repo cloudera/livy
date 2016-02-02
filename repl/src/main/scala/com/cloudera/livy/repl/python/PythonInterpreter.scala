@@ -20,20 +20,22 @@ package com.cloudera.livy.repl.python
 
 import java.io._
 import java.lang.ProcessBuilder.Redirect
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
+
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+
+import org.json4s.{DefaultFormats, JValue}
+import org.json4s.JsonAST.JObject
+import org.json4s.jackson.JsonMethods._
+import org.json4s.jackson.Serialization.write
+import py4j.GatewayServer
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
-import org.json4s.JsonAST.JObject
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
-import org.json4s.{DefaultFormats, JValue}
-import py4j.GatewayServer
 
-import scala.annotation.tailrec
-import scala.collection.JavaConversions._
-
+// scalastyle:off println
 object PythonInterpreter extends Logging {
   def apply(): Interpreter = {
     val pythonExec = sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
@@ -41,7 +43,7 @@ object PythonInterpreter extends Logging {
     val gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
 
-    val builder = new ProcessBuilder(Seq(pythonExec, createFakeShell().toString))
+    val builder = new ProcessBuilder(Seq(pythonExec, createFakeShell().toString).asJava)
 
     val env = builder.environment()
 
@@ -70,7 +72,7 @@ object PythonInterpreter extends Logging {
           val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
           val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
           require(pyArchivesFile.exists(),
-            "pyspark.zip not found in Spark environment; cannot run pyspark application in YARN mode.")
+            "pyspark.zip not found; cannot run pyspark application in YARN mode.")
 
           val py4jFile = Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
             .iterator()
@@ -78,7 +80,7 @@ object PythonInterpreter extends Logging {
             .toFile
 
           require(py4jFile.exists(),
-            "py4j-*-src.zip not found in Spark environment; cannot run pyspark application in YARN mode.")
+            "py4j-*-src.zip not found; cannot run pyspark application in YARN mode.")
           Seq(pyArchivesFile.getAbsolutePath, py4jFile.getAbsolutePath)
         }.getOrElse(Seq())
       }
@@ -126,7 +128,7 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer)
 {
   implicit val formats = DefaultFormats
 
-  override def kind = "pyspark"
+  override def kind: String = "pyspark"
 
   override def close(): Unit = {
     try {
@@ -187,3 +189,4 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer)
     }
   }
 }
+// scalastyle:on println

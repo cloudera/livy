@@ -18,17 +18,20 @@
 
 package com.cloudera.livy.spark.interactive
 
+import scala.concurrent.ExecutionContext
+
 import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
-
-import scala.concurrent.ExecutionContext
 
 class InteractiveSessionProcessFactory(processFactory: SparkProcessBuilderFactory)
   extends InteractiveSessionFactory(processFactory) {
 
   implicit def executor: ExecutionContext = ExecutionContext.global
 
-  protected override def create(id: Int, process: SparkProcess, createInteractiveRequest: CreateInteractiveRequest): InteractiveSession = {
+  protected override def create(
+      id: Int,
+      process: SparkProcess,
+      createInteractiveRequest: CreateInteractiveRequest): InteractiveSession = {
     InteractiveSessionProcess(id, process, createInteractiveRequest)
   }
 }

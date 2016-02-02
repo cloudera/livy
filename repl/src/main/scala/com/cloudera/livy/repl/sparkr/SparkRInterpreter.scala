@@ -22,16 +22,18 @@ import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 
+import scala.annotation.tailrec
+import scala.collection.JavaConverters._
+
+import org.apache.commons.codec.binary.Base64
+import org.json4s._
+import org.json4s.JsonDSL._
+
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
-import org.apache.commons.codec.binary.Base64
-import org.json4s.JsonDSL._
-import org.json4s._
 
-import scala.annotation.tailrec
-import scala.collection.JavaConversions._
-
+// scalastyle:off println
 object SparkRInterpreter {
   private val LIVY_END_MARKER = "----LIVY_END_OF_COMMAND----"
   private val PRINT_MARKER = f"""print("$LIVY_END_MARKER")"""
@@ -63,7 +65,7 @@ object SparkRInterpreter {
     val executable = sparkRExecutable
       .getOrElse(throw new Exception(f"Cannot find sparkR executable"))
 
-    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath))
+    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath).asJava)
 
     val env = builder.environment()
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
@@ -127,7 +129,7 @@ class SparkRInterpreter(process: Process)
 
   private[this] var executionCount = 0
 
-  override def kind = "sparkR"
+  override def kind: String = "sparkR"
 
   final override protected def waitUntilReady(): Unit = {
     // Set the option to catch and ignore errors instead of halting.
@@ -248,3 +250,4 @@ class SparkRInterpreter(process: Process)
   private class Exited(val output: String) extends Exception {}
   private class Error(val output: String) extends Exception {}
 }
+// scalastyle:on println

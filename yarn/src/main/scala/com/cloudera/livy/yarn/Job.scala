@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.yarn
 
-import org.apache.hadoop.yarn.api.records.{FinalApplicationStatus, YarnApplicationState, ApplicationId}
+import org.apache.hadoop.yarn.api.records.{ApplicationId, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 
 class Job(yarnClient: YarnClient, appId: ApplicationId) {
@@ -89,9 +89,12 @@ class Job(yarnClient: YarnClient, appId: ApplicationId) {
     yarnClient.killApplication(appId)
   }
 
-  private def convertState(state: YarnApplicationState, status: FinalApplicationStatus): ApplicationState = {
+  private def convertState(
+      state: YarnApplicationState,
+      status: FinalApplicationStatus): ApplicationState = {
     (state, status) match {
-      case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) => ApplicationState.SuccessfulFinish()
+      case (YarnApplicationState.FINISHED, FinalApplicationStatus.SUCCEEDED) =>
+        ApplicationState.SuccessfulFinish()
       case (YarnApplicationState.FINISHED, _) |
            (YarnApplicationState.KILLED, _) |
            (YarnApplicationState.FAILED, _) => ApplicationState.UnsuccessfulFinish()
