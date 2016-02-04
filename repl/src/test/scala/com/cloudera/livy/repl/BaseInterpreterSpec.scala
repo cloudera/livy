@@ -24,7 +24,7 @@ abstract class BaseInterpreterSpec extends FlatSpec with Matchers {
 
   def createInterpreter(): Interpreter
 
-  def withInterpreter(testCode: Interpreter => Any) = {
+  def withInterpreter(testCode: Interpreter => Any): Unit = {
     val interpreter = createInterpreter()
     try {
       interpreter.start()

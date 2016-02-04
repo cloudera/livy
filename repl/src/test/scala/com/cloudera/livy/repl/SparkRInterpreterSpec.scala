@@ -18,10 +18,11 @@
 
 package com.cloudera.livy.repl
 
+import org.json4s.{DefaultFormats, JValue}
+import org.json4s.JsonDSL._
+
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
-import org.json4s.JsonDSL._
-import org.json4s.{DefaultFormats, JValue}
 
 class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
@@ -33,7 +34,7 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
     test()
   }
 
-  override def createInterpreter() = {
+  override def createInterpreter(): Interpreter = {
     SparkRInterpreter()
   }
 

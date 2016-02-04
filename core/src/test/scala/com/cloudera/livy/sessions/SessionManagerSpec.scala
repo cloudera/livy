@@ -18,11 +18,12 @@
 
 package com.cloudera.livy.sessions
 
-import com.cloudera.livy.LivyConf
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import com.cloudera.livy.LivyConf
 
 class SessionManagerSpec extends FlatSpec with Matchers {
 

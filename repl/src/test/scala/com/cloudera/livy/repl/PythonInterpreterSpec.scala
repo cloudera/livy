@@ -18,21 +18,24 @@
 
 package com.cloudera.livy.repl
 
+import org.json4s.{DefaultFormats, JValue}
+import org.json4s.JsonDSL._
+import org.scalatest.Outcome
+
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.python.PythonInterpreter
-import org.json4s.JsonDSL._
-import org.json4s.{DefaultFormats, JValue}
 
 class PythonInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override protected def withFixture(test: NoArgTest) = {
+  override protected def withFixture(test: NoArgTest): Outcome = {
     assume(sys.env.get("SPARK_HOME").isDefined,
       "Test requires a Spark installation in SPARK_HOME.")
     test()
   }
-  override def createInterpreter() = PythonInterpreter()
+
+  override def createInterpreter(): Interpreter = PythonInterpreter()
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
@@ -178,8 +181,8 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
-  it should "not execute part of the block if there is a syntax error" in withInterpreter { interpreter =>
-    var response = interpreter.execute(
+  it should "not execute part of the block if there is a syntax error" in withInterpreter { intp =>
+    var response = intp.execute(
       """x = 1
         |'
       """.stripMargin)
@@ -195,7 +198,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       )
     ))
 
-    response = interpreter.execute("x")
+    response = intp.execute("x")
     response should equal(Interpreter.ExecuteError(
       "NameError",
       "name 'x' is not defined",

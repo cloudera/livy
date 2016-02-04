@@ -1,7 +1,5 @@
 /*
  * Licensed to Cloudera, Inc. under one
-      val statement = Statement(
-        0,
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
  * regarding copyright ownership.  Cloudera, Inc. licenses this file
@@ -20,13 +18,14 @@
 
 package com.cloudera.livy.sessions.interactive
 
-import com.cloudera.livy.ExecuteRequest
-import org.json4s.JsonAST.JString
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+
 import org.json4s.{DefaultFormats, Extraction}
+import org.json4s.JsonAST.JString
 import org.scalatest.{FunSpec, Matchers}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import com.cloudera.livy.ExecuteRequest
 
 class StatementSpec extends FunSpec with Matchers {
 
@@ -47,7 +46,8 @@ class StatementSpec extends FunSpec with Matchers {
       output \ "data" \ "text/plain" should equal (JString(lines.mkString("\n")))
 
       output = Await.result(stmt.output(Some(2)), Duration.Inf)
-      output \ "data" \ "text/plain" should equal (JString(lines.slice(2, lines.length).mkString("\n")))
+      output \ "data" \ "text/plain" should equal (
+        JString(lines.slice(2, lines.length).mkString("\n")))
 
       output = Await.result(stmt.output(Some(2), Some(1)), Duration.Inf)
       output \ "data" \ "text/plain" should equal (JString(lines.slice(2, 3).mkString("\n")))

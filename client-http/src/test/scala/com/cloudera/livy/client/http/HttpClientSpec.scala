@@ -80,7 +80,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     }
     if (client != null) {
       client.stop()
-      client= null
+      client = null
     }
     session = null
   }

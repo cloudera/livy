@@ -18,16 +18,17 @@
 
 package com.cloudera.livy.repl
 
-import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.json4s.Extraction
 import org.json4s.JsonAST.{JArray, JValue}
 
-import _root_.scala.concurrent.Await
-import _root_.scala.concurrent.duration.Duration
+import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 
 class SparkSessionSpec extends BaseSessionSpec {
 
-  override def createInterpreter() = SparkInterpreter()
+  override def createInterpreter(): Interpreter = SparkInterpreter()
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = session.execute("1 + 2")
@@ -146,7 +147,8 @@ class SparkSessionSpec extends BaseSessionSpec {
     resultMap("execution_count").extract[Int] should equal (0)
 
     val data = resultMap("data").extract[Map[String, JValue]]
-    data("text/plain").extract[String] should include ("res0: org.apache.spark.SparkContext = org.apache.spark.SparkContext")
+    data("text/plain").extract[String] should include (
+      "res0: org.apache.spark.SparkContext = org.apache.spark.SparkContext")
   }
 
   it should "execute spark commands" in withSession { session =>
