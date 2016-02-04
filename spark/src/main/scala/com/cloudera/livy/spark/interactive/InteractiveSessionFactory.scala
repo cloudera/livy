@@ -45,6 +45,7 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
   import InteractiveSessionFactory._
 
   def create(id: Int, request: CreateInteractiveRequest): InteractiveSession = {
+    require(request.kind != null, "Session kind is required.")
     val builder = sparkBuilder(id, request)
     val kind = request.kind.toString
     val process = builder.start(None, List(kind))

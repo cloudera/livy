@@ -56,9 +56,8 @@ class BatchProcessSpec
 
   describe("A Batch process") {
     it("should create a process") {
-      val req = CreateBatchRequest(
-        file = script.toString
-      )
+      val req = new CreateBatchRequest()
+      req.file = script.toString
 
       val livyConf = new LivyConf()
       val builder = new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))

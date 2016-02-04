@@ -18,20 +18,23 @@
 
 package com.cloudera.livy.spark.batch
 
-case class CreateBatchRequest(
-    file: String,
-    proxyUser: Option[String] = None,
-    args: List[String] = List(),
-    className: Option[String] = None,
-    jars: List[String] = List(),
-    pyFiles: List[String] = List(),
-    files: List[String] = List(),
-    driverMemory: Option[String] = None,
-    driverCores: Option[Int] = None,
-    executorMemory: Option[String] = None,
-    executorCores: Option[Int] = None,
-    numExecutors: Option[Int] = None,
-    archives: List[String] = List(),
-    queue: Option[String] = None,
-    name: Option[String] = None,
-    conf: Map[String, String] = Map())
+class CreateBatchRequest {
+
+  var file: String = _
+  var proxyUser: Option[String] = None
+  var args: List[String] = List()
+  var className: Option[String] = None
+  var jars: List[String] = List()
+  var pyFiles: List[String] = List()
+  var files: List[String] = List()
+  var driverMemory: Option[String] = None
+  var driverCores: Option[Int] = None
+  var executorMemory: Option[String] = None
+  var executorCores: Option[Int] = None
+  var numExecutors: Option[Int] = None
+  var archives: List[String] = List()
+  var queue: Option[String] = None
+  var name: Option[String] = None
+  var conf: Map[String, String] = Map()
+
+}
