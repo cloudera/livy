@@ -36,6 +36,6 @@ class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
-    interactiveFactory.create(0, req)
+    interactiveFactory.create(0, null, req)
   }
 }

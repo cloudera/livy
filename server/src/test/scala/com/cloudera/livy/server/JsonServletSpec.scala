@@ -42,31 +42,31 @@ class JsonServletSpec extends BaseJsonServletSpec {
     }
 
     it("should serialize an ActionResult's body") {
-      jpost[MethodReturn]("/post", body = MethodArg("post")) { result =>
+      jpost[MethodReturn]("/post", MethodArg("post")) { result =>
         assert(result.value === "post")
       }
     }
 
     it("should wrap a raw result") {
-      jput[MethodReturn]("/put", body = MethodArg("put")) { result =>
+      jput[MethodReturn]("/put", MethodArg("put")) { result =>
         assert(result.value === "put")
       }
     }
 
     it("should bypass non-json results") {
-      jpatch[Unit]("/patch", body = MethodArg("patch"), expectedStatus = 404) { _ =>
+      jpatch[Unit]("/patch", MethodArg("patch"), expectedStatus = SC_NOT_FOUND) { _ =>
         assert(response.body === "patch")
       }
     }
 
     it("should translate JSON errors to BadRequest") {
-      post("/post", body = "abcde".getBytes(UTF_8), headers = headers) {
+      post("/post", "abcde".getBytes(UTF_8), headers = defaultHeaders) {
         assert(status === SC_BAD_REQUEST)
       }
     }
 
     it("should respect user-installed error handlers") {
-      post("/error", headers = headers) {
+      post("/error", headers = defaultHeaders) {
         assert(status === SC_SERVICE_UNAVAILABLE)
         assert(response.body === "error")
       }

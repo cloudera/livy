@@ -22,7 +22,7 @@ abstract class SessionFactory[S <: Session, R] {
 
   protected var livyHome: String = null
 
-  def create(id: Int, createRequest: R): S
+  def create(id: Int, owner: String, createRequest: R): S
 
   def setLivyHome(livyHome: String): Unit = {
     this.livyHome = livyHome

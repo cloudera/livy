@@ -23,23 +23,14 @@ import java.net.URL
 import scala.annotation.tailrec
 import scala.concurrent.Future
 
-import com.cloudera.livy.Logging
-import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcess
 
-object InteractiveSessionProcess extends Logging {
-
-  def apply(id: Int,
-            process: SparkProcess,
-            createInteractiveRequest: CreateInteractiveRequest): InteractiveSession = {
-    new InteractiveSessionProcess(id, process, createInteractiveRequest)
-  }
-}
-
-private class InteractiveSessionProcess(id: Int,
-                                        process: SparkProcess,
-                                        request: CreateInteractiveRequest)
-  extends InteractiveWebSession(id, process, request) {
+private class InteractiveSessionProcess(
+    id: Int,
+    owner: String,
+    process: SparkProcess,
+    request: CreateInteractiveRequest)
+  extends InteractiveWebSession(id, owner, process, request) {
 
   val stdoutThread = new Thread {
     override def run() = {

@@ -262,7 +262,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
 
   override def init(context: ServletContext): Unit = {
     val factory = mock(classOf[SessionFactory[ClientSession, CreateClientRequest]])
-    when(factory.create(anyInt(), any(classOf[CreateClientRequest]))).thenAnswer(
+    when(factory.create(anyInt(), anyString(), any(classOf[CreateClientRequest]))).thenAnswer(
       new Answer[ClientSession]() {
         override def answer(args: InvocationOnMock): ClientSession = {
           val session = mock(classOf[ClientSession])
