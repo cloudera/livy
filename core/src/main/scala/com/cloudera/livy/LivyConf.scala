@@ -64,7 +64,7 @@ class LivyConf(loadDefaults: Boolean) {
     }
 
     if (value == null) {
-      throw new NullPointerException("null key")
+      throw new NullPointerException("null value")
     }
 
     settings.put(key, value)
