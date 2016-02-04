@@ -30,8 +30,8 @@ import com.cloudera.livy.ExecuteRequest
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
-import com.cloudera.livy.spark.interactive.{CreateInteractiveRequest, InteractiveSessionFactory}
 import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
+import com.cloudera.livy.spark.interactive.{CreateInteractiveRequest, InteractiveSessionFactory}
 
 class InteractiveSessionServletSpec
   extends BaseSessionServletSpec[InteractiveSession, CreateInteractiveRequest] {
@@ -47,13 +47,13 @@ class InteractiveSessionServletSpec
 
     override def kind: Kind = Spark()
 
-    override def logLines() = IndexedSeq()
+    override def logLines(): IndexedSeq[String] = IndexedSeq()
 
-    override def state = _state
+    override def state: SessionState = _state
 
     override def stop(): Future[Unit] = Future.successful(())
 
-    override def url_=(url: URL): Unit = ???
+    override def url_=(url: URL): Unit = throw new UnsupportedOperationException()
 
     override def executeStatement(executeRequest: ExecuteRequest): Statement = {
       val id = _idCounter.getAndIncrement
@@ -69,11 +69,11 @@ class InteractiveSessionServletSpec
 
     override def proxyUser: Option[String] = None
 
-    override def url: Option[URL] = ???
+    override def url: Option[URL] = throw new UnsupportedOperationException()
 
     override def statements: IndexedSeq[Statement] = _statements
 
-    override def interrupt(): Future[Unit] = ???
+    override def interrupt(): Future[Unit] = throw new UnsupportedOperationException()
   }
 
   class MockInteractiveSessionFactory(processFactory: SparkProcessBuilderFactory)
@@ -95,10 +95,10 @@ class InteractiveSessionServletSpec
     }
   }
 
-  override def sessionFactory = new MockInteractiveSessionFactory(
+  override def sessionFactory: InteractiveSessionFactory = new MockInteractiveSessionFactory(
     new SparkProcessBuilderFactory(livyConf))
 
-  override def servlet = new InteractiveSessionServlet(sessionManager)
+  override def servlet: InteractiveSessionServlet = new InteractiveSessionServlet(sessionManager)
 
   it("should setup and tear down an interactive session") {
     jget[Map[String, Any]]("/") { data =>

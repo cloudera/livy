@@ -21,7 +21,7 @@ package com.cloudera.livy.server.client
 import java.io.File
 import java.net.URI
 import java.nio.ByteBuffer
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 import java.util.{ArrayList, HashMap}
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletResponse._
@@ -46,9 +46,9 @@ import com.cloudera.livy.spark.client._
 class ClientServletSpec
   extends BaseSessionServletSpec[ClientSession, CreateClientRequest](needsSpark = false) {
 
-  override def sessionFactory = new ClientSessionFactory()
+  override def sessionFactory: ClientSessionFactory = new ClientSessionFactory()
 
-  override def servlet = new ClientSessionServlet(sessionManager)
+  override def servlet: ClientSessionServlet = new ClientSessionServlet(sessionManager)
 
   private var sessionId: Int = -1
 

@@ -20,17 +20,18 @@ package com.cloudera.livy.repl
 
 import java.util.concurrent.TimeUnit
 
-import com.cloudera.livy.repl
-import com.cloudera.livy.sessions._
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+
+import org.json4s.{DefaultFormats, Extraction, JValue}
 import org.json4s.JsonAST.{JArray, JString}
 import org.json4s.JsonDSL._
 import org.json4s.jackson.JsonMethods._
-import org.json4s.{JValue, DefaultFormats, Extraction}
 import org.scalatest.{BeforeAndAfter, FunSpecLike}
 import org.scalatra.test.scalatest.ScalatraSuite
 
-import _root_.scala.concurrent.duration.Duration
-import _root_.scala.concurrent.{Await, Future}
+import com.cloudera.livy.repl
+import com.cloudera.livy.sessions._
 
 class WebAppSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfter {
 
@@ -39,14 +40,14 @@ class WebAppSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfter {
   class MockInterpreter extends Interpreter {
     override def kind: String = "mock"
 
-    override def start() = {}
+    override def start(): Unit = {}
 
-    override def execute(code: String) = {
+    override def execute(code: String): Interpreter.ExecuteResponse = {
       Thread.sleep(1000)
       Interpreter.ExecuteSuccess(repl.TEXT_PLAIN -> "1")
     }
 
-    override def close() = {}
+    override def close(): Unit = {}
   }
 
   val interpreter = new MockInterpreter()

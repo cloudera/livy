@@ -22,12 +22,13 @@ import java.io.FileWriter
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
-import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.spark.SparkProcessBuilderFactory
-import com.cloudera.livy.{LivyConf, Utils}
+import scala.concurrent.duration.Duration
+
 import org.scalatest.{BeforeAndAfterAll, FunSpec, ShouldMatchers}
 
-import scala.concurrent.duration.Duration
+import com.cloudera.livy.{LivyConf, Utils}
+import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.spark.SparkProcessBuilderFactory
 
 class BatchProcessSpec
   extends FunSpec

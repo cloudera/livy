@@ -18,23 +18,24 @@
 
 package com.cloudera.livy.repl
 
-import com.cloudera.livy.repl.sparkr.SparkRInterpreter
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.json4s.Extraction
 import org.json4s.JsonAST.JValue
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, Outcome}
 
-import _root_.scala.concurrent.Await
-import _root_.scala.concurrent.duration.Duration
+import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 
 class SparkRSessionSpec extends BaseSessionSpec {
 
-  override protected def withFixture(test: NoArgTest) = {
+  override protected def withFixture(test: NoArgTest): Outcome = {
     val sparkRExecutable = SparkRInterpreter.sparkRExecutable
     assume(sparkRExecutable.isDefined, "Cannot find sparkR")
     test()
   }
 
-  override def createInterpreter() = SparkRInterpreter()
+  override def createInterpreter(): Interpreter = SparkRInterpreter()
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = session.execute("1 + 2")
