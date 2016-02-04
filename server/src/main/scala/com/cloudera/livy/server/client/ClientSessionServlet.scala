@@ -19,6 +19,7 @@
 package com.cloudera.livy.server.client
 
 import java.net.URI
+import javax.servlet.http.HttpServletRequest
 
 import org.scalatra._
 import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
@@ -115,7 +116,7 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
     }
   }
 
-  override protected def clientSessionView(session: ClientSession): Any = {
+  override protected def clientSessionView(session: ClientSession, req: HttpServletRequest): Any = {
     new SessionInfo(session.id, session.state.toString)
   }
 

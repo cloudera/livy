@@ -28,29 +28,16 @@ import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcess
 import com.cloudera.livy.yarn.LivyYarnClient
 
-object InteractiveSessionYarn {
-  protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
-
-  private lazy val regex = """Application report for (\w+)""".r.unanchored
-
-  def apply(client: LivyYarnClient,
-            id: Int,
-            process: SparkProcess,
-            request: CreateInteractiveRequest): InteractiveSession = {
-    new InteractiveSessionYarn(id, client, process, request)
-  }
-}
-
-private class InteractiveSessionYarn(id: Int,
-                                     client: LivyYarnClient,
-                                     process: SparkProcess,
-                                     request: CreateInteractiveRequest)
-  extends InteractiveWebSession(id, process, request) {
+private class InteractiveSessionYarn(
+    id: Int,
+    owner: String,
+    client: LivyYarnClient,
+    process: SparkProcess,
+    request: CreateInteractiveRequest)
+  extends InteractiveWebSession(id, owner, process, request) {
 
   private val job = Future {
-    val job = client.getJobFromProcess(process)
-
-    job
+    client.getJobFromProcess(process)
   }
 
   job.onFailure { case _ =>

@@ -22,6 +22,7 @@ import java.io.InputStream
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.Files
+import java.util.{HashMap => JHashMap}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -36,8 +37,8 @@ import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.LocalClient
 import com.cloudera.livy.sessions.{Session, SessionState}
 
-class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livyHome: String)
-  extends Session with Logging {
+class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, livyHome: String)
+    extends Session(id, owner) with Logging {
   implicit val executionContext = ExecutionContext.global
 
   var sessionState: SessionState = SessionState.Starting()
@@ -45,12 +46,12 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livy
   override val timeout = TimeUnit.MILLISECONDS.toNanos(createRequest.timeout)
 
   private val client = {
-    info("Creating LivyClient for sessionId: " + sessionId)
+    info(s"Creating LivyClient for sessionId: $id")
     new LivyClientBuilder()
       .setConf("spark.master", "yarn-cluster")
-      .setAll(createRequest.conf)
+      .setAll(Option(createRequest.conf).getOrElse(new JHashMap()))
       .setURI(new URI("local:spark"))
-      .setConf("livy.client.sessionId", sessionId.toString)
+      .setConf("livy.client.sessionId", id.toString)
       .build()
   }.asInstanceOf[LocalClient]
 
@@ -59,7 +60,7 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livy
   // TODO: It is important that each session's home be readable only by the user that created
   // that session and not by anyone else. Else, one session might be able to read files uploaded
   // by another. Fix this when we add security support.
-  private val sessionHome = new Path(livyHome + "/" + sessionId.toString)
+  private val sessionHome = new Path(livyHome + "/" + id.toString)
 
   info("Livy client created.")
 
@@ -125,8 +126,6 @@ class ClientSession(val sessionId: Int, createRequest: CreateClientRequest, livy
     operations(opId) = future
     opId
    }
-
-  override def id: Int = sessionId
 
   override def stop(): Future[Unit] = {
     Future {

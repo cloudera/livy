@@ -23,7 +23,8 @@ import com.cloudera.livy.sessions.SessionFactory
 
 class ClientSessionFactory extends SessionFactory[ClientSession, CreateClientRequest]{
 
-  override def create(id: Int, request: CreateClientRequest): ClientSession = {
-    new ClientSession(id, request, livyHome)
+  override def create(id: Int, owner: String, request: CreateClientRequest): ClientSession = {
+    new ClientSession(id, owner, request, livyHome)
   }
+
 }

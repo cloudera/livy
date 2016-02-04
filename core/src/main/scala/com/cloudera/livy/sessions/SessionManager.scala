@@ -43,8 +43,7 @@ class SessionManager[S <: Session, R](val livyConf: LivyConf, factory: SessionFa
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
 
   val livyHome = livyConf.livyHome().getOrElse {
-    val isTest = sys.env.get("livy.test").map(_ == "true").isDefined
-    if (isTest) {
+    if (LivyConf.TEST_MODE) {
        Files.createTempDirectory("livyTemp").toUri.toString
     } else {
       throw new RuntimeException("livy.home must be specified!")
@@ -60,9 +59,9 @@ class SessionManager[S <: Session, R](val livyConf: LivyConf, factory: SessionFa
   garbageCollector.setDaemon(true)
   garbageCollector.start()
 
-  def create(createRequest: R): S = {
+  def create(createRequest: R, owner: String): S = {
     val id = _idCounter.getAndIncrement
-    val session: S = factory.create(id, createRequest)
+    val session: S = factory.create(id, owner, createRequest)
 
     info("created session %s" format session.id)
 
