@@ -61,7 +61,7 @@ class BatchProcessSpec
 
       val livyConf = new LivyConf()
       val builder = new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
-      val batch = builder.create(0, req)
+      val batch = builder.create(0, null, req)
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
       (batch.state match {

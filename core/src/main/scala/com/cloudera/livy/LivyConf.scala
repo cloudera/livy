@@ -34,6 +34,8 @@ object LivyConf {
     def apply(key: String, dflt: Long): Entry = Entry(key, dflt: JLong)
   }
 
+  val TEST_MODE = sys.env.get("livy.test").map(_.toBoolean).getOrElse(false)
+
   val SESSION_FACTORY = Entry("livy.server.session.factory", "process")
   val SPARK_HOME = Entry("livy.server.spark-home", null)
   val SPARK_SUBMIT_KEY = Entry("livy.server.spark-submit", null)

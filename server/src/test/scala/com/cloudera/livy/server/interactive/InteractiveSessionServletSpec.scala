@@ -39,7 +39,7 @@ class InteractiveSessionServletSpec
   mapper.registerModule(new SessionKindModule())
     .registerModule(new Json4sScalaModule())
 
-  class MockInteractiveSession(val id: Int) extends InteractiveSession {
+  class MockInteractiveSession(id: Int, owner: String) extends InteractiveSession(id, owner) {
     var _state: SessionState = SessionState.Idle()
 
     var _idCounter = new AtomicInteger()
@@ -79,13 +79,18 @@ class InteractiveSessionServletSpec
   class MockInteractiveSessionFactory(processFactory: SparkProcessBuilderFactory)
     extends InteractiveSessionFactory(processFactory) {
 
-    override def create(id: Int, request: CreateInteractiveRequest): InteractiveSession = {
-      new MockInteractiveSession(id)
+    override def create(
+        id: Int,
+        owner: String,
+        request: CreateInteractiveRequest): InteractiveSession = {
+      new MockInteractiveSession(id, null)
     }
 
-    protected override def create(id: Int,
-                                  process: SparkProcess,
-                                  request: CreateInteractiveRequest): InteractiveSession = {
+    protected override def create(
+        id: Int,
+        owner: String,
+        process: SparkProcess,
+        request: CreateInteractiveRequest): InteractiveSession = {
       throw new UnsupportedOperationException()
     }
   }

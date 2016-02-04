@@ -31,10 +31,12 @@ class InteractiveSessionYarnFactory(
 
   implicit def executor: ExecutionContext = ExecutionContext.global
 
-  protected override def create(id: Int,
-                                process: SparkProcess,
-                                request: CreateInteractiveRequest): InteractiveSession = {
-    InteractiveSessionYarn(client, id, process, request)
+  protected override def create(
+      id: Int,
+      owner: String,
+      process: SparkProcess,
+      request: CreateInteractiveRequest): InteractiveSession = {
+    new InteractiveSessionYarn(id, owner, client, process, request)
   }
 
   override def sparkBuilder(id: Int, request: CreateInteractiveRequest): SparkProcessBuilder = {

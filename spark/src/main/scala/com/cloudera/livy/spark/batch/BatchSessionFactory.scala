@@ -30,14 +30,14 @@ import com.cloudera.livy.spark.SparkProcessBuilder.RelativePath
 abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory)
   extends SessionFactory[BatchSession, CreateBatchRequest] {
 
-  def create(id: Int, request: CreateBatchRequest): BatchSession = {
+  override def create(id: Int, owner: String, request: CreateBatchRequest): BatchSession = {
     require(request.file != null, "File is required.")
     val builder = sparkBuilder(request)
     val process = builder.start(Some(RelativePath(request.file)), request.args)
-    create(id, process)
+    create(id, owner, process)
   }
 
-  protected def create(id: Int, process: SparkProcess): BatchSession
+  protected def create(id: Int, owner: String, process: SparkProcess): BatchSession
 
   protected def sparkBuilder(request: CreateBatchRequest): SparkProcessBuilder = {
     val builder = factory.builder()
