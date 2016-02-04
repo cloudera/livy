@@ -31,6 +31,7 @@ abstract class BatchSessionFactory(factory: SparkProcessBuilderFactory)
   extends SessionFactory[BatchSession, CreateBatchRequest] {
 
   def create(id: Int, request: CreateBatchRequest): BatchSession = {
+    require(request.file != null, "File is required.")
     val builder = sparkBuilder(request)
     val process = builder.start(Some(RelativePath(request.file)), request.args)
     create(id, process)

@@ -100,7 +100,10 @@ class InteractiveSessionServletSpec
       data("sessions") should equal(Seq())
     }
 
-    jpost[Map[String, Any]]("/", CreateInteractiveRequest(kind = Spark())) { data =>
+    val createRequest = new CreateInteractiveRequest()
+    createRequest.kind = Spark()
+
+    jpost[Map[String, Any]]("/", createRequest) { data =>
       header("Location") should equal("/0")
       data("id") should equal (0)
 

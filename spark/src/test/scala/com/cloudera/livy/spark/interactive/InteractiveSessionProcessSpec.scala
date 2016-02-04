@@ -33,6 +33,9 @@ class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
     val processFactory = new SparkProcessBuilderFactory(livyConf)
     val interactiveFactory = new InteractiveSessionProcessFactory(processFactory)
-    interactiveFactory.create(0, CreateInteractiveRequest(kind = PySpark()))
+
+    val req = new CreateInteractiveRequest()
+    req.kind = PySpark()
+    interactiveFactory.create(0, req)
   }
 }

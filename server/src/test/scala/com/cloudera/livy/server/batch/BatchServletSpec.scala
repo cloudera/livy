@@ -59,7 +59,10 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
         data("sessions") should equal (Seq())
       }
 
-      jpost[Map[String, Any]]("/", CreateBatchRequest(file = script.toString)) { data =>
+      val createRequest = new CreateBatchRequest()
+      createRequest.file = script.toString
+
+      jpost[Map[String, Any]]("/", createRequest) { data =>
         header("Location") should equal("/0")
         data("id") should equal (0)
 
