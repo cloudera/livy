@@ -27,6 +27,9 @@ abstract class BaseSessionServletSpec[S <: Session, R]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
+  val Sessions = "sessions"
+  val Location = "Location"
+
   override protected def withFixture(test: NoArgTest) = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
     test()
