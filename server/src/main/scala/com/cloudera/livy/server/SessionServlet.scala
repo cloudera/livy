@@ -42,6 +42,8 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
   with UrlGeneratorSupport
 {
 
+  val Sessions = "sessions"
+
   /**
    * Returns a object representing the session data to be sent back to the client.
    */
@@ -60,7 +62,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     Map(
       "from" -> from,
       "total" -> sessionManager.size(),
-      "sessions" -> sessions.view(from, from + size).map(clientSessionView)
+      Sessions -> sessions.view(from, from + size).map(clientSessionView)
     )
   }
 
@@ -117,7 +119,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
       val is = Future {
         val session = sessionManager.create(createRequest)
         Created(clientSessionView(session),
-          headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
+          headers = Map("Location" -> (s"/$Sessions" + url(getSession, "id" -> session.id.toString)))
         )
       }
     }

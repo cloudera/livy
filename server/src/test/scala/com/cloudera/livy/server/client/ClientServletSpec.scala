@@ -31,9 +31,6 @@ import scala.io.Source
 import scala.language.postfixOps
 
 import org.apache.spark.api.java.function.VoidFunction
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{Job, JobContext, JobHandle}
@@ -72,7 +69,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
       conf.put("spark.executor.extraClassPath", classpath)
 
       jpost[SessionInfo]("/", new CreateClientRequest(10000L, conf)) { data =>
-        header("Location") should equal("/0")
+        header(Location) should equal(s"/$Sessions/0")
         data.id should equal (0)
         sessionId = data.id
       }
@@ -80,7 +77,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
 
     it("should list existing sessions") {
       jget[Map[String, Any]]("/") { data =>
-        data("sessions") match {
+        data(Sessions) match {
           case contents: Seq[_] => contents.size should equal (1)
           case _ => fail("Response is not an array.")
         }
@@ -130,7 +127,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
         data should equal (Map("msg" -> "deleted"))
       }
       jget[Map[String, Any]]("/") { data =>
-        data("sessions") match {
+        data(Sessions) match {
           case contents: Seq[_] => contents.size should equal (0)
           case _ => fail("Response is not an array.")
         }

@@ -56,14 +56,14 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
       jget[Map[String, Any]]("/") { data =>
-        data("sessions") should equal (Seq())
+        data(Sessions) should equal (Seq())
       }
 
       val createRequest = new CreateBatchRequest()
       createRequest.file = script.toString
 
       jpost[Map[String, Any]]("/", createRequest) { data =>
-        header("Location") should equal("/0")
+        header(Location) should equal(s"/$Sessions/0")
         data("id") should equal (0)
 
         val batch = sessionManager.get(0)
