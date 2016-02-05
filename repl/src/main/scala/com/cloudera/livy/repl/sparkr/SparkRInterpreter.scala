@@ -63,7 +63,7 @@ object SparkRInterpreter {
 
   def apply(): SparkRInterpreter = {
     val executable = sparkRExecutable
-      .getOrElse(throw new Exception(f"Cannot find sparkR executable"))
+      .getOrElse(throw new IllegalStateException("Cannot find sparkR executable."))
 
     val builder = new ProcessBuilder(Seq(executable.getAbsolutePath).asJava)
 
@@ -79,21 +79,10 @@ object SparkRInterpreter {
   }
 
   def sparkRExecutable: Option[File] = {
-    val executable = sys.env.getOrElse("SPARKR_DRIVER_R", "sparkR")
-    val executableFile = new File(executable)
-
-    if (executableFile.exists) {
-      Some(executableFile)
-    } else {
-      // see if sparkR is on the path.
-      val path: Option[String] = sys.env.get("PATH")
-      assume(path.isDefined, "PATH is not defined?")
-
-      path.get
-        .split(File.pathSeparator)
-        .map(new File(_, executable))
-        .find(_.exists)
-    }
+    sys.env.get("SPARKR_DRIVER_R")
+      .orElse(sys.env.get("SPARK_HOME").map(_ + "/bin/sparkR"))
+      .map(new File(_))
+      .filter(_.exists())
   }
 
   private def createFakeShell(): File = {
