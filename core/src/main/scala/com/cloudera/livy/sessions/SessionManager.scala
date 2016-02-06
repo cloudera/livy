@@ -48,12 +48,12 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
     val id = _idCounter.getAndIncrement
     val session: S = factory.create(id, createRequest)
 
-    info("created session %s" format session.id)
-
     synchronized {
       _sessions.put(session.id, session)
-      session
     }
+
+    info("created session %s %s" format(session.getClass.getSimpleName, session.id))
+    session
   }
 
   def get(id: Int): Option[S] = _sessions.get(id)
@@ -72,7 +72,7 @@ class SessionManager[S <: Session](livyConf: LivyConf, factory: SessionFactory[S
         _sessions.remove(session.id)
       }
 
-      Unit
+      info("deleted session %s %s" format(session.getClass.getSimpleName, session.id))
     }
   }
 

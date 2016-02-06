@@ -83,6 +83,8 @@ abstract class InteractiveWebSession(val id: Int,
 
       val req = (svc / "execute").setContentType("application/json", "UTF-8") << write(content)
 
+      info("submitting interactive statement session %s" format id)
+
       val future = Http(req OK as.json4s.Json).map { case resp: JValue =>
         parseResponse(resp).getOrElse {
           // The result isn't ready yet. Loop until it is.
