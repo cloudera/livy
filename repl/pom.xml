@@ -22,12 +22,12 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main_2.10</artifactId>
+        <artifactId>livy-main</artifactId>
         <relativePath>../pom.xml</relativePath>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>livy-repl_2.10</artifactId>
+    <artifactId>livy-repl</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -35,7 +35,7 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-core_${scala.binary.version}</artifactId>
+            <artifactId>livy-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -202,19 +202,10 @@
                 <artifactId>maven-dependency-plugin</artifactId>
                 <executions>
                     <execution>
-                        <id>copy-dependencies</id>
                         <phase>package</phase>
                         <goals>
                             <goal>copy-dependencies</goal>
                         </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/jars</outputDirectory>
-                            <useSubDirectoryPerType>false</useSubDirectoryPerType>
-                            <includeScope>runtime</includeScope>
-                            <silent>true</silent>
-                            <overWriteReleases>true</overWriteReleases>
-                            <overWriteSnapshots>true</overWriteSnapshots>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

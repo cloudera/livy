@@ -52,7 +52,6 @@ import com.google.common.io.Resources;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
-import org.apache.spark.SparkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +85,7 @@ public class LocalClient implements LivyClient {
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
 
-  LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException, SparkException {
+  LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.factory = factory;
     this.conf = conf;
     this.childIdGenerator = new AtomicInteger();
@@ -506,7 +505,8 @@ public class LocalClient implements LivyClient {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {
         LOG.info("Received result for {}", msg.id);
-        Throwable error = msg.error != null ? new SparkException(msg.error) : null;
+        // TODO: need a better exception for this.
+        Throwable error = msg.error != null ? new RuntimeException(msg.error) : null;
         if (error == null) {
           handle.setSuccess(msg.result);
         } else {
