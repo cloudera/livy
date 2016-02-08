@@ -20,28 +20,29 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main_2.10</artifactId>
+    <artifactId>livy-main</artifactId>
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <groupId>com.cloudera.livy</groupId>
-  <artifactId>livy-client-local_2.10</artifactId>
+  <artifactId>livy-client-local</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
     <copyright.header>${asf.copyright.header}</copyright.header>
+    <skipDeploy>false</skipDeploy>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-api_${scala.binary.version}</artifactId>
+      <artifactId>livy-api</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
+      <artifactId>livy-client-common</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -108,19 +109,10 @@
         <artifactId>maven-dependency-plugin</artifactId>
         <executions>
           <execution>
-            <id>copy-dependencies</id>
             <phase>package</phase>
             <goals>
               <goal>copy-dependencies</goal>
             </goals>
-            <configuration>
-              <outputDirectory>${project.build.directory}/jars</outputDirectory>
-              <useSubDirectoryPerType>false</useSubDirectoryPerType>
-              <includeScope>runtime</includeScope>
-              <silent>true</silent>
-              <overWriteReleases>true</overWriteReleases>
-              <overWriteSnapshots>true</overWriteSnapshots>
-            </configuration>
           </execution>
         </executions>
       </plugin>
