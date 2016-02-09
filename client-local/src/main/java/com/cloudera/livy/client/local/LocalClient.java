@@ -140,23 +140,22 @@ public class LocalClient implements LivyClient {
       isAlive = false;
       try {
         protocol.endSession();
+
+        try {
+          driverThread.join(DEFAULT_SHUTDOWN_TIMEOUT);
+        } catch (InterruptedException ie) {
+          LOG.debug("Interrupted before driver thread was finished.");
+        }
+        if (driverThread.isAlive()) {
+          LOG.warn("Timed out shutting down remote driver, interrupting...");
+          driverThread.interrupt();
+        }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
       } finally {
         driverRpc.close();
         factory.unref();
       }
-    }
-
-    long endTime = System.currentTimeMillis() + DEFAULT_SHUTDOWN_TIMEOUT;
-    try {
-      driverThread.join(DEFAULT_SHUTDOWN_TIMEOUT);
-    } catch (InterruptedException ie) {
-      LOG.debug("Interrupted before driver thread was finished.");
-    }
-    if (endTime - System.currentTimeMillis() <= 0) {
-      LOG.warn("Timed out shutting down remote driver, interrupting...");
-      driverThread.interrupt();
     }
   }
 
