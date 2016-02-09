@@ -129,6 +129,11 @@ class InteractiveSessionServletSpec
       data("output") should be (Map("value" -> 42))
     }
 
+    jget[Map[String, Any]]("/0/statements") { data =>
+      data("total_statements") should be (1)
+      data("statements").asInstanceOf[Seq[Map[String, Any]]](0)("id") should be (0)
+    }
+
     jdelete[Map[String, Any]]("/0") { data =>
       data should equal (Map("msg" -> "deleted"))
 
