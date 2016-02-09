@@ -52,11 +52,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
    */
   protected def clientSessionView(session: S, req: HttpServletRequest): Any = session
 
-  before() {
-    contentType = "application/json"
-  }
-
-  jget("/") {
+  get("/") {
     val from = params.get("from").map(_.toInt).getOrElse(0)
     val size = params.get("size").map(_.toInt).getOrElse(100)
 
@@ -69,19 +65,19 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     )
   }
 
-  val getSession = jget("/:id") {
+  val getSession = get("/:id") {
     withUnprotectedSession { session =>
       clientSessionView(session, request)
     }
   }
 
-  jget("/:id/state") {
+  get("/:id/state") {
     withUnprotectedSession { session =>
       Map("id" -> session.id, "state" -> session.state.toString)
     }
   }
 
-  jget("/:id/log") {
+  get("/:id/log") {
     withSession { session =>
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
@@ -95,7 +91,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     }
   }
 
-  jdelete("/:id") {
+  delete("/:id") {
     withSession { session =>
       sessionManager.delete(session.id) match {
       case Some(future) =>

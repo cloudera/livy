@@ -92,11 +92,11 @@ private class TestJsonServlet extends JsonServlet {
     contentType = "application/json"
   }
 
-  jdelete("/delete") {
+  delete("/delete") {
     Ok(MethodReturn("delete"))
   }
 
-  jget("/get") {
+  get("/get") {
     Ok(MethodReturn("get"))
   }
 
@@ -113,7 +113,7 @@ private class TestJsonServlet extends JsonServlet {
     NotFound(arg.value)
   }
 
-  jget("/empty") {
+  get("/empty") {
     ()
   }
 

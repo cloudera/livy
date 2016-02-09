@@ -58,7 +58,7 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
     }
   }
 
-  jpost[Unit]("/:id/upload-jar") { _ =>
+  post("/:id/upload-jar") {
     withSession { lsession =>
       fileParams.get("jar") match {
         case Some(file) =>
@@ -71,7 +71,7 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
     }
   }
 
-  jpost[Unit]("/:id/upload-file") { _ =>
+  post("/:id/upload-file") {
     withSession { lsession =>
       fileParams.get("file") match {
         case Some(file) =>
@@ -102,14 +102,14 @@ class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateC
     }
   }
 
-  jget("/:id/jobs/:jobid") {
+  get("/:id/jobs/:jobid") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
       doAsync { Ok(lsession.jobStatus(jobId)) }
     }
   }
 
-  jpost[Unit]("/:id/jobs/:jobid/cancel") { _ =>
+  post("/:id/jobs/:jobid/cancel") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
       doAsync { lsession.cancel(jobId) }
