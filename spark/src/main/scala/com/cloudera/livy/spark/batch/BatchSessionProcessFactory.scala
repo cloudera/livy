@@ -24,7 +24,7 @@ import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
 class BatchSessionProcessFactory(processFactory: SparkProcessBuilderFactory)
   extends BatchSessionFactory(processFactory)
 {
-  protected override def create(id: Int, process: SparkProcess): BatchSession = {
-    BatchSessionProcess(id, process)
+  protected override def create(id: Int, owner: String, process: SparkProcess): BatchSession = {
+    new BatchSessionProcess(id, owner, process)
   }
 }

@@ -33,12 +33,10 @@ object InteractiveSession {
   class StatementNotFound extends Exception
 }
 
-trait InteractiveSession extends Session {
+abstract class InteractiveSession(id: Int, owner: String) extends Session(id, owner) {
   def kind: Kind
 
   def proxyUser: Option[String]
-
-  override def lastActivity: Option[Long]
 
   def url: Option[URL]
 

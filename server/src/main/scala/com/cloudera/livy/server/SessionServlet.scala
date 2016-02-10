@@ -18,6 +18,8 @@
 
 package com.cloudera.livy.server
 
+import javax.servlet.http.HttpServletRequest
+
 import scala.concurrent.Future
 import scala.reflect.ClassTag
 
@@ -31,6 +33,9 @@ import com.cloudera.livy.spark.ConfigOptionNotAllowed
 object SessionServlet extends Logging
 
 /**
+ * Base servlet for session management. All helper methods in this class assume that the session
+ * id parameter in the handler's URI is "id".
+ *
  * Type parameters:
  *  S: the session type
  *  R: the type representing the session create parameters.
@@ -47,7 +52,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
   /**
    * Returns a object representing the session data to be sent back to the client.
    */
-  protected def clientSessionView(session: S): Any = session
+  protected def clientSessionView(session: S, req: HttpServletRequest): Any = session
 
   before() {
     contentType = "application/json"
@@ -62,54 +67,45 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     Map(
       "from" -> from,
       "total" -> sessionManager.size(),
-      Sessions -> sessions.view(from, from + size).map(clientSessionView)
+      Sessions -> sessions.view(from, from + size).map(clientSessionView(_, request))
     )
   }
 
   val getSession = jget("/:id") {
-    val id = params("id").toInt
-
-    sessionManager.get(id) match {
-      case None => NotFound("session not found")
-      case Some(session) => clientSessionView(session)
+    withUnprotectedSession { session =>
+      clientSessionView(session, request)
     }
   }
 
   jget("/:id/state") {
-    val id = params("id").toInt
-
-    sessionManager.get(id) match {
-      case None => NotFound("batch not found")
-      case Some(batch) =>
-        Map("id" -> batch.id, "state" -> batch.state.toString)
+    withUnprotectedSession { session =>
+      Map("id" -> session.id, "state" -> session.state.toString)
     }
   }
 
   jget("/:id/log") {
-    val id = params("id").toInt
+    withSession { session =>
+      val from = params.get("from").map(_.toInt)
+      val size = params.get("size").map(_.toInt)
+      val (from_, total, logLines) = serializeLogs(session, from, size)
 
-    sessionManager.get(id) match {
-      case None => NotFound("session not found")
-      case Some(session) =>
-        val from = params.get("from").map(_.toInt)
-        val size = params.get("size").map(_.toInt)
-        val (from_, total, logLines) = serializeLogs(session, from, size)
-
-        Map(
-          "id" -> session.id,
-          "from" -> from_,
-          "total" -> total,
-          "log" -> logLines)
+      Map(
+        "id" -> session.id,
+        "from" -> from_,
+        "total" -> total,
+        "log" -> logLines)
     }
   }
 
   jdelete("/:id") {
-    val id = params("id").toInt
-
-    sessionManager.delete(id) match {
-      case None => NotFound("session not found")
-      case Some(future) => new AsyncResult {
-        val is = future.map { case () => Ok(Map("msg" -> "deleted")) }
+    withSession { session =>
+      sessionManager.delete(session.id) match {
+      case Some(future) =>
+        new AsyncResult {
+          val is = future.map { case () => Ok(Map("msg" -> "deleted")) }
+        }
+      case None =>
+        NotFound(s"Session ${session.id} already stopped.")
       }
     }
   }
@@ -117,9 +113,10 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
   jpost[R]("/") { createRequest =>
     new AsyncResult {
       val is = Future {
-        val session = sessionManager.create(createRequest)
-        Created(clientSessionView(session),
-          headers = Map("Location" -> (s"/$Sessions" + url(getSession, "id" -> session.id.toString)))
+        val session = sessionManager.create(createRequest, remoteUser(request))
+        Created(clientSessionView(session, request),
+          headers = Map("Location" ->
+            (s"/$Sessions" + url(getSession, "id" -> session.id.toString)))
         )
       }
     }
@@ -135,20 +132,49 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
       InternalServerError(e.toString)
   }
 
-  protected val sessionIdParam: String = "id"
-
   protected def doAsync(fn: => Any): AsyncResult = {
     new AsyncResult {
       val is = Future { fn }
     }
   }
 
-  protected def withSession(fn: (S => Any)): Any = {
-    val sessionId = params(sessionIdParam).toInt
+  /**
+   * Returns the remote user for the given request. Separate method so that tests can override it.
+   */
+  protected def remoteUser(req: HttpServletRequest): String = req.getRemoteUser()
+
+  /**
+   * Performs an operation on the session, without checking for ownership. Operations executed
+   * via this method must not modify the session in any way, or return potentially sensitive
+   * information.
+   */
+  protected def withUnprotectedSession(fn: (S => Any)): Any = doWithSession(fn, true)
+
+  /**
+   * Performs an operation on the session, verifying whether the caller is the owner of the
+   * session.
+   */
+  protected def withSession(fn: (S => Any)): Any = doWithSession(fn, false)
+
+  private def doWithSession(fn: (S => Any), allowAll: Boolean): Any = {
+    val sessionId = params("id").toInt
     sessionManager.get(sessionId) match {
-      case Some(session) => fn(session)
-      case None => NotFound(s"Session '$sessionId' not found.")
+      case Some(session) =>
+        if (allowAll || isOwner(session, request)) {
+          fn(session)
+        } else {
+          Forbidden()
+        }
+      case None =>
+        NotFound(s"Session '$sessionId' not found.")
     }
+  }
+
+  /**
+   * Returns whether the current request's user is the owner of the given session.
+   */
+  protected def isOwner(session: Session, req: HttpServletRequest): Boolean = {
+    session.owner == remoteUser(req)
   }
 
   private def serializeLogs(session: S, fromOpt: Option[Int], sizeOpt: Option[Int]) = {

@@ -18,16 +18,16 @@
 
 package com.cloudera.livy.sessions
 
-import com.cloudera.livy.LivyConf
-import org.json4s.JsonAST.{JNothing, JValue}
+import scala.concurrent.{Await, Future}
+import scala.concurrent.duration.Duration
+
 import org.scalatest.{FlatSpec, Matchers}
 
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future}
+import com.cloudera.livy.LivyConf
 
 class SessionManagerSpec extends FlatSpec with Matchers {
 
-  class MockSession(val id: Int) extends Session {
+  class MockSession(id: Int, owner: String) extends Session(id, owner) {
     override def stop(): Future[Unit] = Future.successful(())
 
     override def logLines(): IndexedSeq[String] = IndexedSeq()
@@ -36,14 +36,16 @@ class SessionManagerSpec extends FlatSpec with Matchers {
   }
 
   class MockSessionFactory extends SessionFactory[MockSession, AnyRef] {
-    override def create(id: Int, createRequest: AnyRef): MockSession = new MockSession(id)
+    override def create(id: Int, owner: String, createRequest: AnyRef): MockSession = {
+      new MockSession(id, owner)
+    }
   }
 
   it should "garbage collect old sessions" in {
     val livyConf = new LivyConf()
     livyConf.set(SessionManager.SESSION_TIMEOUT, "100")
     val manager = new SessionManager(livyConf, new MockSessionFactory)
-    val session = manager.create(JNothing)
+    val session = manager.create(null, null)
     manager.get(session.id).isDefined should be(true)
     Await.result(manager.collectGarbage(), Duration.Inf)
     manager.get(session.id).isEmpty should be(true)

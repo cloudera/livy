@@ -30,8 +30,9 @@ class InteractiveSessionProcessFactory(processFactory: SparkProcessBuilderFactor
 
   protected override def create(
       id: Int,
+      owner: String,
       process: SparkProcess,
       createInteractiveRequest: CreateInteractiveRequest): InteractiveSession = {
-    InteractiveSessionProcess(id, process, createInteractiveRequest)
+    new InteractiveSessionProcess(id, owner, process, createInteractiveRequest)
   }
 }

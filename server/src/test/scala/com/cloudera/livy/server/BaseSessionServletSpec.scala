@@ -23,7 +23,7 @@ import org.scalatest.BeforeAndAfterAll
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager}
 
-abstract class BaseSessionServletSpec[S <: Session, R]
+abstract class BaseSessionServletSpec[S <: Session, R](needsSpark: Boolean = true)
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
@@ -31,7 +31,9 @@ abstract class BaseSessionServletSpec[S <: Session, R]
   val Location = "Location"
 
   override protected def withFixture(test: NoArgTest) = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+    if (needsSpark) {
+      assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+    }
     test()
   }
 

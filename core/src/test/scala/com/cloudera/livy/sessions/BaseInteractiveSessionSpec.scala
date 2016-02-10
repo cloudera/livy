@@ -20,13 +20,14 @@ package com.cloudera.livy.sessions
 
 import java.util.concurrent.TimeUnit
 
-import com.cloudera.livy.ExecuteRequest
-import com.cloudera.livy.sessions.interactive.InteractiveSession
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.json4s.{DefaultFormats, Extraction}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import com.cloudera.livy.ExecuteRequest
+import com.cloudera.livy.sessions.interactive.InteractiveSession
 
 abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 

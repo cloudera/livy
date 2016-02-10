@@ -25,8 +25,8 @@ import com.cloudera.livy.yarn.LivyYarnClient
 class BatchSessionYarnFactory(client: LivyYarnClient, factory: SparkProcessBuilderFactory)
   extends BatchSessionFactory(factory) {
 
-  protected override def create(id: Int, process: SparkProcess): BatchSession =
-    BatchSessionYarn(client, id, process)
+  protected override def create(id: Int, owner: String, process: SparkProcess): BatchSession =
+    BatchSessionYarn(client, id, owner, process)
 
   override def sparkBuilder(request: CreateBatchRequest): SparkProcessBuilder = {
     val builder = super.sparkBuilder(request)
