@@ -24,6 +24,7 @@ import java.nio.file.{Files, Paths}
 import java.util.concurrent.{Future => JFuture, _}
 import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletRequest
 
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,8 +32,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import org.mockito.ArgumentCaptor
 import org.mockito.Matchers.{eq => meq, _}
 import org.mockito.Mockito._
-import org.mockito.invocation.InvocationOnMock
-import org.mockito.stubbing.Answer
 import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
 import org.scalatra.LifeCycle
 import org.scalatra.servlet.ScalatraListener
@@ -40,9 +39,8 @@ import org.scalatra.servlet.ScalatraListener
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.server.client.ClientSessionServlet
-import com.cloudera.livy.sessions.{SessionFactory, SessionManager, SessionState}
-import com.cloudera.livy.spark.client.ClientSession
+import com.cloudera.livy.server.client.{ClientSession, ClientSessionServlet}
+import com.cloudera.livy.sessions.SessionState
 
 /**
  * The test for the HTTP client is written in Scala so we can reuse the code in the livy-server
@@ -265,23 +263,20 @@ private class HttpClientTestBootstrap extends LifeCycle {
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
   override def init(context: ServletContext): Unit = {
-    val factory = mock(classOf[SessionFactory[ClientSession, CreateClientRequest]])
-    when(factory.create(anyInt(), anyString(), any(classOf[CreateClientRequest]))).thenAnswer(
-      new Answer[ClientSession]() {
-        override def answer(args: InvocationOnMock): ClientSession = {
-          val session = mock(classOf[ClientSession])
-          val id = args.getArguments()(0).asInstanceOf[Int]
-          when(session.id).thenReturn(id)
-          when(session.state).thenReturn(SessionState.Idle())
-          when(session.stop()).thenReturn(Future { })
-          require(HttpClientSpec.session == null, "Session already created?")
-          HttpClientSpec.session = session
-          session
-        }
-      })
+    val servlet = new ClientSessionServlet(new LivyConf()) {
+      override protected def createSession(req: HttpServletRequest): ClientSession = {
+        val session = mock(classOf[ClientSession])
+        val id = sessionManager.nextId()
+        when(session.id).thenReturn(id)
+        when(session.state).thenReturn(SessionState.Idle())
+        when(session.stop()).thenReturn(Future { })
+        require(HttpClientSpec.session == null, "Session already created?")
+        HttpClientSpec.session = session
+        session
+      }
+    }
 
-    val mgr = new SessionManager(new LivyConf(), factory)
-    context.mount(new ClientSessionServlet(mgr), "/clients/*")
+    context.mount(servlet, "/clients/*")
   }
 
 }

@@ -44,12 +44,6 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-yarn_${scala.binary.version}</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>${project.groupId}</groupId>
       <artifactId>livy-server_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>

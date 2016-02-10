@@ -28,21 +28,24 @@ import scala.concurrent.duration._
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
 
-import com.cloudera.livy.{ExecuteRequest, Logging}
+import com.cloudera.livy.{ExecuteRequest, LivyConf, Logging}
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
-import com.cloudera.livy.spark.interactive.CreateInteractiveRequest
+import com.cloudera.livy.sessions.interactive.Statement
 
 object InteractiveSessionServlet extends Logging
 
-class InteractiveSessionServlet(
-    sessionManager: SessionManager[InteractiveSession, CreateInteractiveRequest])
-  extends SessionServlet(sessionManager)
+class InteractiveSessionServlet(livyConf: LivyConf)
+  extends SessionServlet[InteractiveSession](livyConf)
 {
 
   mapper.registerModule(new SessionKindModule())
     .registerModule(new Json4sScalaModule())
+
+  override protected def createSession(req: HttpServletRequest): InteractiveSession = {
+    val createRequest = bodyAs[CreateInteractiveRequest](req)
+    new InteractiveSession(sessionManager.nextId(), remoteUser(req), livyConf, createRequest)
+  }
 
   override protected def clientSessionView(
       session: InteractiveSession,

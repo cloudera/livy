@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.sessions
+package com.cloudera.livy.server.interactive
 
 import java.util.concurrent.TimeUnit
 
@@ -26,16 +26,26 @@ import scala.concurrent.duration.Duration
 import org.json4s.{DefaultFormats, Extraction}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 
-import com.cloudera.livy.ExecuteRequest
-import com.cloudera.livy.sessions.interactive.InteractiveSession
+import com.cloudera.livy.{ExecuteRequest, LivyConf}
+import com.cloudera.livy.sessions.{PySpark, SessionState}
 
-abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
+class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
+
+  private val livyConf = new LivyConf()
+  livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
+  livyConf.set(InteractiveSession.LivyReplJars, "")
 
   implicit val formats = DefaultFormats
 
-  var session: InteractiveSession = null
+  private var session: InteractiveSession = null
 
-  def createSession(): InteractiveSession
+  private def createSession(): InteractiveSession = {
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+
+    val req = new CreateInteractiveRequest()
+    req.kind = PySpark()
+    new InteractiveSession(0, null, livyConf, req)
+  }
 
   override def afterAll(): Unit = {
     if (session != null) {
@@ -105,4 +115,5 @@ abstract class BaseInteractiveSessionSpec extends FunSpec with Matchers with Bef
       }) should equal (true)
     }
   }
+
 }

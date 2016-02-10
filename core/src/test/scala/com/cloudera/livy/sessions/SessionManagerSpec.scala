@@ -35,17 +35,11 @@ class SessionManagerSpec extends FlatSpec with Matchers {
     override def state: SessionState = SessionState.Success(0)
   }
 
-  class MockSessionFactory extends SessionFactory[MockSession, AnyRef] {
-    override def create(id: Int, owner: String, createRequest: AnyRef): MockSession = {
-      new MockSession(id, owner)
-    }
-  }
-
   it should "garbage collect old sessions" in {
     val livyConf = new LivyConf()
-    livyConf.set(SessionManager.SESSION_TIMEOUT, "100")
-    val manager = new SessionManager(livyConf, new MockSessionFactory)
-    val session = manager.create(null, null)
+    livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")
+    val manager = new SessionManager[MockSession](livyConf)
+    val session = manager.register(new MockSession(manager.nextId(), null))
     manager.get(session.id).isDefined should be(true)
     Await.result(manager.collectGarbage(), Duration.Inf)
     manager.get(session.id).isEmpty should be(true)

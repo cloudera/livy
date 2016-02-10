@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.client
+package com.cloudera.livy.server.client
 
 import java.io.InputStream
 import java.net.URI
@@ -48,6 +48,7 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
   private val client = {
     info(s"Creating LivyClient for sessionId: $id")
     new LivyClientBuilder()
+      .setConf("spark.app.name", s"livy-session-$id")
       .setConf("spark.master", "yarn-cluster")
       .setAll(Option(createRequest.conf).getOrElse(new JHashMap()))
       .setURI(new URI("local:spark"))

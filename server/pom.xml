@@ -41,21 +41,7 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-core_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-spark_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-yarn_${scala.binary.version}</artifactId>
+            <artifactId>livy-client-local_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -98,6 +84,12 @@
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -153,12 +145,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra-test_${scala.binary.version}</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
@@ -171,6 +157,19 @@
         <dependency>
             <groupId>net.databinder.dispatch</groupId>
             <artifactId>dispatch-json4s-jackson_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-repl_${scala.binary.version}</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scalatra</groupId>
+            <artifactId>scalatra-test_${scala.binary.version}</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>

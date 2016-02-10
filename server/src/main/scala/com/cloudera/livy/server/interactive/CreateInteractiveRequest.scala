@@ -16,21 +16,27 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.batch
+package com.cloudera.livy.server.interactive
 
-import com.cloudera.livy.sessions.batch.BatchSession
-import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilder, SparkProcessBuilderFactory}
-import com.cloudera.livy.yarn.LivyYarnClient
+import com.fasterxml.jackson.annotation.JsonProperty
 
-class BatchSessionYarnFactory(client: LivyYarnClient, factory: SparkProcessBuilderFactory)
-  extends BatchSessionFactory(factory) {
+import com.cloudera.livy.sessions.Kind
 
-  protected override def create(id: Int, owner: String, process: SparkProcess): BatchSession =
-    BatchSessionYarn(client, id, owner, process)
+class CreateInteractiveRequest {
 
-  override def sparkBuilder(request: CreateBatchRequest): SparkProcessBuilder = {
-    val builder = super.sparkBuilder(request)
-    builder.master("yarn-cluster")
-    builder
-  }
+  @JsonProperty(required = true) var kind: Kind = _
+  var proxyUser: Option[String] = None
+  var jars: List[String] = List()
+  var pyFiles: List[String] = List()
+  var files: List[String] = List()
+  var driverMemory: Option[String] = None
+  var driverCores: Option[Int] = None
+  var executorMemory: Option[String] = None
+  var executorCores: Option[Int] = None
+  var numExecutors: Option[Int] = None
+  var archives: List[String] = List()
+  var queue: Option[String] = None
+  var name: Option[String] = None
+  var conf: Map[String, String] = Map()
+
 }

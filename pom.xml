@@ -163,8 +163,6 @@
     <module>core</module>
     <module>repl</module>
     <module>server</module>
-    <module>spark</module>
-    <module>yarn</module>
     <module>client-common</module>
     <module>client-local</module>
     <module>client-http</module>

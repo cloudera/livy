@@ -28,13 +28,19 @@ import com.cloudera.livy.{JobHandle, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
-import com.cloudera.livy.spark.client._
 
-class ClientSessionServlet(sessionManager: SessionManager[ClientSession, CreateClientRequest])
-  extends SessionServlet(sessionManager) with FileUploadSupport {
+class ClientSessionServlet(livyConf: LivyConf)
+  extends SessionServlet[ClientSession](livyConf)
+  with FileUploadSupport {
 
   configureMultipartHandling(MultipartConfig(maxFileSize =
-    Some(sessionManager.livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))))
+    Some(livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))))
+
+  override protected def createSession(req: HttpServletRequest): ClientSession = {
+    val id = sessionManager.nextId()
+    val createRequest = bodyAs[CreateClientRequest](req)
+    new ClientSession(id, remoteUser(req), createRequest, livyConf.livyHome)
+  }
 
   jpost[SerializedJob]("/:id/submit-job") { req =>
     withSession { session =>
