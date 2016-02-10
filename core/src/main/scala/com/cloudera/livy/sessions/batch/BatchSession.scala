@@ -20,4 +20,4 @@ package com.cloudera.livy.sessions.batch
 
 import com.cloudera.livy.sessions.Session
 
-trait BatchSession extends Session
+abstract class BatchSession(id: Int, owner: String) extends Session(id, owner)

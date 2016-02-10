@@ -19,17 +19,19 @@
 package com.cloudera.livy.repl
 
 import java.util.concurrent.TimeUnit
-import com.cloudera.livy.sessions.SessionState
+
+import scala.concurrent.duration.Duration
+
 import org.json4s.DefaultFormats
 import org.scalatest.{FlatSpec, Matchers}
 
-import _root_.scala.concurrent.duration.Duration
+import com.cloudera.livy.sessions.SessionState
 
 abstract class BaseSessionSpec extends FlatSpec with Matchers {
 
   implicit val formats = DefaultFormats
 
-  def withSession(testCode: Session => Any) = {
+  def withSession(testCode: Session => Any): Unit = {
     val session = Session(createInterpreter())
     try {
       session.waitForStateChange(SessionState.NotStarted(), Duration(30, TimeUnit.SECONDS))

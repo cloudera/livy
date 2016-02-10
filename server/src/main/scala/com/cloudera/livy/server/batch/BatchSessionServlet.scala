@@ -18,13 +18,12 @@
 
 package com.cloudera.livy.server.batch
 
-import com.cloudera.livy.Logging
+import javax.servlet.http.HttpServletRequest
+
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.spark.batch.CreateBatchRequest
-
-object BatchSessionServlet extends Logging
 
 case class BatchSessionView(id: Long, state: String, log: Seq[String])
 
@@ -32,14 +31,19 @@ class BatchSessionServlet(batchManager: SessionManager[BatchSession, CreateBatch
   extends SessionServlet(batchManager)
 {
 
-  override protected def clientSessionView(session: BatchSession): Any = {
-    val lines = session.logLines()
+  override protected def clientSessionView(session: BatchSession, req: HttpServletRequest): Any = {
+    val logs =
+      if (isOwner(session, req)) {
+        val lines = session.logLines()
 
-    val size = 10
-    val from = math.max(0, lines.length - size)
-    val until = from + size
+        val size = 10
+        val from = math.max(0, lines.length - size)
+        val until = from + size
 
-    val logs = lines.view(from, until).toSeq
+        lines.view(from, until).toSeq
+      } else {
+        Nil
+      }
     BatchSessionView(session.id, session.state.toString, logs)
   }
 

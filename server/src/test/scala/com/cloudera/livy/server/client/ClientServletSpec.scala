@@ -21,9 +21,10 @@ package com.cloudera.livy.server.client
 import java.io.File
 import java.net.URI
 import java.nio.ByteBuffer
-import java.nio.file.{Paths, Files}
+import java.nio.file.{Files, Paths}
 import java.util.{ArrayList, HashMap}
 import java.util.concurrent.TimeUnit
+import javax.servlet.http.HttpServletResponse._
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
@@ -39,15 +40,12 @@ import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.spark.client._
 
-class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClientRequest] {
+class ClientServletSpec
+  extends BaseSessionServletSpec[ClientSession, CreateClientRequest](needsSpark = false) {
 
-  override protected def withFixture(test: NoArgTest) = {
-    test()
-  }
+  override def sessionFactory: ClientSessionFactory = new ClientSessionFactory()
 
-  override def sessionFactory = new ClientSessionFactory()
-
-  override def servlet = new ClientSessionServlet(sessionManager)
+  override def servlet: ClientSessionServlet = new ClientSessionServlet(sessionManager)
 
   private var sessionId: Int = -1
 
@@ -140,7 +138,7 @@ class ClientServletSpec extends BaseSessionServletSpec[ClientSession, CreateClie
 
     Files.write(Paths.get(f.getAbsolutePath), "Test data".getBytes())
 
-    jpost[Unit](s"/$sessionId/upload-$cmd", Map(cmd -> f), 200) { _ =>
+    jupload[Unit](s"/$sessionId/upload-$cmd", Map(cmd -> f), expectedStatus = SC_OK) { _ =>
       val resultFile = new File(new URI(s"${sessionManager.livyHome}/$sessionId/${f.getName}"))
       resultFile.deleteOnExit()
       resultFile.exists() should be(true)

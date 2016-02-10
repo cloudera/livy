@@ -18,6 +18,8 @@
 
 package com.cloudera.livy.server
 
+import javax.servlet.http.HttpServletResponse._
+
 import scala.reflect.ClassTag
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -39,34 +41,57 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
   protected val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
 
-  protected val headers: Map[String, String] = Map("Content-Type" -> "application/json")
+  protected val defaultHeaders: Map[String, String] = Map("Content-Type" -> "application/json")
 
-  protected def jdelete[R: ClassTag](uri: String, expectedStatus: Int = 200)
+  protected def jdelete[R: ClassTag](
+      uri: String,
+      expectedStatus: Int = SC_OK,
+      headers: Map[String, String] = defaultHeaders)
       (fn: R => Unit): Unit = {
     delete(uri, headers = headers)(doTest(expectedStatus, fn))
   }
 
-  protected def jget[R: ClassTag](uri: String, expectedStatus: Int = 200)
+  protected def jget[R: ClassTag](
+      uri: String,
+      expectedStatus: Int = SC_OK,
+      headers: Map[String, String] = defaultHeaders)
       (fn: R => Unit): Unit = {
     get(uri, headers = headers)(doTest(expectedStatus, fn))
   }
 
-  protected def jpatch[R: ClassTag](uri: String, body: AnyRef, expectedStatus: Int = 200)
+  protected def jpatch[R: ClassTag](
+      uri: String,
+      body: AnyRef,
+      expectedStatus: Int = SC_OK,
+      headers: Map[String, String] = defaultHeaders)
       (fn: R => Unit): Unit = {
     patch(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))
   }
 
-  protected def jpost[R: ClassTag](uri: String, body: AnyRef, expectedStatus: Int = 201)
+  protected def jpost[R: ClassTag](
+      uri: String,
+      body: AnyRef,
+      expectedStatus: Int = SC_CREATED,
+      headers: Map[String, String] = defaultHeaders)
       (fn: R => Unit): Unit = {
     post(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))
   }
 
-  protected def jpost[R: ClassTag](uri: String, files: Iterable[(String, Any)], expectedStatus: Int)
-    (fn: R => Unit): Unit = {
+  /** A version of jpost specific for testing file upload. */
+  protected def jupload[R: ClassTag](
+      uri: String,
+      files: Iterable[(String, Any)],
+      headers: Map[String, String] = Map(),
+      expectedStatus: Int = SC_OK)
+      (fn: R => Unit): Unit = {
     post(uri, Map.empty, files)(doTest(expectedStatus, fn))
   }
 
-  protected def jput[R: ClassTag](uri: String, body: AnyRef, expectedStatus: Int = 200)
+  protected def jput[R: ClassTag](
+      uri: String,
+      body: AnyRef,
+      expectedStatus: Int = SC_OK,
+      headers: Map[String, String] = defaultHeaders)
       (fn: R => Unit): Unit = {
     put(uri, body = toJson(body), headers = headers)(doTest(expectedStatus, fn))
   }

@@ -18,22 +18,24 @@
 
 package com.cloudera.livy.repl
 
-import com.cloudera.livy.repl.python.PythonInterpreter
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.json4s.Extraction
 import org.json4s.JsonAST.JValue
+import org.scalatest.Outcome
 
-import _root_.scala.concurrent.Await
-import _root_.scala.concurrent.duration.Duration
+import com.cloudera.livy.repl.python.PythonInterpreter
 
 class PythonSessionSpec extends BaseSessionSpec {
 
-  override protected def withFixture(test: NoArgTest) = {
+  override protected def withFixture(test: NoArgTest): Outcome = {
     assume(sys.env.get("SPARK_HOME").isDefined,
       "Test requires a Spark installation in SPARK_HOME.")
     test()
   }
 
-  override def createInterpreter() = PythonInterpreter()
+  override def createInterpreter(): Interpreter = PythonInterpreter()
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = session.execute("1 + 2")

@@ -18,8 +18,9 @@
 
 package com.cloudera.livy.spark
 
-import com.cloudera.livy.LivyConf
 import org.scalatest.{FlatSpec, Matchers}
+
+import com.cloudera.livy.LivyConf
 
 class SparkProcessBuilderSpec
   extends FlatSpec

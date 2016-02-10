@@ -66,7 +66,7 @@ class ApiVersioningSupportSpec extends ScalatraSuite with FunSpecLike {
     if (acceptHeader != null) Map("Accept" -> acceptHeader) else Map.empty
   }
 
-  def shouldReturn(url: String, acceptHeader: String, expectedVersion: String = null) = {
+  def shouldReturn(url: String, acceptHeader: String, expectedVersion: String = null): Unit = {
     get(url, headers = generateHeader(acceptHeader)) {
       status should equal(200)
       if (expectedVersion != null) {
@@ -75,7 +75,7 @@ class ApiVersioningSupportSpec extends ScalatraSuite with FunSpecLike {
     }
   }
 
-  def shouldFail(url: String, acceptHeader: String, expectedErrorCode: Int) = {
+  def shouldFail(url: String, acceptHeader: String, expectedErrorCode: Int): Unit = {
     get(url, headers = generateHeader(acceptHeader)) {
       status should equal(expectedErrorCode)
     }

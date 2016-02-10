@@ -51,7 +51,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
   override def sessionFactory: BatchSessionProcessFactory = {
     new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
   }
-  override def servlet = new BatchSessionServlet(sessionManager)
+  override def servlet: BatchSessionServlet = new BatchSessionServlet(sessionManager)
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {

@@ -35,10 +35,12 @@ import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
 import com.cloudera.livy.spark.SparkProcess
 
-abstract class InteractiveWebSession(val id: Int,
-                                     process: SparkProcess,
-                                     request: CreateInteractiveRequest)
-  extends InteractiveSession
+abstract class InteractiveWebSession(
+    id: Int,
+    owner: String,
+    process: SparkProcess,
+    request: CreateInteractiveRequest)
+  extends InteractiveSession(id, owner)
   with Logging {
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global

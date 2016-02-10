@@ -25,14 +25,9 @@ import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.sessions.batch.BatchSession
 import com.cloudera.livy.spark.SparkProcess
 
-object BatchSessionProcess {
-  def apply(id: Int, process: SparkProcess): BatchSession = {
-    new BatchSessionProcess(id, process)
-  }
-}
+class BatchSessionProcess(
+    id: Int, owner: String, process: LineBufferedProcess) extends BatchSession(id, owner) {
 
-private class BatchSessionProcess(val id: Int,
-                                  process: LineBufferedProcess) extends BatchSession {
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
   private[this] var _state: SessionState = SessionState.Running()

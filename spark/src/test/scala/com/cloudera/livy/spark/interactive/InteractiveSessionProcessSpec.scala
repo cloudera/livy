@@ -18,10 +18,12 @@
 
 package com.cloudera.livy.spark.interactive
 
+import org.scalatest.{BeforeAndAfter, FunSpecLike, Matchers}
+
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{BaseInteractiveSessionSpec, PySpark}
+import com.cloudera.livy.sessions.interactive.InteractiveSession
 import com.cloudera.livy.spark.SparkProcessBuilderFactory
-import org.scalatest.{BeforeAndAfter, FunSpecLike, Matchers}
 
 class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
 
@@ -29,13 +31,13 @@ class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
   livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
   livyConf.set(InteractiveSessionFactory.LivyReplJars, "")
 
-  def createSession() = {
+  def createSession(): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
     val processFactory = new SparkProcessBuilderFactory(livyConf)
     val interactiveFactory = new InteractiveSessionProcessFactory(processFactory)
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
-    interactiveFactory.create(0, req)
+    interactiveFactory.create(0, null, req)
   }
 }

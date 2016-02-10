@@ -22,11 +22,9 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Future
 
-trait Session {
+abstract class Session(val id: Int, val owner: String) {
 
   private var _lastActivity = 0L
-
-  def id: Int
 
   def lastActivity: Option[Long] = if (_lastActivity == 0L) None else Some(_lastActivity)
 
@@ -50,4 +48,5 @@ trait Session {
   }
 
   def logLines(): IndexedSeq[String]
+
 }

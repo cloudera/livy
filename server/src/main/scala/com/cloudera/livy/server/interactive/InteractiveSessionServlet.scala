@@ -20,6 +20,7 @@ package com.cloudera.livy.server.interactive
 
 import java.net.URL
 import java.util.concurrent.TimeUnit
+import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent._
 import scala.concurrent.duration._
@@ -43,14 +44,21 @@ class InteractiveSessionServlet(
   mapper.registerModule(new SessionKindModule())
     .registerModule(new Json4sScalaModule())
 
-  override protected def clientSessionView(session: InteractiveSession): Any = {
-    val lines = session.logLines()
+  override protected def clientSessionView(
+      session: InteractiveSession,
+      req: HttpServletRequest): Any = {
+    val logs =
+      if (isOwner(session, req)) {
+        val lines = session.logLines()
 
-    val size = 10
-    var from = math.max(0, lines.length - size)
-    val until = from + size
+        val size = 10
+        var from = math.max(0, lines.length - size)
+        val until = from + size
 
-    val logs = lines.view(from, until)
+        lines.view(from, until)
+      } else {
+        Nil
+      }
 
     Map(
       "id" -> session.id,
@@ -72,97 +80,75 @@ class InteractiveSessionServlet(
       "output" -> output)
   }
 
-  jpost[CallbackRequest]("/:sessionId/callback") { callback =>
-    val sessionId = params("sessionId").toInt
-
-    sessionManager.get(sessionId) match {
-      case Some(session) =>
-        if (session.state == SessionState.Starting()) {
-          session.url = new URL(callback.url)
-          Accepted()
-        } else if (session.state.isActive) {
-          Ok()
-        } else {
-          BadRequest("Session is in wrong state")
-        }
-      case None => NotFound("Session not found")
+  jpost[CallbackRequest]("/:id/callback") { callback =>
+    withUnprotectedSession { session =>
+      if (session.state == SessionState.Starting()) {
+        session.url = new URL(callback.url)
+        Accepted()
+      } else if (session.state.isActive) {
+        Ok()
+      } else {
+        BadRequest("Session is in wrong state")
+      }
     }
   }
 
-  post("/:sessionId/stop") {
-    val sessionId = params("sessionId").toInt
-    sessionManager.get(sessionId) match {
-      case Some(session) =>
-        val future = session.stop()
-
-        new AsyncResult() { val is = for { _ <- future } yield NoContent() }
-      case None => NotFound("Session not found")
+  post("/:id/stop") {
+    withSession { session =>
+      val future = session.stop()
+      new AsyncResult() { val is = for { _ <- future } yield NoContent() }
     }
   }
 
-  post("/:sessionId/interrupt") {
-    val sessionId = params("sessionId").toInt
-    sessionManager.get(sessionId) match {
-      case Some(session) =>
-        val future = for {
-          _ <- session.interrupt()
-        } yield Ok(Map("msg" -> "interrupted"))
+  post("/:id/interrupt") {
+    withSession { session =>
+      val future = for {
+        _ <- session.interrupt()
+      } yield Ok(Map("msg" -> "interrupted"))
 
-        // FIXME: this is silently eating exceptions.
-        new AsyncResult() { val is = future }
-      case None => NotFound("Session not found")
+      // FIXME: this is silently eating exceptions.
+      new AsyncResult() { val is = future }
     }
   }
 
-  get("/:sessionId/statements") {
-    val sessionId = params("sessionId").toInt
+  get("/:id/statements") {
+    withSession { session =>
+      val from = params.get("from").map(_.toInt).getOrElse(0)
+      val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
 
-    sessionManager.get(sessionId) match {
-      case None => NotFound("Session not found")
-      case Some(session: InteractiveSession) =>
-        val from = params.get("from").map(_.toInt).getOrElse(0)
-        val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
-
-        Map(
-          "total_statements" -> session.statements.length,
-          "statements" -> session.statements.view(from, from + size).map(statementView)
-        )
+      Map(
+        "total_statements" -> session.statements.length,
+        "statements" -> session.statements.view(from, from + size).map(statementView)
+      )
     }
   }
 
-  val getStatement = get("/:sessionId/statements/:statementId") {
-    val sessionId = params("sessionId").toInt
-    val statementId = params("statementId").toInt
+  val getStatement = get("/:id/statements/:statementId") {
+    withSession { session =>
+      val statementId = params("statementId").toInt
+      val from = params.get("from").map(_.toInt)
+      val size = params.get("size").map(_.toInt)
 
-    val from = params.get("from").map(_.toInt)
-    val size = params.get("size").map(_.toInt)
-
-    sessionManager.get(sessionId) match {
-      case None => NotFound("Session not found")
-      case Some(session) =>
-        session.statements.lift(statementId) match {
-          case None => NotFound("Statement not found")
-          case Some(statement) =>
-            statementView(statement)
-        }
+      session.statements.lift(statementId) match {
+        case None => NotFound("Statement not found")
+        case Some(statement) =>
+          statementView(statement)
+      }
     }
   }
 
-  jpost[ExecuteRequest]("/:sessionId/statements") { req =>
-    val sessionId = params("sessionId").toInt
+  jpost[ExecuteRequest]("/:id/statements") { req =>
+    withSession { session =>
+      val statement = session.executeStatement(req)
 
-    sessionManager.get(sessionId) match {
-      case Some(session) =>
-        val statement = session.executeStatement(req)
-
-        Created(statementView(statement),
-          headers = Map(
-            "Location" -> url(getStatement,
-              "sessionId" -> session.id.toString,
-              "statementId" -> statement.id.toString)))
-      case None => NotFound("Session not found")
+      Created(statementView(statement),
+        headers = Map(
+          "Location" -> url(getStatement,
+            "id" -> session.id.toString,
+            "statementId" -> statement.id.toString)))
     }
   }
+
 }
 
 private case class CallbackRequest(url: String)

@@ -18,16 +18,17 @@
 
 package com.cloudera.livy.repl
 
+import org.json4s.{DefaultFormats, JValue}
+import org.json4s.JsonDSL._
+
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
-import org.json4s.JsonDSL._
-import org.json4s.{DefaultFormats, JValue}
 
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter() = SparkInterpreter()
+  override def createInterpreter(): Interpreter = SparkInterpreter()
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
