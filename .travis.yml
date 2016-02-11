@@ -1,9 +1,13 @@
 language: scala
+
 jdk:
   - oraclejdk7
-script: mvn clean package verify -Dtest.redirectToFile=false
+
+script: 
+  - mvn verify -Dtest.redirectToFile=false
 
 before_install:
   - pip install --user codecov
+
 after_success:
   - codecov
