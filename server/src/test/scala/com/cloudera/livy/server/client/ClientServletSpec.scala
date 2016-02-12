@@ -44,7 +44,7 @@ import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.spark.client._
 
 class ClientServletSpec
-  extends BaseSessionServletSpec[ClientSession, CreateClientRequest](needsSpark = false) {
+  extends BaseSessionServletSpec[ClientSession, CreateClientRequest] {
 
   override def sessionFactory: ClientSessionFactory = new ClientSessionFactory()
 

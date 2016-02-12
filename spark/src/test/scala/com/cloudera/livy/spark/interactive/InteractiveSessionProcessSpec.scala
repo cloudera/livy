@@ -32,7 +32,6 @@ class InteractiveSessionProcessSpec extends BaseInteractiveSessionSpec {
   livyConf.set(InteractiveSessionFactory.LivyReplJars, "")
 
   def createSession(): InteractiveSession = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
     val processFactory = new SparkProcessBuilderFactory(livyConf)
     val interactiveFactory = new InteractiveSessionProcessFactory(processFactory)
 

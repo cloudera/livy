@@ -29,12 +29,6 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override protected def withFixture(test: NoArgTest): Outcome = {
-    assume(sys.env.get("SPARK_HOME").isDefined,
-      "Test requires a Spark installation in SPARK_HOME.")
-    test()
-  }
-
   override def createInterpreter(): Interpreter = PythonInterpreter()
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
@@ -209,13 +203,4 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
-
-  it should "execute spark commands" in withInterpreter { interpreter =>
-    val response = interpreter.execute(
-      """sc.parallelize(xrange(0, 2)).map(lambda i: i + 1).collect()""")
-
-    response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "[1, 2]"
-    ))
-  }
 }

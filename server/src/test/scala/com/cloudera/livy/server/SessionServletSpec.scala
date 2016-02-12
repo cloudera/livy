@@ -45,7 +45,7 @@ object SessionServletSpec {
 }
 
 class SessionServletSpec
-  extends BaseSessionServletSpec[Session, Map[String, String]](needsSpark = false) {
+  extends BaseSessionServletSpec[Session, Map[String, String]] {
 
   import SessionServletSpec._
 

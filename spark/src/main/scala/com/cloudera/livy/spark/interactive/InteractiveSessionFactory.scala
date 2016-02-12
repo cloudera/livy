@@ -88,8 +88,8 @@ abstract class InteractiveSessionFactory(processFactory: SparkProcessBuilderFact
 
         // FIXME: Spark-1.4 seems to require us to manually upload the PySpark support files.
         // We should only do this for Spark 1.4.x
-        val pySparkFiles = findPySparkArchives()
-        builder.files(pySparkFiles.map(AbsolutePath))
+        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
+        builder.files(if (!LivyConf.TEST_MODE) pySparkFiles.map(AbsolutePath) else Nil)
 
         // We can't actually use `builder.pyFiles`, because livy-repl is a Jar, and
         // spark-submit will reject it because it isn't a Python file. Instead we'll pass it

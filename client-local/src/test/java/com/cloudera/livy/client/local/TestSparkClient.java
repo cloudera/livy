@@ -156,8 +156,6 @@ public class TestSparkClient {
 
   @Test
   public void testRemoteClient() throws Exception {
-    assumeTrue("Test requires a Spark installation in SPARK_HOME.",
-      System.getenv("SPARK_HOME") != null);
     runTest(false, new TestFunction() {
       @Override
       public void call(LivyClient client) throws Exception {
