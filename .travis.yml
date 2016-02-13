@@ -11,7 +11,7 @@ before_install:
 
 before_script:
   - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
-  - echo "deb https://cran.cnr.berkeley.edu/bin/linux/ubuntu wily/" | sudo tee -a /etc/apt/sources.list
+  - echo "deb https://cran.cnr.berkeley.edu/bin/linux/ubuntu precise/" | sudo tee -a /etc/apt/sources.list
   - sudo apt-get update -q
   - sudo apt-get install r-base
 
