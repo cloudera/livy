@@ -3,17 +3,18 @@ language: scala
 jdk:
   - oraclejdk7
 
+addons:
+  apt:
+    sources:
+      r-packages-precise
+    packages:
+      r-base
+
 script:
   - mvn verify -Dtest.redirectToFile=false
 
 before_install:
   - pip install --user codecov
-
-before_script:
-  - sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
-  - echo "deb https://cran.cnr.berkeley.edu/bin/linux/ubuntu precise/" | sudo tee -a /etc/apt/sources.list
-  - sudo apt-get update -q
-  - sudo apt-get install r-base
 
 after_success:
   - codecov
