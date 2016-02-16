@@ -108,7 +108,8 @@ class SparkProcessBuilder(
   }
 
   def conf(key: String, value: String, admin: Boolean = false): SparkProcessBuilder = {
-    if (admin || userConfigurableOptions.contains(key)) {
+    if (admin || userConfigurableOptions.contains(key) ||
+        (LivyConf.TEST_MODE && key == "spark.driver.extraClassPath")) {
       this._conf(key) = value
     } else {
       throw new ConfigOptionNotAllowed(key, value)

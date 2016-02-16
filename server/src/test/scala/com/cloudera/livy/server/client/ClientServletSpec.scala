@@ -44,7 +44,7 @@ import com.cloudera.livy.client.local.LocalConf
 import com.cloudera.livy.server.BaseSessionServletSpec
 
 class ClientServletSpec
-  extends BaseSessionServletSpec[ClientSession](needsSpark = false) {
+  extends BaseSessionServletSpec[ClientSession] {
 
   override def createServlet(): ClientSessionServlet = new ClientSessionServlet(new LivyConf())
 

@@ -20,27 +20,28 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main_2.10</artifactId>
+    <artifactId>livy-main</artifactId>
     <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <groupId>com.cloudera.livy</groupId>
-  <artifactId>livy-client-http_2.10</artifactId>
+  <artifactId>livy-client-http</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <properties>
-
+    <skipDeploy>false</skipDeploy>
   </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-api_${scala.binary.version}</artifactId>
+      <artifactId>livy-api</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
+      <artifactId>livy-client-common</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -70,7 +71,7 @@
 
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-server_${scala.binary.version}</artifactId>
+      <artifactId>livy-server</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
@@ -99,6 +100,10 @@
                 <includes>
                   <include>*:*</include>
                 </includes>
+                <excludes>
+                  <exclude>com.cloudera.livy:livy-api</exclude>
+                  <exclude>com.cloudera.livy:livy-client-common</exclude>
+                </excludes>
               </artifactSet>
               <filters>
                 <!-- Some artifacts (e.g. kryo) bundle jars inside them, for some reason. -->
@@ -114,23 +119,14 @@
                 <relocation>
                   <pattern>com.esotericsoftware</pattern>
                   <shadedPattern>com.cloudera.livy.shaded.kryo</shadedPattern>
-                  <includes>
-                    <include>com.esotericsoftware.**</include>
-                  </includes>
                 </relocation>
                 <relocation>
                   <pattern>com.fasterxml.jackson</pattern>
                   <shadedPattern>com.cloudera.livy.shaded.jackson</shadedPattern>
-                  <includes>
-                    <include>com.fasterxml.jackson.**</include>
-                  </includes>
                 </relocation>
                 <relocation>
                   <pattern>org.apache</pattern>
                   <shadedPattern>com.cloudera.livy.shaded.apache</shadedPattern>
-                  <includes>
-                    <include>org.apache.**</include>
-                  </includes>
                 </relocation>
               </relocations>
             </configuration>

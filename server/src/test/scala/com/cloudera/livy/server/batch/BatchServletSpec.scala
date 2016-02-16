@@ -55,6 +55,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
 
       val createRequest = new CreateBatchRequest()
       createRequest.file = script.toString
+      createRequest.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       jpost[Map[String, Any]]("/", createRequest) { data =>
         header("Location") should equal("/0")

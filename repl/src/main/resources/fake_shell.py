@@ -368,9 +368,6 @@ def main():
     sys.stderr = fake_stderr
 
     try:
-        # Load spark into the context
-        exec 'from pyspark.shell import sc' in global_dict
-
         print >> sys_stderr, fake_stdout.getvalue()
         print >> sys_stderr, fake_stderr.getvalue()
 
@@ -434,9 +431,6 @@ def main():
             print >> sys_stdout, response
             sys_stdout.flush()
     finally:
-        if 'sc' in global_dict:
-            global_dict['sc'].stop()
-
         sys.stdin = sys_stdin
         sys.stdout = sys_stdout
         sys.stderr = sys_stderr

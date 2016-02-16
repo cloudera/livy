@@ -1,0 +1,43 @@
+#!/bin/bash
+#
+# This is a fake version of "spark-submit" to be used during Livy tests that run Spark as
+# a child process. It does some basic parsing of Spark options to figure out the classpath
+# to be used, and then just runs the SparkSubmit class directly.
+#
+
+PROP_FILE=
+DRIVER_CP=
+CONF_KEY="spark.driver.extraClassPath"
+
+INDEX=1
+ARGS=($@)
+
+for IDX in $(seq 0 ${#ARGS[@]}); do
+  ARG=${ARGS[$IDX]}
+  NEXT=$((IDX + 1))
+  case $ARG in
+    --conf)
+      CONF="${ARGS[$NEXT]}"
+      IFS='=' read KEY VALUE <<< "$CONF"
+      if [ "$KEY" = "$CONF_KEY" ]; then
+        DRIVER_CP="$VALUE"
+      fi
+      ;;
+    --driver-class-path)
+      DRIVER_CP="${ARGS[$NEXT]}"
+      ;;
+    --properties-file)
+      PROP_FILE="${ARGS[$NEXT]}"
+      ;;
+  esac
+done
+
+if [ -n "$PROP_FILE" ] && [ -z "$DRIVER_CP" ]; then
+  CONF=$(grep -s "^$CONF_KEY=" "$PROP_FILE" | tail -n 1)
+  if [ -n "$CONF" ]; then
+    IFS='=' read KEY VALUE <<< "$CONF"
+    DRIVER_CP="$VALUE"
+  fi
+fi
+
+exec $JAVA_HOME/bin/java -cp "$DRIVER_CP" org.apache.spark.deploy.SparkSubmit "$@"

@@ -22,12 +22,12 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main_2.10</artifactId>
+        <artifactId>livy-main</artifactId>
         <relativePath>../pom.xml</relativePath>
         <version>0.2.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>livy-server_2.10</artifactId>
+    <artifactId>livy-server</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -35,13 +35,13 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-core_${scala.binary.version}</artifactId>
+            <artifactId>livy-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-client-local_${scala.binary.version}</artifactId>
+            <artifactId>livy-client-local</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -53,6 +53,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
         </dependency>
 
         <dependency>
@@ -78,18 +83,18 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
+            <exclusions>
+              <exclusion>
+                <groupId>javax.servlet</groupId>
+                <artifactId>servlet-api</artifactId>
+              </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -161,8 +166,14 @@
 
         <dependency>
             <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-repl_${scala.binary.version}</artifactId>
+            <artifactId>livy-repl</artifactId>
             <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -176,7 +187,6 @@
 
     <build>
         <plugins>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -186,25 +196,21 @@
                             <mainClass>com.cloudera.livy.server.Main</mainClass>
                         </manifest>
                     </archive>
+                    <outputDirectory>${project.build.directory}/jars</outputDirectory>
                 </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.scalatest</groupId>
-                <artifactId>scalatest-maven-plugin</artifactId>
-                <configuration>
-                    <systemProperties>
-                        <spark.master>local</spark.master>
-                        <spark.ui.enabled>false</spark.ui.enabled>
-                        <settings.usejavacp.value>true</settings.usejavacp.value>
-                        <livy.repl.jar>../livy-repl/target/livy-repl_${scala.binary.version}-${project.version}.jar</livy.repl.jar>
-                    </systemProperties>
-                </configuration>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>copy-dependencies</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>

@@ -46,7 +46,7 @@ object SessionServletSpec {
 }
 
 class SessionServletSpec
-  extends BaseSessionServletSpec[Session](needsSpark = false) {
+  extends BaseSessionServletSpec[Session] {
 
   import SessionServletSpec._
 

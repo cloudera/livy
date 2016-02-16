@@ -22,16 +22,9 @@ import org.scalatest.BeforeAndAfterAll
 
 import com.cloudera.livy.sessions.Session
 
-abstract class BaseSessionServletSpec[S <: Session](needsSpark: Boolean = true)
+abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
-
-  override protected def withFixture(test: NoArgTest) = {
-    if (needsSpark) {
-      assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-    }
-    test()
-  }
 
   override def afterAll(): Unit = {
     super.afterAll()

@@ -94,7 +94,7 @@ class InteractiveSession(
 
         // FIXME: Spark-1.4 seems to require us to manually upload the PySpark support files.
         // We should only do this for Spark 1.4.x
-        val pySparkFiles = findPySparkArchives()
+        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         builder.files(pySparkFiles)
 
         // We can't actually use `builder.pyFiles`, because livy-repl is a Jar, and

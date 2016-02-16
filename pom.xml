@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.cloudera.livy</groupId>
-  <artifactId>livy-main_2.10</artifactId>
+  <artifactId>livy-main</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
@@ -61,7 +61,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.8.2.1</py4j.version>
     <scala.binary.version>2.10</scala.binary.version>
-    <scala.compat.version>2.10</scala.compat.version>
     <scala.version>2.10.4</scala.version>
     <scalatest.version>2.2.4</scalatest.version>
     <scalatra.version>2.3.0</scalatra.version>
@@ -75,6 +74,12 @@
       Properties for the copyright header style checks. Modules that use the ASF header
       should override the "copyright.header" property.
     -->
+
+    <!--
+      By default artifacts are not deployed. Artifacts that should be deployed to a maven
+      repo should override the "skipDeploy" property in their pom.
+    -->
+    <skipDeploy>true</skipDeploy>
 
     <asf.copyright.header><![CDATA[/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -619,6 +624,7 @@
           <configuration>
             <environmentVariables>
               <livy.test>true</livy.test>
+              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -639,6 +645,7 @@
           <configuration>
             <environmentVariables>
               <livy.test>true</livy.test>
+              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -839,6 +846,28 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-deploy-plugin</artifactId>
+        <configuration>
+          <skip>${skipDeploy}</skip>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>2.10</version>
+        <configuration>
+          <outputDirectory>${project.build.directory}/jars</outputDirectory>
+          <useSubDirectoryPerType>false</useSubDirectoryPerType>
+          <includeScope>runtime</includeScope>
+          <silent>true</silent>
+          <overWriteReleases>true</overWriteReleases>
+          <overWriteSnapshots>true</overWriteSnapshots>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
       </plugin>
 
@@ -869,6 +898,7 @@
           </execution>
         </executions>
       </plugin>
+
     </plugins>
 
   </build>
