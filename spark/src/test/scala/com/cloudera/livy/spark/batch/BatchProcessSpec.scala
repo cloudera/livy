@@ -35,11 +35,6 @@ class BatchProcessSpec
   with BeforeAndAfterAll
   with ShouldMatchers {
 
-  override protected def withFixture(test: NoArgTest) = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-    test()
-  }
-
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
     script.toFile.deleteOnExit()
@@ -59,6 +54,7 @@ class BatchProcessSpec
     it("should create a process") {
       val req = new CreateBatchRequest()
       req.file = script.toString
+      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val livyConf = new LivyConf()
       val builder = new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))

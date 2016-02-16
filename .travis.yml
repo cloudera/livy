@@ -3,7 +3,14 @@ language: scala
 jdk:
   - oraclejdk7
 
-script: 
+addons:
+  apt:
+    sources:
+      r-packages-precise
+    packages:
+      r-base
+
+script:
   - mvn verify -Dtest.redirectToFile=false
 
 before_install:

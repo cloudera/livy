@@ -626,6 +626,7 @@
           <configuration>
             <environmentVariables>
               <livy.test>true</livy.test>
+              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -646,6 +647,7 @@
           <configuration>
             <environmentVariables>
               <livy.test>true</livy.test>
+              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
