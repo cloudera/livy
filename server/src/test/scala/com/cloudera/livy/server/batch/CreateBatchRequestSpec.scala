@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.batch
+package com.cloudera.livy.server.batch
 
 import com.fasterxml.jackson.databind.{JsonMappingException, ObjectMapper}
 import org.scalatest.FunSpec

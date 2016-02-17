@@ -20,22 +20,20 @@ package com.cloudera.livy.server
 
 import org.scalatest.BeforeAndAfterAll
 
-import com.cloudera.livy.LivyConf
-import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager}
+import com.cloudera.livy.sessions.Session
 
-abstract class BaseSessionServletSpec[S <: Session, R]
+abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
   override def afterAll(): Unit = {
     super.afterAll()
-    sessionManager.shutdown()
+    servlet.shutdown()
   }
 
-  def sessionFactory: SessionFactory[S, R]
-  def servlet: SessionServlet[S, R]
-  val livyConf = new LivyConf()
-  lazy val sessionManager = new SessionManager(livyConf, sessionFactory)
+  def createServlet(): SessionServlet[S]
+
+  protected val servlet = createServlet()
 
   addServlet(servlet, "/*")
 

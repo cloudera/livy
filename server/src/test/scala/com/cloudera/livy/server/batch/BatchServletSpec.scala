@@ -24,14 +24,11 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
 
-import com.cloudera.livy.Utils
+import com.cloudera.livy.{LivyConf, Utils}
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.sessions.batch.BatchSession
-import com.cloudera.livy.spark.SparkProcessBuilderFactory
-import com.cloudera.livy.spark.batch.{BatchSessionProcessFactory, CreateBatchRequest}
 
-class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchRequest] {
+class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
@@ -48,10 +45,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
     script
   }
 
-  override def sessionFactory: BatchSessionProcessFactory = {
-    new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
-  }
-  override def servlet: BatchSessionServlet = new BatchSessionServlet(sessionManager)
+  override def createServlet(): BatchSessionServlet = new BatchSessionServlet(new LivyConf())
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
@@ -67,13 +61,13 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
         header("Location") should equal("/0")
         data("id") should equal (0)
 
-        val batch = sessionManager.get(0)
+        val batch = servlet.sessionManager.get(0)
         batch should be (defined)
       }
 
       // Wait for the process to finish.
       {
-        val batch = sessionManager.get(0).get
+        val batch = servlet.sessionManager.get(0).get
         Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
         (batch.state match {
           case SessionState.Success(_) => true
@@ -85,7 +79,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
         data("id") should equal (0)
         data("state") should equal ("success")
 
-        val batch = sessionManager.get(0)
+        val batch = servlet.sessionManager.get(0)
         batch should be (defined)
       }
 
@@ -93,14 +87,14 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, CreateBatchR
         data("id") should equal (0)
         data("log").asInstanceOf[Seq[String]] should contain ("hello world")
 
-        val batch = sessionManager.get(0)
+        val batch = servlet.sessionManager.get(0)
         batch should be (defined)
       }
 
       jdelete[Map[String, Any]]("/0") { data =>
         data should equal (Map("msg" -> "deleted"))
 
-        val batch = sessionManager.get(0)
+        val batch = servlet.sessionManager.get(0)
         batch should not be defined
       }
     }

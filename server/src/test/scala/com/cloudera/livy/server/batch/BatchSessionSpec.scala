@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.batch
+package com.cloudera.livy.server.batch
 
 import java.io.FileWriter
 import java.nio.file.{Files, Path}
@@ -28,9 +28,8 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, ShouldMatchers}
 
 import com.cloudera.livy.{LivyConf, Utils}
 import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.spark.SparkProcessBuilderFactory
 
-class BatchProcessSpec
+class BatchSessionSpec
   extends FunSpec
   with BeforeAndAfterAll
   with ShouldMatchers {
@@ -56,9 +55,7 @@ class BatchProcessSpec
       req.file = script.toString
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
-      val livyConf = new LivyConf()
-      val builder = new BatchSessionProcessFactory(new SparkProcessBuilderFactory(livyConf))
-      val batch = builder.create(0, null, req)
+      val batch = new BatchSession(0, null, new LivyConf(), req)
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
       (batch.state match {

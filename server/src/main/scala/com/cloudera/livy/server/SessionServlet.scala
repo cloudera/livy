@@ -21,13 +21,11 @@ package com.cloudera.livy.server
 import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent.Future
-import scala.reflect.ClassTag
 
 import org.scalatra._
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
-import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
 import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
@@ -40,17 +38,33 @@ object SessionServlet extends Logging
  *  S: the session type
  *  R: the type representing the session create parameters.
  */
-abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: SessionManager[S, R])
+abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
   with UrlGeneratorSupport
 {
 
+  private[livy] val sessionManager = new SessionManager[S](livyConf)
+
+  /**
+   * Creates a new session based on the current request. The implementation is responsible for
+   * parsing the body of the request.
+   */
+  protected def createSession(req: HttpServletRequest): S
+
   /**
    * Returns a object representing the session data to be sent back to the client.
    */
   protected def clientSessionView(session: S, req: HttpServletRequest): Any = session
+
+  override def shutdown(): Unit = {
+    sessionManager.shutdown()
+  }
+
+  before() {
+    contentType = "application/json"
+  }
 
   get("/") {
     val from = params.get("from").map(_.toInt).getOrElse(0)
@@ -104,10 +118,10 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     }
   }
 
-  jpost[R]("/") { createRequest =>
+  post("/") {
     new AsyncResult {
       val is = Future {
-        val session = sessionManager.create(createRequest, remoteUser(request))
+        val session = sessionManager.register(createSession(request))
         Created(clientSessionView(session, request),
           headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
         )
@@ -117,7 +131,6 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
 
   error {
     case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
-    case e: SessionFailedToStart => InternalServerError(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
     case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>

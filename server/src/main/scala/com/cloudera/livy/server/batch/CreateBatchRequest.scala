@@ -16,17 +16,25 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.sessions
+package com.cloudera.livy.server.batch
 
-abstract class SessionFactory[S <: Session, R] {
+class CreateBatchRequest {
 
-  protected var livyHome: String = null
+  var file: String = _
+  var proxyUser: Option[String] = None
+  var args: List[String] = List()
+  var className: Option[String] = None
+  var jars: List[String] = List()
+  var pyFiles: List[String] = List()
+  var files: List[String] = List()
+  var driverMemory: Option[String] = None
+  var driverCores: Option[Int] = None
+  var executorMemory: Option[String] = None
+  var executorCores: Option[Int] = None
+  var numExecutors: Option[Int] = None
+  var archives: List[String] = List()
+  var queue: Option[String] = None
+  var name: Option[String] = None
+  var conf: Map[String, String] = Map()
 
-  def create(id: Int, owner: String, createRequest: R): S
-
-  def setLivyHome(livyHome: String): Unit = {
-    this.livyHome = livyHome
-  }
-
-  def close(): Unit = {}
 }

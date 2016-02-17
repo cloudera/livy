@@ -37,18 +37,16 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.{Job, JobContext, JobHandle}
+import com.cloudera.livy.{Job, JobContext, JobHandle, LivyConf}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
+import com.cloudera.livy.client.local.LocalConf
 import com.cloudera.livy.server.BaseSessionServletSpec
-import com.cloudera.livy.spark.client._
 
 class ClientServletSpec
-  extends BaseSessionServletSpec[ClientSession, CreateClientRequest] {
+  extends BaseSessionServletSpec[ClientSession] {
 
-  override def sessionFactory: ClientSessionFactory = new ClientSessionFactory()
-
-  override def servlet: ClientSessionServlet = new ClientSessionServlet(sessionManager)
+  override def createServlet(): ClientSessionServlet = new ClientSessionServlet(new LivyConf())
 
   private var sessionId: Int = -1
 
@@ -68,6 +66,7 @@ class ClientServletSpec
       conf.put("livy.local.jars", "")
       conf.put("spark.driver.extraClassPath", classpath)
       conf.put("spark.executor.extraClassPath", classpath)
+      conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
 
       jpost[SessionInfo]("/", new CreateClientRequest(10000L, conf)) { data =>
         header("Location") should equal("/0")
@@ -138,11 +137,12 @@ class ClientServletSpec
 
   private def testResourceUpload(cmd: String, sessionId: Int): Unit = {
     val f = File.createTempFile("uploadTestFile", cmd)
+    val conf = new LivyConf()
 
     Files.write(Paths.get(f.getAbsolutePath), "Test data".getBytes())
 
     jupload[Unit](s"/$sessionId/upload-$cmd", Map(cmd -> f), expectedStatus = SC_OK) { _ =>
-      val resultFile = new File(new URI(s"${sessionManager.livyHome}/$sessionId/${f.getName}"))
+      val resultFile = new File(new URI(s"${conf.livyHome()}/$sessionId/${f.getName}"))
       resultFile.deleteOnExit()
       resultFile.exists() should be(true)
       Source.fromFile(resultFile).mkString should be("Test data")

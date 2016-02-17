@@ -16,17 +16,42 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.batch
+package com.cloudera.livy.server.batch
+
+import java.lang.ProcessBuilder.Redirect
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
-import com.cloudera.livy.LineBufferedProcess
-import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.sessions.batch.BatchSession
-import com.cloudera.livy.spark.SparkProcess
+import com.cloudera.livy.LivyConf
+import com.cloudera.livy.sessions.{Session, SessionState}
+import com.cloudera.livy.spark.SparkProcessBuilder
 
-class BatchSessionProcess(
-    id: Int, owner: String, process: LineBufferedProcess) extends BatchSession(id, owner) {
+class BatchSession(id: Int, owner: String, livyConf: LivyConf, request: CreateBatchRequest)
+    extends Session(id, owner) {
+
+  private val process = {
+    require(request.file != null, "File is required.")
+
+    val builder = new SparkProcessBuilder(livyConf, Set())
+    builder.conf(request.conf)
+    request.proxyUser.foreach(builder.proxyUser)
+    request.className.foreach(builder.className)
+    request.jars.foreach(builder.jar)
+    request.pyFiles.foreach(builder.pyFile)
+    request.files.foreach(builder.file)
+    request.driverMemory.foreach(builder.driverMemory)
+    request.driverCores.foreach(builder.driverCores)
+    request.executorMemory.foreach(builder.executorMemory)
+    request.executorCores.foreach(builder.executorCores)
+    request.numExecutors.foreach(builder.numExecutors)
+    request.archives.foreach(builder.archive)
+    request.queue.foreach(builder.queue)
+    request.name.foreach(builder.name)
+    builder.redirectOutput(Redirect.PIPE)
+    builder.redirectErrorStream(true)
+
+    builder.start(Some(request.file), request.args)
+  }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 

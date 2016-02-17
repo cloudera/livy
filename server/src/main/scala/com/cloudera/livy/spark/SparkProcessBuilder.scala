@@ -24,44 +24,31 @@ import scala.collection.mutable.ArrayBuffer
 
 import com.cloudera.livy.{LivyConf, Logging}
 
-object SparkProcessBuilder {
-  /**
-   * Represents a path that is either allowed to reference a local file, or must exist in our
-   * cache directory or on hdfs.
-   */
-  sealed trait Path
-  case class AbsolutePath(path: String) extends Path
-  case class RelativePath(path: String) extends Path
-}
-
 class SparkProcessBuilder(
     livyConf: LivyConf,
     userConfigurableOptions: Set[String]) extends Logging {
-  import SparkProcessBuilder._
 
-  private[this] val fsRoot = livyConf.filesystemRoot()
-
-  private[this] var _executable: Path = AbsolutePath(livyConf.sparkSubmit())
+  private[this] var _executable: String = livyConf.sparkSubmit()
   private[this] var _master: Option[String] = None
   private[this] var _deployMode: Option[String] = None
   private[this] var _className: Option[String] = None
   private[this] var _name: Option[String] = Some("Livy")
-  private[this] var _jars: ArrayBuffer[Path] = ArrayBuffer()
-  private[this] var _pyFiles: ArrayBuffer[Path] = ArrayBuffer()
-  private[this] var _files: ArrayBuffer[Path] = ArrayBuffer()
+  private[this] var _jars: ArrayBuffer[String] = ArrayBuffer()
+  private[this] var _pyFiles: ArrayBuffer[String] = ArrayBuffer()
+  private[this] var _files: ArrayBuffer[String] = ArrayBuffer()
   private[this] val _conf = mutable.HashMap[String, String]()
   private[this] var _driverClassPath: ArrayBuffer[String] = ArrayBuffer()
   private[this] var _proxyUser: Option[String] = None
 
   private[this] var _queue: Option[String] = None
-  private[this] var _archives: ArrayBuffer[Path] = ArrayBuffer()
+  private[this] var _archives: ArrayBuffer[String] = ArrayBuffer()
 
   private[this] var _env: ArrayBuffer[(String, String)] = ArrayBuffer()
   private[this] var _redirectOutput: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectError: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectErrorStream: Option[Boolean] = None
 
-  def executable(executable: Path): SparkProcessBuilder = {
+  def executable(executable: String): SparkProcessBuilder = {
     _executable = executable
     this
   }
@@ -86,32 +73,32 @@ class SparkProcessBuilder(
     this
   }
 
-  def jar(jar: Path): SparkProcessBuilder = {
+  def jar(jar: String): SparkProcessBuilder = {
     this._jars += jar
     this
   }
 
-  def jars(jars: Traversable[Path]): SparkProcessBuilder = {
+  def jars(jars: Traversable[String]): SparkProcessBuilder = {
     this._jars ++= jars
     this
   }
 
-  def pyFile(pyFile: Path): SparkProcessBuilder = {
+  def pyFile(pyFile: String): SparkProcessBuilder = {
     this._pyFiles += pyFile
     this
   }
 
-  def pyFiles(pyFiles: Traversable[Path]): SparkProcessBuilder = {
+  def pyFiles(pyFiles: Traversable[String]): SparkProcessBuilder = {
     this._pyFiles ++= pyFiles
     this
   }
 
-  def file(file: Path): SparkProcessBuilder = {
+  def file(file: String): SparkProcessBuilder = {
     this._files += file
     this
   }
 
-  def files(files: Traversable[Path]): SparkProcessBuilder = {
+  def files(files: Traversable[String]): SparkProcessBuilder = {
     this._files ++= files
     this
   }
@@ -192,12 +179,12 @@ class SparkProcessBuilder(
     this
   }
 
-  def archive(archive: Path): SparkProcessBuilder = {
+  def archive(archive: String): SparkProcessBuilder = {
     _archives += archive
     this
   }
 
-  def archives(archives: Traversable[Path]): SparkProcessBuilder = {
+  def archives(archives: Traversable[String]): SparkProcessBuilder = {
     archives.foreach(archive)
     this
   }
@@ -222,8 +209,8 @@ class SparkProcessBuilder(
     this
   }
 
-  def start(file: Option[Path], args: Traversable[String]): SparkProcess = {
-    var arguments = ArrayBuffer(fromPath(_executable))
+  def start(file: Option[String], args: Traversable[String]): SparkProcess = {
+    var arguments = ArrayBuffer(_executable)
 
     def addOpt(option: String, value: Option[String]): Unit = {
       value.foreach { v =>
@@ -242,9 +229,9 @@ class SparkProcessBuilder(
     addOpt("--master", _master)
     addOpt("--deploy-mode", _deployMode)
     addOpt("--name", _name)
-    addList("--jars", _jars.map(fromPath))
-    addList("--py-files", _pyFiles.map(fromPath))
-    addList("--files", _files.map(fromPath))
+    addList("--jars", _jars)
+    addList("--py-files", _pyFiles)
+    addList("--files", _files)
     addOpt("--class", _className)
     _conf.foreach { case (key, value) =>
       arguments += "--conf"
@@ -257,9 +244,9 @@ class SparkProcessBuilder(
     }
 
     addOpt("--queue", _queue)
-    addList("--archives", _archives.map(fromPath))
+    addList("--archives", _archives)
 
-    arguments += file.map(fromPath).getOrElse("spark-internal")
+    arguments += file.getOrElse("spark-internal")
     arguments ++= args
 
     val argsString = arguments
@@ -282,13 +269,4 @@ class SparkProcessBuilder(
     SparkProcess(pb.start())
   }
 
-  private def fromPath(path: Path) = path match {
-    case AbsolutePath(p) => p
-    case RelativePath(p) =>
-      if (p.startsWith("hdfs://")) {
-        p
-      } else {
-        fsRoot + "/" + p
-      }
-  }
 }

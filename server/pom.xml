@@ -41,13 +41,7 @@
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-spark</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-yarn</artifactId>
+            <artifactId>livy-client-local</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -104,12 +98,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>
         </dependency>
@@ -162,12 +150,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra-test_${scala.binary.version}</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
@@ -180,6 +162,25 @@
         <dependency>
             <groupId>net.databinder.dispatch</groupId>
             <artifactId>dispatch-json4s-jackson_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-repl</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-core_${scala.binary.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scalatra</groupId>
+            <artifactId>scalatra-test_${scala.binary.version}</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>

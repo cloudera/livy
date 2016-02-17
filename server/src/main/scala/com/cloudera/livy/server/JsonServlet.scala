@@ -91,11 +91,38 @@ abstract class JsonServlet extends ScalatraServlet with ApiFormats with FutureSu
     super.renderResponse(result)
   }
 
+  protected def bodyAs[T: ClassTag](req: HttpServletRequest)
+      (implicit klass: ClassTag[T]): T = {
+    bodyAs(req, klass.runtimeClass)
+  }
+
+  private def bodyAs[T](req: HttpServletRequest, klass: Class[_]): T = {
+    mapper.readValue(req.getInputStream(), klass).asInstanceOf[T]
+  }
+
   private def doAction[T: ClassTag](
       req: HttpServletRequest,
       action: T => Any)(implicit klass: ClassTag[T]): Any = {
-    val arg = mapper.readValue(req.getInputStream(), klass.runtimeClass).asInstanceOf[T]
-    action(arg.asInstanceOf[T])
+    action(bodyAs[T](req, klass.runtimeClass))
+  }
+
+  private def isJson(res: HttpServletResponse, headers: Map[String, String] = Map()): Boolean = {
+    val ctypeHeader = "Content-Type"
+    headers.get(ctypeHeader).orElse(Option(res.getHeader(ctypeHeader)))
+      .map(_.startsWith("application/json")).getOrElse(false)
+  }
+
+  private def toResult(obj: Any, res: HttpServletResponse): Any = obj match {
+    case async: AsyncResult =>
+      new AsyncResult {
+        val is = async.is.map(toResult(_, res))
+      }
+    case ActionResult(status, body, headers) if isJson(res, headers) =>
+      ActionResult(status, toJson(body), headers)
+    case body if isJson(res) =>
+      Ok(toJson(body))
+    case other =>
+      other
   }
 
   private def toJson(obj: Any): Any = {

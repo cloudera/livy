@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark.interactive
+package com.cloudera.livy.server.interactive
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.scalatest.FunSpec
