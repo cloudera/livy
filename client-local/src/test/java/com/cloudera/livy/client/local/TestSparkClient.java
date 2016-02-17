@@ -35,6 +35,7 @@ import java.util.zip.ZipEntry;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.spark.SparkFiles;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaRDD;
@@ -277,13 +278,32 @@ public class TestSparkClient {
   }
 
   @Test
-  public void testStreamingContext() throws Exception{
+  public void testStreamingContext() throws Exception {
     runTest(true, new TestFunction() {
       @Override
       void call(LivyClient client) throws Exception {
         JobHandle<Boolean> handle = client.submit(new SparkStreamingJob());
         Boolean streamingContextCreated = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(true, streamingContextCreated);
+      }
+    });
+  }
+
+  @Test
+  public void testImpersonation() throws Exception {
+    final String PROXY = "__proxy__";
+
+    runTest(false, new TestFunction() {
+      @Override
+      void config(Properties conf) {
+        conf.put(LocalConf.Entry.PROXY_USER.key(), PROXY);
+      }
+
+      @Override
+      void call(LivyClient client) throws Exception {
+        JobHandle<String> handle = client.submit(new GetCurrentUserJob());
+        String userName = handle.get(TIMEOUT, TimeUnit.SECONDS);
+        assertEquals(PROXY, userName);
       }
     });
   }
@@ -547,6 +567,15 @@ public class TestSparkClient {
     @Override
     public String call(JobContext jc) {
       return "Hello";
+    }
+
+  }
+
+  private static class GetCurrentUserJob implements Job<String> {
+
+    @Override
+    public String call(JobContext jc) throws Exception {
+      return UserGroupInformation.getCurrentUser().getUserName();
     }
 
   }

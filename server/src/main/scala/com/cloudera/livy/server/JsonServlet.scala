@@ -77,18 +77,20 @@ abstract class JsonServlet extends ScalatraServlet with ApiFormats with FutureSu
     }
   }
 
-  override protected def renderResponse(actionResult: Any): Unit = {
+  override protected def renderResponseBody(actionResult: Any): Unit = {
     val result = actionResult match {
-      case async: AsyncResult =>
-        async
       case ActionResult(status, body, headers) if format == "json" =>
         ActionResult(status, toJson(body), headers)
+      case str: String if format == "json" =>
+        // This should be changed when we implement LIVY-54. For now, just create a dummy
+        // JSON object when a raw string is being returned.
+        toJson(Map("msg" -> str))
       case other if format == "json" =>
-        Ok(toJson(other))
+        toJson(other)
       case other =>
         other
     }
-    super.renderResponse(result)
+    super.renderResponseBody(result)
   }
 
   protected def bodyAs[T: ClassTag](req: HttpServletRequest)

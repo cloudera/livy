@@ -46,6 +46,8 @@ public class LocalConf extends ClientConf<LocalConf> {
 
     LIVY_JARS("jars", null),
 
+    PROXY_USER("proxy_user", null),
+
     RPC_SERVER_ADDRESS("rpc.server.address", null),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90000ms"),
     RPC_CLIENT_CONNECT_TIMEOUT("client.connect.timeout", "10000ms"),

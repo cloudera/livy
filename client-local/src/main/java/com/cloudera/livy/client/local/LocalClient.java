@@ -317,6 +317,11 @@ public class LocalClient implements LivyClient {
       argv.add("--class");
       argv.add(RemoteDriver.class.getName());
 
+      if (conf.get(PROXY_USER) != null) {
+        argv.add("--proxy-user");
+        argv.add(conf.get(PROXY_USER));
+      }
+
       String jar = "spark-internal";
       String livyJars = conf.get(LIVY_JARS);
       if (livyJars == null) {

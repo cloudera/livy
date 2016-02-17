@@ -31,12 +31,13 @@ class BatchSessionServlet(livyConf: LivyConf)
 
   override protected def createSession(req: HttpServletRequest): BatchSession = {
     val createRequest = bodyAs[CreateBatchRequest](req)
-    new BatchSession(sessionManager.nextId(), remoteUser(req), livyConf, createRequest)
+    val proxyUser = checkImpersonation(createRequest.proxyUser, req)
+    new BatchSession(sessionManager.nextId(), remoteUser(req), proxyUser, livyConf, createRequest)
   }
 
   override protected def clientSessionView(session: BatchSession, req: HttpServletRequest): Any = {
     val logs =
-      if (isOwner(session, req)) {
+      if (hasAccess(session.owner, req)) {
         val lines = session.logLines()
 
         val size = 10
