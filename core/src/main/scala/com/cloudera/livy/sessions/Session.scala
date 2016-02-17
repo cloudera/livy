@@ -24,17 +24,13 @@ import scala.concurrent.Future
 
 abstract class Session(val id: Int, val owner: String) {
 
-  private var _lastActivity = 0L
+  private var _lastActivity = System.nanoTime()
 
-  def lastActivity: Option[Long] = if (_lastActivity == 0L) None else Some(_lastActivity)
-
-  def stoppedTime: Option[Long] = {
-    state match {
-      case SessionState.Error(time) => Some(time)
-      case SessionState.Dead(time) => Some(time)
-      case SessionState.Success(time) => Some(time)
-      case _ => None
-    }
+  def lastActivity: Long = state match {
+    case SessionState.Error(time) => time
+    case SessionState.Dead(time) => time
+    case SessionState.Success(time) => time
+    case _ => _lastActivity
   }
 
   val timeout: Long = TimeUnit.HOURS.toNanos(1)

@@ -19,9 +19,11 @@
 package com.cloudera.livy.sessions
 
 import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.LivyConf
 
@@ -32,7 +34,9 @@ class SessionManagerSpec extends FlatSpec with Matchers {
 
     override def logLines(): IndexedSeq[String] = IndexedSeq()
 
-    override def state: SessionState = SessionState.Success(0)
+    override def state: SessionState = SessionState.Idle()
+
+    override val timeout: Long = 0L
   }
 
   it should "garbage collect old sessions" in {
@@ -41,7 +45,9 @@ class SessionManagerSpec extends FlatSpec with Matchers {
     val manager = new SessionManager[MockSession](livyConf)
     val session = manager.register(new MockSession(manager.nextId(), null))
     manager.get(session.id).isDefined should be(true)
-    Await.result(manager.collectGarbage(), Duration.Inf)
-    manager.get(session.id).isEmpty should be(true)
+    eventually(timeout(5 seconds), interval(100 millis)) {
+      Await.result(manager.collectGarbage(), Duration.Inf)
+      manager.get(session.id) should be(None)
+    }
   }
 }

@@ -122,6 +122,9 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
     new AsyncResult {
       val is = Future {
         val session = sessionManager.register(createSession(request))
+        // Because it may take some time to establish the session, update the last activity
+        // time before returning the session info to the client.
+        session.recordActivity()
         Created(clientSessionView(session, request),
           headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
         )
