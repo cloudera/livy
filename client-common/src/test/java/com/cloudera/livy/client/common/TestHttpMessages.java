@@ -67,6 +67,16 @@ public class TestHttpMessages {
 
   }
 
+  @Test(expected=IllegalArgumentException.class)
+  public void testJobStatusResultBadState() {
+    new HttpMessages.JobStatus(0L, State.QUEUED, new byte[1], null, null);
+  }
+
+  @Test(expected=IllegalArgumentException.class)
+  public void testJobStatusErrorBadState() {
+    new HttpMessages.JobStatus(0L, State.QUEUED, null, "An Error", null);
+  }
+
   private Object dummyValue(Class<?> klass, Type type) {
     switch (klass.getSimpleName()) {
       case "int":
