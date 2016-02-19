@@ -354,7 +354,10 @@ def magic_matplot(name):
         imgdata.seek(0)
         encode = base64.b64encode(imgdata.buf)
     except:
-        raise ExecutionError(sys.exc_info())
+        exc_type = Exception
+        return execute_reply_error(exc_type, sys.exc_info, [])
+
+#        raise ExecutionError(sys.exc_info())
 
     return {
         'image/png': encode,
