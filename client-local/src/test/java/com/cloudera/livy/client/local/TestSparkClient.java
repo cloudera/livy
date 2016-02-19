@@ -55,7 +55,6 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientBuilder;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.rpc.RpcException;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
@@ -161,35 +160,6 @@ public class TestSparkClient {
       public void call(LivyClient client) throws Exception {
         JobHandle<Long> handle = client.submit(new SparkJob());
         assertEquals(Long.valueOf(5L), handle.get(TIMEOUT, TimeUnit.SECONDS));
-      }
-    });
-  }
-
-  @Test
-  public void testMetricsCollection() throws Exception {
-    runTest(true, new TestFunction() {
-      @Override
-      public void call(LivyClient client) throws Exception {
-        JobHandle.Listener<Integer> listener = newListener();
-        JobHandle<Integer> future = client.submit(new AsyncSparkJob());
-        future.addListener(listener);
-        future.get(TIMEOUT, TimeUnit.SECONDS);
-        MetricsCollection metrics = future.getMetrics();
-        assertEquals(1, metrics.getJobIds().size());
-        assertTrue(metrics.getAllMetrics().executorRunTime > 0L);
-        verify(listener).onSparkJobStarted(same(future),
-          eq(metrics.getJobIds().iterator().next()));
-
-        JobHandle.Listener<Integer> listener2 = newListener();
-        JobHandle<Integer> future2 = client.submit(new AsyncSparkJob());
-        future2.addListener(listener2);
-        future2.get(TIMEOUT, TimeUnit.SECONDS);
-        MetricsCollection metrics2 = future2.getMetrics();
-        assertEquals(1, metrics2.getJobIds().size());
-        assertFalse(Objects.equal(metrics.getJobIds(), metrics2.getJobIds()));
-        assertTrue(metrics2.getAllMetrics().executorRunTime > 0L);
-        verify(listener2).onSparkJobStarted(same(future2),
-          eq(metrics2.getJobIds().iterator().next()));
       }
     });
   }
@@ -334,9 +304,6 @@ public class TestSparkClient {
 
         Integer resultVal = (Integer) s.deserialize(ByteBuffer.wrap(status.result));
         assertEquals(Integer.valueOf(1), resultVal);
-
-        assertNotNull("Missing metrics in job status.", status.metrics);
-        assertTrue(status.metrics.getAllMetrics().executorRunTime > 0L);
 
         assertNotEquals(0, collectedIds.size());
 
