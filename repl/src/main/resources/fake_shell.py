@@ -347,11 +347,14 @@ def magic_matplot(name):
         exc_type, exc_value, tb = sys.exc_info()
         return execute_reply_error(exc_type, exc_value, [])
 
-    fig = value.gcf()
-    imgdata = StringIO.StringIO()
-    fig.savefig(imgdata, format='png')
-    imgdata.seek(0)
-    encode = base64.b64encode(imgdata.buf)
+    try:
+        fig = value.gcf()
+        imgdata = StringIO.StringIO()
+        fig.savefig(imgdata, format='png')
+        imgdata.seek(0)
+        encode = base64.b64encode(imgdata.buf)
+    except:
+        raise ExecutionError(sys.exc_info())
 
     return {
         'image/png': encode,
