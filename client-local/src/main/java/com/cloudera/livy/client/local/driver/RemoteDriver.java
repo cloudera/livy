@@ -130,8 +130,6 @@ public class RemoteDriver {
     String secret = livyConf.get(CLIENT_SECRET);
     Preconditions.checkArgument(secret != null, "No secret provided.");
 
-    System.out.println("MAPCONF-->");
-    System.out.println(livyConf);
     this.egroup = new NioEventLoopGroup(
         livyConf.getInt(RPC_MAX_THREADS),
         new ThreadFactoryBuilder()
@@ -211,24 +209,29 @@ public class RemoteDriver {
   }
 
   synchronized void shutdown(Throwable error) {
-    if (running) {
+    if (!running) {
+      return;
+    }
+
+    try {
       if (error == null) {
         LOG.info("Shutting down remote driver.");
       } else {
         LOG.error("Shutting down remote driver due to error: " + error, error);
       }
-      running = false;
       for (JobWrapper<?> job : activeJobs.values()) {
         job.cancel();
-      }
-      if (error != null) {
-        protocol.sendError(error);
       }
       if (jc != null) {
         jc.stop();
       }
+      if (error != null) {
+        protocol.sendError(error);
+      }
       clientRpc.close();
       egroup.shutdownGracefully();
+    } finally {
+      running = false;
       synchronized (shutdownLock) {
         shutdownLock.notifyAll();
       }

@@ -24,7 +24,8 @@ import javax.servlet.http.HttpServletResponse._
 
 import scala.concurrent.Future
 
-import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager, SessionState}
+import com.cloudera.livy.LivyConf
+import com.cloudera.livy.sessions.{Session, SessionState}
 
 object SessionServletSpec {
 
@@ -45,20 +46,16 @@ object SessionServletSpec {
 }
 
 class SessionServletSpec
-  extends BaseSessionServletSpec[Session, Map[String, String]](needsSpark = false) {
+  extends BaseSessionServletSpec[Session] {
 
   import SessionServletSpec._
 
-  def sessionFactory: SessionFactory[Session, Map[String, String]] = {
-    new SessionFactory[Session, Map[String, String]]() {
-      override def create(id: Int, owner: String, createRequest: Map[String, String]): Session = {
-        new MockSession(id, owner)
+  override def createServlet(): SessionServlet[Session] = {
+    new SessionServlet[Session](new LivyConf()) {
+      override protected def createSession(req: HttpServletRequest): Session = {
+        new MockSession(sessionManager.nextId(), remoteUser(req))
       }
-    }
-  }
 
-  def servlet: SessionServlet[Session, Map[String, String]] = {
-    new SessionServlet(sessionManager) {
       override protected def clientSessionView(session: Session, req: HttpServletRequest): Any = {
         val logs = if (isOwner(session, req)) session.logLines() else Nil
         MockSessionView(session.id, session.owner, logs)

@@ -22,18 +22,10 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 import org.json4s.Extraction
-import org.json4s.JsonAST.JValue
-import org.scalatest.Outcome
 
 import com.cloudera.livy.repl.python.PythonInterpreter
 
 class PythonSessionSpec extends BaseSessionSpec {
-
-  override protected def withFixture(test: NoArgTest): Outcome = {
-    assume(sys.env.get("SPARK_HOME").isDefined,
-      "Test requires a Spark installation in SPARK_HOME.")
-    test()
-  }
 
   override def createInterpreter(): Interpreter = PythonInterpreter()
 
@@ -176,37 +168,4 @@ class PythonSessionSpec extends BaseSessionSpec {
     result should equal (expectedResult)
   }
 
-  it should "access the spark context" in withSession { session =>
-    val statement = session.execute("""sc""")
-    statement.id should equal (0)
-
-    val result = Await.result(statement.result, Duration.Inf)
-    val resultMap = result.extract[Map[String, JValue]]
-
-    // Manually extract the values since the line numbers in the exception could change.
-    resultMap("status").extract[String] should equal ("ok")
-    resultMap("execution_count").extract[Int] should equal (0)
-
-    val data = resultMap("data").extract[Map[String, JValue]]
-    data("text/plain").extract[String] should include ("<pyspark.context.SparkContext object at")
-  }
-
-  it should "execute spark commands" in withSession { session =>
-    val statement = session.execute("""
-                                      |sc.parallelize(xrange(0, 2)).map(lambda i: i + 1).collect()
-                                      |""".stripMargin)
-    statement.id should equal (0)
-
-    val result = Await.result(statement.result, Duration.Inf)
-
-    val expectedResult = Extraction.decompose(Map(
-      "status" -> "ok",
-      "execution_count" -> 0,
-      "data" -> Map(
-        "text/plain" -> "[1, 2]"
-      )
-    ))
-
-    result should equal (expectedResult)
-  }
 }

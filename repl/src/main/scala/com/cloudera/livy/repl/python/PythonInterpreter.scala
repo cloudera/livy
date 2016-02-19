@@ -31,7 +31,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
 import py4j.GatewayServer
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
 
@@ -49,8 +49,8 @@ object PythonInterpreter extends Logging {
 
     val pythonPath = sys.env.getOrElse("PYTHONPATH", "")
       .split(File.pathSeparator)
-      .++(findPySparkArchives())
-      .++(findPyFiles())
+      .++(if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil)
+      .++(if (!LivyConf.TEST_MODE) findPyFiles() else Nil)
 
     env.put("PYTHONPATH", pythonPath.mkString(File.pathSeparator))
     env.put("PYTHONUNBUFFERED", "YES")

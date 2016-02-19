@@ -20,6 +20,7 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
+import java.nio.file.Files
 
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.client.common.ClientConf.ConfEntry
@@ -43,9 +44,7 @@ object LivyConf {
   val LIVY_HOME = Entry("livy.home", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
 
-  sealed trait SessionKind
-  case class Process() extends SessionKind
-  case class Yarn() extends SessionKind
+  lazy val TEST_LIVY_HOME = Files.createTempDirectory("livyTemp").toUri.toString
 }
 
 /**
@@ -76,25 +75,21 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   /** Return the location of the spark home directory */
   def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
 
-  def livyHome(): Option[String] = Option(get(LIVY_HOME)).orElse(sys.env.get("LIVY_HOME"))
+  def livyHome(): String = {
+    Option(get(LIVY_HOME)).orElse(sys.env.get("LIVY_HOME")).getOrElse {
+      if (LivyConf.TEST_MODE) {
+        LivyConf.TEST_LIVY_HOME
+      } else {
+        throw new IllegalStateException("livy.home must be specified!")
+      }
+    }
+  }
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {
     Option(get(SPARK_SUBMIT_KEY))
       .orElse { sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" } }
       .getOrElse("spark-submit")
-  }
-
-  def sessionKind(): SessionKind = get(SESSION_FACTORY) match {
-    case "process" => Process()
-    case "yarn" => Yarn()
-    case kind => throw new IllegalStateException(f"unknown kind $kind")
-  }
-
-  /** Return the filesystem root. Defaults to the local filesystem. */
-  def filesystemRoot(): String = sessionKind() match {
-    case Process() => "file://"
-    case Yarn() => "hdfs://"
   }
 
   private def loadFromMap(map: Iterable[(String, String)]): Unit = {

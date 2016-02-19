@@ -142,31 +142,6 @@ In particular the ``YARN mode`` (default is ``local`` process for development) c
 
 .. _livy-defaults.conf.template: https://github.com/cloudera/livy/blob/master/apps/spark/java/conf/livy-defaults.conf.template
 
-Spark Configuration
-===================
-
-Livy's Spark sessions are configured through two mechanisms. First, is by way of the local
-`Spark configuration`_. Create, or modify the Spark configuration files as directed, and point
-Livy at this directory with:
-
-.. code:: shell
-
-    % env \
-      SPARK_CONF_DIR=... \
-      $LIVY_HOME/bin/livy-server
-
-The second mechanism is by white listing `Spark configuration`_ options that can be set by the user
-creating a Spark session. This list can be created by copying
-`spark-user-configurable-options.template`_ to ``spark-user-configurable-options`` and listing
-the options the user may specify in the ``conf`` session field.
-
-*warning*: Be careful before enabling options. Some options may allow a malicious user to
-read files that are accessible by the Livy Server process user. Among other things, this might
-allow a user to access the Livy TLS private key, Kerberos tickets, or more.
-
-.. _Spark configuration: https://spark.apache.org/docs/latest/configuration.html
-.. _spark-user-configurable-options.template: https://github.com/cloudera/livy/blob/master/apps/spark/java/conf/spark-user-configurable-options.template
-
 
 Spark Example
 =============

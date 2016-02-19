@@ -35,7 +35,6 @@ import java.util.zip.ZipEntry;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
-import org.apache.spark.SparkException;
 import org.apache.spark.SparkFiles;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaRDD;
@@ -129,7 +128,6 @@ public class TestSparkClient {
           handle.get(TIMEOUT, TimeUnit.SECONDS);
           fail("Should have thrown an exception.");
         } catch (ExecutionException ee) {
-          assertTrue(ee.getCause() instanceof SparkException);
           assertTrue(ee.getCause().getMessage().contains("IllegalStateException: Hello"));
         }
 
@@ -158,8 +156,6 @@ public class TestSparkClient {
 
   @Test
   public void testRemoteClient() throws Exception {
-    assumeTrue("Test requires a Spark installation in SPARK_HOME.",
-      System.getenv("SPARK_HOME") != null);
     runTest(false, new TestFunction() {
       @Override
       public void call(LivyClient client) throws Exception {

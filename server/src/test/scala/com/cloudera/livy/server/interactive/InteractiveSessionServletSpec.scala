@@ -18,87 +18,66 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
+import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent.Future
 
 import org.json4s.JsonAST._
 import org.json4s.jackson.Json4sScalaModule
+import org.mockito.Matchers._
+import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 
-import com.cloudera.livy.ExecuteRequest
+import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.{InteractiveSession, Statement}
-import com.cloudera.livy.spark.{SparkProcess, SparkProcessBuilderFactory}
-import com.cloudera.livy.spark.interactive.{CreateInteractiveRequest, InteractiveSessionFactory}
+import com.cloudera.livy.sessions.interactive.Statement
 
-class InteractiveSessionServletSpec
-  extends BaseSessionServletSpec[InteractiveSession, CreateInteractiveRequest] {
+class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
 
   mapper.registerModule(new SessionKindModule())
     .registerModule(new Json4sScalaModule())
 
-  class MockInteractiveSession(id: Int, owner: String) extends InteractiveSession(id, owner) {
-    var _state: SessionState = SessionState.Idle()
+  class MockInteractiveSessionServlet extends InteractiveSessionServlet(new LivyConf()) {
 
-    var _idCounter = new AtomicInteger()
-    var _statements = IndexedSeq[Statement]()
+    private var statements = IndexedSeq[Statement]()
 
-    override def kind: Kind = Spark()
+    override protected def createSession(req: HttpServletRequest): InteractiveSession = {
+      val statementCounter = new AtomicInteger()
 
-    override def logLines(): IndexedSeq[String] = IndexedSeq()
+      val session = mock(classOf[InteractiveSession])
+      when(session.kind).thenReturn(Spark())
+      when(session.logLines()).thenReturn(IndexedSeq())
+      when(session.state).thenReturn(SessionState.Idle())
+      when(session.stop()).thenReturn(Future.successful(()))
+      when(session.proxyUser).thenReturn(None)
+      when(session.statements).thenAnswer(
+        new Answer[IndexedSeq[Statement]]() {
+          override def answer(args: InvocationOnMock): IndexedSeq[Statement] = statements
+        })
+      when(session.executeStatement(any(classOf[ExecuteRequest]))).thenAnswer(
+        new Answer[Statement]() {
+          override def answer(args: InvocationOnMock): Statement = {
+            val id = statementCounter.getAndIncrement
+            val executeRequest = args.getArguments()(0).asInstanceOf[ExecuteRequest]
+            val statement = new Statement(
+              id,
+              executeRequest,
+              Future.successful(JObject(JField("value", JInt(42)))))
 
-    override def state: SessionState = _state
+            statements :+= statement
+            statement
+          }
+        })
 
-    override def stop(): Future[Unit] = Future.successful(())
-
-    override def url_=(url: URL): Unit = throw new UnsupportedOperationException()
-
-    override def executeStatement(executeRequest: ExecuteRequest): Statement = {
-      val id = _idCounter.getAndIncrement
-      val statement = new Statement(
-        id,
-        executeRequest,
-        Future.successful(JObject(JField("value", JInt(42)))))
-
-      _statements :+= statement
-
-      statement
+      session
     }
 
-    override def proxyUser: Option[String] = None
-
-    override def url: Option[URL] = throw new UnsupportedOperationException()
-
-    override def statements: IndexedSeq[Statement] = _statements
-
-    override def interrupt(): Future[Unit] = throw new UnsupportedOperationException()
   }
 
-  class MockInteractiveSessionFactory(processFactory: SparkProcessBuilderFactory)
-    extends InteractiveSessionFactory(processFactory) {
-
-    override def create(
-        id: Int,
-        owner: String,
-        request: CreateInteractiveRequest): InteractiveSession = {
-      new MockInteractiveSession(id, null)
-    }
-
-    protected override def create(
-        id: Int,
-        owner: String,
-        process: SparkProcess,
-        request: CreateInteractiveRequest): InteractiveSession = {
-      throw new UnsupportedOperationException()
-    }
-  }
-
-  override def sessionFactory: InteractiveSessionFactory = new MockInteractiveSessionFactory(
-    new SparkProcessBuilderFactory(livyConf))
-
-  override def servlet: InteractiveSessionServlet = new InteractiveSessionServlet(sessionManager)
+  override def createServlet(): InteractiveSessionServlet = new MockInteractiveSessionServlet()
 
   it("should setup and tear down an interactive session") {
     jget[Map[String, Any]]("/") { data =>
@@ -112,7 +91,7 @@ class InteractiveSessionServletSpec
       header(Location) should equal(s"/$Sessions/0")
       data("id") should equal (0)
 
-      val session = sessionManager.get(0)
+      val session = servlet.sessionManager.get(0)
       session should be (defined)
     }
 
@@ -120,7 +99,7 @@ class InteractiveSessionServletSpec
       data("id") should equal (0)
       data("state") should equal ("idle")
 
-      val batch = sessionManager.get(0)
+      val batch = servlet.sessionManager.get(0)
       batch should be (defined)
     }
 
@@ -129,10 +108,15 @@ class InteractiveSessionServletSpec
       data("output") should be (Map("value" -> 42))
     }
 
+    jget[Map[String, Any]]("/0/statements") { data =>
+      data("total_statements") should be (1)
+      data("statements").asInstanceOf[Seq[Map[String, Any]]](0)("id") should be (0)
+    }
+
     jdelete[Map[String, Any]]("/0") { data =>
       data should equal (Map("msg" -> "deleted"))
 
-      val session = sessionManager.get(0)
+      val session = servlet.sessionManager.get(0)
       session should not be defined
     }
   }

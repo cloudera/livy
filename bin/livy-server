@@ -25,7 +25,7 @@ cd $LIVY_HOME
 
 LIBDIR="$LIVY_HOME/jars"
 if [ ! -d "$LIBDIR" ]; then
-  LIBDIR="$LIVY_HOME/assembly/target/jars"
+  LIBDIR="$LIVY_HOME/server/target/jars"
 fi
 if [ ! -d "$LIBDIR" ]; then
   echo "Could not find Livy jars directory." 1>&2

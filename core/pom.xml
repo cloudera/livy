@@ -22,19 +22,19 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main_2.10</artifactId>
+    <artifactId>livy-main</artifactId>
     <version>0.2.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>livy-core_2.10</artifactId>
+  <artifactId>livy-core</artifactId>
   <version>0.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <dependencies>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
+      <artifactId>livy-client-common</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -105,21 +105,5 @@
     </dependency>
 
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-    </plugins>
-  </build>
 
 </project>

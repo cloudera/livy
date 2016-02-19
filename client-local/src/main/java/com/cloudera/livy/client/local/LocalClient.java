@@ -52,7 +52,6 @@ import com.google.common.io.Resources;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
-import org.apache.spark.SparkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +85,7 @@ public class LocalClient implements LivyClient {
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
 
-  LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException, SparkException {
+  LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.factory = factory;
     this.conf = conf;
     this.childIdGenerator = new AtomicInteger();
@@ -140,23 +139,22 @@ public class LocalClient implements LivyClient {
       isAlive = false;
       try {
         protocol.endSession();
+
+        try {
+          driverThread.join(DEFAULT_SHUTDOWN_TIMEOUT);
+        } catch (InterruptedException ie) {
+          LOG.debug("Interrupted before driver thread was finished.");
+        }
+        if (driverThread.isAlive()) {
+          LOG.warn("Timed out shutting down remote driver, interrupting...");
+          driverThread.interrupt();
+        }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
       } finally {
         driverRpc.close();
         factory.unref();
       }
-    }
-
-    long endTime = System.currentTimeMillis() + DEFAULT_SHUTDOWN_TIMEOUT;
-    try {
-      driverThread.join(DEFAULT_SHUTDOWN_TIMEOUT);
-    } catch (InterruptedException ie) {
-      LOG.debug("Interrupted before driver thread was finished.");
-    }
-    if (endTime - System.currentTimeMillis() <= 0) {
-      LOG.warn("Timed out shutting down remote driver, interrupting...");
-      driverThread.interrupt();
     }
   }
 
@@ -507,7 +505,8 @@ public class LocalClient implements LivyClient {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {
         LOG.info("Received result for {}", msg.id);
-        Throwable error = msg.error != null ? new SparkException(msg.error) : null;
+        // TODO: need a better exception for this.
+        Throwable error = msg.error != null ? new RuntimeException(msg.error) : null;
         if (error == null) {
           handle.setSuccess(msg.result);
         } else {
