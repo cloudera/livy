@@ -26,7 +26,6 @@ import org.scalatra._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
-import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
 
@@ -142,7 +141,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   }
 
   error {
-    case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
     case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>

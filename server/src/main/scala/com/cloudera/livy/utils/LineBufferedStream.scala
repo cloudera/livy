@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy
+package com.cloudera.livy.util
 
 import java.io.InputStream
 import java.util.concurrent.locks.ReentrantLock
 
 import scala.io.Source
+
+import com.cloudera.livy.Logging
 
 class LineBufferedStream(inputStream: InputStream) extends Logging {
 

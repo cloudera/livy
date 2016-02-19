@@ -16,7 +16,9 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy
+package com.cloudera.livy.util
+
+import com.cloudera.livy.{Logging, Utils}
 
 class LineBufferedProcess(process: Process) extends Logging {
 
