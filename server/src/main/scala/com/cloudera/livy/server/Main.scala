@@ -32,7 +32,6 @@ import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.client.ClientSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
-import com.cloudera.livy.spark.SparkManager
 
 object Main extends Logging {
 
@@ -60,31 +59,23 @@ object Main extends Logging {
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
-        private var sparkManager: SparkManager = _
-
         override def contextDestroyed(sce: ServletContextEvent): Unit = {
-          if (sparkManager != null) {
-            sparkManager.shutdown()
-            sparkManager = null
-          }
+
         }
 
         override def contextInitialized(sce: ServletContextEvent): Unit = {
           try {
             val context = sce.getServletContext()
-            sparkManager = SparkManager(livyConf)
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
-            context.mount(new InteractiveSessionServlet(sparkManager.interactiveManager),
-              "/sessions/*")
-            context.mount(new BatchSessionServlet(sparkManager.batchManager), "/batches/*")
-            context.mount(new ClientSessionServlet(sparkManager.clientManager), "/clients/*")
+            context.mount(new InteractiveSessionServlet(livyConf), "/sessions/*")
+            context.mount(new BatchSessionServlet(livyConf), "/batches/*")
+            context.mount(new ClientSessionServlet(livyConf), "/clients/*")
             context.mountMetricsAdminServlet("/")
           } catch {
             case e: Throwable =>
               error("Exception thrown when initializing server", e)
               sys.exit(1)
           }
-
         }
 
       })

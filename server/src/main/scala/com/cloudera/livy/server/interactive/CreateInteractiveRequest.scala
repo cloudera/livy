@@ -16,33 +16,25 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.sessions
+package com.cloudera.livy.server.interactive
 
-import java.util.concurrent.TimeUnit
+import com.cloudera.livy.sessions.Kind
 
-import scala.concurrent.Future
+class CreateInteractiveRequest {
 
-abstract class Session(val id: Int, val owner: String) {
-
-  private var _lastActivity = System.nanoTime()
-
-  def lastActivity: Long = state match {
-    case SessionState.Error(time) => time
-    case SessionState.Dead(time) => time
-    case SessionState.Success(time) => time
-    case _ => _lastActivity
-  }
-
-  val timeout: Long = TimeUnit.HOURS.toNanos(1)
-
-  def state: SessionState
-
-  def stop(): Future[Unit]
-
-  def recordActivity(): Unit = {
-    _lastActivity = System.nanoTime()
-  }
-
-  def logLines(): IndexedSeq[String]
+  var kind: Kind = _
+  var proxyUser: Option[String] = None
+  var jars: List[String] = List()
+  var pyFiles: List[String] = List()
+  var files: List[String] = List()
+  var driverMemory: Option[String] = None
+  var driverCores: Option[Int] = None
+  var executorMemory: Option[String] = None
+  var executorCores: Option[Int] = None
+  var numExecutors: Option[Int] = None
+  var archives: List[String] = List()
+  var queue: Option[String] = None
+  var name: Option[String] = None
+  var conf: Map[String, String] = Map()
 
 }

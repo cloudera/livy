@@ -20,16 +20,19 @@ package com.cloudera.livy.server.batch
 
 import javax.servlet.http.HttpServletRequest
 
+import com.cloudera.livy.LivyConf
 import com.cloudera.livy.server.SessionServlet
-import com.cloudera.livy.sessions.SessionManager
-import com.cloudera.livy.sessions.batch.BatchSession
-import com.cloudera.livy.spark.batch.CreateBatchRequest
 
 case class BatchSessionView(id: Long, state: String, log: Seq[String])
 
-class BatchSessionServlet(batchManager: SessionManager[BatchSession, CreateBatchRequest])
-  extends SessionServlet(batchManager)
+class BatchSessionServlet(livyConf: LivyConf)
+  extends SessionServlet[BatchSession](livyConf)
 {
+
+  override protected def createSession(req: HttpServletRequest): BatchSession = {
+    val createRequest = bodyAs[CreateBatchRequest](req)
+    new BatchSession(sessionManager.nextId(), remoteUser(req), livyConf, createRequest)
+  }
 
   override protected def clientSessionView(session: BatchSession, req: HttpServletRequest): Any = {
     val logs =

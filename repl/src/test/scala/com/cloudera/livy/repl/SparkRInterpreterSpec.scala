@@ -28,12 +28,6 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override protected def withFixture(test: NoArgTest) = {
-    val sparkRExecutable = SparkRInterpreter.sparkRExecutable
-    assume(sparkRExecutable.isDefined, "Cannot find sparkR")
-    test()
-  }
-
   override def createInterpreter(): Interpreter = {
     SparkRInterpreter()
   }
@@ -90,23 +84,4 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
-  it should "execute spark commands" in withInterpreter { interpreter =>
-    val response = interpreter.execute(
-      """head(createDataFrame(sqlContext, faithful))""")
-
-    response match {
-      case Interpreter.ExecuteSuccess(map: JValue) =>
-        (map \ "text/plain").extract[String] should include (
-          """  eruptions waiting
-            |1     3.600      79
-            |2     1.800      54
-            |3     3.333      74
-            |4     2.283      62
-            |5     4.533      85
-            |6     2.883      55""".stripMargin)
-      case _ =>
-        throw new Exception("response is not a success")
-    }
-
-  }
 }

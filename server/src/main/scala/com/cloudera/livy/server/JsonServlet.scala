@@ -36,7 +36,7 @@ import org.scalatra._
  * Serialization and deserialization are done through Jackson directly, so all Jackson features
  * are available.
  */
-abstract class JsonServlet extends ScalatraServlet with FutureSupport {
+abstract class JsonServlet extends ScalatraServlet with ApiFormats with FutureSupport {
 
   override protected implicit def executor: ExecutionContext = ExecutionContext.global
 
@@ -51,52 +51,59 @@ abstract class JsonServlet extends ScalatraServlet with FutureSupport {
 
   protected final val mapper = createMapper()
 
+  before() {
+    contentType = formats("json")
+  }
+
   error {
     case e: JsonParseException => BadRequest(e.getMessage)
   }
 
-  protected def jdelete(t: RouteTransformer*)(action: => Any): Route = {
-    delete(t: _*) {
-      doAction[Unit](request, response, _ => action)
-    }
-  }
-
-  protected def jget(t: RouteTransformer*)(action: => Any): Route = {
-    get(t: _*) {
-      doAction[Unit](request, response, _ => action)
-    }
-  }
-
   protected def jpatch[T: ClassTag](t: RouteTransformer*)(action: T => Any): Route = {
     patch(t: _*) {
-      doAction(request, response, action)
+      doAction(request, action)
     }
   }
 
   protected def jpost[T: ClassTag](t: RouteTransformer*)(action: T => Any): Route = {
     post(t: _*) {
-      doAction(request, response, action)
+      doAction(request, action)
     }
   }
 
   protected def jput[T: ClassTag](t: RouteTransformer*)(action: T => Any): Route = {
     put(t: _*) {
-      doAction[T](request, response, action)
+      doAction(request, action)
     }
+  }
+
+  override protected def renderResponse(actionResult: Any): Unit = {
+    val result = actionResult match {
+      case async: AsyncResult =>
+        async
+      case ActionResult(status, body, headers) if format == "json" =>
+        ActionResult(status, toJson(body), headers)
+      case other if format == "json" =>
+        Ok(toJson(other))
+      case other =>
+        other
+    }
+    super.renderResponse(result)
+  }
+
+  protected def bodyAs[T: ClassTag](req: HttpServletRequest)
+      (implicit klass: ClassTag[T]): T = {
+    bodyAs(req, klass.runtimeClass)
+  }
+
+  private def bodyAs[T](req: HttpServletRequest, klass: Class[_]): T = {
+    mapper.readValue(req.getInputStream(), klass).asInstanceOf[T]
   }
 
   private def doAction[T: ClassTag](
       req: HttpServletRequest,
-      res: HttpServletResponse,
       action: T => Any)(implicit klass: ClassTag[T]): Any = {
-    val arg =
-      if (klass.runtimeClass != classOf[Unit]) {
-        mapper.readValue(req.getInputStream(), klass.runtimeClass).asInstanceOf[T]
-      } else {
-        ()
-      }
-
-    toResult(action(arg.asInstanceOf[T]), res)
+    action(bodyAs[T](req, klass.runtimeClass))
   }
 
   private def isJson(res: HttpServletResponse, headers: Map[String, String] = Map()): Boolean = {

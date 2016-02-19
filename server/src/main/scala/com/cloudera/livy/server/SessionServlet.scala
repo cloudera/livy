@@ -21,13 +21,11 @@ package com.cloudera.livy.server
 import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent.Future
-import scala.reflect.ClassTag
 
 import org.scalatra._
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
-import com.cloudera.livy.sessions.interactive.InteractiveSession.SessionFailedToStart
 import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
@@ -40,7 +38,7 @@ object SessionServlet extends Logging
  *  S: the session type
  *  R: the type representing the session create parameters.
  */
-abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: SessionManager[S, R])
+abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
@@ -49,16 +47,28 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
 
   val Sessions = "sessions"
 
+  private[livy] val sessionManager = new SessionManager[S](livyConf)
+
+  /**
+   * Creates a new session based on the current request. The implementation is responsible for
+   * parsing the body of the request.
+   */
+  protected def createSession(req: HttpServletRequest): S
+
   /**
    * Returns a object representing the session data to be sent back to the client.
    */
   protected def clientSessionView(session: S, req: HttpServletRequest): Any = session
 
+  override def shutdown(): Unit = {
+    sessionManager.shutdown()
+  }
+
   before() {
     contentType = "application/json"
   }
 
-  jget("/") {
+  get("/") {
     val from = params.get("from").map(_.toInt).getOrElse(0)
     val size = params.get("size").map(_.toInt).getOrElse(100)
 
@@ -71,19 +81,19 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     )
   }
 
-  val getSession = jget("/:id") {
+  val getSession = get("/:id") {
     withUnprotectedSession { session =>
       clientSessionView(session, request)
     }
   }
 
-  jget("/:id/state") {
+  get("/:id/state") {
     withUnprotectedSession { session =>
       Map("id" -> session.id, "state" -> session.state.toString)
     }
   }
 
-  jget("/:id/log") {
+  get("/:id/log") {
     withSession { session =>
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
@@ -97,7 +107,7 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     }
   }
 
-  jdelete("/:id") {
+  delete("/:id") {
     withSession { session =>
       sessionManager.delete(session.id) match {
       case Some(future) =>
@@ -110,10 +120,13 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
     }
   }
 
-  jpost[R]("/") { createRequest =>
+  post("/") {
     new AsyncResult {
       val is = Future {
-        val session = sessionManager.create(createRequest, remoteUser(request))
+        val session = sessionManager.register(createSession(request))
+        // Because it may take some time to establish the session, update the last activity
+        // time before returning the session info to the client.
+        session.recordActivity()
         Created(clientSessionView(session, request),
           headers = Map("Location" ->
             (s"/$Sessions" + url(getSession, "id" -> session.id.toString)))
@@ -124,7 +137,6 @@ abstract class SessionServlet[S <: Session, R: ClassTag](sessionManager: Session
 
   error {
     case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
-    case e: SessionFailedToStart => InternalServerError(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
     case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>

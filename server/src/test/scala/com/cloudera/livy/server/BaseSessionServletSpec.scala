@@ -20,32 +20,23 @@ package com.cloudera.livy.server
 
 import org.scalatest.BeforeAndAfterAll
 
-import com.cloudera.livy.LivyConf
-import com.cloudera.livy.sessions.{Session, SessionFactory, SessionManager}
+import com.cloudera.livy.sessions.Session
 
-abstract class BaseSessionServletSpec[S <: Session, R](needsSpark: Boolean = true)
+abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
   val Sessions = "sessions"
   val Location = "Location"
 
-  override protected def withFixture(test: NoArgTest) = {
-    if (needsSpark) {
-      assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-    }
-    test()
-  }
-
   override def afterAll(): Unit = {
     super.afterAll()
-    sessionManager.shutdown()
+    servlet.shutdown()
   }
 
-  def sessionFactory: SessionFactory[S, R]
-  def servlet: SessionServlet[S, R]
-  val livyConf = new LivyConf()
-  lazy val sessionManager = new SessionManager(livyConf, sessionFactory)
+  def createServlet(): SessionServlet[S]
+
+  protected val servlet = createServlet()
 
   addServlet(servlet, "/*")
 
