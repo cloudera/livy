@@ -50,7 +50,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
       jget[Map[String, Any]]("/") { data =>
-        data(Sessions) should equal (Seq())
+        data("sessions") should equal (Seq())
       }
 
       val createRequest = new CreateBatchRequest()
@@ -58,7 +58,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
       createRequest.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       jpost[Map[String, Any]]("/", createRequest) { data =>
-        header(Location) should equal(s"/$Sessions/0")
+        header("Location") should equal("/0")
         data("id") should equal (0)
 
         val batch = servlet.sessionManager.get(0)

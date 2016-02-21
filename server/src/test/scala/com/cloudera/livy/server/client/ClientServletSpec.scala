@@ -66,7 +66,7 @@ class ClientServletSpec
       conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
 
       jpost[SessionInfo]("/", new CreateClientRequest(10000L, conf)) { data =>
-        header(Location) should equal(s"/$Sessions/0")
+        header("Location") should equal("/0")
         data.id should equal (0)
         sessionId = data.id
       }
@@ -74,7 +74,7 @@ class ClientServletSpec
 
     it("should list existing sessions") {
       jget[Map[String, Any]]("/") { data =>
-        data(Sessions) match {
+        data("sessions") match {
           case contents: Seq[_] => contents.size should equal (1)
           case _ => fail("Response is not an array.")
         }
@@ -124,7 +124,7 @@ class ClientServletSpec
         data should equal (Map("msg" -> "deleted"))
       }
       jget[Map[String, Any]]("/") { data =>
-        data(Sessions) match {
+        data("sessions") match {
           case contents: Seq[_] => contents.size should equal (0)
           case _ => fail("Response is not an array.")
         }

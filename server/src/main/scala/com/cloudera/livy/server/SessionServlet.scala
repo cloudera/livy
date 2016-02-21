@@ -45,8 +45,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   with UrlGeneratorSupport
 {
 
-  val Sessions = "sessions"
-
   private[livy] val sessionManager = new SessionManager[S](livyConf)
 
   /**
@@ -77,7 +75,7 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
     Map(
       "from" -> from,
       "total" -> sessionManager.size(),
-      Sessions -> sessions.view(from, from + size).map(clientSessionView(_, request))
+      "sessions" -> sessions.view(from, from + size).map(clientSessionView(_, request))
     )
   }
 
@@ -129,9 +127,17 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
         session.recordActivity()
         Created(clientSessionView(session, request),
           headers = Map("Location" ->
-            (s"/$Sessions" + url(getSession, "id" -> session.id.toString)))
+            (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString)))
         )
       }
+    }
+  }
+
+  private def getRequestPathInfo(request: HttpServletRequest): String = {
+    if (request.getPathInfo != "/") {
+      request.getPathInfo
+    } else {
+      ""
     }
   }
 

@@ -81,14 +81,14 @@ class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSe
 
   it("should setup and tear down an interactive session") {
     jget[Map[String, Any]]("/") { data =>
-      data(Sessions) should equal(Seq())
+      data("sessions") should equal(Seq())
     }
 
     val createRequest = new CreateInteractiveRequest()
     createRequest.kind = Spark()
 
     jpost[Map[String, Any]]("/", createRequest) { data =>
-      header(Location) should equal(s"/$Sessions/0")
+      header("Location") should equal("/0")
       data("id") should equal (0)
 
       val session = servlet.sessionManager.get(0)

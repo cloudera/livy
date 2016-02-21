@@ -26,9 +26,6 @@ abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
-  val Sessions = "sessions"
-  val Location = "Location"
-
   override def afterAll(): Unit = {
     super.afterAll()
     servlet.shutdown()
