@@ -254,9 +254,10 @@ public class LocalClient implements LivyClient {
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
 
       if (sparkHome != null) {
-        launcher.setSparkHome(sparkHome);
+        launcher.setSparkHome(new File(sparkHome, "bin/spark-submit").getAbsolutePath());
       } else {
         LOG.info("spark.home is not defined");
+        launcher.setSparkHome(new File(System.getProperty("java.home"), "bin/java").getAbsolutePath());
         if (master.startsWith("local") ||
               master.startsWith("mesos") ||
               master.endsWith("-client") ||
@@ -305,6 +306,7 @@ public class LocalClient implements LivyClient {
 
       launcher.addAppArgs("--properties-file" + sparkConf.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
+      System.out.println(RemoteDriver.class.getName());
 
       String jar = "spark-internal";
       launcher.setAppResource(jar);
