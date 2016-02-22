@@ -256,7 +256,7 @@ public class LocalClient implements LivyClient {
       if (sparkHome != null) {
         launcher.setSparkHome(sparkHome);
       } else {
-        LOG.info("spark.home is not defined"); 
+        LOG.info("spark.home is not defined");
         if (master.startsWith("local") ||
               master.startsWith("mesos") ||
               master.endsWith("-client") ||
@@ -329,7 +329,7 @@ public class LocalClient implements LivyClient {
       if (userJars != null) {
         String allJars = Joiner.on(",").join(livyJars, userJars);
         conf.set(SPARK_JARS_KEY, allJars);
-      } 
+      }
 
       launcher.addAppArgs("--remote-host" + serverAddress);
       launcher.addAppArgs("--remote-port" + serverPort);
