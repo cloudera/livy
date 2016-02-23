@@ -85,7 +85,7 @@ public class LocalClient implements LivyClient {
   private final Rpc driverRpc;
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
-  final SparkLauncher launcher = new SparkLauncher();
+  final SparkLauncher launcher = new SparkLauncher(); 
 
   LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.factory = factory;
@@ -252,15 +252,17 @@ public class LocalClient implements LivyClient {
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
       LOG.info("Master : " + master);
-      launcher.setMaster(master);
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
 
         if (master.startsWith("local") ||
               master.startsWith("mesos") ||
               master.endsWith("-client") ||
               master.startsWith("spark")) {
+          launcher.setMaster(master);
           String mem = conf.get("spark.driver.memory");
-          launcher.setConf("spark.driver.memory",mem);
+          if(mem != null){
+             launcher.setConf(SparkLauncher.DRIVER_MEMORY,mem);
+          }
 
           String cp = conf.get("spark.driver.extraClassPath");
           if (cp != null) {
@@ -299,9 +301,8 @@ public class LocalClient implements LivyClient {
         }
       }
 
-      launcher.addAppArgs("--properties-file" + sparkConf.getAbsolutePath());
+      launcher.setPropertiesFile(sparkConf.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
-      System.out.println(RemoteDriver.class.getName());
 
       String jar = "spark-internal";
       launcher.setAppResource(jar);
@@ -328,10 +329,9 @@ public class LocalClient implements LivyClient {
         conf.set(SPARK_JARS_KEY, allJars);
       }
 
-      launcher.addAppArgs("--remote-host" + serverAddress);
-      launcher.addAppArgs("--remote-port" + serverPort);
-      launcher.addAppArgs("--config-file" + livyConf.getAbsolutePath());
-      launcher.setAppName("ClientID");
+      launcher.addAppArgs("--remote-host", serverAddress);
+      launcher.addAppArgs("--remote-port",  serverPort);
+      launcher.addAppArgs("--config-file", livyConf.getAbsolutePath());
 
       final Process child = launcher.launch();
 
