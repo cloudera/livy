@@ -31,6 +31,7 @@
 
   <properties>
     <assembly.name>livy-server-${project.version}</assembly.name>
+    <assembly.format>zip</assembly.format>
   </properties>
 
   <profiles>
@@ -40,13 +41,6 @@
         <assembly.format>tar.gz</assembly.format>
       </properties>
       <activation><property><name>targz</name></property></activation>
-    </profile>
-    <profile>
-      <id>zip</id>
-      <properties>
-        <assembly.format>zip</assembly.format>
-      </properties>
-      <activation><property><name>!targz</name></property></activation>
     </profile>
   </profiles>
 
