@@ -77,7 +77,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       server = null
     }
     if (client != null) {
-      client.stop()
+      client.stop(true)
       client = null
     }
     session = null
@@ -141,7 +141,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
         handle.get(TIMEOUT_S, TimeUnit.SECONDS)
       }
 
-      verify(session, times(1)).cancel(meq(jobId))
+      verify(session, times(1)).cancelJob(meq(jobId))
     }
 
     withClient("should notify listeners of new Spark jobs") {
@@ -183,8 +183,16 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       testJob(false, response = Some(null))
     }
 
+    withClient("should connect to existing sessions") {
+      var sid = client.asInstanceOf[HttpClient].getSessionId()
+      val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}/clients/$sid"
+      val newClient = new LivyClientBuilder(false).setURI(new URI(uri)).build()
+      newClient.stop(false)
+      verify(session, never()).stop()
+    }
+
     withClient("should tear down clients") {
-      client.stop()
+      client.stop(true)
       verify(session, times(1)).stop()
     }
 

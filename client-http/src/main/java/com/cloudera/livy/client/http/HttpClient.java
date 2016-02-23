@@ -28,6 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.cloudera.livy.Job;
 import com.cloudera.livy.JobHandle;
@@ -53,18 +55,34 @@ class HttpClient implements LivyClient {
 
   HttpClient(URI uri, HttpConf httpConf) {
     this.config = httpConf;
-    this.conn = new LivyConnection(uri, httpConf);
     this.stopped = false;
 
-    try {
-      long timeout = config.getTimeAsMs(SESSION_CREATE_TIMEOUT);
-      Map<String, String> sessionConf = new HashMap<>();
-      for (Map.Entry<String, String> e : config) {
-        sessionConf.put(e.getKey(), e.getValue());
-      }
+    // If the given URI looks like it refers to an existing session, then try to connect to
+    // an existing session. Note this means that any Spark configuration in httpConf will be
+    // unused.
+    Matcher m = Pattern.compile("(.*)" + LivyConnection.CLIENT_SESSION_URI + "/([0-9]+)")
+      .matcher(uri.getPath());
 
-      ClientMessage create = new CreateClientRequest(timeout, sessionConf);
-      this.sessionId = conn.post(create, SessionInfo.class, "/").id;
+    try {
+      if (m.matches()) {
+        URI base = new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
+          m.group(1), uri.getQuery(), uri.getFragment());
+
+        this.conn = new LivyConnection(base, httpConf);
+        this.sessionId = Integer.parseInt(m.group(2));
+        conn.post(null, SessionInfo.class, "/%d/connect", sessionId);
+      } else {
+
+        long timeout = config.getTimeAsMs(SESSION_CREATE_TIMEOUT);
+        Map<String, String> sessionConf = new HashMap<>();
+        for (Map.Entry<String, String> e : config) {
+          sessionConf.put(e.getKey(), e.getValue());
+        }
+
+        ClientMessage create = new CreateClientRequest(timeout, sessionConf);
+        this.conn = new LivyConnection(uri, httpConf);
+        this.sessionId = conn.post(create, SessionInfo.class, "/").id;
+      }
     } catch (Exception e) {
       throw propagate(e);
     }
@@ -94,11 +112,13 @@ class HttpClient implements LivyClient {
   }
 
   @Override
-  public synchronized void stop() {
+  public synchronized void stop(boolean shutdownContext) {
     if (!stopped) {
       executor.shutdownNow();
       try {
-        conn.delete(Map.class, "/%s", sessionId);
+        if (shutdownContext) {
+          conn.delete(Map.class, "/%s", sessionId);
+        }
       } catch (Exception e) {
         throw propagate(e);
       } finally {
@@ -170,6 +190,11 @@ class HttpClient implements LivyClient {
     } else {
       throw new RuntimeException(cause);
     }
+  }
+
+  // For testing.
+  int getSessionId() {
+    return sessionId;
   }
 
 }

@@ -359,7 +359,7 @@ public class TestSparkClient {
       test.call(client);
     } finally {
       if (client != null) {
-        client.stop();
+        client.stop(true);
       }
     }
   }
