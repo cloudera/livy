@@ -85,7 +85,7 @@ public class LocalClient implements LivyClient {
   private final Rpc driverRpc;
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
-  final SparkLauncher launcher = new SparkLauncher(); 
+  final SparkLauncher launcher = new SparkLauncher();
 
   LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.factory = factory;
@@ -485,7 +485,7 @@ public class LocalClient implements LivyClient {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {
         LOG.info("Received result for {}", msg.id);
-        // TODO: need a better exception for this.
+        // TODO: need a better exception for this
         Throwable error = msg.error != null ? new RuntimeException(msg.error) : null;
         if (error == null) {
           handle.setSuccess(msg.result);
