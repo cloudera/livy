@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.TimeUnit;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
@@ -51,6 +52,7 @@ import static com.cloudera.livy.client.http.HttpConf.Entry.*;
  */
 class LivyConnection {
 
+  static final String CLIENT_SESSION_URI = "/clients";
   private static final String APPLICATION_JSON = "application/json";
 
   private final URI server;
@@ -63,7 +65,7 @@ class LivyConnection {
     int port = uri.getPort() > 0 ? uri.getPort() : 8998;
 
     String path = uri.getPath() != null ? uri.getPath() : "";
-    this.uriRoot = path + "/clients";
+    this.uriRoot = path + CLIENT_SESSION_URI;
 
     RequestConfig reqConfig = new RequestConfig() {
       @Override
@@ -110,8 +112,10 @@ class LivyConnection {
       String uri,
       Object... uriParams) throws Exception {
     HttpPost post = new HttpPost();
-    byte[] bodyBytes = mapper.writeValueAsBytes(body);
-    post.setEntity(new ByteArrayEntity(bodyBytes));
+    if (body != null) {
+      byte[] bodyBytes = mapper.writeValueAsBytes(body);
+      post.setEntity(new ByteArrayEntity(bodyBytes));
+    }
     return sendJSONRequest(post, retType, uri, uriParams);
   }
 

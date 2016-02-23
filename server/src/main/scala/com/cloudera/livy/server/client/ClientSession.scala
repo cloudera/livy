@@ -87,21 +87,25 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
   }
 
   def addFile(uri: URI): Unit = {
+    recordActivity()
     client.addFile(uri).get()
   }
 
   def addJar(uri: URI): Unit = {
+    recordActivity()
     client.addJar(uri).get()
   }
 
   def jobStatus(id: Long): Any = {
     val clientJobId = operations(id)
+    recordActivity()
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
     new JobStatus(id, status.state, status.result, status.error, status.newSparkJobs)
   }
 
-  def cancel(id: Long): Unit = {
+  def cancelJob(id: Long): Unit = {
+    recordActivity()
     operations.remove(id).foreach { client.cancel }
   }
 
@@ -131,7 +135,7 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
   override def stop(): Future[Unit] = {
     Future {
       sessionState = SessionState.ShuttingDown()
-      client.stop()
+      client.stop(true)
       sessionState = SessionState.Dead()
     }
   }

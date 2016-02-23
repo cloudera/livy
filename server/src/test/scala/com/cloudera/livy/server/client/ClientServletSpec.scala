@@ -119,6 +119,14 @@ class ClientServletSpec
       collectedSparkJobs.size should be (1)
     }
 
+    withSessionId("should update last activity on connect") { sid =>
+      val currentActivity = servlet.sessionManager.get(sid).get.lastActivity
+      jpost[SessionInfo](s"/$sid/connect", null, expectedStatus = SC_OK) { info =>
+        val newActivity = servlet.sessionManager.get(sid).get.lastActivity
+        assert(newActivity > currentActivity)
+      }
+    }
+
     withSessionId("should tear down sessions") { id =>
       jdelete[Map[String, Any]](s"/$id") { data =>
         data should equal (Map("msg" -> "deleted"))

@@ -134,7 +134,10 @@ public class LocalClient implements LivyClient {
   }
 
   @Override
-  public void stop() {
+  public void stop(boolean shutdownContext) {
+    if (!shutdownContext) {
+      LOG.warn("shutdownContext=false is not supported for local clients.");
+    }
     if (isAlive) {
       isAlive = false;
       try {

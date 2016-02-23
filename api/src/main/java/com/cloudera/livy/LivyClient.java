@@ -55,8 +55,12 @@ public interface LivyClient {
    * Stops the remote context.
    *
    * Any pending jobs will be cancelled, and the remote context will be torn down.
+   *
+   * @param shutdownContext Whether to shutdown the underlying Spark context. If false, the
+   *                        context will keep running and it's still possible to send commands
+   *                        to it, if the backend being used supports it.
    */
-  void stop();
+  void stop(boolean shutdownContext);
 
   /**
    * Upload a jar to be added to the Spark application classpath
