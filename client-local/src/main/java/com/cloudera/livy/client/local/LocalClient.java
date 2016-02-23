@@ -76,6 +76,7 @@ public class LocalClient implements LivyClient {
   private static final String SPARK_HOME_KEY = "spark.home";
   private static final String DRIVER_OPTS_KEY = "spark.driver.extraJavaOptions";
   private static final String EXECUTOR_OPTS_KEY = "spark.executor.extraJavaOptions";
+  private static final SparkLauncher launcher = new SparkLauncher();
 
   private final LocalClientFactory factory;
   private final LocalConf conf;
@@ -85,7 +86,6 @@ public class LocalClient implements LivyClient {
   private final Rpc driverRpc;
   private final ClientProtocol protocol;
   private volatile boolean isAlive;
-  final SparkLauncher launcher = new SparkLauncher();
 
   LocalClient(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.factory = factory;
@@ -251,56 +251,8 @@ public class LocalClient implements LivyClient {
       // mode, the driver options need to be passed directly on the command line. Otherwise,
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
-      LOG.info("Master : " + master);
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
-
-        if (master.startsWith("local") ||
-              master.startsWith("mesos") ||
-              master.endsWith("-client") ||
-              master.startsWith("spark")) {
-          launcher.setMaster(master);
-          String mem = conf.get("spark.driver.memory");
-          if(mem != null){
-             launcher.setConf(SparkLauncher.DRIVER_MEMORY,mem);
-          }
-
-          String cp = conf.get("spark.driver.extraClassPath");
-          if (cp != null) {
-             launcher.setConf("spark.driver.extraClassPath",cp);
-          }
-
-          String libPath = conf.get("spark.driver.extraLibPath");
-          if (libPath != null) {
-             launcher.setConf("spark.driver.extraLibraryPath",libPath);
-          }
-
-          String extra = conf.get(DRIVER_OPTS_KEY);
-          if (extra != null) {
-            for (String opt : extra.split("[ ]")) {
-              if (!opt.trim().isEmpty()) {
-                launcher.setConf("spark.driver.extraJavaOptions",opt.trim());
-              }
-            }
-          }
-        }
-
-      if (master.equals("yarn-cluster")) {
-        String executorCores = conf.get("spark.executor.cores");
-        if (executorCores != null) {
-          launcher.setConf("spark.executor.cores",executorCores);
-        }
-
-        String executorMemory = conf.get("spark.executor.memory");
-        if (executorMemory != null) {
-          launcher.setConf("spark.executor.memory",executorMemory);
-        }
-
-        String numOfExecutors = conf.get("spark.executor.instances");
-        if (numOfExecutors != null) {
-          launcher.setConf("spark.executor.instances",numOfExecutors);
-        }
-      }
-
+      launcher.setMaster(master);
       launcher.setPropertiesFile(sparkConf.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
 
@@ -485,7 +437,7 @@ public class LocalClient implements LivyClient {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {
         LOG.info("Received result for {}", msg.id);
-        // TODO: need a better exception for this
+        // TODO: need a better exception for this.
         Throwable error = msg.error != null ? new RuntimeException(msg.error) : null;
         if (error == null) {
           handle.setSuccess(msg.result);
