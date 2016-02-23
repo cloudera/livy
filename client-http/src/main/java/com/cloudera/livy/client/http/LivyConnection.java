@@ -21,12 +21,16 @@ package com.cloudera.livy.client.http;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.security.Principal;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpDelete;
@@ -38,6 +42,7 @@ import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.DefaultConnectionReuseStrategy;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
@@ -75,7 +80,31 @@ class LivyConnection {
       public int getSocketTimeout() {
         return (int) config.getTimeAsMs(SOCKET_TIMEOUT);
       }
+
+      @Override
+      public boolean isAuthenticationEnabled() {
+        return true;
+      }
     };
+
+    Credentials dummyCredentials = new Credentials() {
+      @Override
+      public String getPassword() {
+        return null;
+      }
+
+      @Override
+      public Principal getUserPrincipal() {
+        return null;
+      }
+    };
+
+    // This is needed to get Kerberos credentials from the environment, instead of
+    // requiring the application to manually obtain the credentials.
+    System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+
+    CredentialsProvider credsProvider = new BasicCredentialsProvider();
+    credsProvider.setCredentials(AuthScope.ANY, dummyCredentials);
 
     HttpClientBuilder builder = HttpClientBuilder.create()
       .disableAutomaticRetries()
@@ -85,6 +114,7 @@ class LivyConnection {
       .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
       .setDefaultRequestConfig(reqConfig)
       .setMaxConnTotal(1)
+      .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
 
     this.server = uri;
