@@ -16,17 +16,16 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.spark
+package com.cloudera.livy.utils
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.util.LineBufferedProcess
 
-class SparkProcessBuilder(
-    livyConf: LivyConf,
-    userConfigurableOptions: Set[String]) extends Logging {
+class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
 
   private[this] var _executable: String = livyConf.sparkSubmit()
   private[this] var _master: Option[String] = None
@@ -108,13 +107,7 @@ class SparkProcessBuilder(
   }
 
   def conf(key: String, value: String, admin: Boolean = false): SparkProcessBuilder = {
-    if (admin || userConfigurableOptions.contains(key) ||
-        (LivyConf.TEST_MODE && key == "spark.driver.extraClassPath")) {
-      this._conf(key) = value
-    } else {
-      throw new ConfigOptionNotAllowed(key, value)
-    }
-
+    this._conf(key) = value
     this
   }
 
@@ -209,7 +202,7 @@ class SparkProcessBuilder(
     this
   }
 
-  def start(file: Option[String], args: Traversable[String]): SparkProcess = {
+  def start(file: Option[String], args: Traversable[String]): LineBufferedProcess = {
     var arguments = ArrayBuffer(_executable)
 
     def addOpt(option: String, value: Option[String]): Unit = {
@@ -266,7 +259,7 @@ class SparkProcessBuilder(
     _redirectError.foreach(pb.redirectError)
     _redirectErrorStream.foreach(pb.redirectErrorStream)
 
-    SparkProcess(pb.start())
+    new LineBufferedProcess(pb.start())
   }
 
 }
