@@ -236,6 +236,7 @@ public class LocalClient implements LivyClient {
       if (sparkHome == null) {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
+      launcher.setSparkHome(sparkHome);
 
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
@@ -250,15 +251,10 @@ public class LocalClient implements LivyClient {
       // mode, the driver options need to be passed directly on the command line. Otherwise,
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
+      LOG.info("Master : " + master);
       launcher.setMaster(master);
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
 
-      if (sparkHome != null) {
-        launcher.setSparkHome(new File(sparkHome, "bin/spark-submit").getAbsolutePath());
-      } else {
-        LOG.info("spark.home is not defined");
-        launcher.setSparkHome(new File(System.getProperty("java.home"), "bin/java")
-                .getAbsolutePath());
         if (master.startsWith("local") ||
               master.startsWith("mesos") ||
               master.endsWith("-client") ||
@@ -285,8 +281,6 @@ public class LocalClient implements LivyClient {
             }
           }
         }
-
-      }
 
       if (master.equals("yarn-cluster")) {
         String executorCores = conf.get("spark.executor.cores");
