@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.cloudera.livy.JobHandle;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.annotations.Private;
 
 @Private
@@ -31,25 +30,12 @@ public abstract class AbstractJobHandle<T> implements JobHandle<T> {
 
   private final List<Integer> sparkJobIds;
   protected final List<Listener<T>> listeners;
-  protected final MetricsCollection metrics;
   protected volatile State state;
 
   protected AbstractJobHandle() {
     this.listeners = new LinkedList<>();
-    this.metrics = new MetricsCollection();
     this.sparkJobIds = new CopyOnWriteArrayList<Integer>();
     this.state = State.SENT;
-  }
-
-  /**
-   * A collection of metrics collected from the Spark jobs triggered by this job.
-   *
-   * To collect job metrics on the client, Spark jobs must be registered with JobContext::monitor()
-   * on the remote end.
-   */
-  @Override
-  public MetricsCollection getMetrics() {
-    return metrics;
   }
 
   @Override

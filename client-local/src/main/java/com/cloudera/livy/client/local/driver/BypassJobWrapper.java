@@ -24,15 +24,12 @@ import com.google.common.base.Throwables;
 import org.apache.spark.api.java.JavaFutureAction;
 
 import com.cloudera.livy.JobHandle;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.local.BypassJobStatus;
-import com.cloudera.livy.metrics.Metrics;
 
 class BypassJobWrapper extends JobWrapper<byte[]> {
 
   private volatile byte[] result;
   private volatile Throwable error;
-  private volatile MetricsCollection metrics;
   private volatile JobHandle.State state;
   private volatile List<Integer> newSparkJobs;
 
@@ -56,18 +53,6 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
       this.error = error;
       this.state = JobHandle.State.FAILED;
     }
-  }
-
-  @Override
-  void updateMetrics(int sparkJobId, int stageId, long taskId, Metrics metrics) {
-    if (this.metrics == null) {
-      synchronized (this) {
-        if (this.metrics == null) {
-          this.metrics = new MetricsCollection();
-        }
-      }
-    }
-    this.metrics.addMetrics(sparkJobId, stageId, taskId, metrics);
   }
 
   @Override
@@ -103,7 +88,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
     String stackTrace = error != null ? Throwables.getStackTraceAsString(error) : null;
     List<Integer> jobs = newSparkJobs;
     newSparkJobs = null;
-    return new BypassJobStatus(state, result, stackTrace, metrics, jobs);
+    return new BypassJobStatus(state, result, stackTrace, jobs);
   }
 
 }

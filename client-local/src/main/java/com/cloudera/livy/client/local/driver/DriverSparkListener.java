@@ -27,8 +27,6 @@ import org.apache.spark.scheduler.SparkListenerJobEnd;
 import org.apache.spark.scheduler.SparkListenerJobStart;
 import org.apache.spark.scheduler.SparkListenerTaskEnd;
 
-import com.cloudera.livy.metrics.Metrics;
-
 class DriverSparkListener extends JavaSparkListener {
 
   private final Map<Integer, Integer> stageToJobId = Maps.newHashMap();
@@ -62,26 +60,6 @@ class DriverSparkListener extends JavaSparkListener {
     JobWrapper<?> job = getWrapper(jobEnd.jobId());
     if (job != null) {
       job.jobDone();
-    }
-  }
-
-  @Override
-  public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
-    if (taskEnd.reason() instanceof org.apache.spark.Success$
-        && !taskEnd.taskInfo().speculative()) {
-      Metrics metrics = new Metrics(taskEnd.taskMetrics());
-      Integer jobId;
-      synchronized (stageToJobId) {
-        jobId = stageToJobId.get(taskEnd.stageId());
-      }
-
-      // TODO: implement implicit AsyncRDDActions conversion instead of jc.monitor()?
-      // TODO: how to handle stage failures?
-
-      JobWrapper<?> job = getWrapper(jobId);
-      if (job != null) {
-        job.updateMetrics(jobId, taskEnd.stageId(), taskEnd.taskInfo().taskId(), metrics);
-      }
     }
   }
 

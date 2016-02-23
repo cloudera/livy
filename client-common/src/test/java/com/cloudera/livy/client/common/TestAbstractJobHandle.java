@@ -33,7 +33,6 @@ public class TestAbstractJobHandle {
   @Test
   public void testJobHandle() {
     AbstractJobHandle<Void> handle = new TestJobHandle();
-    assertEquals(0, handle.getMetrics().getJobIds().size());
     assertEquals(0, handle.getSparkJobIds().size());
 
     assertTrue(handle.changeState(State.QUEUED));

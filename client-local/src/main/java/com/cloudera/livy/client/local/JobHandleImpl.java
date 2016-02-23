@@ -27,7 +27,6 @@ import com.google.common.collect.Lists;
 import io.netty.util.concurrent.Promise;
 
 import com.cloudera.livy.JobHandle;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.common.AbstractJobHandle;
 
 /**
