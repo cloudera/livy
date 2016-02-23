@@ -30,7 +30,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.Job;
-import com.cloudera.livy.metrics.Metrics;
 
 class JobWrapper<T> implements Callable<Void> {
 
@@ -124,10 +123,6 @@ class JobWrapper<T> implements Callable<Void> {
 
   void recordNewJob(int sparkJobId) {
     driver.protocol.jobSubmitted(jobId, sparkJobId);
-  }
-
-  void updateMetrics(int sparkJobId, int stageId, long taskId, Metrics metrics) {
-    driver.protocol.sendMetrics(jobId, sparkJobId, stageId, taskId, metrics);
   }
 
   protected void finished(T result, Throwable error) {

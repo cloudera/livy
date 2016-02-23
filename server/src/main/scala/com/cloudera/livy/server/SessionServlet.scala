@@ -26,7 +26,6 @@ import org.scalatra._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
-import com.cloudera.livy.spark.ConfigOptionNotAllowed
 
 object SessionServlet extends Logging
 
@@ -125,14 +124,22 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
         // time before returning the session info to the client.
         session.recordActivity()
         Created(clientSessionView(session, request),
-          headers = Map("Location" -> url(getSession, "id" -> session.id.toString))
+          headers = Map("Location" ->
+            (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString)))
         )
       }
     }
   }
 
+  private def getRequestPathInfo(request: HttpServletRequest): String = {
+    if (request.getPathInfo != "/") {
+      request.getPathInfo
+    } else {
+      ""
+    }
+  }
+
   error {
-    case e: ConfigOptionNotAllowed => BadRequest(e.getMessage)
     case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
     case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>

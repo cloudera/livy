@@ -33,9 +33,6 @@ import scala.language.postfixOps
 
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.api.java.function.VoidFunction
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
-import org.json4s.jackson.Serialization.write
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{Job, JobContext, JobHandle, LivyConf}

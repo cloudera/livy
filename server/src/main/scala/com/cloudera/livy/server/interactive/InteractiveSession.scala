@@ -36,8 +36,7 @@ import org.json4s.jackson.Serialization.write
 import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
-import com.cloudera.livy.spark.SparkProcess
-import com.cloudera.livy.spark.SparkProcessBuilder
+import com.cloudera.livy.utils.SparkProcessBuilder
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -71,7 +70,7 @@ class InteractiveSession(
   private[this] var _statements = IndexedSeq[Statement]()
 
   private val process = {
-    val builder = new SparkProcessBuilder(livyConf, Set())
+    val builder = new SparkProcessBuilder(livyConf)
     builder.className("com.cloudera.livy.repl.Main")
     builder.conf(request.conf)
     request.archives.foreach(builder.archive)

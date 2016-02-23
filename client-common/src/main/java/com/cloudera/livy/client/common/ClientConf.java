@@ -140,14 +140,14 @@ public abstract class ClientConf<T extends ClientConf>
 
     Matcher m = Pattern.compile("(-?[0-9]+)([a-z]+)?").matcher(time.toLowerCase());
     if (!m.matches()) {
-      throw new NumberFormatException("Invalid time string: " + time);
+      throw new IllegalArgumentException("Invalid time string: " + time);
     }
 
     long val = Long.parseLong(m.group(1));
     String suffix = m.group(2);
 
     if (suffix != null && !TIME_SUFFIXES.containsKey(suffix)) {
-      throw new NumberFormatException("Invalid suffix: \"" + suffix + "\"");
+      throw new IllegalArgumentException("Invalid suffix: \"" + suffix + "\"");
     }
 
     return TimeUnit.MILLISECONDS.convert(val,
@@ -178,7 +178,7 @@ public abstract class ClientConf<T extends ClientConf>
   }
 
   private boolean typesMatch(Object test, Object expected) {
-    return getType(test).equals(getType(expected));
+    return test == null || getType(test).equals(getType(expected));
   }
 
   private Class<?> getType(Object o) {

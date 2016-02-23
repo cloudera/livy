@@ -497,15 +497,6 @@ public class LocalClient implements LivyClient {
       LOG.warn("Error reported from remote driver.", msg.getCause());
     }
 
-    private void handle(ChannelHandlerContext ctx, JobMetrics msg) {
-      JobHandleImpl<?> handle = jobs.get(msg.jobId);
-      if (handle != null) {
-        handle.getMetrics().addMetrics(msg.sparkJobId, msg.stageId, msg.taskId, msg.metrics);
-      } else {
-        LOG.warn("Received metrics for unknown job {}", msg.jobId);
-      }
-    }
-
     private void handle(ChannelHandlerContext ctx, JobResult msg) {
       JobHandleImpl<?> handle = jobs.remove(msg.id);
       if (handle != null) {

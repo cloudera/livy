@@ -21,7 +21,6 @@ import com.google.common.base.Throwables;
 
 import com.cloudera.livy.Job;
 import com.cloudera.livy.client.local.rpc.RpcDispatcher;
-import com.cloudera.livy.metrics.Metrics;
 
 public abstract class BaseProtocol extends RpcDispatcher {
 
@@ -57,28 +56,6 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
     public Error() {
       this(null);
-    }
-
-  }
-
-  protected static class JobMetrics {
-
-    public final String jobId;
-    public final int sparkJobId;
-    public final int stageId;
-    public final long taskId;
-    public final Metrics metrics;
-
-    public JobMetrics(String jobId, int sparkJobId, int stageId, long taskId, Metrics metrics) {
-      this.jobId = jobId;
-      this.sparkJobId = sparkJobId;
-      this.stageId = stageId;
-      this.taskId = taskId;
-      this.metrics = metrics;
-    }
-
-    public JobMetrics() {
-      this(null, -1, -1, -1, null);
     }
 
   }
