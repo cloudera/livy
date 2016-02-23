@@ -31,7 +31,17 @@
 
   <properties>
     <assembly.name>livy-server-${project.version}</assembly.name>
+    <assembly.format>zip</assembly.format>
   </properties>
+
+  <profiles>
+    <profile>
+      <id>targz</id>
+      <properties>
+        <assembly.format>tar.gz</assembly.format>
+      </properties>
+    </profile>
+  </profiles>
 
   <dependencies>
     <dependency>
@@ -53,7 +63,6 @@
 
   <build>
     <plugins>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
@@ -65,15 +74,16 @@
             </goals>
             <configuration>
               <finalName>${assembly.name}</finalName>
-              <appendAssemblyId>false</appendAssemblyId>
               <descriptors>
                 <descriptor>assembly.xml</descriptor>
               </descriptors>
+              <formats>
+                <format>${assembly.format}</format>
+              </formats>
             </configuration>
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-install-plugin</artifactId>
@@ -81,8 +91,7 @@
           <skip>true</skip>
         </configuration>
       </plugin>
-
-      </plugins>
+    </plugins>
   </build>
 
 </project>
