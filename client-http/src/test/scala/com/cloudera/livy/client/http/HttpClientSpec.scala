@@ -269,6 +269,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
         val id = sessionManager.nextId()
         when(session.id).thenReturn(id)
         when(session.state).thenReturn(SessionState.Idle())
+        when(session.proxyUser).thenReturn(None)
         when(session.stop()).thenReturn(Future { })
         require(HttpClientSpec.session == null, "Session already created?")
         HttpClientSpec.session = session

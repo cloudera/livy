@@ -52,6 +52,7 @@ object InteractiveSession {
 class InteractiveSession(
     id: Int,
     owner: String,
+    _proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
   extends Session(id, owner) {
@@ -83,7 +84,7 @@ class InteractiveSession(
     val jars = request.jars ++ livyJars(livyConf)
     jars.foreach(builder.jar)
 
-    request.proxyUser.foreach(builder.proxyUser)
+    _proxyUser.foreach(builder.proxyUser)
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
 
@@ -220,7 +221,7 @@ class InteractiveSession(
 
   def kind: Kind = request.kind
 
-  def proxyUser: Option[String] = request.proxyUser
+  def proxyUser: Option[String] = _proxyUser
 
   def url: Option[URL] = _url
 

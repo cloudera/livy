@@ -31,6 +31,7 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
 
+import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.api.java.function.VoidFunction
 import org.scalatest.concurrent.Eventually._
 
@@ -38,12 +39,16 @@ import com.cloudera.livy.{Job, JobContext, JobHandle, LivyConf}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.LocalConf
-import com.cloudera.livy.server.BaseSessionServletSpec
+import com.cloudera.livy.server.{BaseSessionServletSpec, RemoteUserOverride}
 
 class ClientServletSpec
   extends BaseSessionServletSpec[ClientSession] {
 
-  override def createServlet(): ClientSessionServlet = new ClientSessionServlet(new LivyConf())
+  private val PROXY = "__proxy__"
+
+  override def createServlet(): ClientSessionServlet = {
+    new ClientSessionServlet(createConf()) with RemoteUserOverride
+  }
 
   private var sessionId: Int = -1
 
@@ -57,15 +62,7 @@ class ClientServletSpec
   describe("Client Servlet") {
 
     it("should create client sessions") {
-      val classpath = sys.props("java.class.path")
-      val conf = new HashMap[String, String]
-      conf.put("spark.master", "local")
-      conf.put("livy.local.jars", "")
-      conf.put("spark.driver.extraClassPath", classpath)
-      conf.put("spark.executor.extraClassPath", classpath)
-      conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
-
-      jpost[SessionInfo]("/", new CreateClientRequest(10000L, conf)) { data =>
+      jpost[SessionInfo]("/", createRequest()) { data =>
         header("Location") should equal("/0")
         data.id should equal (0)
         sessionId = data.id
@@ -130,6 +127,52 @@ class ClientServletSpec
         }
       }
     }
+
+    it("should support user impersonation") {
+      val headers = makeUserHeaders(PROXY)
+      jpost[SessionInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
+        try {
+          data.owner should be (PROXY)
+          data.proxyUser should be (PROXY)
+          val user = runJob(data.id, new GetUserJob(), headers = headers)
+          user should be (PROXY)
+        } finally {
+          deleteSession(data.id)
+        }
+      }
+    }
+
+    it("should honor impersonation requests") {
+      val request = createRequest(inProcess = false)
+      request.conf.put(LocalConf.Entry.PROXY_USER.key(), PROXY)
+      jpost[SessionInfo]("/", request, headers = adminHeaders) { data =>
+        try {
+          data.owner should be (ADMIN)
+          data.proxyUser should be (PROXY)
+          val user = runJob(data.id, new GetUserJob(), headers = adminHeaders)
+          user should be (PROXY)
+        } finally {
+          deleteSession(data.id)
+        }
+      }
+    }
+  }
+
+  private def deleteSession(id: Int): Unit = {
+    jdelete[Map[String, Any]](s"/$id", headers = adminHeaders) { _ => }
+  }
+
+  private def createRequest(inProcess: Boolean = true): CreateClientRequest = {
+    val classpath = sys.props("java.class.path")
+    val conf = new HashMap[String, String]
+    conf.put("spark.master", "local")
+    conf.put("livy.local.jars", "")
+    conf.put("spark.driver.extraClassPath", classpath)
+    conf.put("spark.executor.extraClassPath", classpath)
+    if (inProcess) {
+      conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
+    }
+    new CreateClientRequest(10000L, conf)
   }
 
   private def testResourceUpload(cmd: String, sessionId: Int): Unit = {
@@ -145,21 +188,34 @@ class ClientServletSpec
       Source.fromFile(resultFile).mkString should be("Test data")
     }
   }
+
   private def testJobSubmission(sid: Int, sync: Boolean): Unit = {
+    val result = runJob(sid, new TestJob(), sync = sync)
+    result should be (42)
+  }
+
+  private def runJob[T](
+      sid: Int,
+      job: Job[T],
+      sync: Boolean = false,
+      headers: Map[String, String] = defaultHeaders): T = {
     val ser = new Serializer()
-    val job = BufferUtils.toByteArray(ser.serialize(new TestJob()))
+    val jobData = BufferUtils.toByteArray(ser.serialize(job))
     val route = if (sync) s"/$sid/submit-job" else s"/$sid/run-job"
     var jobId: Long = -1L
-    jpost[JobStatus](route, new SerializedJob(job)) { data =>
+    jpost[JobStatus](route, new SerializedJob(jobData), headers = headers) { data =>
       jobId = data.id
     }
+
+    var result: Option[T] = None
     eventually(timeout(1 minute), interval(100 millis)) {
       jget[JobStatus](s"/$sid/jobs/$jobId") { status =>
         status.id should be (jobId)
-        val result = ser.deserialize(ByteBuffer.wrap(status.result))
-        result should be (42)
+        status.state should be (JobHandle.State.SUCCEEDED)
+        result = Some(ser.deserialize(ByteBuffer.wrap(status.result)).asInstanceOf[T])
       }
     }
+    result.getOrElse(throw new IllegalStateException())
   }
 
 }
@@ -181,5 +237,11 @@ class AsyncTestJob extends Job[Int] {
     future.get(10, TimeUnit.SECONDS)
     42
   }
+
+}
+
+class GetUserJob extends Job[String] {
+
+  override def call(jc: JobContext): String = UserGroupInformation.getCurrentUser().getUserName()
 
 }

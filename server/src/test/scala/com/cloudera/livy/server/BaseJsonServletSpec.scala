@@ -99,18 +99,21 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
   private def doTest[R: ClassTag](expectedStatus: Int, fn: R => Unit)
       (implicit klass: ClassTag[R]): Unit = {
     status should be (expectedStatus)
-    val result =
-      if (header("Content-Type").startsWith("application/json")) {
-        if (header("Content-Length").toInt > 0) {
-          mapper.readValue(response.inputStream, klass.runtimeClass)
+    // Only try to parse the body if response is in the "OK" range (20x).
+    if ((status / 100) * 100 == SC_OK) {
+      val result =
+        if (header("Content-Type").startsWith("application/json")) {
+          if (header("Content-Length").toInt > 0) {
+            mapper.readValue(response.inputStream, klass.runtimeClass)
+          } else {
+            null
+          }
         } else {
-          null
+          assert(klass.runtimeClass == classOf[Unit])
+          ()
         }
-      } else {
-        assert(klass.runtimeClass == classOf[Unit])
-        ()
-      }
-    fn(result.asInstanceOf[R])
+      fn(result.asInstanceOf[R])
+    }
   }
 
   private def toJson(obj: Any): Array[Byte] = mapper.writeValueAsBytes(obj)

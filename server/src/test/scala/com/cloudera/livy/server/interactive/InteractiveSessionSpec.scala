@@ -44,7 +44,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
-    new InteractiveSession(0, null, livyConf, req)
+    new InteractiveSession(0, null, None, livyConf, req)
   }
 
   override def afterAll(): Unit = {

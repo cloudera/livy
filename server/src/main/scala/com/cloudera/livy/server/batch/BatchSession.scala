@@ -26,7 +26,12 @@ import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionState}
 import com.cloudera.livy.utils.SparkProcessBuilder
 
-class BatchSession(id: Int, owner: String, livyConf: LivyConf, request: CreateBatchRequest)
+class BatchSession(
+    id: Int,
+    owner: String,
+    proxyUser: Option[String],
+    livyConf: LivyConf,
+    request: CreateBatchRequest)
     extends Session(id, owner) {
 
   private val process = {
@@ -34,7 +39,7 @@ class BatchSession(id: Int, owner: String, livyConf: LivyConf, request: CreateBa
 
     val builder = new SparkProcessBuilder(livyConf)
     builder.conf(request.conf)
-    request.proxyUser.foreach(builder.proxyUser)
+    proxyUser.foreach(builder.proxyUser)
     request.className.foreach(builder.className)
     request.jars.foreach(builder.jar)
     request.pyFiles.foreach(builder.pyFile)

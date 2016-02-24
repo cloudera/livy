@@ -35,7 +35,6 @@ object SessionServlet extends Logging
  *
  * Type parameters:
  *  S: the session type
- *  R: the type representing the session create parameters.
  */
 abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   extends JsonServlet
@@ -160,6 +159,36 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   protected def remoteUser(req: HttpServletRequest): String = req.getRemoteUser()
 
   /**
+   * Checks that the request's user can impersonate the target user.
+   *
+   * If the user does not have permission to impersonate, then halt execution.
+   *
+   * @return The user that should be impersonated. That can be the target user if defined, the
+   *         request's user - which may not be defined - otherwise, or `None` if impersonation is
+   *         disabled.
+   */
+  protected def checkImpersonation(
+      target: Option[String],
+      req: HttpServletRequest): Option[String] = {
+    if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
+      if (!target.map(hasAccess(_, req)).getOrElse(true)) {
+        halt(Forbidden(s"User '${remoteUser(req)}' not allowed to impersonate '$target'."))
+      }
+      target.orElse(Option(remoteUser(req)))
+    } else {
+      None
+    }
+  }
+
+  /**
+   * Check that the request's user has access to resources owned by the given target user.
+   */
+  protected def hasAccess(target: String, req: HttpServletRequest): Boolean = {
+    val user = remoteUser(req)
+    user == null || user == target || livyConf.superusers().contains(user)
+  }
+
+  /**
    * Performs an operation on the session, without checking for ownership. Operations executed
    * via this method must not modify the session in any way, or return potentially sensitive
    * information.
@@ -176,7 +205,7 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
     val sessionId = params("id").toInt
     sessionManager.get(sessionId) match {
       case Some(session) =>
-        if (allowAll || isOwner(session, request)) {
+        if (allowAll || hasAccess(session.owner, request)) {
           fn(session)
         } else {
           Forbidden()
@@ -184,13 +213,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
       case None =>
         NotFound(s"Session '$sessionId' not found.")
     }
-  }
-
-  /**
-   * Returns whether the current request's user is the owner of the given session.
-   */
-  protected def isOwner(session: Session, req: HttpServletRequest): Boolean = {
-    session.owner == remoteUser(req)
   }
 
   private def serializeLogs(session: S, fromOpt: Option[Int], sizeOpt: Option[Int]) = {
