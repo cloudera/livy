@@ -36,6 +36,7 @@ import com.cloudera.livy.client.common.ClientConf;
 public class LocalConf extends ClientConf<LocalConf> {
 
   public static final String SPARK_CONF_PREFIX = "spark.";
+  public static final String LIVY_SPARK_PREFIX = SPARK_CONF_PREFIX + "__livy__.";
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalConf.class);
 

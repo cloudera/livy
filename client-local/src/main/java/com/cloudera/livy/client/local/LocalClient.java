@@ -238,11 +238,11 @@ public class LocalClient implements LivyClient {
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
 
-      // Create two config files: one with Spark configuration, provided to spark-submit, and
-      // one with Livy configuration, provided to RemoteDriver. Make the files readable only
-      // by their owner, since they may contain private information.
-      File sparkConf = writeConfToFile(true);
-      File livyConf = writeConfToFile(false);
+      // Disable multiple attempts since the RPC server doesn't yet support multiple
+      // connections for the same registered app.
+      conf.set("spark.yarn.maxAppAttempts", "1");
+
+      File confFile = writeConfToFile();
 
       // Define how to pass options to the child process. If launching in client (or local)
       // mode, the driver options need to be passed directly on the command line. Otherwise,
@@ -313,7 +313,7 @@ public class LocalClient implements LivyClient {
       }
 
       argv.add("--properties-file");
-      argv.add(sparkConf.getAbsolutePath());
+      argv.add(confFile.getAbsolutePath());
       argv.add("--class");
       argv.add(RemoteDriver.class.getName());
 
@@ -354,8 +354,6 @@ public class LocalClient implements LivyClient {
       argv.add(serverAddress);
       argv.add("--remote-port");
       argv.add(serverPort);
-      argv.add("--config-file");
-      argv.add(livyConf.getAbsolutePath());
 
       LOG.info("Running client driver with argv: {}", Joiner.on(" ").join(argv));
       final Process child = new ProcessBuilder(argv.toArray(new String[argv.size()])).start();
@@ -399,27 +397,27 @@ public class LocalClient implements LivyClient {
   }
 
   /**
-   * Write either Livy or Spark configuration to a file readable only by the process's owner.
+   * Write the configuration to a file readable only by the process's owner. Livy properties
+   * are written with an added prefix so that they can be loaded using SparkConf on the driver
+   * side.
    */
-  private File writeConfToFile(boolean spark) throws IOException {
+  private File writeConfToFile() throws IOException {
     Properties confView = new Properties();
     for (Map.Entry<String, String> e : conf) {
       String key = e.getKey();
-      boolean isSparkOpt = key.startsWith(LocalConf.SPARK_CONF_PREFIX);
-      if ((spark && isSparkOpt) || (!spark && !isSparkOpt)) {
-        confView.setProperty(key, e.getValue());
+      if (!key.startsWith(LocalConf.SPARK_CONF_PREFIX)) {
+        key = LocalConf.LIVY_SPARK_PREFIX + key;
       }
+      confView.setProperty(key, e.getValue());
     }
 
-    String prefix = spark ? "spark." : "livy.";
-    File file = File.createTempFile(prefix, ".properties");
+    File file = File.createTempFile("livyConf", ".properties");
     Files.setPosixFilePermissions(file.toPath(), EnumSet.of(OWNER_READ, OWNER_WRITE));
     file.deleteOnExit();
 
-    prefix = spark ? "Spark" : "Livy";
     Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
     try {
-      confView.store(writer, prefix + " Configuration");
+      confView.store(writer, "Livy App Context Configuration");
     } finally {
       writer.close();
     }
