@@ -343,21 +343,15 @@ def magic_json(name):
 def magic_matplot(name):
     try:
         value = global_dict[name]
-    except KeyError:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
 
-    try:
         fig = value.gcf()
         imgdata = StringIO.StringIO()
         fig.savefig(imgdata, format='png')
         imgdata.seek(0)
         encode = base64.b64encode(imgdata.buf)
     except:
-        exc_type = Exception
-        return execute_reply_error(exc_type, sys.exc_info, [])
-
-#        raise ExecutionError(sys.exc_info())
+        exc_type, exc_value, tb = sys.exc_info()
+        return execute_reply_error(exc_type, exc_value, [])
 
     return {
         'image/png': encode,
