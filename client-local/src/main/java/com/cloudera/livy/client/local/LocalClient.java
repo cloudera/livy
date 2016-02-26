@@ -76,7 +76,6 @@ public class LocalClient implements LivyClient {
   private static final String SPARK_HOME_KEY = "spark.home";
   private static final String DRIVER_OPTS_KEY = "spark.driver.extraJavaOptions";
   private static final String EXECUTOR_OPTS_KEY = "spark.executor.extraJavaOptions";
-  private static final SparkLauncher launcher = new SparkLauncher();
 
   private final LocalClientFactory factory;
   private final LocalConf conf;
@@ -197,7 +196,7 @@ public class LocalClient implements LivyClient {
     Runnable runnable;
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
-
+    final SparkLauncher launcher = new SparkLauncher();
     if (conf.get(CLIENT_IN_PROCESS) != null) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
@@ -241,6 +240,28 @@ public class LocalClient implements LivyClient {
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
 
+       String jar = "spark-internal";
+       launcher.setAppResource(jar);
+       String livyJars = conf.get(LIVY_JARS);
+       if (livyJars == null) {
+         String livyHome = System.getenv("LIVY_HOME");
+         Preconditions.checkState(livyHome != null,
+                 "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
+         File clientJars = new File(livyHome, "client-jars");
+         Preconditions.checkState(clientJars.isDirectory(),
+                 "Cannot find 'client-jars' directory under LIVY_HOME.");
+         List<String> jars = new ArrayList<>();
+         for (File f : clientJars.listFiles()) {
+            launcher.addJar(f.getAbsolutePath());
+         }
+         livyJars = Joiner.on(",").join(jars);
+       }
+       String userJars = conf.get(SPARK_JARS_KEY);
+       if (userJars != null) {
+         String allJars = Joiner.on(",").join(livyJars, userJars);
+         conf.set(SPARK_JARS_KEY, allJars);
+       }
+
       // Create two config files: one with Spark configuration, provided to spark-submit, and
       // one with Livy configuration, provided to RemoteDriver. Make the files readable only
       // by their owner, since they may contain private information.
@@ -255,32 +276,6 @@ public class LocalClient implements LivyClient {
       launcher.setMaster(master);
       launcher.setPropertiesFile(sparkConf.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
-
-      String jar = "spark-internal";
-      launcher.setAppResource(jar);
-      String livyJars = conf.get(LIVY_JARS);
-      if (livyJars == null) {
-        String livyHome = System.getenv("LIVY_HOME");
-        Preconditions.checkState(livyHome != null,
-          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
-
-        File clientJars = new File(livyHome, "client-jars");
-        Preconditions.checkState(clientJars.isDirectory(),
-          "Cannot find 'client-jars' directory under LIVY_HOME.");
-
-        List<String> jars = new ArrayList<>();
-        for (File f : clientJars.listFiles()) {
-          launcher.addJar(f.getAbsolutePath());
-        }
-        livyJars = Joiner.on(",").join(jars);
-      }
-
-      String userJars = conf.get(SPARK_JARS_KEY);
-      if (userJars != null) {
-        String allJars = Joiner.on(",").join(livyJars, userJars);
-        conf.set(SPARK_JARS_KEY, allJars);
-      }
-
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
       launcher.addAppArgs("--config-file", livyConf.getAbsolutePath());
