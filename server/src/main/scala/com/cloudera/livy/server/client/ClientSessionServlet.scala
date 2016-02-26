@@ -62,6 +62,17 @@ class ClientSessionServlet(livyConf: LivyConf)
     }
   }
 
+  // This endpoint is used by the client-http module to "connect" to an existing session and
+  // update its last activity time. It performs authorization checks to make sure the caller
+  // has access to the session, so even though it returns the same data, it behaves differently
+  // from get("/:id").
+  post("/:id/connect") {
+    withSession { session =>
+      session.recordActivity()
+      Ok(clientSessionView(session, request))
+    }
+  }
+
   jpost[SerializedJob]("/:id/submit-job") { req =>
     withSession { session =>
       try {
