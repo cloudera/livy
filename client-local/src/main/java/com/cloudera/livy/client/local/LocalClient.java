@@ -281,7 +281,6 @@ public class LocalClient implements LivyClient {
       launcher.addAppArgs("--config-file", livyConf.getAbsolutePath());
 
       final Process child = launcher.launch();
-
       int childId = childIdGenerator.incrementAndGet();
       redirect("stdout-redir-" + childId, child.getInputStream());
       redirect("stderr-redir-" + childId, child.getErrorStream());
