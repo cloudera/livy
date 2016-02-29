@@ -131,33 +131,6 @@ class InteractiveSession(
     builder.start(None, List(kind.toString))
   }
 
-  private val stdoutThread = new Thread {
-    override def run() = {
-      val regex = """Starting livy-repl on (https?://.*)""".r
-
-      val lines = process.inputIterator
-
-      // Loop until we find the ip address to talk to livy-repl.
-      @tailrec
-      def readUntilURL(): Unit = {
-        if (lines.hasNext) {
-          val line = lines.next()
-
-          line match {
-            case regex(url_) => url = new URL(url_)
-            case _ => readUntilURL()
-          }
-        }
-      }
-
-      readUntilURL()
-    }
-  }
-
-  stdoutThread.setName("process session stdout reader")
-  stdoutThread.setDaemon(true)
-  stdoutThread.start()
-
   override def logLines(): IndexedSeq[String] = process.inputLines
 
   override def state: SessionState = _state
@@ -214,7 +187,6 @@ class InteractiveSession(
 
     future.andThen { case r =>
       process.waitFor()
-      stdoutThread.join()
       r
     }
   }
