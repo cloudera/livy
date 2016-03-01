@@ -23,7 +23,6 @@ import com.google.common.base.Throwables;
 
 import com.cloudera.livy.Job;
 import com.cloudera.livy.JobHandle;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 
 public class BypassJobStatus {
@@ -31,20 +30,18 @@ public class BypassJobStatus {
   public final JobHandle.State state;
   public final byte[] result;
   public final String error;
-  public final MetricsCollection metrics;
   public final List<Integer> newSparkJobs;
 
   public BypassJobStatus(JobHandle.State state, byte[] result, String error,
-      MetricsCollection metrics, List<Integer> newSparkJobs) {
+      List<Integer> newSparkJobs) {
     this.state = state;
     this.result = result;
     this.error = error;
-    this.metrics = metrics;
     this.newSparkJobs = newSparkJobs;
   }
 
   BypassJobStatus() {
-    this(null, null, null, null, null);
+    this(null, null, null, null);
   }
 
 }

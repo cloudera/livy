@@ -57,7 +57,7 @@ public class TestClientFactory implements LivyClientFactory {
     }
 
     @Override
-    public void stop() {
+    public void stop(boolean shutdownContext) {
       throw new UnsupportedOperationException();
     }
 

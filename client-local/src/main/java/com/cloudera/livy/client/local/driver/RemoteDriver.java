@@ -29,6 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import scala.Tuple2;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -38,6 +40,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
+import org.apache.spark.SparkFiles;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
@@ -83,6 +86,15 @@ public class RemoteDriver {
 
     SparkConf conf = new SparkConf();
     LocalConf livyConf = new LocalConf(null);
+
+    for (Tuple2<String, String> e : conf.getAll()) {
+      String key = e._1();
+      String value = e._2();
+      if (key.startsWith(LocalConf.LIVY_SPARK_PREFIX)) {
+        livyConf.set(key.substring(LocalConf.LIVY_SPARK_PREFIX.length()), value);
+      }
+    }
+
     String serverAddress = null;
     int serverPort = -1;
     for (int idx = 0; idx < args.length; idx += 2) {
@@ -101,19 +113,6 @@ public class RemoteDriver {
           conf.set(val[0], val[1]);
         } else {
           livyConf.set(val[0], val[1]);
-        }
-      } else if (key.equals("--config-file")) {
-        String path = getArg(args, idx);
-        Properties p = new Properties();
-        Reader r = new InputStreamReader(new FileInputStream(path), UTF_8);
-        try {
-          p.load(r);
-        } finally {
-          r.close();
-        }
-
-        for (String k : p.stringPropertyNames()) {
-          livyConf.set(k, p.getProperty(k));
         }
       } else {
         throw new IllegalArgumentException("Invalid command line: "

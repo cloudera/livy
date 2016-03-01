@@ -36,8 +36,7 @@ import org.json4s.jackson.Serialization.write
 import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
-import com.cloudera.livy.spark.SparkProcess
-import com.cloudera.livy.spark.SparkProcessBuilder
+import com.cloudera.livy.utils.SparkProcessBuilder
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -53,6 +52,7 @@ object InteractiveSession {
 class InteractiveSession(
     id: Int,
     owner: String,
+    _proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
   extends Session(id, owner) {
@@ -70,7 +70,7 @@ class InteractiveSession(
   private[this] var _statements = IndexedSeq[Statement]()
 
   private val process = {
-    val builder = new SparkProcessBuilder(livyConf, Set())
+    val builder = new SparkProcessBuilder(livyConf)
     builder.className("com.cloudera.livy.repl.Main")
     builder.conf(request.conf)
     request.archives.foreach(builder.archive)
@@ -84,7 +84,7 @@ class InteractiveSession(
     val jars = request.jars ++ livyJars(livyConf)
     jars.foreach(builder.jar)
 
-    request.proxyUser.foreach(builder.proxyUser)
+    _proxyUser.foreach(builder.proxyUser)
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
 
@@ -221,7 +221,7 @@ class InteractiveSession(
 
   def kind: Kind = request.kind
 
-  def proxyUser: Option[String] = request.proxyUser
+  def proxyUser: Option[String] = _proxyUser
 
   def url: Option[URL] = _url
 

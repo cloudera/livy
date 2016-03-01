@@ -29,7 +29,7 @@ import com.cloudera.livy.sessions.{Session, SessionState}
 
 object SessionServletSpec {
 
-  val REMOTE_USER_HEADER = "X-Livy-SessionServlet-User"
+  val PROXY_USER = "proxyUser"
 
   class MockSession(id: Int, owner: String) extends Session(id, owner) {
 
@@ -51,24 +51,24 @@ class SessionServletSpec
   import SessionServletSpec._
 
   override def createServlet(): SessionServlet[Session] = {
-    new SessionServlet[Session](new LivyConf()) {
+    new SessionServlet[Session](createConf()) with RemoteUserOverride {
       override protected def createSession(req: HttpServletRequest): Session = {
+        val params = bodyAs[Map[String, String]](req)
+        checkImpersonation(params.get(PROXY_USER), req)
         new MockSession(sessionManager.nextId(), remoteUser(req))
       }
 
-      override protected def clientSessionView(session: Session, req: HttpServletRequest): Any = {
-        val logs = if (isOwner(session, req)) session.logLines() else Nil
+      override protected def clientSessionView(
+          session: Session,
+          req: HttpServletRequest): Any = {
+        val logs = if (hasAccess(session.owner, req)) session.logLines() else Nil
         MockSessionView(session.id, session.owner, logs)
-      }
-
-      override protected def remoteUser(req: HttpServletRequest): String = {
-        req.getHeader(REMOTE_USER_HEADER)
       }
     }
   }
 
-  private val aliceHeaders = defaultHeaders ++ Map(REMOTE_USER_HEADER -> "alice")
-  private val bobHeaders = defaultHeaders ++ Map(REMOTE_USER_HEADER -> "bob")
+  private val aliceHeaders = makeUserHeaders("alice")
+  private val bobHeaders = makeUserHeaders("bob")
 
   private def delete(id: Int, headers: Map[String, String], expectedStatus: Int): Unit = {
     jdelete[Map[String, Any]](s"/$id", headers = headers, expectedStatus = expectedStatus) { _ =>
@@ -99,6 +99,28 @@ class SessionServletSpec
     it("should prevent non-owners from modifying sessions") {
       jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
         delete(res.id, bobHeaders, SC_FORBIDDEN)
+      }
+    }
+
+    it("should allow admins to access all sessions") {
+      jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
+        jget[MockSessionView](s"/${res.id}", headers = adminHeaders) { res =>
+          assert(res.owner === "alice")
+          assert(res.logs === IndexedSeq("log"))
+        }
+        delete(res.id, adminHeaders, SC_OK)
+      }
+    }
+
+    it("should not allow regular users to impersonate others") {
+      jpost[MockSessionView]("/", Map(PROXY_USER -> "bob"), headers = aliceHeaders,
+        expectedStatus = SC_FORBIDDEN) { _ => }
+    }
+
+    it("should allow admins to impersonate anyone") {
+      jpost[MockSessionView]("/", Map(PROXY_USER -> "bob"), headers = adminHeaders) { res =>
+        delete(res.id, bobHeaders, SC_FORBIDDEN)
+        delete(res.id, adminHeaders, SC_OK)
       }
     }
 

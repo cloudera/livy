@@ -18,13 +18,40 @@
 
 package com.cloudera.livy.server
 
+import javax.servlet.http.HttpServletRequest
+
 import org.scalatest.BeforeAndAfterAll
 
+import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.Session
+
+object BaseSessionServletSpec {
+
+  /** Header used to override the user remote user in tests. */
+  val REMOTE_USER_HEADER = "X-Livy-SessionServlet-User"
+
+}
 
 abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
+
+  /** Name of the admin user. */
+  protected val ADMIN = "__admin__"
+
+  /** Create headers that identify a specific user in tests. */
+  protected def makeUserHeaders(user: String): Map[String, String] = {
+    defaultHeaders ++ Map(BaseSessionServletSpec.REMOTE_USER_HEADER -> user)
+  }
+
+  protected val adminHeaders = makeUserHeaders(ADMIN)
+
+  /** Create a LivyConf with impersonation enabled and a superuser. */
+  protected def createConf(): LivyConf = {
+    new LivyConf()
+      .set(LivyConf.IMPERSONATION_ENABLED, true)
+      .set(LivyConf.SUPERUSERS, ADMIN)
+  }
 
   override def afterAll(): Unit = {
     super.afterAll()
@@ -38,5 +65,14 @@ abstract class BaseSessionServletSpec[S <: Session]
   addServlet(servlet, "/*")
 
   protected def toJson(msg: AnyRef): Array[Byte] = mapper.writeValueAsBytes(msg)
+
+}
+
+trait RemoteUserOverride {
+  this: SessionServlet[_] =>
+
+  override protected def remoteUser(req: HttpServletRequest): String = {
+    req.getHeader(BaseSessionServletSpec.REMOTE_USER_HEADER)
+  }
 
 }

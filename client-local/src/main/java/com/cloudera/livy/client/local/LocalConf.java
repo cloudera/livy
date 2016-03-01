@@ -36,6 +36,7 @@ import com.cloudera.livy.client.common.ClientConf;
 public class LocalConf extends ClientConf<LocalConf> {
 
   public static final String SPARK_CONF_PREFIX = "spark.";
+  public static final String LIVY_SPARK_PREFIX = SPARK_CONF_PREFIX + "__livy__.";
 
   private static final Logger LOG = LoggerFactory.getLogger(LocalConf.class);
 
@@ -45,6 +46,8 @@ public class LocalConf extends ClientConf<LocalConf> {
     CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", null),
 
     LIVY_JARS("jars", null),
+
+    PROXY_USER("proxy_user", null),
 
     RPC_SERVER_ADDRESS("rpc.server.address", null),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90000ms"),

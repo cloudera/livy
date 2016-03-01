@@ -55,7 +55,7 @@ class BatchSessionSpec
       req.file = script.toString
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
-      val batch = new BatchSession(0, null, new LivyConf(), req)
+      val batch = new BatchSession(0, null, None, new LivyConf(), req)
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
       (batch.state match {

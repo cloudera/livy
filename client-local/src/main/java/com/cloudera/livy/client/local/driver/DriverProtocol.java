@@ -33,7 +33,6 @@ import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.BypassJobStatus;
 import com.cloudera.livy.client.local.rpc.Rpc;
-import com.cloudera.livy.metrics.Metrics;
 
 class DriverProtocol extends BaseProtocol {
 
@@ -66,11 +65,6 @@ class DriverProtocol extends BaseProtocol {
   void jobSubmitted(String jobId, int sparkJobId) {
     LOG.debug("Send job({}/{}) submitted to Client.", jobId, sparkJobId);
     driver.clientRpc.call(new JobSubmitted(jobId, sparkJobId));
-  }
-
-  void sendMetrics(String jobId, int sparkJobId, int stageId, long taskId, Metrics metrics) {
-    LOG.debug("Send task({}/{}/{}/{}) metric to Client.", jobId, sparkJobId, stageId, taskId);
-    driver.clientRpc.call(new JobMetrics(jobId, sparkJobId, stageId, taskId, metrics));
   }
 
   private void handle(ChannelHandlerContext ctx, CancelJob msg) {

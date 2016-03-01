@@ -35,6 +35,7 @@ import java.util.zip.ZipEntry;
 import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 import com.google.common.io.ByteStreams;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.spark.SparkFiles;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaRDD;
@@ -55,7 +56,6 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientBuilder;
-import com.cloudera.livy.MetricsCollection;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.rpc.RpcException;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
@@ -166,35 +166,6 @@ public class TestSparkClient {
   }
 
   @Test
-  public void testMetricsCollection() throws Exception {
-    runTest(true, new TestFunction() {
-      @Override
-      public void call(LivyClient client) throws Exception {
-        JobHandle.Listener<Integer> listener = newListener();
-        JobHandle<Integer> future = client.submit(new AsyncSparkJob());
-        future.addListener(listener);
-        future.get(TIMEOUT, TimeUnit.SECONDS);
-        MetricsCollection metrics = future.getMetrics();
-        assertEquals(1, metrics.getJobIds().size());
-        assertTrue(metrics.getAllMetrics().executorRunTime > 0L);
-        verify(listener).onSparkJobStarted(same(future),
-          eq(metrics.getJobIds().iterator().next()));
-
-        JobHandle.Listener<Integer> listener2 = newListener();
-        JobHandle<Integer> future2 = client.submit(new AsyncSparkJob());
-        future2.addListener(listener2);
-        future2.get(TIMEOUT, TimeUnit.SECONDS);
-        MetricsCollection metrics2 = future2.getMetrics();
-        assertEquals(1, metrics2.getJobIds().size());
-        assertFalse(Objects.equal(metrics.getJobIds(), metrics2.getJobIds()));
-        assertTrue(metrics2.getAllMetrics().executorRunTime > 0L);
-        verify(listener2).onSparkJobStarted(same(future2),
-          eq(metrics2.getJobIds().iterator().next()));
-      }
-    });
-  }
-
-  @Test
   public void testAddJarsAndFiles() throws Exception {
     runTest(true, new TestFunction() {
       @Override
@@ -277,13 +248,32 @@ public class TestSparkClient {
   }
 
   @Test
-  public void testStreamingContext() throws Exception{
+  public void testStreamingContext() throws Exception {
     runTest(true, new TestFunction() {
       @Override
       void call(LivyClient client) throws Exception {
         JobHandle<Boolean> handle = client.submit(new SparkStreamingJob());
         Boolean streamingContextCreated = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(true, streamingContextCreated);
+      }
+    });
+  }
+
+  @Test
+  public void testImpersonation() throws Exception {
+    final String PROXY = "__proxy__";
+
+    runTest(false, new TestFunction() {
+      @Override
+      void config(Properties conf) {
+        conf.put(LocalConf.Entry.PROXY_USER.key(), PROXY);
+      }
+
+      @Override
+      void call(LivyClient client) throws Exception {
+        JobHandle<String> handle = client.submit(new GetCurrentUserJob());
+        String userName = handle.get(TIMEOUT, TimeUnit.SECONDS);
+        assertEquals(PROXY, userName);
       }
     });
   }
@@ -335,9 +325,6 @@ public class TestSparkClient {
         Integer resultVal = (Integer) s.deserialize(ByteBuffer.wrap(status.result));
         assertEquals(Integer.valueOf(1), resultVal);
 
-        assertNotNull("Missing metrics in job status.", status.metrics);
-        assertTrue(status.metrics.getAllMetrics().executorRunTime > 0L);
-
         assertNotEquals(0, collectedIds.size());
 
         // After the result is retrieved, the driver should stop tracking the job and release
@@ -372,7 +359,7 @@ public class TestSparkClient {
       test.call(client);
     } finally {
       if (client != null) {
-        client.stop();
+        client.stop(true);
       }
     }
   }
@@ -547,6 +534,15 @@ public class TestSparkClient {
     @Override
     public String call(JobContext jc) {
       return "Hello";
+    }
+
+  }
+
+  private static class GetCurrentUserJob implements Job<String> {
+
+    @Override
+    public String call(JobContext jc) throws Exception {
+      return UserGroupInformation.getCurrentUser().getUserName();
     }
 
   }

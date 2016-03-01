@@ -34,10 +34,15 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 
 import com.cloudera.livy.{LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.client.local.LocalClient
+import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions.{Session, SessionState}
 
-class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, livyHome: String)
+class ClientSession(
+      id: Int,
+      owner: String,
+      val proxyUser: Option[String],
+      createRequest: CreateClientRequest,
+      livyHome: String)
     extends Session(id, owner) with Logging {
   implicit val executionContext = ExecutionContext.global
 
@@ -47,13 +52,15 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
 
   private val client = {
     info(s"Creating LivyClient for sessionId: $id")
-    new LivyClientBuilder()
+    val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
       .setConf("spark.master", "yarn-cluster")
       .setAll(Option(createRequest.conf).getOrElse(new JHashMap()))
       .setURI(new URI("local:spark"))
       .setConf("livy.client.sessionId", id.toString)
-      .build()
+
+    proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
+    builder.build()
   }.asInstanceOf[LocalClient]
 
   private val fs = FileSystem.get(new Configuration())
@@ -87,21 +94,25 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
   }
 
   def addFile(uri: URI): Unit = {
+    recordActivity()
     client.addFile(uri).get()
   }
 
   def addJar(uri: URI): Unit = {
+    recordActivity()
     client.addJar(uri).get()
   }
 
   def jobStatus(id: Long): Any = {
     val clientJobId = operations(id)
+    recordActivity()
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
     new JobStatus(id, status.state, status.result, status.error, status.newSparkJobs)
   }
 
-  def cancel(id: Long): Unit = {
+  def cancelJob(id: Long): Unit = {
+    recordActivity()
     operations.remove(id).foreach { client.cancel }
   }
 
@@ -131,7 +142,7 @@ class ClientSession(id: Int, owner: String, createRequest: CreateClientRequest, 
   override def stop(): Future[Unit] = {
     Future {
       sessionState = SessionState.ShuttingDown()
-      client.stop()
+      client.stop(true)
       sessionState = SessionState.Dead()
     }
   }

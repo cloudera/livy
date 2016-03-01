@@ -135,7 +135,10 @@ public class LocalClient implements LivyClient {
   }
 
   @Override
-  public void stop() {
+  public void stop(boolean shutdownContext) {
+    if (!shutdownContext) {
+      LOG.warn("shutdownContext=false is not supported for local clients.");
+    }
     if (isAlive) {
       isAlive = false;
       try {
@@ -262,23 +265,25 @@ public class LocalClient implements LivyClient {
          conf.set(SPARK_JARS_KEY, allJars);
        }
 
-      // Create two config files: one with Spark configuration, provided to spark-submit, and
-      // one with Livy configuration, provided to RemoteDriver. Make the files readable only
-      // by their owner, since they may contain private information.
-      File sparkConf = writeConfToFile(true);
-      File livyConf = writeConfToFile(false);
+      // Disable multiple attempts since the RPC server doesn't yet support multiple
+      // connections for the same registered app.
+      conf.set("spark.yarn.maxAppAttempts", "1");
+
+      File confFile = writeConfToFile();
 
       // Define how to pass options to the child process. If launching in client (or local)
       // mode, the driver options need to be passed directly on the command line. Otherwise,
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
-      launcher.setMaster(master);
-      launcher.setPropertiesFile(sparkConf.getAbsolutePath());
+      //launcher.setMaster(master);
+      launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
-      launcher.addAppArgs("--config-file", livyConf.getAbsolutePath());
+      if (conf.get(PROXY_USER) != null) {
+           launcher.addAppArgs("--proxy-user", conf.get(PROXY_USER));
+      }
 
       final Process child = launcher.launch();
       int childId = childIdGenerator.incrementAndGet();
@@ -320,27 +325,27 @@ public class LocalClient implements LivyClient {
   }
 
   /**
-   * Write either Livy or Spark configuration to a file readable only by the process's owner.
+   * Write the configuration to a file readable only by the process's owner. Livy properties
+   * are written with an added prefix so that they can be loaded using SparkConf on the driver
+   * side.
    */
-  private File writeConfToFile(boolean spark) throws IOException {
+  private File writeConfToFile() throws IOException {
     Properties confView = new Properties();
     for (Map.Entry<String, String> e : conf) {
       String key = e.getKey();
-      boolean isSparkOpt = key.startsWith(LocalConf.SPARK_CONF_PREFIX);
-      if ((spark && isSparkOpt) || (!spark && !isSparkOpt)) {
-        confView.setProperty(key, e.getValue());
+      if (!key.startsWith(LocalConf.SPARK_CONF_PREFIX)) {
+        key = LocalConf.LIVY_SPARK_PREFIX + key;
       }
+      confView.setProperty(key, e.getValue());
     }
 
-    String prefix = spark ? "spark." : "livy.";
-    File file = File.createTempFile(prefix, ".properties");
+    File file = File.createTempFile("livyConf", ".properties");
     Files.setPosixFilePermissions(file.toPath(), EnumSet.of(OWNER_READ, OWNER_WRITE));
     file.deleteOnExit();
 
-    prefix = spark ? "Spark" : "Livy";
     Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
     try {
-      confView.store(writer, prefix + " Configuration");
+      confView.store(writer, "Livy App Context Configuration");
     } finally {
       writer.close();
     }
@@ -416,15 +421,6 @@ public class LocalClient implements LivyClient {
 
     private void handle(ChannelHandlerContext ctx, java.lang.Error msg) {
       LOG.warn("Error reported from remote driver.", msg.getCause());
-    }
-
-    private void handle(ChannelHandlerContext ctx, JobMetrics msg) {
-      JobHandleImpl<?> handle = jobs.get(msg.jobId);
-      if (handle != null) {
-        handle.getMetrics().addMetrics(msg.sparkJobId, msg.stageId, msg.taskId, msg.metrics);
-      } else {
-        LOG.warn("Received metrics for unknown job {}", msg.jobId);
-      }
     }
 
     private void handle(ChannelHandlerContext ctx, JobResult msg) {

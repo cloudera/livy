@@ -43,6 +43,7 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val LIVY_HOME = Entry("livy.home", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
+  val SUPERUSERS = Entry("livy.superusers", null)
 
   lazy val TEST_LIVY_HOME = Files.createTempDirectory("livyTemp").toUri.toString
 }
@@ -54,6 +55,8 @@ object LivyConf {
 class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   import LivyConf._
+
+  private lazy val _superusers = Option(get(SUPERUSERS)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
@@ -91,6 +94,9 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
       .orElse { sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" } }
       .getOrElse("spark-submit")
   }
+
+  /** Return the list of superusers. */
+  def superusers(): Seq[String] = _superusers
 
   private def loadFromMap(map: Iterable[(String, String)]): Unit = {
     map.foreach { case (k, v) =>

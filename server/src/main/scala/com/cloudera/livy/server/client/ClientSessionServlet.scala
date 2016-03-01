@@ -26,6 +26,7 @@ import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
 import com.cloudera.livy.{JobHandle, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages._
+import com.cloudera.livy.client.local.LocalConf
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
 
@@ -39,7 +40,26 @@ class ClientSessionServlet(livyConf: LivyConf)
   override protected def createSession(req: HttpServletRequest): ClientSession = {
     val id = sessionManager.nextId()
     val createRequest = bodyAs[CreateClientRequest](req)
-    new ClientSession(id, remoteUser(req), createRequest, livyConf.livyHome)
+    val user = remoteUser(req)
+    val requestedProxy =
+      if (createRequest.conf != null) {
+        Option(createRequest.conf.get(LocalConf.Entry.PROXY_USER.key()))
+      } else {
+        None
+      }
+    val proxyUser = checkImpersonation(requestedProxy, req)
+    new ClientSession(id, user, proxyUser, createRequest, livyConf.livyHome)
+  }
+
+  // This endpoint is used by the client-http module to "connect" to an existing session and
+  // update its last activity time. It performs authorization checks to make sure the caller
+  // has access to the session, so even though it returns the same data, it behaves differently
+  // from get("/:id").
+  post("/:id/connect") {
+    withSession { session =>
+      session.recordActivity()
+      Ok(clientSessionView(session, request))
+    }
   }
 
   jpost[SerializedJob]("/:id/submit-job") { req =>
@@ -118,12 +138,13 @@ class ClientSessionServlet(livyConf: LivyConf)
   post("/:id/jobs/:jobid/cancel") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
-      doAsync { lsession.cancel(jobId) }
+      doAsync { lsession.cancelJob(jobId) }
     }
   }
 
   override protected def clientSessionView(session: ClientSession, req: HttpServletRequest): Any = {
-    new SessionInfo(session.id, session.state.toString)
+    new SessionInfo(session.id, session.owner, session.proxyUser.getOrElse(null),
+      session.state.toString)
   }
 
 }
