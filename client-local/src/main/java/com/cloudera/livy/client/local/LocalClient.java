@@ -276,14 +276,14 @@ public class LocalClient implements LivyClient {
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
-      //launcher.setMaster(master);
+      launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
+      if (conf.get(PROXY_USER) != null) {
+          launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
+     }
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
-      if (conf.get(PROXY_USER) != null) {
-           launcher.addAppArgs("--proxy-user", conf.get(PROXY_USER));
-      }
 
       final Process child = launcher.launch();
       int childId = childIdGenerator.incrementAndGet();
