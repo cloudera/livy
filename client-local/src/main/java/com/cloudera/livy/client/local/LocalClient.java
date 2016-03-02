@@ -199,7 +199,6 @@ public class LocalClient implements LivyClient {
     Runnable runnable;
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
-    final SparkLauncher launcher = new SparkLauncher();
     if (conf.get(CLIENT_IN_PROCESS) != null) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
@@ -231,6 +230,7 @@ public class LocalClient implements LivyClient {
       // If a Spark installation is provided, use the spark-submit script. Otherwise, call the
       // SparkSubmit class directly, which has some caveats (like having to provide a proper
       // version of Guava on the classpath depending on the deploy mode).
+      final SparkLauncher launcher = new SparkLauncher();
       String sparkHome = conf.get(SPARK_HOME_KEY);
       if (sparkHome == null) {
         sparkHome = System.getenv(SPARK_HOME_ENV);
@@ -243,27 +243,26 @@ public class LocalClient implements LivyClient {
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
 
-       String jar = "spark-internal";
-       launcher.setAppResource(jar);
-       String livyJars = conf.get(LIVY_JARS);
-       if (livyJars == null) {
-         String livyHome = System.getenv("LIVY_HOME");
-         Preconditions.checkState(livyHome != null,
-                 "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
-         File clientJars = new File(livyHome, "client-jars");
-         Preconditions.checkState(clientJars.isDirectory(),
-                 "Cannot find 'client-jars' directory under LIVY_HOME.");
-         List<String> jars = new ArrayList<>();
-         for (File f : clientJars.listFiles()) {
-            launcher.addJar(f.getAbsolutePath());
-         }
-         livyJars = Joiner.on(",").join(jars);
-       }
-       String userJars = conf.get(SPARK_JARS_KEY);
-       if (userJars != null) {
-         String allJars = Joiner.on(",").join(livyJars, userJars);
-         conf.set(SPARK_JARS_KEY, allJars);
-       }
+      launcher.setAppResource("spark-internal");
+      String livyJars = conf.get(LIVY_JARS);
+      if (livyJars == null) {
+        String livyHome = System.getenv("LIVY_HOME");
+        Preconditions.checkState(livyHome != null,
+                "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
+        File clientJars = new File(livyHome, "client-jars");
+        Preconditions.checkState(clientJars.isDirectory(),
+                "Cannot find 'client-jars' directory under LIVY_HOME.");
+        List<String> jars = new ArrayList<>();
+        for (File f : clientJars.listFiles()) {
+           launcher.addJar(f.getAbsolutePath());
+        }
+        livyJars = Joiner.on(",").join(jars);
+      }
+      String userJars = conf.get(SPARK_JARS_KEY);
+      if (userJars != null) {
+        String allJars = Joiner.on(",").join(livyJars, userJars);
+        conf.set(SPARK_JARS_KEY, allJars);
+      }
 
       // Disable multiple attempts since the RPC server doesn't yet support multiple
       // connections for the same registered app.
@@ -280,8 +279,8 @@ public class LocalClient implements LivyClient {
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RemoteDriver.class.getName());
       if (conf.get(PROXY_USER) != null) {
-          launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
-     }
+        launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
+      }
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
 
