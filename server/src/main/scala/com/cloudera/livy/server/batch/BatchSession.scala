@@ -24,7 +24,7 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionState}
-import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.utils.{SparkApplication, SparkProcessBuilder}
 
 class BatchSession(
     id: Int,
@@ -55,7 +55,7 @@ class BatchSession(
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 
-    builder.start(Some(request.file), request.args)
+    SparkApplication.create(builder, Some(request.file), request.args)
   }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
@@ -64,7 +64,7 @@ class BatchSession(
 
   override def state: SessionState = _state
 
-  override def logLines(): IndexedSeq[String] = process.inputLines
+  override def logLines(): IndexedSeq[String] = process.log
 
   override def stop(): Future[Unit] = {
     Future {
@@ -73,10 +73,8 @@ class BatchSession(
   }
 
   private def destroyProcess() = {
-    if (process.isAlive) {
-      process.destroy()
-      reapProcess(process.waitFor())
-    }
+    process.stop()
+    reapProcess(process.waitFor())
   }
 
   private def reapProcess(exitCode: Int) = synchronized {
