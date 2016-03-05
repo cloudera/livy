@@ -175,6 +175,16 @@
             <artifactId>slf4j-api</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-client-local</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.xerial.snappy</groupId>

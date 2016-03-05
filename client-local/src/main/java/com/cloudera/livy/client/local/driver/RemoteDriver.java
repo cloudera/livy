@@ -18,30 +18,22 @@
 package com.cloudera.livy.client.local.driver;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import scala.Tuple2;
-
+import com.cloudera.livy.Job;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.common.io.Files;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import io.netty.channel.nio.NioEventLoopGroup;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
-import org.apache.spark.SparkFiles;
-import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +49,7 @@ import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 /**
  * Driver code for the Spark client library.
  */
-public class RemoteDriver {
+public class RemoteDriver extends Driver {
 
   private static final Logger LOG = LoggerFactory.getLogger(RemoteDriver.class);
 
@@ -75,18 +67,13 @@ public class RemoteDriver {
   // Keeps track of connected clients.
   private final List<DriverProtocol> clients = Lists.newArrayList();
 
-  final Map<String, JobWrapper<?>> activeJobs;
-  final Serializer serializer;
 
-  // jc is effectively final, but it has to be volatile since it's accessed by different
-  // threads while the constructor is running.
-  volatile JobContextImpl jc;
   volatile boolean running;
 
   private RemoteDriver(String[] args) throws Exception {
-    this.activeJobs = Maps.newConcurrentMap();
-    this.jcLock = new Object();
-    this.shutdownLock = new Object();
+    super(args);
+    jcLock = new Object();
+
     localTmpDir = Files.createTempDir();
 
     SparkConf conf = new SparkConf();
@@ -182,7 +169,7 @@ public class RemoteDriver {
     try {
       long t1 = System.nanoTime();
       LOG.info("Starting Spark context...");
-      JavaSparkContext sc = new JavaSparkContext(conf);
+      JavaSparkContext sc = new JavaSparkContext();
       LOG.info("Spark context finished initialization in {}ms",
         TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
       sc.sc().addSparkListener(new DriverSparkListener(this));
@@ -279,6 +266,12 @@ public class RemoteDriver {
     }
     return args[valIdx];
   }
+
+  @Override
+  void setMonitorCallback(MonitorCallback cb) {
+    ((JobContextImpl)this.jc).setMonitorCb(cb);
+  }
+
 
   public static void main(String[] args) throws Exception {
     new RemoteDriver(args).run();
