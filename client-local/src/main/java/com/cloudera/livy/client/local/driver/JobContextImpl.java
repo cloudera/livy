@@ -111,7 +111,7 @@ class JobContextImpl implements JobContext {
     monitorCb.set(cb);
   }
 
-  synchronized void stop() {
+  public synchronized void stop() {
     if (streamingctx != null) {
       stopStreamingCtx();
     }

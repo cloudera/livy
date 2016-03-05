@@ -29,12 +29,14 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
+import com.google.common.io.Resources;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
+import org.json4s.JsonAST;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,6 +59,7 @@ public class LocalClient implements LivyClient {
   private final ClientProtocol protocol;
   private final EventLoopGroup eventLoopGroup;
   private volatile boolean isAlive;
+  private final boolean repl;
 
   LocalClient(LocalClientFactory factory, LocalConf conf, ContextInfo ctx) throws IOException {
     this.ctx = ctx;
@@ -70,6 +73,8 @@ public class LocalClient implements LivyClient {
             .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
             .setDaemon(true)
             .build());
+    String replMode = conf.get("repl");
+    this.repl = replMode != null && replMode.equals("true");
 
     try {
       this.driverRpc = Rpc.createClient(conf,
@@ -161,9 +166,415 @@ public class LocalClient implements LivyClient {
     protocol.cancel(jobId);
   }
 
+  private Thread startDriver(final RpcServer rpcServer, final String clientId, final String secret)
+      throws IOException {
+    Runnable runnable;
+    final String serverAddress = rpcServer.getAddress();
+    final String serverPort = String.valueOf(rpcServer.getPort());
+
+    if (conf.get(CLIENT_IN_PROCESS) != null) {
+      // Mostly for testing things quickly. Do not do this in production.
+      LOG.warn("!!!! Running remote driver in-process. !!!!");
+      runnable = new Runnable() {
+        @Override
+        public void run() {
+          List<String> args = Lists.newArrayList();
+          args.add("--remote-host");
+          args.add(serverAddress);
+          args.add("--remote-port");
+          args.add(serverPort);
+          args.add("--client-id");
+          args.add(clientId);
+          args.add("--secret");
+          args.add(secret);
+
+          for (Map.Entry<String, String> e : conf) {
+            args.add("--conf");
+            args.add(String.format("%s=%s", e.getKey(), e.getValue()));
+          }
+          try {
+            RemoteDriver.main(args.toArray(new String[args.size()]));
+          } catch (Exception e) {
+            LOG.error("Error running driver.", e);
+          }
+        }
+      };
+    } else {
+      // If a Spark installation is provided, use the spark-submit script. Otherwise, call the
+      // SparkSubmit class directly, which has some caveats (like having to provide a proper
+      // version of Guava on the classpath depending on the deploy mode).
+      String sparkHome = conf.get(SPARK_HOME_KEY);
+      if (sparkHome == null) {
+        sparkHome = System.getenv(SPARK_HOME_ENV);
+      }
+      if (sparkHome == null) {
+        sparkHome = System.getProperty(SPARK_HOME_KEY);
+      }
+
+      conf.set(CLIENT_ID, clientId);
+      conf.set(CLIENT_SECRET, secret);
+
+      // Disable multiple attempts since the RPC server doesn't yet support multiple
+      // connections for the same registered app.
+      conf.set("spark.yarn.maxAppAttempts", "1");
+
+      File confFile = writeConfToFile();
+
+      // Define how to pass options to the child process. If launching in client (or local)
+      // mode, the driver options need to be passed directly on the command line. Otherwise,
+      // SparkSubmit will take care of that for us.
+      String master = conf.get("spark.master");
+      Preconditions.checkArgument(master != null, "spark.master is not defined.");
+
+      List<String> argv = Lists.newArrayList();
+
+      if (sparkHome != null) {
+        argv.add(new File(sparkHome, "bin/spark-submit").getAbsolutePath());
+      } else {
+        LOG.info("No spark.home provided, calling SparkSubmit directly.");
+        argv.add(new File(System.getProperty("java.home"), "bin/java").getAbsolutePath());
+
+        if (master.startsWith("local") ||
+              master.startsWith("mesos") ||
+              master.endsWith("-client") ||
+              master.startsWith("spark")) {
+          String mem = conf.get("spark.driver.memory");
+          if (mem != null) {
+            argv.add("-Xms" + mem);
+            argv.add("-Xmx" + mem);
+          }
+
+          String cp = conf.get("spark.driver.extraClassPath");
+          if (cp != null) {
+            argv.add("-classpath");
+            argv.add(cp);
+          }
+
+          String libPath = conf.get("spark.driver.extraLibPath");
+          if (libPath != null) {
+            argv.add("-Djava.library.path=" + libPath);
+          }
+
+          String extra = conf.get(DRIVER_OPTS_KEY);
+          if (extra != null) {
+            for (String opt : extra.split("[ ]")) {
+              if (!opt.trim().isEmpty()) {
+                argv.add(opt.trim());
+              }
+            }
+          }
+        }
+
+        argv.add("org.apache.spark.deploy.SparkSubmit");
+      }
+
+      if (master.equals("yarn-cluster")) {
+        String executorCores = conf.get("spark.executor.cores");
+        if (executorCores != null) {
+          argv.add("--executor-cores");
+          argv.add(executorCores);
+        }
+
+        String executorMemory = conf.get("spark.executor.memory");
+        if (executorMemory != null) {
+          argv.add("--executor-memory");
+          argv.add(executorMemory);
+        }
+
+        String numOfExecutors = conf.get("spark.executor.instances");
+        if (numOfExecutors != null) {
+          argv.add("--num-executors");
+          argv.add(numOfExecutors);
+        }
+      }
+
+      argv.add("--properties-file");
+      argv.add(confFile.getAbsolutePath());
+      argv.add("--class");
+      String className;
+      if (repl) {
+        className = REPL.class.getName();
+      } else {
+        className = RemoteDriver.class.getName();
+      }
+      argv.add(className);
+
+      if (conf.get(PROXY_USER) != null) {
+        argv.add("--proxy-user");
+        argv.add(conf.get(PROXY_USER));
+      }
+
+      String jar = "spark-internal";
+      String livyJars = conf.get(LIVY_JARS);
+      if (livyJars == null) {
+        String livyHome = System.getenv("LIVY_HOME");
+        Preconditions.checkState(livyHome != null,
+          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
+
+        File clientJars = new File(livyHome, "client-jars");
+        Preconditions.checkState(clientJars.isDirectory(),
+          "Cannot find 'client-jars' directory under LIVY_HOME.");
+
+        List<String> jars = new ArrayList<>();
+        for (File f : clientJars.listFiles()) {
+          jars.add(f.getAbsolutePath());
+        }
+        livyJars = Joiner.on(",").join(jars);
+      }
+
+      String userJars = conf.get(SPARK_JARS_KEY);
+      if (userJars != null) {
+        String allJars = Joiner.on(",").join(livyJars, userJars);
+        conf.set(SPARK_JARS_KEY, allJars);
+      } else {
+        argv.add("--jars");
+        argv.add(livyJars);
+      }
+
+      argv.add(jar);
+      argv.add("--remote-host");
+      argv.add(serverAddress);
+      argv.add("--remote-port");
+      argv.add(serverPort);
+
+      LOG.info("Running client driver with argv: {}", Joiner.on(" ").join(argv));
+      final Process child = new ProcessBuilder(argv.toArray(new String[argv.size()])).start();
+
+      int childId = childIdGenerator.incrementAndGet();
+      redirect("stdout-redir-" + childId, child.getInputStream());
+      redirect("stderr-redir-" + childId, child.getErrorStream());
+
+      runnable = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            int exitCode = child.waitFor();
+            if (exitCode != 0) {
+              rpcServer.cancelClient(clientId, "Child process exited before connecting back");
+              LOG.warn("Child process exited with code {}.", exitCode);
+            }
+          } catch (InterruptedException ie) {
+            LOG.warn("Waiting thread interrupted, killing child process.");
+            Thread.interrupted();
+            child.destroy();
+          } catch (Exception e) {
+            LOG.warn("Exception while waiting for child process.", e);
+          }
+        }
+      };
+    }
+
+    Thread thread = new Thread(runnable);
+    thread.setDaemon(true);
+    thread.setName("Driver");
+    thread.start();
+    return thread;
   @VisibleForTesting
   ContextInfo getContextInfo() {
     return ctx;
+  private Thread startDriver(final RpcServer rpcServer, final String clientId, final String secret)
+      throws IOException {
+    Runnable runnable;
+    final String serverAddress = rpcServer.getAddress();
+    final String serverPort = String.valueOf(rpcServer.getPort());
+
+    if (conf.get(CLIENT_IN_PROCESS) != null) {
+      // Mostly for testing things quickly. Do not do this in production.
+      LOG.warn("!!!! Running remote driver in-process. !!!!");
+      runnable = new Runnable() {
+        @Override
+        public void run() {
+          List<String> args = Lists.newArrayList();
+          args.add("--remote-host");
+          args.add(serverAddress);
+          args.add("--remote-port");
+          args.add(serverPort);
+          args.add("--client-id");
+          args.add(clientId);
+          args.add("--secret");
+          args.add(secret);
+
+          for (Map.Entry<String, String> e : conf) {
+            args.add("--conf");
+            args.add(String.format("%s=%s", e.getKey(), e.getValue()));
+          }
+          try {
+            RemoteDriver.main(args.toArray(new String[args.size()]));
+          } catch (Exception e) {
+            LOG.error("Error running driver.", e);
+          }
+        }
+      };
+    } else {
+      // If a Spark installation is provided, use the spark-submit script. Otherwise, call the
+      // SparkSubmit class directly, which has some caveats (like having to provide a proper
+      // version of Guava on the classpath depending on the deploy mode).
+      String sparkHome = conf.get(SPARK_HOME_KEY);
+      if (sparkHome == null) {
+        sparkHome = System.getenv(SPARK_HOME_ENV);
+      }
+      if (sparkHome == null) {
+        sparkHome = System.getProperty(SPARK_HOME_KEY);
+      }
+
+      conf.set(CLIENT_ID, clientId);
+      conf.set(CLIENT_SECRET, secret);
+
+      // Disable multiple attempts since the RPC server doesn't yet support multiple
+      // connections for the same registered app.
+      conf.set("spark.yarn.maxAppAttempts", "1");
+
+      File confFile = writeConfToFile();
+
+      // Define how to pass options to the child process. If launching in client (or local)
+      // mode, the driver options need to be passed directly on the command line. Otherwise,
+      // SparkSubmit will take care of that for us.
+      String master = conf.get("spark.master");
+      Preconditions.checkArgument(master != null, "spark.master is not defined.");
+
+      List<String> argv = Lists.newArrayList();
+
+      if (sparkHome != null) {
+        argv.add(new File(sparkHome, "bin/spark-submit").getAbsolutePath());
+      } else {
+        LOG.info("No spark.home provided, calling SparkSubmit directly.");
+        argv.add(new File(System.getProperty("java.home"), "bin/java").getAbsolutePath());
+
+        if (master.startsWith("local") ||
+              master.startsWith("mesos") ||
+              master.endsWith("-client") ||
+              master.startsWith("spark")) {
+          String mem = conf.get("spark.driver.memory");
+          if (mem != null) {
+            argv.add("-Xms" + mem);
+            argv.add("-Xmx" + mem);
+          }
+
+          String cp = conf.get("spark.driver.extraClassPath");
+          if (cp != null) {
+            argv.add("-classpath");
+            argv.add(cp);
+          }
+
+          String libPath = conf.get("spark.driver.extraLibPath");
+          if (libPath != null) {
+            argv.add("-Djava.library.path=" + libPath);
+          }
+
+          String extra = conf.get(DRIVER_OPTS_KEY);
+          if (extra != null) {
+            for (String opt : extra.split("[ ]")) {
+              if (!opt.trim().isEmpty()) {
+                argv.add(opt.trim());
+              }
+            }
+          }
+        }
+
+        argv.add("org.apache.spark.deploy.SparkSubmit");
+      }
+
+      if (master.equals("yarn-cluster")) {
+        String executorCores = conf.get("spark.executor.cores");
+        if (executorCores != null) {
+          argv.add("--executor-cores");
+          argv.add(executorCores);
+        }
+
+        String executorMemory = conf.get("spark.executor.memory");
+        if (executorMemory != null) {
+          argv.add("--executor-memory");
+          argv.add(executorMemory);
+        }
+
+        String numOfExecutors = conf.get("spark.executor.instances");
+        if (numOfExecutors != null) {
+          argv.add("--num-executors");
+          argv.add(numOfExecutors);
+        }
+      }
+
+      argv.add("--properties-file");
+      argv.add(confFile.getAbsolutePath());
+      argv.add("--class");
+      String className;
+      if (repl) {
+        className = "com.cloudera.livy.repl.REPL";
+      } else {
+        className = RemoteDriver.class.getName();
+      }
+      argv.add(className);
+
+      if (conf.get(PROXY_USER) != null) {
+        argv.add("--proxy-user");
+        argv.add(conf.get(PROXY_USER));
+      }
+
+      String jar = "spark-internal";
+      String livyJars = conf.get(LIVY_JARS);
+      if (livyJars == null) {
+        String livyHome = System.getenv("LIVY_HOME");
+        Preconditions.checkState(livyHome != null,
+          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
+
+        File clientJars = new File(livyHome, "client-jars");
+        Preconditions.checkState(clientJars.isDirectory(),
+          "Cannot find 'client-jars' directory under LIVY_HOME.");
+
+        List<String> jars = new ArrayList<>();
+        for (File f : clientJars.listFiles()) {
+          jars.add(f.getAbsolutePath());
+        }
+        livyJars = Joiner.on(",").join(jars);
+      }
+
+      String userJars = conf.get(SPARK_JARS_KEY);
+      if (userJars != null) {
+        String allJars = Joiner.on(",").join(livyJars, userJars);
+        conf.set(SPARK_JARS_KEY, allJars);
+      } else {
+        argv.add("--jars");
+        argv.add(livyJars);
+      }
+
+      argv.add(jar);
+      argv.add("--remote-host");
+      argv.add(serverAddress);
+      argv.add("--remote-port");
+      argv.add(serverPort);
+
+      LOG.info("Running client driver with argv: {}", Joiner.on(" ").join(argv));
+      final Process child = new ProcessBuilder(argv.toArray(new String[argv.size()])).start();
+
+      int childId = childIdGenerator.incrementAndGet();
+      redirect("stdout-redir-" + childId, child.getInputStream());
+      redirect("stderr-redir-" + childId, child.getErrorStream());
+
+      runnable = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            int exitCode = child.waitFor();
+            if (exitCode != 0) {
+              rpcServer.cancelClient(clientId, "Child process exited before connecting back");
+              LOG.warn("Child process exited with code {}.", exitCode);
+            }
+          } catch (InterruptedException ie) {
+            LOG.warn("Waiting thread interrupted, killing child process.");
+            Thread.interrupted();
+            child.destroy();
+          } catch (Exception e) {
+            LOG.warn("Exception while waiting for child process.", e);
+          }
+        }
+      };
+    }
+
+    Thread thread = new Thread(runnable);
+    thread.setDaemon(true);
+    thread.setName("Driver");
+    thread.start();
+    return thread;
   }
 
   private class ClientProtocol extends BaseProtocol {
@@ -222,6 +633,10 @@ public class LocalClient implements LivyClient {
 
     Future<BypassJobStatus> getBypassJobStatus(String id) {
       return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
+    }
+
+    JsonAST.JValue executeCode(String code) throws Exception {
+      return driverRpc.call(new REPLJobRequest(code), JsonAST.JValue.class).get();
     }
 
     void cancel(String jobId) {

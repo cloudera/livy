@@ -88,8 +88,7 @@ class WebAppSpec extends ScalatraSuite with FunSpecLike with BeforeAndAfter {
     }
 
     it("GET /history with history should return something") {
-      Await.ready(session.execute("").result, Duration(10, TimeUnit.SECONDS))
-
+      session.execute("").result
       get("/history") {
         status should equal (200)
         header("Content-Type") should include("application/json")

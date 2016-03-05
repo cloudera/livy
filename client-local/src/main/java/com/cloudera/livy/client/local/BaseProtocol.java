@@ -187,4 +187,17 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
+  protected static class REPLJobRequest {
+
+    public final String code;
+
+    public REPLJobRequest(String code) {
+      this.code = code;
+    }
+
+    public REPLJobRequest() {
+      this(null);
+    }
+  }
+
 }

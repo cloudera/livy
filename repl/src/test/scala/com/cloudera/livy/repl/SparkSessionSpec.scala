@@ -34,7 +34,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("1 + 2")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -50,7 +50,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     var statement = session.execute("val x = 1")
     statement.id should equal (0)
 
-    var result = Await.result(statement.result, Duration.Inf)
+    var result = statement.result
     var expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -64,7 +64,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     statement = session.execute("val y = 2")
     statement.id should equal (1)
 
-    result = Await.result(statement.result, Duration.Inf)
+    result = statement.result
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 1,
@@ -78,7 +78,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     statement = session.execute("x + y")
     statement.id should equal (2)
 
-    result = Await.result(statement.result, Duration.Inf)
+    result = statement.result
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 2,
@@ -94,7 +94,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""println("Hello World")""")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -110,7 +110,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""x""")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
 
     def extract(key: String): String = (result \ key).extract[String]
 
@@ -124,7 +124,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""throw new Exception()""")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
     val resultMap = result.extract[Map[String, JValue]]
 
     // Manually extract the values since the line numbers in the exception could change.
@@ -139,7 +139,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""sc""")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
     val resultMap = result.extract[Map[String, JValue]]
 
     // Manually extract the values since the line numbers in the exception could change.
@@ -156,7 +156,7 @@ class SparkSessionSpec extends BaseSessionSpec {
       """sc.parallelize(0 to 1).map{i => i+1}.collect""".stripMargin)
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
 
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
@@ -173,7 +173,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     val statement = session.execute("val x = List((1, \"a\"), (3, \"b\"))\n%table x")
     statement.id should equal (0)
 
-    val result = Await.result(statement.result, Duration.Inf)
+    val result = statement.result
 
 
     val expectedResult = Extraction.decompose(Map(

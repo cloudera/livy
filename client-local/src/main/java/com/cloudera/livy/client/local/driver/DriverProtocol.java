@@ -17,6 +17,8 @@
 
 package com.cloudera.livy.client.local.driver;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -25,14 +27,13 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import org.apache.spark.api.java.JavaFutureAction;
+import org.json4s.JsonAST;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cloudera.livy.Job;
-import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.BypassJobStatus;
-import com.cloudera.livy.client.local.rpc.Rpc;
+import scala.tools.nsc.interactive.REPL;
 
 class DriverProtocol extends BaseProtocol {
 
@@ -40,14 +41,23 @@ class DriverProtocol extends BaseProtocol {
 
   private final Rpc clientRpc;
   private final Object jcLock;
-  private final RemoteDriver driver;
+  private final Driver driver;
   private final List<BypassJobWrapper> bypassJobs;
+  private Class replClass;
+  private Method runMethod;
 
+  DriverProtocol(RemoteDriver driver, Object jcLock) {
   DriverProtocol(RemoteDriver driver, Rpc clientRpc, Object jcLock) {
+  DriverProtocol(Driver driver, Object jcLock) {
     this.driver = driver;
     this.clientRpc = clientRpc;
     this.jcLock = jcLock;
     this.bypassJobs = Lists.newArrayList();
+    try {
+      replClass = Class.forName("com.cloudera.livy.repl.REPL");
+      runMethod = replClass.getDeclaredMethod("run", String.class);
+    } catch (ClassNotFoundException | NoSuchMethodException ex) {
+    }
   }
 
   void sendError(Throwable error) {
@@ -85,7 +95,7 @@ class DriverProtocol extends BaseProtocol {
     LOG.info("Received job request {}", msg.id);
     JobWrapper<?> wrapper = new JobWrapper<>(driver, this, msg.id, msg.job);
     driver.activeJobs.put(msg.id, wrapper);
-    driver.submit(wrapper);
+    ((RemoteDriver)driver).submit(wrapper);
   }
 
   private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
@@ -102,14 +112,17 @@ class DriverProtocol extends BaseProtocol {
         // to the RPC layer.
       }
     } else {
-      driver.submit(wrapper);
+      ((RemoteDriver)driver).submit(wrapper);
     }
   }
 
   @SuppressWarnings("unchecked")
   private Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
     waitForJobContext();
-    driver.jc.setMonitorCb(new MonitorCallback() {
+    if (!(driver instanceof RemoteDriver)) {
+      throw new IllegalStateException("JobContext.monitor is not available for REPL driver");
+    }
+    driver.setMonitorCallback(new MonitorCallback() {
       @Override
       public void call(JavaFutureAction<?> future) {
         throw new IllegalStateException(
@@ -119,7 +132,7 @@ class DriverProtocol extends BaseProtocol {
     try {
       return msg.job.call(driver.jc);
     } finally {
-      driver.jc.setMonitorCb(null);
+      driver.setMonitorCallback(null);
     }
   }
 
@@ -143,6 +156,15 @@ class DriverProtocol extends BaseProtocol {
     }
 
     throw new NoSuchElementException(msg.id);
+  }
+
+  private JsonAST.JValue handle(ChannelHandlerContext ctx, REPLJobRequest msg)
+    throws InvocationTargetException, IllegalAccessException {
+    if (replClass == null || !replClass.isInstance(driver)) {
+      throw new RuntimeException("Driver class is not REPL");
+    }
+
+    return (JsonAST.JValue)runMethod.invoke(replClass, msg.code);
   }
 
   private void waitForJobContext() throws InterruptedException {
