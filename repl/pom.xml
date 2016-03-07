@@ -189,10 +189,9 @@
         </dependency>
 
         <dependency>
-            <groupId>net.databinder.dispatch</groupId>
-            <artifactId>dispatch-core_${scala.binary.version}</artifactId>
+            <groupId>com.ning</groupId>
+            <artifactId>async-http-client</artifactId>
         </dependency>
-
     </dependencies>
 
     <build>

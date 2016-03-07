@@ -22,14 +22,14 @@ import java.util.concurrent.TimeUnit
 import javax.servlet.ServletContext
 
 import scala.annotation.tailrec
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
-import dispatch._
+import com.ning.http.client.AsyncHttpClient
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.jackson.Serialization.write
-import org.scalatra.LifeCycle
 import org.scalatra.servlet.ScalatraListener
+import org.scalatra.LifeCycle
 
 import com.cloudera.livy.{LivyConf, Logging, WebServer}
 import com.cloudera.livy.repl.python.PythonInterpreter
@@ -86,8 +86,6 @@ object Main extends Logging {
       server.join()
     } finally {
       server.stop()
-      // Make sure to close all our outstanding http requests.
-      Http.shutdown()
     }
   }
 }
@@ -135,17 +133,17 @@ class ScalatraBootstrap extends LifeCycle with Logging {
 
         // Wait for our url to be discovered.
         val replUrl = waitForReplUrl()
-
-        var req = url(callbackUrl).setContentType("application/json", "UTF-8")
-        req = req << write(Map("url" -> replUrl))
-
         info(s"Calling $callbackUrl...")
-        val rep = Http(req OK as.String)
-        rep.onFailure {
-          case _ => System.exit(1)
+        val response = new AsyncHttpClient().preparePost(callbackUrl)
+          .setHeader("Content-Type", "application/json;charset=UTF-8")
+          .setBody(write(Map("url" -> replUrl)))
+          .execute().get()
+        response.getStatusCode match {
+          case 200 => Future.successful(())
+          case statusCode =>
+            info("callback fail, " + response.getResponseBody)
+            System.exit(1)
         }
-
-        Await.result(rep, Duration(10, TimeUnit.SECONDS))
       } catch {
         case e: Throwable =>
           error("Exception is thrown in notifyCallback()", e)
