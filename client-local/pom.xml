@@ -58,6 +58,10 @@
       <groupId>io.netty</groupId>
       <artifactId>netty-all</artifactId>
     </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-launcher_${scala.binary.version}</artifactId>
+    </dependency>
 
     <!-- Needed by Spark but excluded in the Livy root pom. -->
     <dependency>
@@ -152,7 +156,11 @@
               <goal>copy-dependencies</goal>
             </goals>
             <configuration>
-              <excludeArtifactIds>livy-client-common,kryo</excludeArtifactIds>
+              <excludeArtifactIds>
+                livy-client-common,
+                kryo,
+                spark-launcher_${scala.binary.version},
+              </excludeArtifactIds>
             </configuration>
           </execution>
         </executions>
