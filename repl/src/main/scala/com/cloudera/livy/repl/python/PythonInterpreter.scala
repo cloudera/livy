@@ -56,6 +56,7 @@ object PythonInterpreter extends Logging {
     env.put("PYTHONUNBUFFERED", "YES")
     env.put("PYSPARK_GATEWAY_PORT", "" + gatewayServer.getListeningPort)
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
+    env.put("LIVY_TEST", LivyConf.TEST_MODE.toString)
 
     builder.redirectError(Redirect.PIPE)
 
