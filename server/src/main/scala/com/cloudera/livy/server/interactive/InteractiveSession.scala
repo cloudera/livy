@@ -36,7 +36,7 @@ import org.json4s.jackson.Serialization.write
 import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
-import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.utils.{SparkApplication, SparkProcessBuilder}
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -128,37 +128,10 @@ class InteractiveSession(
 
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
-    builder.start(None, List(kind.toString))
+    SparkApplication.create(builder, None, List(kind.toString))
   }
 
-  private val stdoutThread = new Thread {
-    override def run() = {
-      val regex = """Starting livy-repl on (https?://.*)""".r
-
-      val lines = process.inputIterator
-
-      // Loop until we find the ip address to talk to livy-repl.
-      @tailrec
-      def readUntilURL(): Unit = {
-        if (lines.hasNext) {
-          val line = lines.next()
-
-          line match {
-            case regex(url_) => url = new URL(url_)
-            case _ => readUntilURL()
-          }
-        }
-      }
-
-      readUntilURL()
-    }
-  }
-
-  stdoutThread.setName("process session stdout reader")
-  stdoutThread.setDaemon(true)
-  stdoutThread.start()
-
-  override def logLines(): IndexedSeq[String] = process.inputLines
+  override def logLines(): IndexedSeq[String] = process.log
 
   override def state: SessionState = _state
 
@@ -202,11 +175,8 @@ class InteractiveSession(
             stop()
           }
         case SessionState.Error(_) | SessionState.Dead(_) | SessionState.Success(_) =>
-          if (process.isAlive) {
-            Future {
-              process.destroy()
-            }
-          } else {
+          Future {
+            process.stop()
             Future.successful(Unit)
           }
       }
@@ -214,7 +184,6 @@ class InteractiveSession(
 
     future.andThen { case r =>
       process.waitFor()
-      stdoutThread.join()
       r
     }
   }

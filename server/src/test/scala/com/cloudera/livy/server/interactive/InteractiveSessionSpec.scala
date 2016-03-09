@@ -18,32 +18,60 @@
 
 package com.cloudera.livy.server.interactive
 
+import java.io.File
+import java.net.URL
 import java.util.concurrent.TimeUnit
+import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.json4s.{DefaultFormats, Extraction}
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.scalatra.test.scalatest.ScalatraSpec
 
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.sessions.{PySpark, SessionState}
 
-class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
+class InteractiveSessionSpec extends ScalatraSpec with Matchers with BeforeAndAfterAll {
 
   private val livyConf = new LivyConf()
   livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
-  livyConf.set(InteractiveSession.LivyReplJars, "")
+
+  {
+    val livyReplJarsPath = s"${System.getProperty("user.dir")}/../repl/target/jars"
+    val jars = new File(livyReplJarsPath).listFiles().mkString(",")
+    livyConf.set(InteractiveSession.LivyReplJars, jars)
+  }
 
   implicit val formats = DefaultFormats
 
   private var session: InteractiveSession = null
+
+  private val mapper = new ObjectMapper()
+    .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
+
+  addServlet(new HttpServlet {
+    override def doPost(req: HttpServletRequest, resp: HttpServletResponse): Unit = {
+      try {
+        val reqBody = mapper.readValue(req.getInputStream, classOf[CallbackRequest])
+        session.url = new URL(reqBody.url)
+        info(s"Livy driver is running at ${reqBody.url}")
+        resp.setStatus(HttpServletResponse.SC_OK)
+      } catch {
+        case e: Throwable =>
+          info(s"Error in callback servlet. ${e}")
+      }
+    }
+  }, "/callback")
 
   private def createSession(): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
+    req.conf = Map("spark.livy.callbackUrl" -> s"${server.getURI.toString}callback")
     new InteractiveSession(0, null, None, livyConf, req)
   }
 
