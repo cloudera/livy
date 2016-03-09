@@ -30,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.Future;
 import org.apache.commons.io.IOUtils;
 import org.junit.After;
@@ -39,6 +38,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
+import static org.mockito.Mockito.*;
 
 import com.cloudera.livy.client.local.LocalConf;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
@@ -118,12 +118,10 @@ public class TestRpc {
   @Test
   public void testBadHello() throws Exception {
     RpcServer server = autoClose(new RpcServer(emptyConfig));
+    RpcServer.ClientCallback callback = mock(RpcServer.ClientCallback.class);
 
-    Future<Rpc> serverRpcFuture = server.registerClient("client", "newClient",
-        new TestDispatcher());
-    NioEventLoopGroup eloop = new NioEventLoopGroup();
-
-    Future<Rpc> clientRpcFuture = Rpc.createClient(emptyConfig, eloop,
+    server.registerClient("client", "newClient", callback);
+    Future<Rpc> clientRpcFuture = Rpc.createClient(emptyConfig, server.getEventLoopGroup(),
         "localhost", server.getPort(), "client", "wrongClient", new TestDispatcher());
 
     try {
@@ -136,7 +134,7 @@ public class TestRpc {
         ee.getCause() instanceof SaslException);
     }
 
-    serverRpcFuture.cancel(true);
+    verify(callback, never()).onNewClient(any(Rpc.class));
   }
 
   @Test
@@ -187,30 +185,6 @@ public class TestRpc {
     assertEquals(outbound.message, reply.message);
   }
 
-  @Test
-  public void testClientTimeout() throws Exception {
-    RpcServer server = autoClose(new RpcServer(emptyConfig));
-    String secret = server.createSecret();
-
-    try {
-      autoClose(server.registerClient("client", secret, new TestDispatcher(), 1L).get());
-      fail("Server should have timed out client.");
-    } catch (ExecutionException ee) {
-      assertTrue(ee.getCause() instanceof TimeoutException);
-    }
-
-    NioEventLoopGroup eloop = new NioEventLoopGroup();
-    Future<Rpc> clientRpcFuture = Rpc.createClient(emptyConfig, eloop,
-        "localhost", server.getPort(), "client", secret, new TestDispatcher());
-    try {
-      autoClose(clientRpcFuture.get());
-      fail("Client should have failed to connect to server.");
-    } catch (ExecutionException ee) {
-      // Error should not be a timeout.
-      assertFalse(ee.getCause() instanceof TimeoutException);
-    }
-  }
-
   private void transfer(Rpc serverRpc, Rpc clientRpc) {
     EmbeddedChannel client = (EmbeddedChannel) clientRpc.getChannel();
     EmbeddedChannel server = (EmbeddedChannel) serverRpc.getChannel();
@@ -244,14 +218,34 @@ public class TestRpc {
   private Rpc[] createRpcConnection(RpcServer server, LocalConf clientConf)
       throws Exception {
     String secret = server.createSecret();
-    Future<Rpc> serverRpcFuture = server.registerClient("client", secret, new TestDispatcher());
-    NioEventLoopGroup eloop = new NioEventLoopGroup();
-    Future<Rpc> clientRpcFuture = Rpc.createClient(clientConf, eloop,
+    ServerRpcCallback callback = new ServerRpcCallback();
+    server.registerClient("client", secret, callback);
+
+    Future<Rpc> clientRpcFuture = Rpc.createClient(clientConf, server.getEventLoopGroup(),
         "localhost", server.getPort(), "client", secret, new TestDispatcher());
 
-    Rpc serverRpc = autoClose(serverRpcFuture.get(10, TimeUnit.SECONDS));
+    synchronized (callback) {
+      callback.wait(TimeUnit.SECONDS.toMillis(10));
+    }
+    assertNotNull(callback.client);
+    Rpc serverRpc = autoClose(callback.client);
     Rpc clientRpc = autoClose(clientRpcFuture.get(10, TimeUnit.SECONDS));
     return new Rpc[] { serverRpc, clientRpc };
+  }
+
+  private static class ServerRpcCallback implements RpcServer.ClientCallback {
+
+    Rpc client;
+
+    @Override
+    public RpcDispatcher onNewClient(Rpc client) {
+      synchronized (this) {
+        this.client = client;
+        notifyAll();
+      }
+      return new TestDispatcher();
+    }
+
   }
 
   private static class TestMessage {

@@ -41,6 +41,7 @@ import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function;
 import org.apache.spark.api.java.function.VoidFunction;
+import org.apache.spark.launcher.SparkLauncher;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
@@ -69,14 +70,14 @@ public class TestSparkClient {
     Properties conf = new Properties();
     if (local) {
       conf.put(CLIENT_IN_PROCESS.key(), "true");
-      conf.put("spark.master", "local");
+      conf.put(SparkLauncher.SPARK_MASTER, "local");
       conf.put("spark.app.name", "SparkClientSuite Local App");
     } else {
       String classpath = System.getProperty("java.class.path");
-      conf.put("spark.master", "local");
+      conf.put(SparkLauncher.SPARK_MASTER, "local");
       conf.put("spark.app.name", "SparkClientSuite Remote App");
-      conf.put("spark.driver.extraClassPath", classpath);
-      conf.put("spark.executor.extraClassPath", classpath);
+      conf.put(SparkLauncher.DRIVER_EXTRA_CLASSPATH, classpath);
+      conf.put(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, classpath);
       conf.put(LIVY_JARS.key(), "");
     }
 
@@ -274,6 +275,32 @@ public class TestSparkClient {
         JobHandle<String> handle = client.submit(new GetCurrentUserJob());
         String userName = handle.get(TIMEOUT, TimeUnit.SECONDS);
         assertEquals(PROXY, userName);
+      }
+    });
+  }
+
+  @Test
+  public void testConnectToRunningContext() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      void call(LivyClient client) throws Exception {
+        ContextInfo ctx = ((LocalClient) client).getContextInfo();
+        URI uri = new URI(String.format("local://%s:%s@%s:%d", ctx.getClientId(), ctx.getSecret(),
+          ctx.getRemoteAddress(), ctx.getRemotePort()));
+
+        // If this tries to create a new context, it will fail because it's missing the
+        // needed configuration from createConf().
+        LivyClient newClient = new LivyClientBuilder()
+          .setURI(uri)
+          .build();
+
+        try {
+          JobHandle<String> handle = client.submit(new SimpleJob());
+          String result = handle.get(TIMEOUT, TimeUnit.SECONDS);
+          assertEquals("hello", result);
+        } finally {
+          newClient.stop(false);
+        }
       }
     });
   }

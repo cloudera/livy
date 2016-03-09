@@ -47,8 +47,8 @@ import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
@@ -92,7 +92,7 @@ public class Rpc implements Closeable {
    */
   public static Promise<Rpc> createClient(
       final LocalConf config,
-      final NioEventLoopGroup eloop,
+      final EventLoopGroup eloop,
       String host,
       int port,
       final String clientId,
@@ -302,8 +302,7 @@ public class Rpc implements Closeable {
     return egroup.next().newPromise();
   }
 
-  @VisibleForTesting
-  Channel getChannel() {
+  public Channel getChannel() {
     return channel;
   }
 

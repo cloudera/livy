@@ -39,8 +39,13 @@ public final class LocalClientFactory implements LivyClientFactory {
   private RpcServer server = null;
 
   /**
-   * Creates a local Livy client if the URI has the "local" scheme. Any other components of the
-   * URI are ignored.
+   * Creates a local Livy client if the URI has the "local" scheme.
+   * <p>
+   * If the URI contains user information, host and port, the library will try to connect to an
+   * existing RSC instance with the provided information, and most of the provided configuration
+   * will be ignored.
+   * <p>
+   * Otherwise, a new Spark context will be started with the given configuration.
    */
   @Override
   public LivyClient createClient(URI uri, Properties config) {
@@ -56,7 +61,13 @@ public final class LocalClientFactory implements LivyClientFactory {
     }
 
     try {
-      return new LocalClient(this, lconf);
+      ContextInfo info;
+      if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
+        info = createContextInfo(uri);
+      } else {
+        info = new ContextLauncher(this, lconf);
+      }
+      return new LocalClient(this, lconf, info);
     } catch (Exception e) {
       unref();
       throw Throwables.propagate(e);
@@ -90,6 +101,38 @@ public final class LocalClientFactory implements LivyClientFactory {
       server.close();
       server = null;
     }
+  }
+
+  private static ContextInfo createContextInfo(final URI uri) {
+    final String[] userInfo = uri.getUserInfo().split(":", 2);
+    return new ContextInfo() {
+
+      @Override
+      public String getRemoteAddress() {
+        return uri.getHost();
+      }
+
+      @Override
+      public int getRemotePort() {
+        return uri.getPort();
+      }
+
+      @Override
+      public String getClientId() {
+        return userInfo[0];
+      }
+
+      @Override
+      public String getSecret() {
+        return userInfo[1];
+      }
+
+      @Override
+      public void dispose() {
+
+      }
+
+    };
   }
 
 }
