@@ -22,6 +22,8 @@ import json
 import logging
 import sys
 import traceback
+import StringIO
+import base64
 
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
@@ -338,6 +340,23 @@ def magic_json(name):
         'application/json': value,
     }
 
+def magic_matplot(name):
+    try:
+        value = global_dict[name]
+
+        fig = value.gcf()
+        imgdata = StringIO.StringIO()
+        fig.savefig(imgdata, format='png')
+        imgdata.seek(0)
+        encode = base64.b64encode(imgdata.buf)
+    except:
+        exc_type, exc_value, tb = sys.exc_info()
+        return execute_reply_error(exc_type, exc_value, [])
+
+    return {
+        'image/png': encode,
+        'text/plain': "",
+    }
 
 def shutdown_request(_content):
     sys.exit()
@@ -346,6 +365,7 @@ def shutdown_request(_content):
 magic_router = {
     'table': magic_table,
     'json': magic_json,
+    'matplot': magic_matplot,
 }
 
 msg_type_router = {
