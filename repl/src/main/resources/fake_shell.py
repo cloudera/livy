@@ -389,8 +389,7 @@ def main():
     sys.stderr = fake_stderr
 
     try:
-
-        if os.environ["LIVY_TEST"] == "false":
+        if os.environ.get("LIVY_TEST") == "false":
             # Load spark into the context
             exec 'from pyspark.shell import sc' in global_dict
 
@@ -457,7 +456,7 @@ def main():
             print >> sys_stdout, response
             sys_stdout.flush()
     finally:
-        if os.environ["LIVY_TEST"] == "false" and 'sc' in global_dict:
+        if os.environ.get("LIVY_TEST") == "false" and 'sc' in global_dict:
             global_dict['sc'].stop()
 
         sys.stdin = sys_stdin
