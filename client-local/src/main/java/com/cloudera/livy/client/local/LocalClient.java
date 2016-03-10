@@ -24,11 +24,15 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.GenericFutureListener;
 import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
@@ -49,8 +53,9 @@ public class LocalClient implements LivyClient {
   private final LocalClientFactory factory;
   private final LocalConf conf;
   private final Map<String, JobHandleImpl<?>> jobs;
-  private final Rpc driverRpc;
+  public final Rpc driverRpc;
   private final ClientProtocol protocol;
+  private final EventLoopGroup eventLoopGroup;
   private volatile boolean isAlive;
 
   LocalClient(LocalClientFactory factory, LocalConf conf, ContextInfo ctx) throws IOException {
@@ -59,17 +64,23 @@ public class LocalClient implements LivyClient {
     this.conf = conf;
     this.jobs = Maps.newConcurrentMap();
     this.protocol = new ClientProtocol();
+    this.eventLoopGroup = new NioEventLoopGroup(
+        conf.getInt(RPC_MAX_THREADS),
+        new ThreadFactoryBuilder()
+            .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
+            .setDaemon(true)
+            .build());
 
     try {
       this.driverRpc = Rpc.createClient(conf,
-        factory.getServer().getEventLoopGroup(),
+        eventLoopGroup,
         ctx.getRemoteAddress(),
         ctx.getRemotePort(),
         ctx.getClientId(),
         ctx.getSecret(),
         protocol).get();
     } catch (Throwable e) {
-      ctx.dispose();
+      ctx.dispose(true);
       throw Throwables.propagate(e);
     }
 
@@ -84,6 +95,7 @@ public class LocalClient implements LivyClient {
     });
 
     isAlive = true;
+    LOG.debug("Connected to context {} ({}).", ctx.getClientId(), driverRpc.getChannel());
   }
 
   @Override
@@ -97,20 +109,23 @@ public class LocalClient implements LivyClient {
   }
 
   @Override
-  public void stop(boolean shutdownContext) {
+  public synchronized void stop(boolean shutdownContext) {
     if (isAlive) {
       isAlive = false;
       try {
         if (shutdownContext) {
           protocol.endSession();
+          ctx.dispose(false);
         }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
+        ctx.dispose(true);
       } finally {
-        ctx.dispose();
         driverRpc.close();
-        factory.unref();
+        eventLoopGroup.shutdownGracefully();
       }
+      LOG.debug("Disconnected from context {}, shutdown = {}.", ctx.getClientId(),
+        shutdownContext);
     }
   }
 

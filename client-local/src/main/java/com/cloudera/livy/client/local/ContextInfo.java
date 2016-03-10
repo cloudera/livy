@@ -26,6 +26,6 @@ interface ContextInfo {
   int getRemotePort();
   String getClientId();
   String getSecret();
-  void dispose();
+  void dispose(boolean forceKill);
 
 }

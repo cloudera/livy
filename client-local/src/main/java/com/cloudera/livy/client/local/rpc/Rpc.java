@@ -268,7 +268,7 @@ public class Rpc implements Closeable {
    */
   public <T> Future<T> call(Object msg, Class<T> retType) {
     Preconditions.checkArgument(msg != null);
-    Preconditions.checkState(channel.isActive(), "RPC channel is closed.");
+    Preconditions.checkState(channel.isOpen(), "RPC channel is closed.");
     try {
       final long id = rpcId.getAndIncrement();
       final Promise<T> promise = createPromise();

@@ -54,22 +54,22 @@ public final class LocalClientFactory implements LivyClientFactory {
     }
 
     LocalConf lconf = new LocalConf(config);
-    try {
-      ref(lconf);
-    } catch (IOException ioe) {
-      throw Throwables.propagate(ioe);
-    }
 
+    boolean needsServer = false;
     try {
       ContextInfo info;
       if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
         info = createContextInfo(uri);
       } else {
+        needsServer = true;
+        ref(lconf);
         info = new ContextLauncher(this, lconf);
       }
       return new LocalClient(this, lconf, info);
     } catch (Exception e) {
-      unref();
+      if (needsServer) {
+        unref();
+      }
       throw Throwables.propagate(e);
     }
   }
@@ -128,7 +128,7 @@ public final class LocalClientFactory implements LivyClientFactory {
       }
 
       @Override
-      public void dispose() {
+      public void dispose(boolean forceKill) {
 
       }
 

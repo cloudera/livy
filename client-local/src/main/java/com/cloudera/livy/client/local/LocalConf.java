@@ -44,6 +44,7 @@ public class LocalConf extends ClientConf<LocalConf> {
     CLIENT_ID("client.auth.id", null),
     CLIENT_SECRET("client.auth.secret", null),
     CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", null),
+    CLIENT_SHUTDOWN_TIMEOUT("client.shutdown_timeout", "10s"),
 
     LIVY_JARS("jars", null),
 

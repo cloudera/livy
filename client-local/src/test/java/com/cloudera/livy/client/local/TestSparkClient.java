@@ -48,6 +48,8 @@ import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.hive.HiveContext;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 import static org.junit.Assume.*;
 import static org.mockito.Mockito.*;
@@ -63,11 +65,14 @@ import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class TestSparkClient {
 
+  private static final Logger LOG = LoggerFactory.getLogger(TestSparkClient.class);
+
   // Timeouts are bad... mmmkay.
   private static final long TIMEOUT = 40;
 
   private Properties createConf(boolean local) {
     Properties conf = new Properties();
+    conf.put(RPC_CHANNEL_LOG_LEVEL.key(), "DEBUG");
     if (local) {
       conf.put(CLIENT_IN_PROCESS.key(), "true");
       conf.put(SparkLauncher.SPARK_MASTER, "local");
@@ -281,12 +286,15 @@ public class TestSparkClient {
 
   @Test
   public void testConnectToRunningContext() throws Exception {
-    runTest(true, new TestFunction() {
+    runTest(false, new TestFunction() {
       @Override
       void call(LivyClient client) throws Exception {
         ContextInfo ctx = ((LocalClient) client).getContextInfo();
         URI uri = new URI(String.format("local://%s:%s@%s:%d", ctx.getClientId(), ctx.getSecret(),
           ctx.getRemoteAddress(), ctx.getRemotePort()));
+
+        // Close the old client to make sure the driver doesn't go away when it disconnects.
+        client.stop(false);
 
         // If this tries to create a new context, it will fail because it's missing the
         // needed configuration from createConf().
@@ -295,11 +303,15 @@ public class TestSparkClient {
           .build();
 
         try {
-          JobHandle<String> handle = client.submit(new SimpleJob());
+          JobHandle<String> handle = newClient.submit(new SimpleJob());
           String result = handle.get(TIMEOUT, TimeUnit.SECONDS);
           assertEquals("hello", result);
         } finally {
-          newClient.stop(false);
+          newClient.stop(true);
+
+          // Make sure the underlying ContextLauncher is cleaned up properly, since we did
+          // a "stop(false)" above.
+          ((LocalClient) client).getContextInfo().dispose(true);
         }
       }
     });
@@ -384,6 +396,11 @@ public class TestSparkClient {
         .setAll(conf)
         .build();
       test.call(client);
+    } catch (Exception e) {
+      // JUnit prints not so useful backtraces in test summary reports, and we don't see the
+      // actual source line of the exception, so print the exception to the logs.
+      LOG.error("Test threw exception.", e);
+      throw e;
     } finally {
       if (client != null) {
         client.stop(true);

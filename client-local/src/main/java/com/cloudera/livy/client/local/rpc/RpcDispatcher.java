@@ -174,6 +174,8 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
       for (OutstandingRpc rpc : rpcs) {
         rpc.future.cancel(true);
       }
+    } else {
+      LOG.debug("Channel {} became inactive.", ctx.channel());
     }
     super.channelInactive(ctx);
   }

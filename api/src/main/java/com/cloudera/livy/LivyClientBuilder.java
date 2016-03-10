@@ -137,6 +137,13 @@ public final class LivyClientBuilder {
     }
 
     if (client == null) {
+      // Redact any user information from the URI when throwing user-visible exceptions that might
+      // be logged.
+      if (uri.getUserInfo() != null) {
+        uri = new URI(uri.getScheme(), "[redacted]", uri.getHost(), uri.getPort(), uri.getPath(),
+          uri.getQuery(), uri.getFragment());
+      }
+
       throw new IllegalArgumentException(String.format(
         "URI '%s' is not supported by any registered client factories.", uri), error);
     }

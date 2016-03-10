@@ -59,7 +59,6 @@ class ContextLauncher implements ContextInfo {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContextLauncher.class);
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
-  private static final long DEFAULT_SHUTDOWN_TIMEOUT = 10000; // In milliseconds
 
   private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
@@ -67,26 +66,35 @@ class ContextLauncher implements ContextInfo {
 
   private final String clientId;
   private final String secret;
-  private final Thread driverThread;
+  private final ChildProcess child;
+  private final LocalConf conf;
+  private final LocalClientFactory factory;
 
   private BaseProtocol.RemoteDriverAddress driverAddress;
 
   ContextLauncher(LocalClientFactory factory, LocalConf conf) throws IOException {
     this.clientId = UUID.randomUUID().toString();
     this.secret = factory.getServer().createSecret();
+    this.conf = conf;
+    this.factory = factory;
 
     RegistrationHandler handler = new RegistrationHandler();
     try {
       factory.getServer().registerClient(clientId, secret, handler);
-      this.driverThread = startDriver(factory.getServer(), conf, clientId, secret);
+      this.child = startDriver(factory.getServer(), conf, clientId, secret);
 
-      // Wait for the handler to receive the driver information.
+      // Wait for the handler to receive the driver information. Wait a little at a time so
+      // that we can check whether the child process is still alive, and throw an error if the
+      // process goes away before we get the information back.
       long timeout = conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT);
       long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
+      long now = System.nanoTime();
+      long step = Math.min(500, TimeUnit.NANOSECONDS.toMillis(deadline - now));
       synchronized (handler) {
-        long now = System.nanoTime();
         while (handler.driverAddress == null && now < deadline) {
-          handler.wait(TimeUnit.NANOSECONDS.toMillis(deadline - now));
+          handler.wait(Math.min(step, deadline - now));
+          Preconditions.checkState(handler.driverAddress != null || !child.isFailed(),
+            "Child has exited before address information was received.");
           now = System.nanoTime();
         }
       }
@@ -122,34 +130,28 @@ class ContextLauncher implements ContextInfo {
   }
 
   @Override
-  public void dispose() {
+  public void dispose(boolean forceKill) {
     try {
-      try {
-        driverThread.join(DEFAULT_SHUTDOWN_TIMEOUT);
-      } catch (InterruptedException ie) {
-        LOG.debug("Interrupted before driver thread was finished.");
+      if (forceKill) {
+        child.kill();
       }
-      if (driverThread.isAlive()) {
-        LOG.warn("Timed out shutting down remote driver, interrupting...");
-        driverThread.interrupt();
-      }
-    } catch (Exception e) {
-      LOG.warn("Exception while waiting for driver thread to finish.", e);
+      child.detach();
+    } finally {
+      factory.unref();
     }
   }
 
-  private static Thread startDriver(
+  private static ChildProcess startDriver(
       final RpcServer rpcServer,
       final LocalConf conf,
       final String clientId,
       final String secret) throws IOException {
-    Runnable runnable;
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
     if (conf.get(CLIENT_IN_PROCESS) != null) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
-      runnable = new Runnable() {
+      Runnable child = new Runnable() {
         @Override
         public void run() {
           List<String> args = new ArrayList<>();
@@ -173,6 +175,7 @@ class ContextLauncher implements ContextInfo {
           }
         }
       };
+      return new ChildProcess(conf, child);
     } else {
       // If a Spark installation is provided, use the spark-submit script. Otherwise, call the
       // SparkSubmit class directly, which has some caveats (like having to provide a proper
@@ -230,44 +233,8 @@ class ContextLauncher implements ContextInfo {
       }
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
-
-      final Process child = launcher.launch();
-      int childId = CHILD_IDS.incrementAndGet();
-      redirect("stdout-redir-" + childId, child.getInputStream());
-      redirect("stderr-redir-" + childId, child.getErrorStream());
-
-      runnable = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            int exitCode = child.waitFor();
-            if (exitCode != 0) {
-              rpcServer.unregisterClient(clientId);
-              LOG.warn("Child process exited with code {}.", exitCode);
-            }
-          } catch (InterruptedException ie) {
-            LOG.warn("Waiting thread interrupted, killing child process.");
-            Thread.interrupted();
-            child.destroy();
-          } catch (Exception e) {
-            LOG.warn("Exception while waiting for child process.", e);
-          }
-        }
-      };
+      return new ChildProcess(conf, launcher.launch());
     }
-
-    Thread thread = new Thread(runnable);
-    thread.setDaemon(true);
-    thread.setName("Driver");
-    thread.start();
-    return thread;
-  }
-
-  private static void redirect(String name, InputStream in) {
-    Thread thread = new Thread(new Redirector(in));
-    thread.setName(name);
-    thread.setDaemon(true);
-    thread.start();
   }
 
   /**
@@ -317,6 +284,12 @@ class ContextLauncher implements ContextInfo {
       } catch (Exception e) {
         LOG.warn("Error in redirector thread.", e);
       }
+
+      try {
+        in.close();
+      } catch (IOException ioe) {
+        LOG.warn("Error closing child stream.", ioe);
+      }
     }
 
   }
@@ -350,6 +323,124 @@ class ContextLauncher implements ContextInfo {
       }
     }
 
+  }
+
+  private static class ChildProcess {
+
+    private final LocalConf conf;
+    private final Process child;
+    private final Thread monitor;
+    private final Thread stdout;
+    private final Thread stderr;
+    private volatile boolean childFailed;
+
+    public ChildProcess(LocalConf conf, Runnable child) {
+      this.conf = conf;
+      this.monitor = monitor(child, CHILD_IDS.incrementAndGet());
+      this.child = null;
+      this.stdout = null;
+      this.stderr = null;
+      this.childFailed = false;
+    }
+
+    public ChildProcess(LocalConf conf, final Process childProc) {
+      int childId = CHILD_IDS.incrementAndGet();
+      this.conf = conf;
+      this.child = childProc;
+      this.stdout = redirect("stdout-redir-" + childId, child.getInputStream());
+      this.stderr = redirect("stderr-redir-" + childId, child.getErrorStream());
+      this.childFailed = false;
+
+      Runnable monitorTask = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            int exitCode = child.waitFor();
+            if (exitCode != 0) {
+              LOG.warn("Child process exited with code {}.", exitCode);
+              childFailed = true;
+            }
+          } catch (InterruptedException ie) {
+            LOG.warn("Waiting thread interrupted, killing child process.");
+            Thread.interrupted();
+            child.destroy();
+          } catch (Exception e) {
+            LOG.warn("Exception while waiting for child process.", e);
+          }
+        }
+      };
+      this.monitor = monitor(monitorTask, childId);
+    }
+
+    public boolean isFailed() {
+      return childFailed;
+    }
+
+    public void kill() {
+      if (child != null) {
+        child.destroy();
+      }
+      monitor.interrupt();
+      detach();
+
+      if (!monitor.isAlive()) {
+        return;
+      }
+
+      // Last ditch effort.
+      if (monitor.isAlive()) {
+        LOG.warn("Timed out shutting down remote driver, interrupting...");
+        monitor.interrupt();
+      }
+    }
+
+    public void detach() {
+      if (stdout != null) {
+        stdout.interrupt();
+        try {
+          stdout.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
+        } catch (InterruptedException ie) {
+          LOG.info("Interrupted while waiting for child stdout to finish.");
+        }
+      }
+      if (stderr != null) {
+        stderr.interrupt();
+        try {
+          stderr.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
+        } catch (InterruptedException ie) {
+          LOG.info("Interrupted while waiting for child stderr to finish.");
+        }
+      }
+
+      try {
+        monitor.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
+      } catch (InterruptedException ie) {
+        LOG.debug("Interrupted before driver thread was finished.");
+      }
+    }
+
+    private Thread redirect(String name, InputStream in) {
+      Thread thread = new Thread(new Redirector(in));
+      thread.setName(name);
+      thread.setDaemon(true);
+      thread.start();
+      return thread;
+    }
+
+    private Thread monitor(Runnable task, int childId) {
+      Thread thread = new Thread(task);
+      thread.setDaemon(true);
+      thread.setName("ContextLauncher-" + childId);
+      thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
+          LOG.warn("Child task threw exception.", e);
+          childFailed = true;
+        }
+      });
+      thread.start();
+      return thread;
+    }
   }
 
 }

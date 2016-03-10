@@ -148,7 +148,6 @@ public class RemoteDriver {
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
       public RpcDispatcher onNewClient(Rpc client) {
-        LOG.debug("Incoming connection from {}.", client.getChannel());
         final DriverProtocol dispatcher = new DriverProtocol(RemoteDriver.this, client, jcLock);
         synchronized (clients) {
           clients.add(dispatcher);
@@ -161,6 +160,7 @@ public class RemoteDriver {
             }
           }
         });
+        LOG.debug("Registered new connection from {}.", client.getChannel());
         return dispatcher;
       }
     });
