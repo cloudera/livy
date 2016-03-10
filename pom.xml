@@ -44,7 +44,6 @@
   <properties>
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
     <spark.version>1.5.0-cdh5.5.0</spark.version>
-    <hadoop.scope>compile</hadoop.scope>
     <commons-codec.version>1.9</commons-codec.version>
     <dispatch.version>0.11.2</dispatch.version>
     <guava.version>14.0.1</guava.version>
@@ -284,7 +283,6 @@
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-auth</artifactId>
         <version>${hadoop.version}</version>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
@@ -297,35 +295,30 @@
             <artifactId>servlet-api</artifactId>
           </exclusion>
         </exclusions>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-client</artifactId>
         <version>${hadoop.version}</version>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-yarn-api</artifactId>
         <version>${hadoop.version}</version>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-yarn-client</artifactId>
         <version>${hadoop.version}</version>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-yarn-common</artifactId>
         <version>${hadoop.version}</version>
-        <scope>${hadoop.scope}</scope>
       </dependency>
 
       <dependency>
