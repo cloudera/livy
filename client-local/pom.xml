@@ -32,6 +32,7 @@
   <properties>
     <copyright.header>${asf.copyright.header}</copyright.header>
     <skipDeploy>false</skipDeploy>
+    <hadoop.scope>test</hadoop.scope>
   </properties>
 
   <dependencies>
