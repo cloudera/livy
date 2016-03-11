@@ -38,14 +38,16 @@ class JobWrapper<T> implements Callable<Void> {
   public final String jobId;
 
   private final RemoteDriver driver;
+  private final DriverProtocol client;
   private final List<JavaFutureAction<?>> sparkJobs;
   private final Job<T> job;
   private final AtomicInteger completed;
 
   private Future<?> future;
 
-  JobWrapper(RemoteDriver driver, String jobId, Job<T> job) {
+  JobWrapper(RemoteDriver driver, DriverProtocol client, String jobId, Job<T> job) {
     this.driver = driver;
+    this.client = client;
     this.jobId = jobId;
     this.job = job;
     this.sparkJobs = Lists.newArrayList();
@@ -122,23 +124,23 @@ class JobWrapper<T> implements Callable<Void> {
   }
 
   void recordNewJob(int sparkJobId) {
-    driver.protocol.jobSubmitted(jobId, sparkJobId);
+    client.jobSubmitted(jobId, sparkJobId);
   }
 
   protected void finished(T result, Throwable error) {
     if (error == null) {
-      driver.protocol.jobFinished(jobId, result, null);
+      client.jobFinished(jobId, result, null);
     } else {
-      driver.protocol.jobFinished(jobId, null, error);
+      client.jobFinished(jobId, null, error);
     }
   }
 
   protected void jobSubmitted(JavaFutureAction<?> job) {
-    driver.protocol.jobSubmitted(jobId, job.jobIds().get(0));
+    client.jobSubmitted(jobId, job.jobIds().get(0));
   }
 
   protected void jobStarted() {
-    driver.protocol.jobStarted(jobId);
+    client.jobStarted(jobId);
   }
 
 }

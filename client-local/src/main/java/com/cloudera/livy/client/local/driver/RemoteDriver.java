@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import scala.Tuple2;
@@ -37,7 +38,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.SparkFiles;
@@ -47,8 +47,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.client.common.Serializer;
+import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.LocalConf;
 import com.cloudera.livy.client.local.rpc.Rpc;
+import com.cloudera.livy.client.local.rpc.RpcDispatcher;
+import com.cloudera.livy.client.local.rpc.RpcServer;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 /**
@@ -61,16 +64,18 @@ public class RemoteDriver {
   private final Object jcLock;
   private final Object shutdownLock;
   private final ExecutorService executor;
-  private final NioEventLoopGroup egroup;
+  private final RpcServer server;
+
   // a local temp dir specific to this driver
   private final File localTmpDir;
 
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
 
+  // Keeps track of connected clients.
+  private final List<DriverProtocol> clients = Lists.newArrayList();
+
   final Map<String, JobWrapper<?>> activeJobs;
-  final DriverProtocol protocol;
-  final Rpc clientRpc;
   final Serializer serializer;
 
   // jc is effectively final, but it has to be volatile since it's accessed by different
@@ -106,7 +111,7 @@ public class RemoteDriver {
       } else if (key.equals("--client-id")) {
         livyConf.set(CLIENT_ID, getArg(args, idx));
       } else if (key.equals("--secret")) {
-        livyConf.set(CLIENT_SECRET.key(), getArg(args, idx));
+        livyConf.set(CLIENT_SECRET, getArg(args, idx));
       } else if (key.equals("--conf")) {
         String[] val = getArg(args, idx).split("[=]", 2);
         if (val[0].startsWith(LocalConf.SPARK_CONF_PREFIX)) {
@@ -129,33 +134,57 @@ public class RemoteDriver {
     String secret = livyConf.get(CLIENT_SECRET);
     Preconditions.checkArgument(secret != null, "No secret provided.");
 
-    this.egroup = new NioEventLoopGroup(
-        livyConf.getInt(RPC_MAX_THREADS),
-        new ThreadFactoryBuilder()
-            .setNameFormat("Driver-RPC-Handler-%d")
-            .setDaemon(true)
-            .build());
     this.serializer = new Serializer();
-    this.protocol = new DriverProtocol(this, jcLock);
 
-    // The RPC library takes care of timing out this.
-    this.clientRpc = Rpc.createClient(livyConf, egroup, serverAddress, serverPort,
-      clientId, secret, protocol).get();
-    this.running = true;
+    // We need to unset this configuration since it doesn't really apply for the driver side.
+    // If the driver runs on a multi-homed machine, this can lead to issues where the Livy
+    // server cannot connect to the auto-detected address, but since the driver can run anywhere
+    // on the cluster, it would be tricky to solve that problem in a generic way.
+    livyConf.set(RPC_SERVER_ADDRESS, null);
 
-    this.clientRpc.addListener(new Rpc.Listener() {
+    // Bring up the RpcServer an register the secret provided by the Livy server as a client.
+    LOG.info("Starting RPC server...");
+    this.server = new RpcServer(livyConf);
+    server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
-      public void rpcClosed(Rpc rpc) {
-        LOG.warn("Shutting down driver because RPC channel was closed.");
-        shutdown(null);
+      public RpcDispatcher onNewClient(Rpc client) {
+        final DriverProtocol dispatcher = new DriverProtocol(RemoteDriver.this, client, jcLock);
+        synchronized (clients) {
+          clients.add(dispatcher);
+        }
+        client.addListener(new Rpc.Listener() {
+          @Override
+          public void rpcClosed(Rpc rpc) {
+            synchronized (clients) {
+              clients.remove(dispatcher);
+            }
+          }
+        });
+        LOG.debug("Registered new connection from {}.", client.getChannel());
+        return dispatcher;
       }
     });
 
+    // The RPC library takes care of timing out this.
+    Rpc callbackRpc = Rpc.createClient(livyConf, server.getEventLoopGroup(), serverAddress,
+      serverPort, clientId, secret, new BaseProtocol() { }).get();
     try {
-      long t1 = System.currentTimeMillis();
-      LOG.info("Starting Spark context at {}", t1);
+      // There's no timeout here because we expect the launching side to kill the underlying
+      // application if it takes too long to connect back and send its address.
+      callbackRpc.call(new BaseProtocol.RemoteDriverAddress(server.getAddress(),
+        server.getPort())).get();
+    } finally {
+      callbackRpc.close();
+    }
+
+    this.running = true;
+
+    try {
+      long t1 = System.nanoTime();
+      LOG.info("Starting Spark context...");
       JavaSparkContext sc = new JavaSparkContext(conf);
-      LOG.info("Spark context finished initialization in {}ms", System.currentTimeMillis() - t1);
+      LOG.info("Spark context finished initialization in {}ms",
+        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
       sc.sc().addSparkListener(new DriverSparkListener(this));
       synchronized (jcLock) {
         jc = new JobContextImpl(sc, localTmpDir);
@@ -225,10 +254,15 @@ public class RemoteDriver {
         jc.stop();
       }
       if (error != null) {
-        protocol.sendError(error);
+        synchronized (clients) {
+          for (DriverProtocol client : clients) {
+            client.sendError(error);
+          }
+        }
       }
-      clientRpc.close();
-      egroup.shutdownGracefully();
+      if (server != null) {
+        server.close();
+      }
     } finally {
       running = false;
       synchronized (shutdownLock) {

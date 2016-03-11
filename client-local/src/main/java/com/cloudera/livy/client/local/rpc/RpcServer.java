@@ -122,69 +122,28 @@ public class RpcServer implements Closeable {
   }
 
   /**
-   * Tells the RPC server to expect a connection from a new client.
+   * Tells the RPC server to expect connections from clients.
    *
    * @param clientId An identifier for the client. Must be unique.
    * @param secret The secret the client will send to the server to identify itself.
-   * @param serverDispatcher The dispatcher to use when setting up the RPC instance.
-   * @return A future that can be used to wait for the client connection, which also provides the
-   *         secret needed for the client to connect.
+   * @param callback The callback for when a new client successfully connects with the given
+   *                 credentials.
    */
-  public Future<Rpc> registerClient(final String clientId, String secret,
-      RpcDispatcher serverDispatcher) {
-    return registerClient(clientId, secret, serverDispatcher,
-      config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT));
-  }
-
-  @VisibleForTesting
-  Future<Rpc> registerClient(final String clientId, String secret,
-      RpcDispatcher serverDispatcher, long clientTimeoutMs) {
-    final Promise<Rpc> promise = group.next().newPromise();
-
-    Runnable timeout = new Runnable() {
-      @Override
-      public void run() {
-        promise.setFailure(new TimeoutException("Timed out waiting for client connection."));
-      }
-    };
-    ScheduledFuture<?> timeoutFuture = group.schedule(timeout,
-        clientTimeoutMs,
-        TimeUnit.MILLISECONDS);
-    final ClientInfo client = new ClientInfo(clientId, promise, secret, serverDispatcher,
-        timeoutFuture);
+  public void registerClient(String clientId, String secret, ClientCallback callback) {
+    final ClientInfo client = new ClientInfo(clientId, secret, callback);
     if (pendingClients.putIfAbsent(clientId, client) != null) {
       throw new IllegalStateException(
           String.format("Client '%s' already registered.", clientId));
     }
-
-    promise.addListener(new GenericFutureListener<Promise<Rpc>>() {
-      @Override
-      public void operationComplete(Promise<Rpc> p) {
-        if (!p.isSuccess()) {
-          pendingClients.remove(clientId);
-        }
-      }
-    });
-
-    return promise;
   }
 
   /**
-   * Tells the RPC server to cancel the connection from an existing pending client
-   * @param clientId The identifier for the client
-   * @param msg The error message about why the connection should be canceled
+   * Stop waiting for connections for a given client ID.
+   *
+   * @param clientId The client ID to forget.
    */
-  public void cancelClient(final String clientId, final String msg) {
-    final ClientInfo cinfo = pendingClients.remove(clientId);
-    if (cinfo == null) {
-      // Nothing to be done here.
-      return;
-    }
-    cinfo.timeoutFuture.cancel(true);
-    if (!cinfo.promise.isDone()) {
-      cinfo.promise.setFailure(new RuntimeException(
-          String.format("Cancel client '%s'. Error: " + msg, clientId)));
-    }
+  public void unregisterClient(String clientId) {
+    pendingClients.remove(clientId);
   }
 
   /**
@@ -212,17 +171,34 @@ public class RpcServer implements Closeable {
     return port;
   }
 
+  public EventLoopGroup getEventLoopGroup() {
+    return group;
+  }
+
   @Override
   public void close() {
     try {
       channel.close();
-      for (ClientInfo client : pendingClients.values()) {
-        client.promise.cancel(true);
-      }
       pendingClients.clear();
     } finally {
       group.shutdownGracefully();
     }
+  }
+
+  /**
+   * A callback that can be registered to be notified when new clients are created and
+   * successfully authenticate against the server.
+   */
+  public interface ClientCallback {
+
+    /**
+     * Called when a new client successfully connects.
+     *
+     * @param client The RPC instance for the new client.
+     * @return The RpcDispatcher to be used for the client.
+     */
+    RpcDispatcher onNewClient(Rpc client);
+
   }
 
   private class SaslServerHandler extends SaslHandler implements CallbackHandler {
@@ -284,21 +260,22 @@ public class RpcServer implements Closeable {
     @Override
     protected void onComplete() throws Exception {
       cancelTask.cancel(true);
-      client.timeoutFuture.cancel(true);
-      rpc.setDispatcher(client.dispatcher);
-      client.promise.setSuccess(rpc);
-      pendingClients.remove(client.id);
+
+      RpcDispatcher dispatcher = null;
+      try {
+        dispatcher = client.callback.onNewClient(rpc);
+      } catch (Exception e) {
+        LOG.warn("Client callback threw an exception.", e);
+      }
+
+      if (dispatcher != null) {
+        rpc.setDispatcher(dispatcher);
+      }
     }
 
     @Override
     protected void onError(Throwable error) {
       cancelTask.cancel(true);
-      if (client != null) {
-        client.timeoutFuture.cancel(true);
-        if (!client.promise.isDone()) {
-          client.promise.setFailure(error);
-        }
-      }
     }
 
     @Override
@@ -323,18 +300,13 @@ public class RpcServer implements Closeable {
   private static class ClientInfo {
 
     final String id;
-    final Promise<Rpc> promise;
     final String secret;
-    final RpcDispatcher dispatcher;
-    final ScheduledFuture<?> timeoutFuture;
+    final ClientCallback callback;
 
-    private ClientInfo(String id, Promise<Rpc> promise, String secret, RpcDispatcher dispatcher,
-        ScheduledFuture<?> timeoutFuture) {
+    private ClientInfo(String id, String secret, ClientCallback callback) {
       this.id = id;
-      this.promise = promise;
       this.secret = secret;
-      this.dispatcher = dispatcher;
-      this.timeoutFuture = timeoutFuture;
+      this.callback = callback;
     }
 
   }

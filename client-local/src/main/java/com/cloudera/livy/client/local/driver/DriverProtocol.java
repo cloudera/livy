@@ -38,33 +38,35 @@ class DriverProtocol extends BaseProtocol {
 
   private static final Logger LOG = LoggerFactory.getLogger(DriverProtocol.class);
 
+  private final Rpc clientRpc;
   private final Object jcLock;
   private final RemoteDriver driver;
   private final List<BypassJobWrapper> bypassJobs;
 
-  DriverProtocol(RemoteDriver driver, Object jcLock) {
+  DriverProtocol(RemoteDriver driver, Rpc clientRpc, Object jcLock) {
     this.driver = driver;
+    this.clientRpc = clientRpc;
     this.jcLock = jcLock;
     this.bypassJobs = Lists.newArrayList();
   }
 
   void sendError(Throwable error) {
     LOG.debug("Send error to Client: {}", Throwables.getStackTraceAsString(error));
-    driver.clientRpc.call(new java.lang.Error(error));
+    clientRpc.call(new java.lang.Error(error));
   }
 
   <T> void jobFinished(String jobId, T result, Throwable error) {
     LOG.debug("Send job({}) result to Client.", jobId);
-    driver.clientRpc.call(new JobResult<T>(jobId, result, error));
+    clientRpc.call(new JobResult<T>(jobId, result, error));
   }
 
   void jobStarted(String jobId) {
-    driver.clientRpc.call(new JobStarted(jobId));
+    clientRpc.call(new JobStarted(jobId));
   }
 
   void jobSubmitted(String jobId, int sparkJobId) {
     LOG.debug("Send job({}/{}) submitted to Client.", jobId, sparkJobId);
-    driver.clientRpc.call(new JobSubmitted(jobId, sparkJobId));
+    clientRpc.call(new JobSubmitted(jobId, sparkJobId));
   }
 
   private void handle(ChannelHandlerContext ctx, CancelJob msg) {
@@ -81,14 +83,14 @@ class DriverProtocol extends BaseProtocol {
 
   private void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
     LOG.info("Received job request {}", msg.id);
-    JobWrapper<?> wrapper = new JobWrapper<>(this.driver, msg.id, msg.job);
+    JobWrapper<?> wrapper = new JobWrapper<>(driver, this, msg.id, msg.job);
     driver.activeJobs.put(msg.id, wrapper);
     driver.submit(wrapper);
   }
 
   private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    BypassJobWrapper wrapper = new BypassJobWrapper(this.driver, msg.id, msg.serializedJob);
+    BypassJobWrapper wrapper = new BypassJobWrapper(driver, this, msg.id, msg.serializedJob);
     bypassJobs.add(wrapper);
     driver.activeJobs.put(msg.id, wrapper);
     if (msg.synchronous) {
