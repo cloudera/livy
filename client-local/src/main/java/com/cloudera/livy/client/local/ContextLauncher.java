@@ -134,8 +134,9 @@ class ContextLauncher implements ContextInfo {
     try {
       if (forceKill) {
         child.kill();
+      } else {
+        child.detach();
       }
-      child.detach();
     } finally {
       factory.unref();
     }
