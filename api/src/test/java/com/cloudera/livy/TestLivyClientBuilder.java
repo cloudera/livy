@@ -72,4 +72,15 @@ public class TestLivyClientBuilder {
     assertEquals("override", client.config.getProperty("spark.config"));
   }
 
+  @Test
+  public void testRedaction() throws Exception {
+    try {
+      new LivyClientBuilder(false).setURI(new URI("mismatch://user@host")).build();
+      fail("Should have failed to create client.");
+    } catch (IllegalArgumentException e) {
+      assertFalse("Should have redacted user information.",
+        e.getMessage().contains("user@host"));
+    }
+  }
+
 }
