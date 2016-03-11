@@ -72,7 +72,6 @@ public class TestSparkClient {
 
   private Properties createConf(boolean local) {
     Properties conf = new Properties();
-    conf.put(RPC_CHANNEL_LOG_LEVEL.key(), "DEBUG");
     if (local) {
       conf.put(CLIENT_IN_PROCESS.key(), "true");
       conf.put(SparkLauncher.SPARK_MASTER, "local");
