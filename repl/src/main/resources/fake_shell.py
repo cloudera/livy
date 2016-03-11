@@ -24,6 +24,7 @@ import sys
 import traceback
 import StringIO
 import base64
+import os
 
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
@@ -388,6 +389,10 @@ def main():
     sys.stderr = fake_stderr
 
     try:
+        if os.environ.get("livy.test") != "true":
+            # Load spark into the context
+            exec 'from pyspark.shell import sc' in global_dict
+
         print >> sys_stderr, fake_stdout.getvalue()
         print >> sys_stderr, fake_stderr.getvalue()
 
@@ -451,6 +456,9 @@ def main():
             print >> sys_stdout, response
             sys_stdout.flush()
     finally:
+        if os.environ.get("livy.test") != "true" and 'sc' in global_dict:
+            global_dict['sc'].stop()
+
         sys.stdin = sys_stdin
         sys.stdout = sys_stdout
         sys.stderr = sys_stderr
