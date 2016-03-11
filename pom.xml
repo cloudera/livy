@@ -696,6 +696,10 @@
             <phase>none</phase>
           </execution>
         </executions>
+        <configuration>
+          <source>${java.version}</source>
+          <target>${java.version}</target>
+        </configuration>
       </plugin>
 
       <plugin>
