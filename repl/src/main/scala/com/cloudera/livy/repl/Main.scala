@@ -28,10 +28,10 @@ import scala.concurrent.duration._
 import com.ning.http.client.AsyncHttpClient
 import org.json4s.{DefaultFormats, Formats}
 import org.json4s.jackson.Serialization.write
-import org.scalatra.servlet.ScalatraListener
 import org.scalatra.LifeCycle
+import org.scalatra.servlet.ScalatraListener
 
-import com.cloudera.livy.{LivyConf, Logging, WebServer}
+import com.cloudera.livy.{LivyConf, Logging, Utils, WebServer}
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
@@ -134,10 +134,12 @@ class ScalatraBootstrap extends LifeCycle with Logging {
         // Wait for our url to be discovered.
         val replUrl = waitForReplUrl()
         info(s"Calling $callbackUrl...")
-        val response = new AsyncHttpClient().preparePost(callbackUrl)
-          .setHeader("Content-Type", "application/json;charset=UTF-8")
-          .setBody(write(Map("url" -> replUrl)))
-          .execute().get()
+        val response = Utils.usingResource(new AsyncHttpClient()) {
+          request => request.preparePost(callbackUrl)
+            .setHeader("Content-Type", "application/json;charset=UTF-8")
+            .setBody(write(Map("url" -> replUrl)))
+            .execute().get()
+        }
         response.getStatusCode match {
           case 200 => Future.successful(())
           case statusCode =>

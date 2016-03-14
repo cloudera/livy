@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.io.File
+import java.io.{Closeable, File}
 import java.lang.ProcessBuilder.Redirect
 import java.net.{ConnectException, URL}
 import java.nio.file.{Files, Paths}
@@ -29,14 +29,16 @@ import scala.concurrent.{Future, _}
 import scala.concurrent.duration.Duration
 
 import com.ning.http.client.AsyncHttpClient
+import org.json4s._
 import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.Serialization.write
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
+import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
-import com.cloudera.livy.utils.{Json, SparkProcessBuilder}
+import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.Utils
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -169,7 +171,9 @@ class InteractiveSession(
           _state = SessionState.Busy()
           Future {
             try {
-              new AsyncHttpClient().prepareDelete(url.get.toString).execute()
+              Utils.usingResource(new AsyncHttpClient()) {
+                request => request.prepareDelete(url.get.toString).execute()
+              }
               synchronized {
                 _state = SessionState.Dead()
               }
@@ -246,11 +250,13 @@ class InteractiveSession(
       recordActivity()
 
       val future = Future {
-        val response = new AsyncHttpClient().preparePost(url.get.toString + "/execute")
-          .setHeader("Content-Type", "application/json;charset=UTF-8")
-          .setBody(write(content))
-          .execute().get
-        val jsonResponse = Json(response)
+        val response = Utils.usingResource(new AsyncHttpClient()) {
+          request => request.preparePost(url.get.toString + "/execute")
+            .setHeader("Content-Type", "application/json;charset=UTF-8")
+            .setBody(write(content))
+            .execute().get
+        }
+        val jsonResponse = Utils.toJson(response)
         parseResponse(jsonResponse).getOrElse {
           // The result isn't ready yet. Loop until it is.
           val id = (jsonResponse \ "id").extract[Int]
@@ -273,10 +279,12 @@ class InteractiveSession(
 
   @tailrec
   private def waitForStatement(id: Int): JValue = {
-    val response = new AsyncHttpClient().prepareGet(url.get.toString + "/history/" + id)
-      .setHeader("Content-Type", "application/json;charset=UTF-8")
-      .execute().get
-    parseResponse(Json(response)) match {
+    val response = Utils.usingResource(new AsyncHttpClient()){ request =>
+      request.prepareGet(url.get.toString + "/history/" + id)
+        .setHeader("Content-Type", "application/json;charset=UTF-8")
+        .execute().get
+    }
+    parseResponse(Utils.toJson(response)) match {
       case Some(result) => result
       case None =>
         Thread.sleep(1000)
@@ -305,10 +313,13 @@ class InteractiveSession(
   }
 
   private def replErroredOut() = {
-    val response = new AsyncHttpClient().prepareGet(url.get.toString)
-      .setHeader("Content-Type", "application/json;charset=UTF-8")
-      .execute().get
-    Json(response) \ "state" match {
+    val response = Utils.usingResource(new AsyncHttpClient()) {
+      request => request.prepareGet(url.get.toString)
+        .setHeader("Content-Type", "application/json;charset=UTF-8")
+        .execute().get
+    }
+
+    Utils.toJson(response) \ "state" match {
       case JString("error") => true
       case _ => false
     }
@@ -372,7 +383,6 @@ class InteractiveSession(
       }
     }
   }
-
   // Error out the job if the process errors out.
   Future {
     if (process.waitFor() == 0) {

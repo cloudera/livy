@@ -18,13 +18,18 @@
 
 package com.cloudera.livy
 
-import java.io.{File, FileInputStream, InputStreamReader}
+import java.io.{Closeable, File, FileInputStream, InputStreamReader}
 import java.util.Properties
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
+
+import com.ning.http.client.Response
+import org.json4s._
+import org.json4s.jackson.JsonMethods._
+
 
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {
@@ -95,4 +100,14 @@ object Utils {
     }
   }
 
+  def usingResource[A <: Closeable, B](resource: A)(f: A => B): B = {
+    try {
+      f(resource)
+    } finally {
+      resource.close()
+    }
+  }
+
+  def toJson(r: Response): JValue =
+    parse(StringInput(r.getResponseBody), true)
 }

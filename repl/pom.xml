@@ -188,10 +188,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.ning</groupId>
-            <artifactId>async-http-client</artifactId>
-        </dependency>
     </dependencies>
 
     <build>
