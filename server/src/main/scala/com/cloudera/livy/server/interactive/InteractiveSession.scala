@@ -20,12 +20,9 @@ package com.cloudera.livy.server.interactive
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import java.net.{URI, ConnectException, URL}
+import java.net.{ConnectException, URI, URL}
 import java.nio.file.{Files, Paths}
-import java.util.HashMap
 import java.util.concurrent.TimeUnit
-
-import com.cloudera.livy.client.local.{LocalClient, LocalConf, LocalClientFactory}
 
 import scala.annotation.tailrec
 import scala.concurrent.{Future, _}
@@ -38,6 +35,7 @@ import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.Serialization.write
 
 import com.cloudera.livy._
+import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
 import com.cloudera.livy.utils.SparkProcessBuilder

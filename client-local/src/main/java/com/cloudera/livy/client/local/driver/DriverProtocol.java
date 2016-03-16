@@ -23,7 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import com.cloudera.livy.client.local.rpc.Rpc;
+
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
@@ -34,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.BypassJobStatus;
+import com.cloudera.livy.client.local.rpc.Rpc;
 
 class DriverProtocol extends BaseProtocol {
 
@@ -56,7 +57,8 @@ class DriverProtocol extends BaseProtocol {
       replClass = Class.forName("com.cloudera.livy.repl.REPL");
       runMethod = replClass.getDeclaredMethod("run", REPLJobRequest.class);
       getStatusMethod = replClass.getDeclaredMethod("getJobStatus", String.class);
-    } catch (ClassNotFoundException | NoSuchMethodException ignored) {
+    } catch (ClassNotFoundException | NoSuchMethodException e) {
+      LOG.warn("REPL class not found in classpath", e);
     }
   }
 
