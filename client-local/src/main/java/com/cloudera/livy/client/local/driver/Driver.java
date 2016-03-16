@@ -18,17 +18,16 @@
  */
 package com.cloudera.livy.client.local.driver;
 
-import com.cloudera.livy.JobContext;
 import com.cloudera.livy.client.common.Serializer;
+import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.LocalConf;
 import com.cloudera.livy.client.local.rpc.Rpc;
+import com.cloudera.livy.client.local.rpc.RpcDispatcher;
+import com.cloudera.livy.client.local.rpc.RpcServer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.Monitor;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.netty.channel.nio.NioEventLoopGroup;
 import org.apache.spark.SparkConf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,33 +36,32 @@ import scala.Tuple2;
 import java.util.List;
 import java.util.Map;
 
-import static com.cloudera.livy.client.local.LocalConf.Entry.CLIENT_ID;
-import static com.cloudera.livy.client.local.LocalConf.Entry.CLIENT_SECRET;
-import static com.cloudera.livy.client.local.LocalConf.Entry.RPC_MAX_THREADS;
+import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public abstract class Driver {
   private static final Logger LOG = LoggerFactory.getLogger(Driver.class);
 
-  final NioEventLoopGroup egroup;
-
+  protected RpcServer server;
+  // Keeps track of connected clients.
+  private final List<DriverProtocol> clients = Lists.newArrayList();
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
   final Map<String, JobWrapper<?>> activeJobs = Maps.newConcurrentMap();
 
-  final DriverProtocol protocol;
-  final Rpc clientRpc;
-  final Serializer serializer;
+  protected Serializer serializer;
   // jc is effectively final, but it has to be volatile since it's accessed by different
   // threads while the constructor is running.
-  volatile JobContext jc;
-  final LocalConf livyConf;
-  final SparkConf conf;
+  private final SparkConf conf;
+  private final LocalConf livyConf;
+
+  protected final Object jcLock;
   // jc is effectively final, but it has to be volatile since it's accessed by different
   // threads while the constructor is running.
   volatile boolean running;
   public Driver(String[] args) throws Exception {
-    livyConf = new LocalConf(null);
     conf = new SparkConf();
+    livyConf = new LocalConf(null);
+    jcLock = new Object();
     for (Tuple2<String, String> e : conf.getAll()) {
       String key = e._1();
       String value = e._2();
@@ -71,6 +69,7 @@ public abstract class Driver {
         livyConf.set(key.substring(LocalConf.LIVY_SPARK_PREFIX.length()), value);
       }
     }
+
     String serverAddress = null;
     int serverPort = -1;
     for (int idx = 0; idx < args.length; idx += 2) {
@@ -82,7 +81,7 @@ public abstract class Driver {
       } else if (key.equals("--client-id")) {
         livyConf.set(CLIENT_ID, getArg(args, idx));
       } else if (key.equals("--secret")) {
-        livyConf.set(CLIENT_SECRET.key(), getArg(args, idx));
+        livyConf.set(CLIENT_SECRET, getArg(args, idx));
       } else if (key.equals("--conf")) {
         String[] val = getArg(args, idx).split("[=]", 2);
         if (val[0].startsWith(LocalConf.SPARK_CONF_PREFIX)) {
@@ -103,28 +102,50 @@ public abstract class Driver {
     String secret = livyConf.get(CLIENT_SECRET);
     Preconditions.checkArgument(secret != null, "No secret provided.");
 
-    this.egroup = new NioEventLoopGroup(
-      livyConf.getInt(RPC_MAX_THREADS),
-      new ThreadFactoryBuilder()
-        .setNameFormat("Driver-RPC-Handler-%d")
-        .setDaemon(true)
-        .build());
     this.serializer = new Serializer();
-    this.protocol = new DriverProtocol(this, new Object());
 
-    // The RPC library takes care of timing out this.
-    this.clientRpc = Rpc.createClient(livyConf, egroup, serverAddress, serverPort,
-      clientId, secret, protocol).get();
-    this.running = true;
+    // We need to unset this configuration since it doesn't really apply for the driver side.
+    // If the driver runs on a multi-homed machine, this can lead to issues where the Livy
+    // server cannot connect to the auto-detected address, but since the driver can run anywhere
+    // on the cluster, it would be tricky to solve that problem in a generic way.
+    livyConf.set(RPC_SERVER_ADDRESS, null);
 
-    this.clientRpc.addListener(new Rpc.Listener() {
+    // Bring up the RpcServer an register the secret provided by the Livy server as a client.
+    LOG.info("Starting RPC server...");
+    this.server = new RpcServer(livyConf);
+    server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
-      public void rpcClosed(Rpc rpc) {
-        LOG.warn("Shutting down driver because RPC channel was closed.");
-        shutdown(null);
+      public RpcDispatcher onNewClient(Rpc client) {
+        final DriverProtocol dispatcher = new DriverProtocol(Driver.this, client, jcLock);
+        synchronized (clients) {
+          clients.add(dispatcher);
+        }
+        client.addListener(new Rpc.Listener() {
+          @Override
+          public void rpcClosed(Rpc rpc) {
+            synchronized (clients) {
+              clients.remove(dispatcher);
+            }
+          }
+        });
+        LOG.debug("Registered new connection from {}.", client.getChannel());
+        return dispatcher;
       }
     });
 
+    // The RPC library takes care of timing out this.
+    Rpc callbackRpc = Rpc.createClient(livyConf, server.getEventLoopGroup(), serverAddress,
+      serverPort, clientId, secret, new BaseProtocol() { }).get();
+    try {
+      // There's no timeout here because we expect the launching side to kill the underlying
+      // application if it takes too long to connect back and send its address.
+      callbackRpc.call(new BaseProtocol.RemoteDriverAddress(server.getAddress(),
+        server.getPort())).get();
+    } finally {
+      callbackRpc.close();
+    }
+
+    this.running = true;
   }
 
   private String getArg(String[] args, int keyIdx) {
@@ -147,4 +168,17 @@ public abstract class Driver {
   abstract void setMonitorCallback(MonitorCallback bc);
 
   abstract void shutdown(Throwable error);
+
+  protected void stopClients(Throwable error) {
+    if (error != null) {
+      synchronized (clients) {
+        for (DriverProtocol client : clients) {
+          client.sendError(error);
+        }
+      }
+    }
+    if (server != null) {
+      server.close();
+    }
+  }
 }

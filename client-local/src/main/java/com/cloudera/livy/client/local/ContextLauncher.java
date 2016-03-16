@@ -81,7 +81,15 @@ class ContextLauncher implements ContextInfo {
     RegistrationHandler handler = new RegistrationHandler();
     try {
       factory.getServer().registerClient(clientId, secret, handler);
-      this.child = startDriver(factory.getServer(), conf, clientId, secret);
+      String replMode = conf.get("repl");
+      boolean repl = replMode != null && replMode.equals("true");
+      String className;
+      if (repl) {
+        className = "com.cloudera.livy.repl.REPL";
+      } else {
+        className = RemoteDriver.class.getName();
+      }
+      this.child = startDriver(factory.getServer(), conf, clientId, secret, className);
 
       // Wait for the handler to receive the driver information. Wait a little at a time so
       // that we can check whether the child process is still alive, and throw an error if the
@@ -146,7 +154,8 @@ class ContextLauncher implements ContextInfo {
       final RpcServer rpcServer,
       final LocalConf conf,
       final String clientId,
-      final String secret) throws IOException {
+      final String secret,
+      final String className) throws IOException {
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
     if (conf.get(CLIENT_IN_PROCESS) != null) {
@@ -228,7 +237,7 @@ class ContextLauncher implements ContextInfo {
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
       launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
-      launcher.setMainClass(RemoteDriver.class.getName());
+      launcher.setMainClass(className);
       if (conf.get(PROXY_USER) != null) {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
