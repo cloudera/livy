@@ -59,8 +59,6 @@ public interface JobContext {
   /** Stops the SparkStreaming context. */
   void stopStreamingCtx();
 
-  void stop();
-
   /**
    * Monitor a job. This allows job-related information (such as metrics) to be communicated
    * back to the client.
