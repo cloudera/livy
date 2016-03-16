@@ -16,16 +16,22 @@
  */
 package com.cloudera.livy.repl
 
+import com.cloudera.livy.client.local.BaseProtocol.REPLJobRequest
 import com.cloudera.livy.client.local.driver.{Driver, MonitorCallback}
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
-import org.json4s.JsonAST.JValue
+import org.json4s.JsonAST.{JNull, JValue}
+
+import scala.collection.mutable
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class REPL(args: Array[String]) extends Driver(args) {
   val PYSPARK_SESSION = "pyspark"
   val SPARK_SESSION = "spark"
   val SPARKR_SESSION = "sparkr"
+  val jobFutures = mutable.Map[String, JValue]()
 
   val interpreter = getLivyConf.get("session.kind") match {
     case PYSPARK_SESSION => PythonInterpreter()
@@ -43,7 +49,13 @@ class REPL(args: Array[String]) extends Driver(args) {
     // no op
   }
 
-  def run(code: String): JValue = {
-    session.execute(code).result
+  def run(jobRequest: REPLJobRequest): Unit = {
+    Future {
+      jobFutures(jobRequest.id) = session.execute(jobRequest.code).result
+    }
+  }
+
+  def getJobStatus(id: String): JValue = {
+    jobFutures.getOrElse(id, JNull)
   }
 }
