@@ -50,7 +50,7 @@ public class RemoteDriver extends Driver {
   protected final ExecutorService executor;
   // a local temp dir specific to this driver
   private final File localTmpDir;
-  volatile JobContext jc;
+  volatile JobContextImpl jc;
 
   private RemoteDriver(String[] args) throws Exception {
     super(args);
