@@ -42,6 +42,7 @@ object Main extends Logging {
   val SESSION_KIND = "livy.repl.session.kind"
   val CALLBACK_URL = "livy.repl.callbackUrl"
   val PYSPARK_SESSION = "pyspark"
+  val PYSPARK3_SESSION = "pyspark3"
   val SPARK_SESSION = "spark"
   val SPARKR_SESSION = "sparkr"
 
@@ -59,12 +60,12 @@ object Main extends Logging {
     val session_kind = args.head
 
     session_kind match {
-      case PYSPARK_SESSION | SPARK_SESSION | SPARKR_SESSION =>
+      case PYSPARK_SESSION | PYSPARK3_SESSION | SPARK_SESSION | SPARKR_SESSION =>
       case _ =>
         println("Unknown session kind: " + session_kind)
         sys.exit(1)
     }
-
+    
     val server = new WebServer(new LivyConf(), host, port)
 
     server.context.setResourceBase("src/main/com/cloudera/livy/repl")
@@ -102,7 +103,8 @@ class ScalatraBootstrap extends LifeCycle with Logging {
   override def init(context: ServletContext): Unit = {
     try {
       val interpreter = context.getInitParameter(Main.SESSION_KIND) match {
-        case Main.PYSPARK_SESSION => PythonInterpreter()
+        case Main.PYSPARK_SESSION => PythonInterpreter("pyspark")
+        case Main.PYSPARK3_SESSION => PythonInterpreter("pyspark3")
         case Main.SPARK_SESSION => SparkInterpreter()
         case Main.SPARKR_SESSION => SparkRInterpreter()
       }

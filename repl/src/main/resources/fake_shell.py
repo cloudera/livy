@@ -14,16 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
 import ast
-import cStringIO
 import datetime
 import decimal
 import json
 import logging
 import sys
 import traceback
-import StringIO
-import base64
+import base64  
+import io
+
+if sys.version >= '3' :    
+    unicode = str
+else :
+    import StringIO
 
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
@@ -49,6 +54,7 @@ def execute_reply_ok(data):
 
 def execute_reply_error(exc_type, exc_value, tb):
     LOG.error('execute_reply', exc_info=True)
+
     return execute_reply('error', {
         'ename': unicode(exc_type.__name__),
         'evalue': unicode(exc_value),
@@ -81,15 +87,15 @@ class NormalNode(object):
             for node in to_run_exec:
                 mod = ast.Module([node])
                 code = compile(mod, '<stdin>', 'exec')
-                exec code in global_dict
+                exec(code, global_dict)
 
             for node in to_run_single:
                 mod = ast.Interactive([node])
                 code = compile(mod, '<stdin>', 'single')
-                exec code in global_dict
-        except:
+                exec(code, global_dict)
+        except :
             # We don't need to log the exception because we're just executing user
-            # code and passing the error along.
+            # code and passing the error along.            
             raise ExecutionError(sys.exc_info())
 
 
@@ -131,6 +137,7 @@ def parse_code_into_nodes(code):
 
         # Split the code into chunks of normal code, and possibly magic code, which starts with
         # a '%'.
+        
         normal = []
         chunks = []
         for i, line in enumerate(code.rstrip().split('\n')):
@@ -168,7 +175,7 @@ def execute_request(content):
         nodes = parse_code_into_nodes(code)
     except SyntaxError:
         exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
+        return execute_reply_error(exc_type, exc_value, None)
 
     result = None
 
@@ -177,8 +184,8 @@ def execute_request(content):
             result = node.execute()
     except UnknownMagic:
         exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
-    except ExecutionError, e:
+        return execute_reply_error(exc_type, exc_value, None)
+    except (ExecutionError) as e:
         return execute_reply_error(*e.exc_info)
 
     if result is None:
@@ -260,18 +267,24 @@ def magic_table_convert_map(m):
 magic_table_types = {
     type(None): lambda x: ('NULL_TYPE', x),
     bool: lambda x: ('BOOLEAN_TYPE', x),
-    int: lambda x: ('INT_TYPE', x),
-    long: lambda x: ('BIGINT_TYPE', x),
+    int: lambda x: ('INT_TYPE', x),    
     float: lambda x: ('DOUBLE_TYPE', x),
     str: lambda x: ('STRING_TYPE', str(x)),
-    unicode: lambda x: ('STRING_TYPE', x.encode('utf-8')),
     datetime.date: lambda x: ('DATE_TYPE', str(x)),
     datetime.datetime: lambda x: ('TIMESTAMP_TYPE', str(x)),
     decimal.Decimal: lambda x: ('DECIMAL_TYPE', str(x)),
     tuple: magic_table_convert_seq,
     list: magic_table_convert_seq,
-    dict: magic_table_convert_map,
+    dict: magic_table_convert_map,    
 }
+
+# python 2.x only
+if sys.version < '3': 
+    magic_table_types.update({
+        long: lambda x: ('BIGINT_TYPE', x), 
+        unicode: lambda x: ('STRING_TYPE', x.encode('utf-8'))
+    })
+    
 
 
 def magic_table(name):
@@ -279,7 +292,7 @@ def magic_table(name):
         value = global_dict[name]
     except KeyError:
         exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
+        return execute_reply_error(exc_type, exc_value, None)
 
     if not isinstance(value, (list, tuple)):
         value = [value]
@@ -297,7 +310,7 @@ def magic_table(name):
         if isinstance(row, (list, tuple)):
             iterator = enumerate(row)
         else:
-            iterator = sorted(row.iteritems())
+            iterator = sorted(row.items())
 
         for name, col in iterator:
             col_type, col = magic_table_convert(col)
@@ -315,11 +328,11 @@ def magic_table(name):
                 if header['type'] != col_type:
                     exc_type = Exception
                     exc_value = 'table rows have different types'
-                    return execute_reply_error(exc_type, exc_value, [])
+                    return execute_reply_error(exc_type, exc_value, None)
 
             cols.append(col)
 
-    headers = [v for k, v in sorted(headers.iteritems())]
+    headers = [v for k, v in sorted(headers.items())]
 
     return {
         'application/vnd.livy.table.v1+json': {
@@ -334,7 +347,7 @@ def magic_json(name):
         value = global_dict[name]
     except KeyError:
         exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
+        return execute_reply_error(exc_type, exc_value, None)
 
     return {
         'application/json': value,
@@ -343,15 +356,17 @@ def magic_json(name):
 def magic_matplot(name):
     try:
         value = global_dict[name]
-
         fig = value.gcf()
-        imgdata = StringIO.StringIO()
+        imgdata = io.BytesIO()
         fig.savefig(imgdata, format='png')
         imgdata.seek(0)
-        encode = base64.b64encode(imgdata.buf)
+        encode = base64.b64encode(imgdata.getvalue())
+        if sys.version >= '3' :
+            encode = encode.decode()
+        
     except:
         exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, [])
+        return execute_reply_error(exc_type, exc_value, None)
 
     return {
         'image/png': encode,
@@ -373,10 +388,15 @@ msg_type_router = {
     'shutdown_request': shutdown_request,
 }
 
-fake_stdin = cStringIO.StringIO()
-fake_stdout = cStringIO.StringIO()
-fake_stderr = cStringIO.StringIO()
-
+if sys.version >= '3' :
+    fake_stdin = io.StringIO()
+    fake_stdout = io.StringIO()
+    fake_stderr = io.StringIO()
+else :
+    fake_stdin = StringIO.StringIO()
+    fake_stdout = StringIO.StringIO()
+    fake_stderr = StringIO.StringIO()
+    
 
 def main():
     sys_stdin = sys.stdin
@@ -387,18 +407,21 @@ def main():
     sys.stdout = fake_stdout
     sys.stderr = fake_stderr
 
-    try:
-        print >> sys_stderr, fake_stdout.getvalue()
-        print >> sys_stderr, fake_stderr.getvalue()
+    try:        
+        exec('from pyspark.shell import sc', global_dict)
+        print(fake_stderr.getvalue(), file=sys_stdout)
+        print(fake_stderr.getvalue(), file=sys_stderr)
 
         fake_stdout.truncate(0)
+        fake_stdout.seek(0)
         fake_stderr.truncate(0)
-
-        print >> sys_stdout, 'READY'
+        fake_stderr.seek(0)
+        
+        print('READY', file=sys_stdout)
         sys_stdout.flush()
 
         while True:
-            line = sys_stdin.readline()
+            line = sys_stdin.readline()            
 
             if line == '':
                 break
@@ -448,7 +471,7 @@ def main():
                     }
                 })
 
-            print >> sys_stdout, response
+            print(response, file=sys_stdout)
             sys_stdout.flush()
     finally:
         sys.stdin = sys_stdin

@@ -89,7 +89,7 @@ class InteractiveSession(
     request.name.foreach(builder.name)
 
     request.kind match {
-      case PySpark() =>
+      case PySpark() | PySpark3() =>
         builder.conf(SparkYarnIsPython, "true", admin = true)
 
         // FIXME: Spark-1.4 seems to require us to manually upload the PySpark support files.

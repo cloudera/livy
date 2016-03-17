@@ -37,9 +37,8 @@ import com.cloudera.livy.repl.process.ProcessInterpreter
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
-  def apply(): Interpreter = {
-    val pythonExec = sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
-
+  def apply(kind: String = "pyspark"): Interpreter = {    
+    val pythonExec = if (kind == "pyspark3") "python3" else "python"   
     val gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
 
@@ -52,6 +51,7 @@ object PythonInterpreter extends Logging {
       .++(if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil)
       .++(if (!LivyConf.TEST_MODE) findPyFiles() else Nil)
 
+    env.put("PYSPARK_PYTHON", pythonExec)
     env.put("PYTHONPATH", pythonPath.mkString(File.pathSeparator))
     env.put("PYTHONUNBUFFERED", "YES")
     env.put("PYSPARK_GATEWAY_PORT", "" + gatewayServer.getListeningPort)
@@ -61,7 +61,7 @@ object PythonInterpreter extends Logging {
 
     val process = builder.start()
 
-    new PythonInterpreter(process, gatewayServer)
+    new PythonInterpreter(process, gatewayServer, kind)
   }
 
   private def findPySparkArchives(): Seq[String] = {
@@ -122,13 +122,13 @@ object PythonInterpreter extends Logging {
   }
 }
 
-private class PythonInterpreter(process: Process, gatewayServer: GatewayServer)
+private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, pyKind: String)
   extends ProcessInterpreter(process)
   with Logging
 {
   implicit val formats = DefaultFormats
 
-  override def kind: String = "pyspark"
+  override def kind: String = pyKind
 
   override def close(): Unit = {
     try {
