@@ -155,16 +155,6 @@
         </dependency>
 
         <dependency>
-            <groupId>net.databinder.dispatch</groupId>
-            <artifactId>dispatch-core_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>net.databinder.dispatch</groupId>
-            <artifactId>dispatch-json4s-jackson_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-repl</artifactId>
             <version>${project.version}</version>

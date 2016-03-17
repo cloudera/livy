@@ -45,7 +45,6 @@
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
     <spark.version>1.5.0-cdh5.5.0</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
-    <dispatch.version>0.11.2</dispatch.version>
     <guava.version>14.0.1</guava.version>
     <httpclient.version>4.5</httpclient.version>
     <httpcore.version>4.4.1</httpcore.version>
@@ -58,6 +57,7 @@
     <metrics.version>3.1.0</metrics.version>
     <mockito.version>1.9.5</mockito.version>
     <netty.version>4.0.23.Final</netty.version>
+    <async-http-client.version>1.9.33</async-http-client.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.8.2.1</py4j.version>
     <scala.binary.version>2.10</scala.binary.version>
@@ -497,18 +497,6 @@
       </dependency>
 
       <dependency>
-        <groupId>net.databinder.dispatch</groupId>
-        <artifactId>dispatch-core_${scala.binary.version}</artifactId>
-        <version>${dispatch.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>net.databinder.dispatch</groupId>
-        <artifactId>dispatch-json4s-jackson_${scala.binary.version}</artifactId>
-        <version>${dispatch.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>net.sf.py4j</groupId>
         <artifactId>py4j</artifactId>
         <version>${py4j.version}</version>
@@ -518,6 +506,12 @@
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>1.7.0</version>
+      </dependency>
+
+      <dependency>
+        <groupId>com.ning</groupId>
+        <artifactId>async-http-client</artifactId>
+        <version>${async-http-client.version}</version>
       </dependency>
 
     </dependencies>

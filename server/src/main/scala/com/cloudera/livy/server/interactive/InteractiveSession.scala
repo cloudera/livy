@@ -28,15 +28,17 @@ import scala.annotation.tailrec
 import scala.concurrent.{Future, _}
 import scala.concurrent.duration.Duration
 
-import dispatch._
+import com.ning.http.client.AsyncHttpClient
+import org.json4s._
 import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.Serialization.write
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
+import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
 import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.Utils
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -167,19 +169,23 @@ class InteractiveSession(
       _state match {
         case SessionState.Idle() =>
           _state = SessionState.Busy()
-
-          Http(svc.DELETE OK as.String).either() match {
-            case (Right(_) | Left(_: ConnectException)) =>
-              // Make sure to eat any connection errors because the repl shut down before it sent
-              // out an OK.
+          Future {
+            try {
+              Utils.usingResource(new AsyncHttpClient()) { client =>
+                client.prepareDelete(url.get.toString).execute()
+              }
               synchronized {
                 _state = SessionState.Dead()
               }
-
               Future.successful(())
-
-            case Left(t: Throwable) =>
-              Future.failed(t)
+            } catch {
+              case e: ConnectException =>
+                synchronized {
+                  _state = SessionState.Dead()
+                }
+                Future.successful(())
+              case ex => Future.failed(ex)
+            }
           }
         case SessionState.NotStarted() =>
           Future {
@@ -243,12 +249,17 @@ class InteractiveSession(
       _state = SessionState.Busy()
       recordActivity()
 
-      val req = (svc / "execute").setContentType("application/json", "UTF-8") << write(content)
-
-      val future = Http(req OK as.json4s.Json).map { case resp: JValue =>
-        parseResponse(resp).getOrElse {
+      val future = Future {
+        val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+          client.preparePost(url.get.toString + "/execute")
+          .setHeader("Content-Type", "application/json;charset=UTF-8")
+          .setBody(write(content))
+          .execute().get
+        }
+        val jsonResponse = Utils.toJson(response)
+        parseResponse(jsonResponse).getOrElse {
           // The result isn't ready yet. Loop until it is.
-          val id = (resp \ "id").extract[Int]
+          val id = (jsonResponse \ "id").extract[Int]
           waitForStatement(id)
         }
       }
@@ -266,17 +277,14 @@ class InteractiveSession(
     Utils.waitUntil({ () => state != oldState }, atMost)
   }
 
-  private def svc = {
-    val url = _url.head
-    dispatch.url(url.toString)
-  }
-
   @tailrec
   private def waitForStatement(id: Int): JValue = {
-    val req = (svc / "history" / id).setContentType("application/json", "UTF-8")
-    val resp = Await.result(Http(req OK as.json4s.Json), Duration.Inf)
-
-    parseResponse(resp) match {
+    val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+      client.prepareGet(url.get.toString + "/history/" + id)
+      .setHeader("Content-Type", "application/json;charset=UTF-8")
+      .execute().get
+    }
+    parseResponse(Utils.toJson(response)) match {
       case Some(result) => result
       case None =>
         Thread.sleep(1000)
@@ -305,10 +313,13 @@ class InteractiveSession(
   }
 
   private def replErroredOut() = {
-    val req = svc.setContentType("application/json", "UTF-8")
-    val response = Await.result(Http(req OK as.json4s.Json), Duration.Inf)
+    val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+      client.prepareGet(url.get.toString)
+      .setHeader("Content-Type", "application/json;charset=UTF-8")
+      .execute().get
+    }
 
-    response \ "state" match {
+    Utils.toJson(response) \ "state" match {
       case JString("error") => true
       case _ => false
     }
@@ -372,7 +383,6 @@ class InteractiveSession(
       }
     }
   }
-
   // Error out the job if the process errors out.
   Future {
     if (process.waitFor() == 0) {
