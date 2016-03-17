@@ -37,8 +37,8 @@ import com.cloudera.livy.repl.process.ProcessInterpreter
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
-  def apply(kind: String = "pyspark"): Interpreter = {    
-    val pythonExec = if (kind == "pyspark3") "python3" else "python"   
+  def apply(kind: String = "pyspark"): Interpreter = {
+    val pythonExec = if (kind == "pyspark3") "python3" else "python"
     val gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
 

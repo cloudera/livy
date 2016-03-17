@@ -65,7 +65,6 @@ object Main extends Logging {
         println("Unknown session kind: " + session_kind)
         sys.exit(1)
     }
-    
     val server = new WebServer(new LivyConf(), host, port)
 
     server.context.setResourceBase("src/main/com/cloudera/livy/repl")
