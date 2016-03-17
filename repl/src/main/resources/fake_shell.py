@@ -24,6 +24,7 @@ import sys
 import traceback
 import base64  
 import io
+import os
 
 if sys.version >= '3' :    
     unicode = str
