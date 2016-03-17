@@ -150,7 +150,7 @@ public class RemoteDriver extends Driver {
 
   @Override
   void setMonitorCallback(MonitorCallback cb) {
-    ((JobContextImpl)this.jc).setMonitorCb(cb);
+    jc.setMonitorCb(cb);
   }
 
 

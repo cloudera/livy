@@ -81,17 +81,18 @@ class InteractiveSession(
     request.executorCores.foreach(cores => builder.setConf("spark.executor.cores", cores.toString))
     request.executorMemory.foreach(mem => builder.setConf("spark.executor.memory", mem))
     request.driverMemory.foreach(mem => builder.setConf("spark.driver.memory", mem))
-
+    request.numExecutors.foreach { num =>
+      builder.setConf("spark.dynamicAllocation.maxExecutors", num.toString)
+    }
 
     proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
     builder.build()
   }.asInstanceOf[LocalClient]
+
   private[this] var _url: Option[URL] = None
 
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
-
-
 
   private val process = {
     val builder = new SparkProcessBuilder(livyConf)

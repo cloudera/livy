@@ -99,6 +99,14 @@ public final class LivyClientBuilder {
     return this;
   }
 
+  public LivyClientBuilder addJars(String[] jars) {
+    return this;
+  }
+
+  public LivyClientBuilder addFiles(String[] files) {
+    return this;
+  }
+
   public LivyClient build() {
     String uriStr = config.getProperty(LIVY_URI_KEY);
     if (uriStr == null) {
