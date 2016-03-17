@@ -171,4 +171,20 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
+  public static class RemoteDriverAddress {
+
+    public final String host;
+    public final int port;
+
+    public RemoteDriverAddress(String host, int port) {
+      this.host = host;
+      this.port = port;
+    }
+
+    public RemoteDriverAddress() {
+      this(null, -1);
+    }
+
+  }
+
 }

@@ -408,10 +408,12 @@ def main():
     sys.stderr = fake_stderr
 
     try:        
-        exec('from pyspark.shell import sc', global_dict)
+        if os.environ.get("livy.test") != "true":
+            # Load spark into the context
+            exec 'from pyspark.shell import sc' in global_dict
         print(fake_stderr.getvalue(), file=sys_stdout)
         print(fake_stderr.getvalue(), file=sys_stderr)
-
+    try:
         fake_stdout.truncate(0)
         fake_stdout.seek(0)
         fake_stderr.truncate(0)
@@ -474,6 +476,9 @@ def main():
             print(response, file=sys_stdout)
             sys_stdout.flush()
     finally:
+        if os.environ.get("livy.test") != "true" and 'sc' in global_dict:
+            global_dict['sc'].stop()
+
         sys.stdin = sys_stdin
         sys.stdout = sys_stdout
         sys.stderr = sys_stderr
