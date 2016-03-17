@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -44,6 +43,7 @@ import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
 import com.cloudera.livy.client.local.rpc.Rpc;
+
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class LocalClient implements LivyClient {
@@ -57,6 +57,7 @@ public class LocalClient implements LivyClient {
   private final ClientProtocol protocol;
   private final EventLoopGroup eventLoopGroup;
   private volatile boolean isAlive;
+  private final boolean repl;
 
   LocalClient(LocalClientFactory factory, LocalConf conf, ContextInfo ctx) throws IOException {
     this.ctx = ctx;
@@ -70,6 +71,9 @@ public class LocalClient implements LivyClient {
             .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
             .setDaemon(true)
             .build());
+
+    String replMode = conf.get("repl");
+    this.repl = replMode != null && replMode.equals("true");
 
     try {
       this.driverRpc = Rpc.createClient(conf,
@@ -161,6 +165,7 @@ public class LocalClient implements LivyClient {
     protocol.cancel(jobId);
   }
 
+
   @VisibleForTesting
   ContextInfo getContextInfo() {
     return ctx;
@@ -222,6 +227,12 @@ public class LocalClient implements LivyClient {
 
     Future<BypassJobStatus> getBypassJobStatus(String id) {
       return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
+    }
+
+    String executeCode(String code) throws Exception {
+      String id = UUID.randomUUID().toString();
+      driverRpc.call(new REPLJobRequest(code, id));
+      return id;
     }
 
     void cancel(String jobId) {

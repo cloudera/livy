@@ -20,7 +20,7 @@ package com.cloudera.livy.server.interactive
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import java.net.{ConnectException, URL}
+import java.net.{ConnectException, URI, URL}
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
 
@@ -33,7 +33,8 @@ import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.Serialization.write
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
+import com.cloudera.livy._
+import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.interactive.Statement
 import com.cloudera.livy.utils.SparkProcessBuilder
@@ -55,7 +56,7 @@ class InteractiveSession(
     _proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
-  extends Session(id, owner) {
+  extends Session(id, owner) with Logging {
 
   import InteractiveSession._
 
@@ -63,6 +64,28 @@ class InteractiveSession(
   protected implicit def jsonFormats: Formats = DefaultFormats
 
   protected[this] var _state: SessionState = SessionState.Starting()
+
+  private val client = {
+    info(s"Creating LivyClient for sessionId: $id")
+    val jars = request.jars ++ livyJars(livyConf)
+
+    val builder = new LivyClientBuilder()
+      .setConf("spark.app.name", s"livy-session-$id")
+      .setConf("spark.master", "yarn-cluster")
+      .setURI(new URI("local:spark"))
+      .setConf("livy.client.sessionId", id.toString)
+      .setConf("spark.jars", jars.mkString(","))
+
+    request.executorCores.foreach(cores => builder.setConf("spark.executor.cores", cores.toString))
+    request.executorMemory.foreach(mem => builder.setConf("spark.executor.memory", mem))
+    request.driverMemory.foreach(mem => builder.setConf("spark.driver.memory", mem))
+    request.numExecutors.foreach { num =>
+      builder.setConf("spark.dynamicAllocation.maxExecutors", num.toString)
+    }
+
+    proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
+    builder.build()
+  }.asInstanceOf[LocalClient]
 
   private[this] var _url: Option[URL] = None
 
@@ -319,7 +342,7 @@ class InteractiveSession(
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "repl/target/jars"))
+        .getOrElse(new File(home, "com/cloudera/livy/repl/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toSeq
     }

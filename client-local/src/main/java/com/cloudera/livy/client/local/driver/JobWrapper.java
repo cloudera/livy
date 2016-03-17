@@ -45,8 +45,8 @@ class JobWrapper<T> implements Callable<Void> {
 
   private Future<?> future;
 
-  JobWrapper(RemoteDriver driver, DriverProtocol client, String jobId, Job<T> job) {
-    this.driver = driver;
+  JobWrapper(Driver driver, DriverProtocol client, String jobId, Job<T> job) {
+    this.driver = (RemoteDriver) driver;
     this.client = client;
     this.jobId = jobId;
     this.job = job;
@@ -58,14 +58,13 @@ class JobWrapper<T> implements Callable<Void> {
   public Void call() throws Exception {
     try {
       jobStarted();
-      driver.jc.setMonitorCb(new MonitorCallback() {
+      driver.setMonitorCallback(new MonitorCallback() {
         @Override
         public void call(JavaFutureAction<?> future) {
           sparkJobs.add(future);
           jobSubmitted(future);
         }
       });
-
       T result = job.call(driver.jc);
       synchronized (completed) {
         while (completed.get() < sparkJobs.size()) {
@@ -89,7 +88,7 @@ class JobWrapper<T> implements Callable<Void> {
       finished(null, t);
       throw new ExecutionException(t);
     } finally {
-      driver.jc.setMonitorCb(null);
+      ((JobContextImpl)driver.jc).setMonitorCb(null);
       driver.activeJobs.remove(jobId);
     }
     return null;

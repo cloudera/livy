@@ -23,7 +23,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.Duration
 
-import org.json4s.{DefaultFormats, Extraction, JValue}
+import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.{Logging, Utils}
@@ -70,7 +70,7 @@ class Session(interpreter: Interpreter)
 
   def execute(code: String): Statement = synchronized {
     val executionCount = _history.length
-    val statement = Statement(executionCount, Future { executeCode(executionCount, code) })
+    val statement = Statement(executionCount, executeCode(executionCount, code))
     _history :+= statement
     statement
   }
@@ -100,32 +100,32 @@ class Session(interpreter: Interpreter)
           _state = SessionState.Idle()
 
           (STATUS -> OK) ~
-          (EXECUTION_COUNT -> executionCount) ~
-          (DATA -> data)
+            (EXECUTION_COUNT -> executionCount) ~
+            (DATA -> data)
         case Interpreter.ExecuteIncomplete() =>
           _state = SessionState.Idle()
 
           (STATUS -> ERROR) ~
-          (EXECUTION_COUNT -> executionCount) ~
-          (ENAME -> "Error") ~
-          (EVALUE -> "incomplete statement") ~
-          (TRACEBACK -> List())
+            (EXECUTION_COUNT -> executionCount) ~
+            (ENAME -> "Error") ~
+            (EVALUE -> "incomplete statement") ~
+            (TRACEBACK -> List())
         case Interpreter.ExecuteError(ename, evalue, traceback) =>
           _state = SessionState.Idle()
 
           (STATUS -> ERROR) ~
-          (EXECUTION_COUNT -> executionCount) ~
-          (ENAME -> ename) ~
-          (EVALUE -> evalue) ~
-          (TRACEBACK -> traceback)
+            (EXECUTION_COUNT -> executionCount) ~
+            (ENAME -> ename) ~
+            (EVALUE -> evalue) ~
+            (TRACEBACK -> traceback)
         case Interpreter.ExecuteAborted(message) =>
           _state = SessionState.Error(System.nanoTime())
 
           (STATUS -> ERROR) ~
-          (EXECUTION_COUNT -> executionCount) ~
-          (ENAME -> "Error") ~
-          (EVALUE -> f"Interpreter died:\n$message") ~
-          (TRACEBACK -> List())
+            (EXECUTION_COUNT -> executionCount) ~
+            (ENAME -> "Error") ~
+            (EVALUE -> f"Interpreter died:\n$message") ~
+            (TRACEBACK -> List())
       }
     } catch {
       case e: Throwable =>
@@ -135,12 +135,12 @@ class Session(interpreter: Interpreter)
 
 
         (STATUS -> ERROR) ~
-        (EXECUTION_COUNT -> executionCount) ~
-        (ENAME -> f"Internal Error: ${e.getClass.getName}") ~
-        (EVALUE -> e.getMessage) ~
-        (TRACEBACK -> List())
+          (EXECUTION_COUNT -> executionCount) ~
+          (ENAME -> f"Internal Error: ${e.getClass.getName}") ~
+          (EVALUE -> e.getMessage) ~
+          (TRACEBACK -> List())
     }
   }
 }
 
-case class Statement(id: Int, result: Future[JValue])
+case class Statement(id: Int, result: JValue)

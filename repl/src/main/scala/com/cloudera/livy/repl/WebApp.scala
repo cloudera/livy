@@ -116,11 +116,7 @@ private object Serializers {
 
   def serializeStatement(statement: Statement,
                          duration: Duration = Duration(10, TimeUnit.SECONDS)): JValue = {
-    val result = try {
-      Await.result(statement.result, duration)
-    } catch {
-      case _: TimeoutException => null
-    }
+    val result = statement.result
 
     ("id", statement.id) ~ ("result", result)
   }
