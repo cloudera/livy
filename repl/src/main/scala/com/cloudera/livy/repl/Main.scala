@@ -20,6 +20,7 @@ package com.cloudera.livy.repl
 
 import java.util.concurrent.TimeUnit
 import javax.servlet.ServletContext
+import javax.servlet.http.HttpServletResponse
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -134,14 +135,14 @@ class ScalatraBootstrap extends LifeCycle with Logging {
         // Wait for our url to be discovered.
         val replUrl = waitForReplUrl()
         info(s"Calling $callbackUrl...")
-        val response = Utils.usingResource(new AsyncHttpClient()) {
-          request => request.preparePost(callbackUrl)
+        val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+            client.preparePost(callbackUrl)
             .setHeader("Content-Type", "application/json;charset=UTF-8")
             .setBody(write(Map("url" -> replUrl)))
             .execute().get()
         }
         response.getStatusCode match {
-          case 200 => Future.successful(())
+          case HttpServletResponse.SC_OK => Future.successful(())
           case statusCode =>
             info("callback fail, " + response.getResponseBody)
             System.exit(1)

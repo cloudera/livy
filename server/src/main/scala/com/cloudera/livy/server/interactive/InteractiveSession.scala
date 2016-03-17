@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.io.{Closeable, File}
+import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.net.{ConnectException, URL}
 import java.nio.file.{Files, Paths}
@@ -171,8 +171,8 @@ class InteractiveSession(
           _state = SessionState.Busy()
           Future {
             try {
-              Utils.usingResource(new AsyncHttpClient()) {
-                request => request.prepareDelete(url.get.toString).execute()
+              Utils.usingResource(new AsyncHttpClient()) { client =>
+                client.prepareDelete(url.get.toString).execute()
               }
               synchronized {
                 _state = SessionState.Dead()
@@ -250,11 +250,11 @@ class InteractiveSession(
       recordActivity()
 
       val future = Future {
-        val response = Utils.usingResource(new AsyncHttpClient()) {
-          request => request.preparePost(url.get.toString + "/execute")
-            .setHeader("Content-Type", "application/json;charset=UTF-8")
-            .setBody(write(content))
-            .execute().get
+        val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+          client.preparePost(url.get.toString + "/execute")
+          .setHeader("Content-Type", "application/json;charset=UTF-8")
+          .setBody(write(content))
+          .execute().get
         }
         val jsonResponse = Utils.toJson(response)
         parseResponse(jsonResponse).getOrElse {
@@ -279,10 +279,10 @@ class InteractiveSession(
 
   @tailrec
   private def waitForStatement(id: Int): JValue = {
-    val response = Utils.usingResource(new AsyncHttpClient()){ request =>
-      request.prepareGet(url.get.toString + "/history/" + id)
-        .setHeader("Content-Type", "application/json;charset=UTF-8")
-        .execute().get
+    val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+      client.prepareGet(url.get.toString + "/history/" + id)
+      .setHeader("Content-Type", "application/json;charset=UTF-8")
+      .execute().get
     }
     parseResponse(Utils.toJson(response)) match {
       case Some(result) => result
@@ -313,10 +313,10 @@ class InteractiveSession(
   }
 
   private def replErroredOut() = {
-    val response = Utils.usingResource(new AsyncHttpClient()) {
-      request => request.prepareGet(url.get.toString)
-        .setHeader("Content-Type", "application/json;charset=UTF-8")
-        .execute().get
+    val response = Utils.usingResource(new AsyncHttpClient()) { client =>
+      client.prepareGet(url.get.toString)
+      .setHeader("Content-Type", "application/json;charset=UTF-8")
+      .execute().get
     }
 
     Utils.toJson(response) \ "state" match {
