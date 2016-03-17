@@ -58,7 +58,6 @@ object PythonInterpreter extends Logging {
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
 
     builder.redirectError(Redirect.PIPE)
-
     val process = builder.start()
 
     new PythonInterpreter(process, gatewayServer, kind)
