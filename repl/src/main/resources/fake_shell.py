@@ -411,7 +411,7 @@ def main():
     try:        
         if os.environ.get("livy.test") != "true":
             # Load spark into the context
-            exec 'from pyspark.shell import sc' in global_dict
+            exec('from pyspark.shell import sc', global_dict)
         print(fake_stdout.getvalue(), file=sys_stderr)
         print(fake_stderr.getvalue(), file=sys_stderr)
         
