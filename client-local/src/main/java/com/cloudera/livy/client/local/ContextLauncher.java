@@ -85,7 +85,7 @@ class ContextLauncher implements ContextInfo {
       boolean repl = replMode != null && replMode.equals("true");
       String className;
       if (repl) {
-        className = "com.cloudera.livy.repl.REPL";
+        className = "com.cloudera.livy.repl.ReplDriver";
       } else {
         className = RemoteDriver.class.getName();
       }

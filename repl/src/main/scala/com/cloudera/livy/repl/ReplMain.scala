@@ -22,16 +22,32 @@ import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
+import io.netty.channel.ChannelHandlerContext
 import org.json4s.JsonAST.{JNull, JValue}
+import org.json4s.jackson.JsonMethods._
 
-import com.cloudera.livy.client.local.BaseProtocol.REPLJobRequest
-import com.cloudera.livy.client.local.driver.{Driver, MonitorCallback}
+import com.cloudera.livy.client.local.BaseProtocol
+import com.cloudera.livy.client.local.driver.{Driver, DriverProtocol, MonitorCallback}
+import com.cloudera.livy.client.local.rpc.Rpc
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 
+class ReplProtocol(driver: ReplMain, clientRpc: Rpc, jcLock: Object)
+  extends DriverProtocol(driver, clientRpc, jcLock) {
 
-class REPL(args: Array[String]) extends Driver(args) {
+  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Unit = {
+    driver.run(msg.id, msg.code)
+  }
+
+  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResult): String = {
+    val result = driver.getJobStatus(msg.id)
+    compact(render(result))
+  }
+
+}
+
+class ReplMain(args: Array[String]) extends Driver(args) {
   val PYSPARK_SESSION = "pyspark"
   val SPARK_SESSION = "spark"
   val SPARKR_SESSION = "sparkr"
@@ -45,21 +61,32 @@ class REPL(args: Array[String]) extends Driver(args) {
 
   val session = Session(interpreter)
 
-  def shutdown(error: Throwable): Unit = {
+  override def createProtocol(client: Rpc): DriverProtocol = {
+    new ReplProtocol(this, client, jcLock)
+  }
+
+  override def shutdown(error: Throwable): Unit = {
     session.close()
   }
 
-  def setMonitorCallback(bc: MonitorCallback): Unit = {
+  override def setMonitorCallback(bc: MonitorCallback): Unit = {
     // no op
   }
 
-  def run(jobRequest: REPLJobRequest): Unit = {
+  def run(id: String, code: String): Unit = {
     Future {
-      jobFutures(jobRequest.id) = session.execute(jobRequest.code).result
+      jobFutures(id) = session.execute(code).result
     }
   }
 
   def getJobStatus(id: String): JValue = {
     jobFutures.getOrElse(id, JNull)
   }
+
+}
+
+object ReplMain {
+
+  def main(args: Array[String]): Unit = new ReplMain(args).run()
+
 }

@@ -31,7 +31,6 @@ import org.scalatra._
 import com.cloudera.livy.{ExecuteRequest, LivyConf, Logging}
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.Statement
 
 object InteractiveSessionServlet extends Logging
 

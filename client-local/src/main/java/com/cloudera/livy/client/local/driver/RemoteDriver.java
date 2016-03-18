@@ -32,7 +32,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cloudera.livy.JobContext;
+import com.cloudera.livy.client.local.rpc.Rpc;
 
 /**
  * Driver code for the Spark client library.
@@ -44,17 +44,17 @@ public class RemoteDriver extends Driver {
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
 
-
   volatile boolean running;
-  private final Object shutdownLock;
   protected final ExecutorService executor;
   // a local temp dir specific to this driver
   private final File localTmpDir;
+
+  // jc is effectively final, but it has to be volatile since it's accessed by different
+  // threads while the constructor is running.
   volatile JobContextImpl jc;
 
   private RemoteDriver(String[] args) throws Exception {
     super(args);
-    shutdownLock = new Object();
     localTmpDir = Files.createTempDir();
     executor = Executors.newCachedThreadPool();
     try {
@@ -84,24 +84,6 @@ public class RemoteDriver extends Driver {
     }
   }
 
-  private void run() throws InterruptedException {
-    synchronized (shutdownLock) {
-      try {
-        while (running) {
-          shutdownLock.wait();
-        }
-      } catch (InterruptedException ie) {
-        // Nothing to do.
-      }
-    }
-    executor.shutdownNow();
-    try {
-      FileUtils.deleteDirectory(localTmpDir);
-    } catch (IOException e) {
-      LOG.warn("Failed to delete local tmp dir: " + localTmpDir, e);
-    }
-  }
-
   void submit(JobWrapper<?> job) {
     synchronized (jcLock) {
       if (jc != null) {
@@ -113,7 +95,13 @@ public class RemoteDriver extends Driver {
     }
   }
 
-  synchronized void shutdown(Throwable error) {
+  @Override
+  public DriverProtocol createProtocol(Rpc client) {
+    return new DriverProtocol(this, client, jcLock);
+  }
+
+  @Override
+  public synchronized void shutdown(Throwable error) {
     if (!running) {
       return;
     }
@@ -131,6 +119,13 @@ public class RemoteDriver extends Driver {
         jc.stop();
       }
       stopClients(error);
+
+      executor.shutdownNow();
+      try {
+        FileUtils.deleteDirectory(localTmpDir);
+      } catch (IOException e) {
+        LOG.warn("Failed to delete local tmp dir: " + localTmpDir, e);
+      }
     } finally {
       running = false;
       synchronized (shutdownLock) {
@@ -149,7 +144,7 @@ public class RemoteDriver extends Driver {
   }
 
   @Override
-  void setMonitorCallback(MonitorCallback cb) {
+  public void setMonitorCallback(MonitorCallback cb) {
     jc.setMonitorCb(cb);
   }
 

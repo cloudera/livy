@@ -187,32 +187,33 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  public static class REPLJobRequest {
+  public static class ReplJobRequest {
 
     public final String code;
     public final String id;
 
-    public REPLJobRequest(String code, String id) {
+    public ReplJobRequest(String code, String id) {
       this.code = code;
       this.id = id;
     }
 
-    public REPLJobRequest() {
+    public ReplJobRequest() {
       this(null, null);
     }
   }
 
-  protected static class GetREPLJobStatus {
+  public static class GetReplJobResult {
 
     public final String id;
 
-    public GetREPLJobStatus(String id) {
+    public GetReplJobResult(String id) {
       this.id = id;
     }
 
-    public GetREPLJobStatus() {
+    public GetReplJobResult() {
       this(null);
     }
 
   }
+
 }

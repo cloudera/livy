@@ -37,7 +37,6 @@ import org.json4s.jackson.Serialization.write
 import com.cloudera.livy._
 import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.Statement
 import com.cloudera.livy.utils.SparkProcessBuilder
 import com.cloudera.livy.Utils
 

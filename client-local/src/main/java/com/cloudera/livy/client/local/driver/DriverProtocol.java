@@ -23,12 +23,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-
 import com.google.common.base.Throwables;
 import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import org.apache.spark.api.java.JavaFutureAction;
-import org.json4s.JsonAST;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +34,7 @@ import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.BypassJobStatus;
 import com.cloudera.livy.client.local.rpc.Rpc;
 
-class DriverProtocol extends BaseProtocol {
+public class DriverProtocol extends BaseProtocol {
 
   private static final Logger LOG = LoggerFactory.getLogger(DriverProtocol.class);
 
@@ -44,22 +42,12 @@ class DriverProtocol extends BaseProtocol {
   private final Object jcLock;
   private final Driver driver;
   private final List<BypassJobWrapper> bypassJobs;
-  private Class<?> replClass;
-  private Method runMethod;
-  private Method getStatusMethod;
 
-  DriverProtocol(Driver driver, Rpc clientRpc, Object jcLock) {
+  public DriverProtocol(Driver driver, Rpc clientRpc, Object jcLock) {
     this.driver = driver;
     this.clientRpc = clientRpc;
     this.jcLock = jcLock;
     this.bypassJobs = Lists.newArrayList();
-    try {
-      replClass = Class.forName("com.cloudera.livy.repl.REPL");
-      runMethod = replClass.getDeclaredMethod("run", REPLJobRequest.class);
-      getStatusMethod = replClass.getDeclaredMethod("getJobStatus", String.class);
-    } catch (ClassNotFoundException | NoSuchMethodException e) {
-      LOG.warn("REPL class not found in classpath", e);
-    }
   }
 
   void sendError(Throwable error) {
@@ -158,22 +146,6 @@ class DriverProtocol extends BaseProtocol {
     }
 
     throw new NoSuchElementException(msg.id);
-  }
-
-  private void handle(ChannelHandlerContext ctx, REPLJobRequest msg)
-    throws InvocationTargetException, IllegalAccessException {
-    if (replClass == null || !replClass.isInstance(driver)) {
-      throw new RuntimeException("Driver class is not REPL");
-    }
-    runMethod.invoke(driver, msg.code);
-  }
-
-  private JsonAST.JValue handle(ChannelHandlerContext ctx, GetREPLJobStatus msg)
-    throws InvocationTargetException, IllegalAccessException {
-    if (replClass == null || !replClass.isInstance(driver)) {
-      throw new RuntimeException("Driver class is not REPL");
-    }
-    return (JsonAST.JValue) getStatusMethod.invoke(driver, msg.id);
   }
 
   private void waitForJobContext() throws InterruptedException {

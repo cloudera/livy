@@ -56,13 +56,15 @@ public abstract class Driver {
   private final LocalConf livyConf;
 
   protected final Object jcLock;
-  // jc is effectively final, but it has to be volatile since it's accessed by different
-  // threads while the constructor is running.
+
+  protected final Object shutdownLock;
   volatile boolean running;
-  public Driver(String[] args) throws Exception {
+
+  protected Driver(String[] args) throws Exception {
     conf = new SparkConf();
     livyConf = new LocalConf(null);
     jcLock = new Object();
+    shutdownLock = new Object();
     for (Tuple2<String, String> e : conf.getAll()) {
       String key = e._1();
       String value = e._2();
@@ -117,7 +119,7 @@ public abstract class Driver {
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
       public RpcDispatcher onNewClient(Rpc client) {
-        final DriverProtocol dispatcher = new DriverProtocol(Driver.this, client, jcLock);
+        final DriverProtocol dispatcher = createProtocol(client);
         synchronized (clients) {
           clients.add(dispatcher);
         }
@@ -149,6 +151,24 @@ public abstract class Driver {
     this.running = true;
   }
 
+  public abstract void setMonitorCallback(MonitorCallback bc);
+
+  public abstract void shutdown(Throwable error);
+
+  public abstract DriverProtocol createProtocol(Rpc client);
+
+  public void run() throws InterruptedException {
+    synchronized (shutdownLock) {
+      try {
+        while (running) {
+          shutdownLock.wait();
+        }
+      } catch (InterruptedException ie) {
+        // Nothing to do.
+      }
+    }
+  }
+
   private String getArg(String[] args, int keyIdx) {
     int valIdx = keyIdx + 1;
     if (args.length <= valIdx) {
@@ -165,10 +185,6 @@ public abstract class Driver {
   protected SparkConf getSparkConf() {
     return conf;
   }
-
-  abstract void setMonitorCallback(MonitorCallback bc);
-
-  abstract void shutdown(Throwable error);
 
   protected void stopClients(Throwable error) {
     if (error != null) {

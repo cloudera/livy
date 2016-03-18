@@ -57,7 +57,6 @@ public class LocalClient implements LivyClient {
   private final ClientProtocol protocol;
   private final EventLoopGroup eventLoopGroup;
   private volatile boolean isAlive;
-  private final boolean repl;
 
   LocalClient(LocalClientFactory factory, LocalConf conf, ContextInfo ctx) throws IOException {
     this.ctx = ctx;
@@ -71,9 +70,6 @@ public class LocalClient implements LivyClient {
             .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
             .setDaemon(true)
             .build());
-
-    String replMode = conf.get("repl");
-    this.repl = replMode != null && replMode.equals("true");
 
     try {
       this.driverRpc = Rpc.createClient(conf,
@@ -229,10 +225,14 @@ public class LocalClient implements LivyClient {
       return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
     }
 
-    String executeCode(String code) throws Exception {
+    String submitReplCode(String code) throws Exception {
       String id = UUID.randomUUID().toString();
-      driverRpc.call(new REPLJobRequest(code, id));
+      driverRpc.call(new ReplJobRequest(code, id));
       return id;
+    }
+
+    Future<String> getReplJobResult(String id) throws Exception {
+      return driverRpc.call(new GetReplJobResult(id), String.class);
     }
 
     void cancel(String jobId) {
