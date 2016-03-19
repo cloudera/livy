@@ -90,7 +90,8 @@ object Main extends Logging {
         require(principal != null,
           s"Kerberos auth requires ${KERBEROS_KEYTAB.key} to be provided.")
 
-        val holder = new FilterHolder(new AuthenticationFilter())
+        val holder = new FilterHolder(new SelectiveFilter(new AuthenticationFilter()))
+        holder.setInitParameter(SelectiveFilter.BYPASS_PATH_RE_LIST, "/sessions/[0-9]+/callback")
         holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
         holder.setInitParameter(KerberosAuthenticationHandler.PRINCIPAL, principal)
         holder.setInitParameter(KerberosAuthenticationHandler.KEYTAB, keytab)
