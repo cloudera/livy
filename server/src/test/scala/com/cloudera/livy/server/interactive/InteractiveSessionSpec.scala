@@ -21,18 +21,22 @@ package com.cloudera.livy.server.interactive
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.Await
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
+import org.apache.spark.launcher.SparkLauncher
 import org.json4s.{DefaultFormats, Extraction}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
+import com.cloudera.livy.client.local.LocalConf
 import com.cloudera.livy.sessions.{PySpark, SessionState}
 
 class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 
   private val livyConf = new LivyConf()
-  livyConf.set("livy.repl.driverClassPath", sys.props("java.class.path"))
+  livyConf.set(InteractiveSession.LivyReplDriverClassPath, sys.props("java.class.path"))
   livyConf.set(InteractiveSession.LivyReplJars, "")
 
   implicit val formats = DefaultFormats
@@ -44,34 +48,40 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
+    req.conf = Map(
+      LocalConf.Entry.LIVY_JARS.key() -> "",
+      SparkLauncher.SPARK_MASTER -> "local"
+    )
     new InteractiveSession(0, null, None, livyConf, req)
   }
 
   override def afterAll(): Unit = {
     if (session != null) {
-      Await.ready(session.stop(), Duration.Inf)
+      Await.ready(session.stop(), 30 seconds)
       session = null
     }
     super.afterAll()
   }
 
+  private def withSession(desc: String)(fn: (InteractiveSession) => Unit): Unit = {
+    it(desc) {
+      assume(session != null, "No active session.")
+      eventually(timeout(30 seconds), interval(100 millis)) {
+        session.state should be (SessionState.Idle())
+      }
+      fn(session)
+    }
+  }
+
   describe("A spark session") {
-    it("should start in the starting or idle state") {
+    it("should start in the idle state") {
       session = createSession()
       session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
     }
 
-    it("should eventually become the idle state") {
-      assume(session != null, "Session not started.")
-      session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
-      session.state should equal (SessionState.Idle())
-    }
-
-    it("should execute `1 + 2` == 3") {
-      assume(session != null, "Session not started.")
-      session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
+    withSession("should execute `1 + 2` == 3") { session =>
       val stmt = session.executeStatement(ExecuteRequest("1 + 2"))
-      val result = Await.result(stmt.output(), Duration.Inf)
+      val result = Await.result(stmt.output(), 30 seconds)
 
       val expectedResult = Extraction.decompose(Map(
         "status" -> "ok",
@@ -84,11 +94,9 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
       result should equal (expectedResult)
     }
 
-    it("should report an error if accessing an unknown variable") {
-      assume(session != null, "Session not started.")
-      session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
+    withSession("should report an error if accessing an unknown variable") { session =>
       val stmt = session.executeStatement(ExecuteRequest("x"))
-      val result = Await.result(stmt.output(), Duration.Inf)
+      val result = Await.result(stmt.output(), 30 seconds)
       val expectedResult = Extraction.decompose(Map(
         "status" -> "error",
         "execution_count" -> 1,
@@ -104,11 +112,9 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
       session.state should equal (SessionState.Idle())
     }
 
-    it("should error out the session if the interpreter dies") {
-      assume(session != null, "Session not started.")
-      session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
+    withSession("should error out the session if the interpreter dies") { session =>
       val stmt = session.executeStatement(ExecuteRequest("import os; os._exit(1)"))
-      val result = Await.result(stmt.output(), Duration.Inf)
+      val result = Await.result(stmt.output(), 30 seconds)
       (session.state match {
         case SessionState.Error(_) => true
         case _ => false

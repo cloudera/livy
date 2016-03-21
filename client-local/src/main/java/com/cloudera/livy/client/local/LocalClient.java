@@ -175,14 +175,8 @@ public class LocalClient implements LivyClient {
     return driverRpc.call(new BaseProtocol.GetReplJobResult(id), String.class);
   }
 
-  public boolean isAlive() {
-    try {
-      driverRpc.call(new BaseProtocol.Ping()).get();
-      return true;
-    } catch (Exception e) {
-      LOG.debug("Remote end is not responding.", e);
-      return false;
-    }
+  public Future<String> getReplState() {
+    return driverRpc.call(new BaseProtocol.GetReplState(), String.class);
   }
 
   private class ClientProtocol extends BaseProtocol {

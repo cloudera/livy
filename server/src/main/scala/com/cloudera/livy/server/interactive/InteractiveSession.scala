@@ -85,8 +85,14 @@ class InteractiveSession(
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
 
+      case Spark() =>
+
+      case SparkR() =>
+
       case _ =>
+        throw new IllegalArgumentException(s"Invalid session kind: ${request.kind}")
     }
+    builder.setConf("session.kind", request.kind.toString)
 
     sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { opts =>
       val userOpts = request.conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS)
@@ -122,6 +128,9 @@ class InteractiveSession(
     proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
     builder.build()
   }.asInstanceOf[LocalClient]
+
+  // Client is ready to receive commands now.
+  _state = SessionState.Idle()
 
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
@@ -167,10 +176,6 @@ class InteractiveSession(
     }
   }
 
-  def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
-    Utils.waitUntil({ () => state != oldState }, atMost)
-  }
-
   @tailrec
   private def waitForStatement(id: String): JValue = {
     val response = client.getReplJobResult(id).get()
@@ -180,11 +185,11 @@ class InteractiveSession(
       // it's still running.
       result \ "status" match {
         case JString("error") =>
-          if (client.isAlive()) {
-            transition(SessionState.Idle())
-          } else {
-            transition(SessionState.Error())
+          val state = client.getReplState().get() match {
+            case "error" => SessionState.Error()
+            case _ => SessionState.Idle()
           }
+          transition(state)
         case _ => transition(SessionState.Idle())
       }
       result

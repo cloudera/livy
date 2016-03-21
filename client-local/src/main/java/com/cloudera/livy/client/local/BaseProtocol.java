@@ -216,7 +216,7 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  public static class Ping {
+  public static class GetReplState {
 
   }
 

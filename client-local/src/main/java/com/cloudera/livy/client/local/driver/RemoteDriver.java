@@ -100,36 +100,18 @@ public class RemoteDriver extends Driver {
   }
 
   @Override
-  public synchronized void shutdown(Throwable error) {
-    if (!running) {
-      return;
+  public void shutdownDriver() {
+    for (JobWrapper<?> job : activeJobs.values()) {
+      job.cancel();
     }
-
+    if (jc != null) {
+      jc.stop();
+    }
+    executor.shutdownNow();
     try {
-      if (error == null) {
-        LOG.info("Shutting down remote driver.");
-      } else {
-        LOG.error("Shutting down remote driver due to error: " + error, error);
-      }
-      for (JobWrapper<?> job : activeJobs.values()) {
-        job.cancel();
-      }
-      if (jc != null) {
-        jc.stop();
-      }
-      stopClients(error);
-
-      executor.shutdownNow();
-      try {
-        FileUtils.deleteDirectory(localTmpDir);
-      } catch (IOException e) {
-        LOG.warn("Failed to delete local tmp dir: " + localTmpDir, e);
-      }
-    } finally {
-      running = false;
-      synchronized (shutdownLock) {
-        shutdownLock.notifyAll();
-      }
+      FileUtils.deleteDirectory(localTmpDir);
+    } catch (IOException e) {
+      LOG.warn("Failed to delete local tmp dir: " + localTmpDir, e);
     }
   }
 

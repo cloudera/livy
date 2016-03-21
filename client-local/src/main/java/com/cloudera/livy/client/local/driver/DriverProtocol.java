@@ -69,10 +69,6 @@ public class DriverProtocol extends BaseProtocol {
     clientRpc.call(new JobSubmitted(jobId, sparkJobId));
   }
 
-  private void handle(ChannelHandlerContext ctx, Ping msg) {
-    // No-op.
-  }
-
   private void handle(ChannelHandlerContext ctx, CancelJob msg) {
     JobWrapper<?> job = driver.activeJobs.get(msg.id);
     if (job == null || !job.cancel()) {
@@ -80,7 +76,8 @@ public class DriverProtocol extends BaseProtocol {
     }
   }
 
-  private void handle(ChannelHandlerContext ctx, EndSession msg) {
+  // Needs to be public so that the REPL driver also sees it.
+  public void handle(ChannelHandlerContext ctx, EndSession msg) {
     LOG.debug("Shutting down due to EndSession request.");
     driver.shutdown(null);
   }

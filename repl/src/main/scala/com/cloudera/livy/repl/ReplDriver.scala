@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 import io.netty.channel.ChannelHandlerContext
-import org.json4s.JsonAST.{JNull, JValue}
+import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy.client.local.BaseProtocol
@@ -32,8 +32,9 @@ import com.cloudera.livy.client.local.rpc.Rpc
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
+import com.cloudera.livy.sessions._
 
-class ReplProtocol(driver: ReplMain, clientRpc: Rpc, jcLock: Object)
+class ReplProtocol(driver: ReplDriver, clientRpc: Rpc, jcLock: Object)
   extends DriverProtocol(driver, clientRpc, jcLock) {
 
   private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Unit = {
@@ -42,30 +43,31 @@ class ReplProtocol(driver: ReplMain, clientRpc: Rpc, jcLock: Object)
 
   private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResult): String = {
     val result = driver.getJobStatus(msg.id)
-    compact(render(result))
+    Option(result).map { r => compact(render(r)) }.orNull
+  }
+
+  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
+    return driver.session.state.toString
   }
 
 }
 
-class ReplMain(args: Array[String]) extends Driver(args) {
-  val PYSPARK_SESSION = "pyspark"
-  val SPARK_SESSION = "spark"
-  val SPARKR_SESSION = "sparkr"
-  val jobFutures = mutable.Map[String, JValue]()
+class ReplDriver(args: Array[String]) extends Driver(args) {
+  private val jobFutures = mutable.Map[String, JValue]()
 
-  val interpreter = getLivyConf.get("session.kind") match {
-    case PYSPARK_SESSION => PythonInterpreter()
-    case SPARK_SESSION => SparkInterpreter()
-    case SPARKR_SESSION => SparkRInterpreter()
+  private val interpreter = Kind(getLivyConf.get("session.kind")) match {
+    case PySpark() => PythonInterpreter()
+    case Spark() => SparkInterpreter()
+    case SparkR() => SparkRInterpreter()
   }
 
-  val session = Session(interpreter)
+  private[repl] val session = Session(interpreter)
 
   override def createProtocol(client: Rpc): DriverProtocol = {
     new ReplProtocol(this, client, jcLock)
   }
 
-  override def shutdown(error: Throwable): Unit = {
+  override def shutdownDriver(): Unit = {
     session.close()
   }
 
@@ -80,13 +82,13 @@ class ReplMain(args: Array[String]) extends Driver(args) {
   }
 
   def getJobStatus(id: String): JValue = {
-    jobFutures.getOrElse(id, JNull)
+    jobFutures.getOrElse(id, null)
   }
 
 }
 
-object ReplMain {
+object ReplDriver {
 
-  def main(args: Array[String]): Unit = new ReplMain(args).run()
+  def main(args: Array[String]): Unit = new ReplDriver(args).run()
 
 }

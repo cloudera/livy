@@ -149,9 +149,30 @@ public abstract class Driver {
     this.running = true;
   }
 
+  public final synchronized void shutdown(Throwable error) {
+    if (!running) {
+      return;
+    }
+
+    try {
+      if (error == null) {
+        LOG.info("Shutting down remote driver.");
+      } else {
+        LOG.error("Shutting down remote driver due to error: " + error, error);
+      }
+      shutdownDriver();
+      stopClients(error);
+    } finally {
+      running = false;
+      synchronized (shutdownLock) {
+        shutdownLock.notifyAll();
+      }
+    }
+  }
+
   public abstract void setMonitorCallback(MonitorCallback bc);
 
-  public abstract void shutdown(Throwable error);
+  public abstract void shutdownDriver();
 
   public abstract DriverProtocol createProtocol(Rpc client);
 
