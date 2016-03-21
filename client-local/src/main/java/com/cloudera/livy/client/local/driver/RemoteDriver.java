@@ -44,7 +44,6 @@ public class RemoteDriver extends Driver {
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
 
-  volatile boolean running;
   protected final ExecutorService executor;
   // a local temp dir specific to this driver
   private final File localTmpDir;
@@ -60,7 +59,7 @@ public class RemoteDriver extends Driver {
     try {
       long t1 = System.nanoTime();
       LOG.info("Starting Spark context...");
-      JavaSparkContext sc = new JavaSparkContext();
+      JavaSparkContext sc = new JavaSparkContext(conf);
       LOG.info("Spark context finished initialization in {}ms",
         TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
       sc.sc().addSparkListener(new DriverSparkListener(this));

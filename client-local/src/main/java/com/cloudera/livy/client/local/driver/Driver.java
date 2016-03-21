@@ -49,11 +49,9 @@ public abstract class Driver {
   private final List<JobWrapper<?>> jobQueue = Lists.newLinkedList();
   final Map<String, JobWrapper<?>> activeJobs = Maps.newConcurrentMap();
 
-  protected Serializer serializer;
-  // jc is effectively final, but it has to be volatile since it's accessed by different
-  // threads while the constructor is running.
-  private final SparkConf conf;
-  private final LocalConf livyConf;
+  protected final Serializer serializer;
+  protected final SparkConf conf;
+  protected final LocalConf livyConf;
 
   protected final Object jcLock;
 
