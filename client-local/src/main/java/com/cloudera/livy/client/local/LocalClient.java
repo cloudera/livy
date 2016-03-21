@@ -43,7 +43,6 @@ import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
 import com.cloudera.livy.client.local.rpc.Rpc;
-
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
 public class LocalClient implements LivyClient {
@@ -160,7 +159,6 @@ public class LocalClient implements LivyClient {
   public void cancel(String jobId) {
     protocol.cancel(jobId);
   }
-
 
   @VisibleForTesting
   ContextInfo getContextInfo() {
