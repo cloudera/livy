@@ -84,12 +84,6 @@ class Session(interpreter: Interpreter)
     _history = IndexedSeq()
   }
 
-  @throws(classOf[TimeoutException])
-  @throws(classOf[InterruptedException])
-  def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
-    Utils.waitUntil({ () => state != oldState }, atMost)
-  }
-
   private def executeCode(executionCount: Int, code: String) = {
     _state = SessionState.Busy()
 
