@@ -167,6 +167,26 @@ public class LocalClient implements LivyClient {
     return ctx;
   }
 
+  public String submitReplCode(String code) throws Exception {
+    String id = UUID.randomUUID().toString();
+    driverRpc.call(new BaseProtocol.ReplJobRequest(code, id));
+    return id;
+  }
+
+  public Future<String> getReplJobResult(String id) throws Exception {
+    return driverRpc.call(new BaseProtocol.GetReplJobResult(id), String.class);
+  }
+
+  public boolean isAlive() {
+    try {
+      driverRpc.call(new BaseProtocol.Ping()).get();
+      return true;
+    } catch (Exception e) {
+      LOG.debug("Remote end is not responding.", e);
+      return false;
+    }
+  }
+
   private class ClientProtocol extends BaseProtocol {
 
     <T> JobHandleImpl<T> submit(Job<T> job) {
@@ -223,16 +243,6 @@ public class LocalClient implements LivyClient {
 
     Future<BypassJobStatus> getBypassJobStatus(String id) {
       return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
-    }
-
-    String submitReplCode(String code) throws Exception {
-      String id = UUID.randomUUID().toString();
-      driverRpc.call(new ReplJobRequest(code, id));
-      return id;
-    }
-
-    Future<String> getReplJobResult(String id) throws Exception {
-      return driverRpc.call(new GetReplJobResult(id), String.class);
     }
 
     void cancel(String jobId) {

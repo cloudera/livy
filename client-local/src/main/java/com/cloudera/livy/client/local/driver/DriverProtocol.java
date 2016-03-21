@@ -69,6 +69,10 @@ public class DriverProtocol extends BaseProtocol {
     clientRpc.call(new JobSubmitted(jobId, sparkJobId));
   }
 
+  private void handle(ChannelHandlerContext ctx, Ping msg) {
+    // No-op.
+  }
+
   private void handle(ChannelHandlerContext ctx, CancelJob msg) {
     JobWrapper<?> job = driver.activeJobs.get(msg.id);
     if (job == null || !job.cancel()) {

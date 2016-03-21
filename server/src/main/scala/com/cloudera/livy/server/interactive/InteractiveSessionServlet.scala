@@ -84,19 +84,6 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       "output" -> output)
   }
 
-  jpost[CallbackRequest]("/:id/callback") { callback =>
-    withUnprotectedSession { session =>
-      if (session.state == SessionState.Starting()) {
-        session.url = new URL(callback.url)
-        Accepted()
-      } else if (session.state.isActive) {
-        Ok()
-      } else {
-        BadRequest("Session is in wrong state")
-      }
-    }
-  }
-
   post("/:id/stop") {
     withSession { session =>
       val future = session.stop()
@@ -154,5 +141,3 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   }
 
 }
-
-private case class CallbackRequest(url: String)

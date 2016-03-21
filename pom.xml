@@ -57,7 +57,6 @@
     <metrics.version>3.1.0</metrics.version>
     <mockito.version>1.9.5</mockito.version>
     <netty.version>4.0.23.Final</netty.version>
-    <async-http-client.version>1.9.33</async-http-client.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.8.2.1</py4j.version>
     <scala.binary.version>2.10</scala.binary.version>
@@ -506,12 +505,6 @@
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
         <version>1.7.0</version>
-      </dependency>
-
-      <dependency>
-        <groupId>com.ning</groupId>
-        <artifactId>async-http-client</artifactId>
-        <version>${async-http-client.version}</version>
       </dependency>
 
     </dependencies>
