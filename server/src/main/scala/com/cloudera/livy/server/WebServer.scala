@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy
+package com.cloudera.livy.server
 
 import java.net.{InetAddress, InetSocketAddress}
 import javax.servlet.ServletContextListener
@@ -28,6 +28,8 @@ import org.eclipse.jetty.server.handler.{HandlerCollection, RequestLogHandler}
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler}
 import org.eclipse.jetty.util.ssl.SslContextFactory
 import org.scalatra.servlet.AsyncSupport
+
+import com.cloudera.livy.{LivyConf, Logging}
 
 object WebServer {
   val KeystoreKey = "livy.keystore"
