@@ -204,6 +204,7 @@ class ContextLauncher implements ContextInfo {
       conf.set(CLIENT_SECRET, secret);
 
       launcher.setAppResource("spark-internal");
+
       String livyJars = conf.get(LIVY_JARS);
       if (livyJars == null) {
         String livyHome = System.getenv("LIVY_HOME");
@@ -214,14 +215,17 @@ class ContextLauncher implements ContextInfo {
           "Cannot find 'client-jars' directory under LIVY_HOME.");
         List<String> jars = new ArrayList<>();
         for (File f : clientJars.listFiles()) {
-           launcher.addJar(f.getAbsolutePath());
+           jars.add(f.getAbsolutePath());
         }
         livyJars = Joiner.on(",").join(jars);
       }
+
       String userJars = conf.get(SPARK_JARS_KEY);
       if (userJars != null) {
         String allJars = Joiner.on(",").join(livyJars, userJars);
         conf.set(SPARK_JARS_KEY, allJars);
+      } else {
+        conf.set(SPARK_JARS_KEY, livyJars);
       }
 
       // Disable multiple attempts since the RPC server doesn't yet support multiple

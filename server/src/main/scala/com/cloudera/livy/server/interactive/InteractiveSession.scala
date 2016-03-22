@@ -66,18 +66,13 @@ class InteractiveSession(
 
   private val client = {
     info(s"Creating LivyClient for sessionId: $id")
-    val jars = request.jars ++ livyJars(livyConf)
-
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
       .setConf("spark.master", "yarn-cluster")
       .setURI(new URI("local:spark"))
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
-      .setConf("spark.jars", jars.mkString(","))
       .setConf(LocalConf.Entry.CLIENT_REPL_MODE.key(), "true")
-
-    val allJars = request.jars ++ livyJars(livyConf)
 
     request.kind match {
       case PySpark() =>
@@ -105,6 +100,8 @@ class InteractiveSession(
       val newCp = Seq(cp) ++ userCp.toSeq
       builder.setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, newCp.mkString(File.pathSeparator))
     }
+
+    val allJars = livyJars(livyConf) ++ request.jars
 
     def listToConf(lst: List[String]): Option[String] = {
       if (lst.size > 0) Some(lst.mkString(",")) else None
@@ -199,14 +196,14 @@ class InteractiveSession(
     }
   }
 
-  private def livyJars(livyConf: LivyConf): Seq[String] = {
-    Option(livyConf.get(LivyReplJars)).map(_.split(",").toSeq).getOrElse {
+  private def livyJars(livyConf: LivyConf): List[String] = {
+    Option(livyConf.get(LivyReplJars)).map(_.split(",").toList).getOrElse {
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
         .getOrElse(new File(home, "com/cloudera/livy/repl/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
-      jars.listFiles().map(_.getAbsolutePath()).toSeq
+      jars.listFiles().map(_.getAbsolutePath()).toList
     }
   }
 
