@@ -80,12 +80,7 @@ class InteractiveSession(
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
 
-      case Spark() =>
-
-      case SparkR() =>
-
       case _ =>
-        throw new IllegalArgumentException(s"Invalid session kind: ${request.kind}")
     }
     builder.setConf("session.kind", request.kind.toString)
 
