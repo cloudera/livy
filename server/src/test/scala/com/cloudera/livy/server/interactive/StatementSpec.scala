@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.sessions.interactive
+package com.cloudera.livy.server.interactive
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.Duration

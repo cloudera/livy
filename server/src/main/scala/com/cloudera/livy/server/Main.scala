@@ -120,9 +120,6 @@ object Main extends Logging {
       server.join()
     } finally {
       server.stop()
-
-      // Make sure to close all our outstanding http requests.
-      dispatch.Http.shutdown()
     }
   }
 

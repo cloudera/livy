@@ -20,31 +20,31 @@ package com.cloudera.livy.server.interactive
 
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
-import java.net.{ConnectException, URL}
+import java.net.{ConnectException, URI, URL}
 import java.nio.file.{Files, Paths}
+import java.util.{HashMap => JHashMap}
 import java.util.concurrent.TimeUnit
 
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 import scala.concurrent.{Future, _}
 import scala.concurrent.duration.Duration
 
-import dispatch._
+import org.apache.spark.launcher.SparkLauncher
+import org.json4s._
 import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.{JNull, JString}
-import org.json4s.jackson.Serialization.write
+import org.json4s.jackson.JsonMethods._
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf, Utils}
+import com.cloudera.livy._
+import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.sessions.interactive.Statement
 import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.Utils
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
   val LivyReplJars = "livy.repl.jars"
-  val LivyServerUrl = "livy.server.serverUrl"
-  val SparkDriverExtraJavaOptions = "spark.driver.extraJavaOptions"
-  val SparkLivyCallbackUrl = "spark.livy.callbackUrl"
-  val SparkLivyPort = "spark.livy.port"
   val SparkSubmitPyFiles = "spark.submit.pyFiles"
   val SparkYarnIsPython = "spark.yarn.isPython"
 }
@@ -55,7 +55,7 @@ class InteractiveSession(
     _proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
-  extends Session(id, owner) {
+  extends Session(id, owner) with Logging {
 
   import InteractiveSession._
 
@@ -64,173 +64,84 @@ class InteractiveSession(
 
   protected[this] var _state: SessionState = SessionState.Starting()
 
-  private[this] var _url: Option[URL] = None
+  private val client = {
+    info(s"Creating LivyClient for sessionId: $id")
+    val builder = new LivyClientBuilder()
+      .setConf("spark.app.name", s"livy-session-$id")
+      .setConf("spark.master", "yarn-cluster")
+      .setURI(new URI("local:spark"))
+      .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
+      .setConf("livy.client.sessionId", id.toString)
+      .setConf(LocalConf.Entry.CLIENT_REPL_MODE.key(), "true")
+
+    request.kind match {
+      case PySpark() | PySpark3() =>
+        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
+        builder.setConf(SparkYarnIsPython, "true")
+        builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
+
+      case _ =>
+    }
+    builder.setConf("session.kind", request.kind.toString)
+
+    sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { opts =>
+      val userOpts = request.conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS)
+      val newOpts = userOpts.toSeq ++ Seq(opts)
+      builder.setConf(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, newOpts.mkString(" "))
+    }
+
+    Option(livyConf.get(LivyReplDriverClassPath)).foreach { cp =>
+      val userCp = request.conf.get(SparkLauncher.DRIVER_EXTRA_CLASSPATH)
+      val newCp = Seq(cp) ++ userCp.toSeq
+      builder.setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, newCp.mkString(File.pathSeparator))
+    }
+
+    val allJars = livyJars(livyConf) ++ request.jars
+
+    def listToConf(lst: List[String]): Option[String] = {
+      if (lst.size > 0) Some(lst.mkString(",")) else None
+    }
+
+    val userOpts: Map[Option[String], String] = Map(
+      listToConf(request.archives) -> "spark.yarn.dist.archives",
+      listToConf(request.files) -> "spark.files",
+      listToConf(allJars) -> "spark.jars",
+      request.driverCores.map(_.toString) -> "spark.driver.cores",
+      request.driverMemory.map(_.toString + "b") -> SparkLauncher.DRIVER_MEMORY,
+      request.executorCores.map(_.toString) -> SparkLauncher.EXECUTOR_CORES,
+      request.executorMemory.map(_.toString) -> SparkLauncher.EXECUTOR_MEMORY,
+      request.numExecutors.map(_.toString) -> "spark.dynamicAllocation.maxExecutors"
+    )
+
+    userOpts.foreach { case (opt, configKey) =>
+      opt.foreach { value => builder.setConf(configKey, value) }
+    }
+
+    proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
+    builder.build()
+  }.asInstanceOf[LocalClient]
+
+  // Client is ready to receive commands now.
+  _state = SessionState.Idle()
 
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
 
-  private val process = {
-    val builder = new SparkProcessBuilder(livyConf)
-    builder.className("com.cloudera.livy.repl.Main")
-    builder.conf(request.conf)
-    request.archives.foreach(builder.archive)
-    request.driverCores.foreach(builder.driverCores)
-    request.driverMemory.foreach(builder.driverMemory)
-    request.executorCores.foreach(builder.executorCores)
-    request.executorMemory.foreach(builder.executorMemory)
-    request.numExecutors.foreach(builder.numExecutors)
-    request.files.foreach(builder.file)
-
-    val jars = request.jars ++ livyJars(livyConf)
-    jars.foreach(builder.jar)
-
-    _proxyUser.foreach(builder.proxyUser)
-    request.queue.foreach(builder.queue)
-    request.name.foreach(builder.name)
-
-    request.kind match {
-      case PySpark() | PySpark3() =>
-        builder.conf(SparkYarnIsPython, "true", admin = true)
-
-        // FIXME: Spark-1.4 seems to require us to manually upload the PySpark support files.
-        // We should only do this for Spark 1.4.x
-        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
-        builder.files(pySparkFiles)
-
-        // We can't actually use `builder.pyFiles`, because livy-repl is a Jar, and
-        // spark-submit will reject it because it isn't a Python file. Instead we'll pass it
-        // through a special property that the livy-repl will use to expose these libraries in
-        // the Python shell.
-        builder.files(request.pyFiles)
-
-        builder.conf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","),
-          admin = true)
-      case _ =>
-    }
-
-    sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { replJavaOpts =>
-      val javaOpts = builder.conf(SparkDriverExtraJavaOptions) match {
-        case Some(javaOptions) => f"$javaOptions $replJavaOpts"
-        case None => replJavaOpts
-      }
-      builder.conf(SparkDriverExtraJavaOptions, javaOpts, admin = true)
-    }
-
-    Option(livyConf.get(LivyReplDriverClassPath))
-      .foreach(builder.driverClassPath)
-
-    sys.props.get(LivyServerUrl).foreach { serverUrl =>
-      val callbackUrl = f"$serverUrl/sessions/$id/callback"
-      builder.conf(SparkLivyCallbackUrl, callbackUrl, admin = true)
-    }
-
-    builder.conf(SparkLivyPort, "0", admin = true)
-
-    builder.redirectOutput(Redirect.PIPE)
-    builder.redirectErrorStream(true)
-    builder.start(None, List(kind.toString))
-  }
-
-  private val stdoutThread = new Thread {
-    override def run() = {
-      val regex = """Starting livy-repl on (https?://.*)""".r
-
-      val lines = process.inputIterator
-
-      // Loop until we find the ip address to talk to livy-repl.
-      @tailrec
-      def readUntilURL(): Unit = {
-        if (lines.hasNext) {
-          val line = lines.next()
-
-          line match {
-            case regex(url_) => url = new URL(url_)
-            case _ => readUntilURL()
-          }
-        }
-      }
-
-      readUntilURL()
-    }
-  }
-
-  stdoutThread.setName("process session stdout reader")
-  stdoutThread.setDaemon(true)
-  stdoutThread.start()
-
-  override def logLines(): IndexedSeq[String] = process.inputLines
+  override def logLines(): IndexedSeq[String] = IndexedSeq()
 
   override def state: SessionState = _state
 
   override def stop(): Future[Unit] = {
-    val future: Future[Unit] = synchronized {
-      _state match {
-        case SessionState.Idle() =>
-          _state = SessionState.Busy()
-
-          Http(svc.DELETE OK as.String).either() match {
-            case (Right(_) | Left(_: ConnectException)) =>
-              // Make sure to eat any connection errors because the repl shut down before it sent
-              // out an OK.
-              synchronized {
-                _state = SessionState.Dead()
-              }
-
-              Future.successful(())
-
-            case Left(t: Throwable) =>
-              Future.failed(t)
-          }
-        case SessionState.NotStarted() =>
-          Future {
-            waitForStateChange(SessionState.NotStarted(), Duration(10, TimeUnit.SECONDS))
-            stop()
-          }
-        case SessionState.Starting() =>
-          Future {
-            waitForStateChange(SessionState.Starting(), Duration(10, TimeUnit.SECONDS))
-            stop()
-          }
-        case SessionState.Busy() | SessionState.Running() =>
-          Future {
-            waitForStateChange(SessionState.Busy(), Duration(10, TimeUnit.SECONDS))
-            stop()
-          }
-        case SessionState.ShuttingDown() =>
-          Future {
-            waitForStateChange(SessionState.ShuttingDown(), Duration(10, TimeUnit.SECONDS))
-            stop()
-          }
-        case SessionState.Error(_) | SessionState.Dead(_) | SessionState.Success(_) =>
-          if (process.isAlive) {
-            Future {
-              process.destroy()
-            }
-          } else {
-            Future.successful(Unit)
-          }
-      }
-    }
-
-    future.andThen { case r =>
-      process.waitFor()
-      stdoutThread.join()
-      r
+    Future {
+      _state = SessionState.ShuttingDown()
+      client.stop(true)
+      _state = SessionState.Dead()
     }
   }
 
   def kind: Kind = request.kind
 
   def proxyUser: Option[String] = _proxyUser
-
-  def url: Option[URL] = _url
-
-  def url_=(url: URL): Unit = {
-    ensureState(SessionState.Starting(), {
-      _state = SessionState.Idle()
-      _url = Some(url)
-    })
-  }
 
   def statements: IndexedSeq[Statement] = _statements
 
@@ -243,14 +154,9 @@ class InteractiveSession(
       _state = SessionState.Busy()
       recordActivity()
 
-      val req = (svc / "execute").setContentType("application/json", "UTF-8") << write(content)
-
-      val future = Http(req OK as.json4s.Json).map { case resp: JValue =>
-        parseResponse(resp).getOrElse {
-          // The result isn't ready yet. Loop until it is.
-          val id = (resp \ "id").extract[Int]
-          waitForStatement(id)
-        }
+      val future = Future {
+        val id = client.submitReplCode(content.code)
+        waitForStatement(id)
       }
 
       val statement = new Statement(_executedStatements, content, future)
@@ -262,66 +168,37 @@ class InteractiveSession(
     }
   }
 
-  def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
-    Utils.waitUntil({ () => state != oldState }, atMost)
-  }
-
-  private def svc = {
-    val url = _url.head
-    dispatch.url(url.toString)
-  }
-
   @tailrec
-  private def waitForStatement(id: Int): JValue = {
-    val req = (svc / "history" / id).setContentType("application/json", "UTF-8")
-    val resp = Await.result(Http(req OK as.json4s.Json), Duration.Inf)
-
-    parseResponse(resp) match {
-      case Some(result) => result
-      case None =>
-        Thread.sleep(1000)
-        waitForStatement(id)
+  private def waitForStatement(id: String): JValue = {
+    val response = client.getReplJobResult(id).get()
+    if (response != null) {
+      val result = parse(response)
+      // If the response errored out, it's possible it took down the interpreter. Check if
+      // it's still running.
+      result \ "status" match {
+        case JString("error") =>
+          val state = client.getReplState().get() match {
+            case "error" => SessionState.Error()
+            case _ => SessionState.Idle()
+          }
+          transition(state)
+        case _ => transition(SessionState.Idle())
+      }
+      result
+    } else {
+      Thread.sleep(1000)
+      waitForStatement(id)
     }
   }
 
-  private def parseResponse(response: JValue): Option[JValue] = {
-    response \ "result" match {
-      case JNull => None
-      case result =>
-        // If the response errored out, it's possible it took down the interpreter. Check if
-        // it's still running.
-        result \ "status" match {
-          case JString("error") =>
-            if (replErroredOut()) {
-              transition(SessionState.Error())
-            } else {
-              transition(SessionState.Idle())
-            }
-          case _ => transition(SessionState.Idle())
-        }
-
-        Some(result)
-    }
-  }
-
-  private def replErroredOut() = {
-    val req = svc.setContentType("application/json", "UTF-8")
-    val response = Await.result(Http(req OK as.json4s.Json), Duration.Inf)
-
-    response \ "state" match {
-      case JString("error") => true
-      case _ => false
-    }
-  }
-
-  private def livyJars(livyConf: LivyConf): Seq[String] = {
-    Option(livyConf.get(LivyReplJars)).map(_.split(",").toSeq).getOrElse {
+  private def livyJars(livyConf: LivyConf): List[String] = {
+    Option(livyConf.get(LivyReplJars)).map(_.split(",").toList).getOrElse {
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "repl/target/jars"))
+        .getOrElse(new File(home, "com/cloudera/livy/repl/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
-      jars.listFiles().map(_.getAbsolutePath()).toSeq
+      jars.listFiles().map(_.getAbsolutePath()).toList
     }
   }
 
@@ -373,17 +250,4 @@ class InteractiveSession(
     }
   }
 
-  // Error out the job if the process errors out.
-  Future {
-    if (process.waitFor() == 0) {
-      // Set the state to done if the session shut down before contacting us.
-      _state match {
-        case (SessionState.Dead(_) | SessionState.Error(_) | SessionState.Success(_)) =>
-        case _ =>
-          _state = SessionState.Success()
-      }
-    } else {
-      _state = SessionState.Error()
-    }
-  }
 }

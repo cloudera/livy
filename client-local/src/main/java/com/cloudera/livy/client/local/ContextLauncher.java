@@ -81,7 +81,15 @@ class ContextLauncher implements ContextInfo {
     RegistrationHandler handler = new RegistrationHandler();
     try {
       factory.getServer().registerClient(clientId, secret, handler);
-      this.child = startDriver(factory.getServer(), conf, clientId, secret);
+      String replMode = conf.get("repl");
+      boolean repl = replMode != null && replMode.equals("true");
+      String className;
+      if (conf.getBoolean(CLIENT_REPL_MODE)) {
+        className = "com.cloudera.livy.repl.ReplDriver";
+      } else {
+        className = RemoteDriver.class.getName();
+      }
+      this.child = startDriver(factory.getServer(), conf, clientId, secret, className);
 
       // Wait for the handler to receive the driver information. Wait a little at a time so
       // that we can check whether the child process is still alive, and throw an error if the
@@ -146,7 +154,8 @@ class ContextLauncher implements ContextInfo {
       final RpcServer rpcServer,
       final LocalConf conf,
       final String clientId,
-      final String secret) throws IOException {
+      final String secret,
+      final String className) throws IOException {
     final String serverAddress = rpcServer.getAddress();
     final String serverPort = String.valueOf(rpcServer.getPort());
     if (conf.get(CLIENT_IN_PROCESS) != null) {
@@ -195,6 +204,7 @@ class ContextLauncher implements ContextInfo {
       conf.set(CLIENT_SECRET, secret);
 
       launcher.setAppResource("spark-internal");
+
       String livyJars = conf.get(LIVY_JARS);
       if (livyJars == null) {
         String livyHome = System.getenv("LIVY_HOME");
@@ -205,14 +215,17 @@ class ContextLauncher implements ContextInfo {
           "Cannot find 'client-jars' directory under LIVY_HOME.");
         List<String> jars = new ArrayList<>();
         for (File f : clientJars.listFiles()) {
-           launcher.addJar(f.getAbsolutePath());
+           jars.add(f.getAbsolutePath());
         }
         livyJars = Joiner.on(",").join(jars);
       }
+
       String userJars = conf.get(SPARK_JARS_KEY);
       if (userJars != null) {
         String allJars = Joiner.on(",").join(livyJars, userJars);
         conf.set(SPARK_JARS_KEY, allJars);
+      } else {
+        conf.set(SPARK_JARS_KEY, livyJars);
       }
 
       // Disable multiple attempts since the RPC server doesn't yet support multiple
@@ -228,7 +241,7 @@ class ContextLauncher implements ContextInfo {
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
       launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
-      launcher.setMainClass(RemoteDriver.class.getName());
+      launcher.setMainClass(className);
       if (conf.get(PROXY_USER) != null) {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }

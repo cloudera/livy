@@ -140,7 +140,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   }
 
   error {
-    case e: dispatch.StatusCode => ActionResult(ResponseStatus(e.code), e.getMessage, Map.empty)
     case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>
       SessionServlet.error("internal error", e)

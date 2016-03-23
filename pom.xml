@@ -45,7 +45,6 @@
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
     <spark.version>1.5.0-cdh5.5.0</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
-    <dispatch.version>0.11.2</dispatch.version>
     <guava.version>14.0.1</guava.version>
     <httpclient.version>4.5</httpclient.version>
     <httpcore.version>4.4.1</httpcore.version>
@@ -494,18 +493,6 @@
         <groupId>org.xerial.snappy</groupId>
         <artifactId>snappy-java</artifactId>
         <version>${snappy-java.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>net.databinder.dispatch</groupId>
-        <artifactId>dispatch-core_${scala.binary.version}</artifactId>
-        <version>${dispatch.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>net.databinder.dispatch</groupId>
-        <artifactId>dispatch-json4s-jackson_${scala.binary.version}</artifactId>
-        <version>${dispatch.version}</version>
       </dependency>
 
       <dependency>

@@ -18,7 +18,7 @@
 
 package com.cloudera.livy
 
-import java.io.{File, FileInputStream, InputStreamReader}
+import java.io.{Closeable, File, FileInputStream, InputStreamReader}
 import java.util.Properties
 
 import scala.annotation.tailrec
@@ -92,6 +92,14 @@ object Utils {
     } catch {
       case _: IllegalThreadStateException =>
         true
+    }
+  }
+
+  def usingResource[A <: Closeable, B](resource: A)(f: A => B): B = {
+    try {
+      f(resource)
+    } finally {
+      resource.close()
     }
   }
 

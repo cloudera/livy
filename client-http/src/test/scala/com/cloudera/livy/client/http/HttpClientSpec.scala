@@ -39,6 +39,7 @@ import org.scalatra.servlet.ScalatraListener
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
+import com.cloudera.livy.server.WebServer
 import com.cloudera.livy.server.client.{ClientSession, ClientSessionServlet}
 import com.cloudera.livy.sessions.SessionState
 

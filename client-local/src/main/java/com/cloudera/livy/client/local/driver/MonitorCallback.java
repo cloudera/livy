@@ -19,7 +19,7 @@ package com.cloudera.livy.client.local.driver;
 
 import org.apache.spark.api.java.JavaFutureAction;
 
-interface MonitorCallback {
+public interface MonitorCallback {
 
   void call(JavaFutureAction<?> future);
 

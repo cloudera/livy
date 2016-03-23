@@ -64,7 +64,6 @@ class SparkInterpreter extends Interpreter {
     sparkIMain.initializeSynchronous()
 
     val sparkConf = new SparkConf(true)
-      .setAppName("Livy Spark shell")
 
     // Spark 1.6 does not have "classServerUri"; instead, the local directory where class files
     // are stored needs to be registered in SparkConf. See comment in

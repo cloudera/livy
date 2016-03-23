@@ -24,7 +24,6 @@ import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Throwables;
@@ -164,6 +163,20 @@ public class LocalClient implements LivyClient {
   @VisibleForTesting
   ContextInfo getContextInfo() {
     return ctx;
+  }
+
+  public String submitReplCode(String code) throws Exception {
+    String id = UUID.randomUUID().toString();
+    driverRpc.call(new BaseProtocol.ReplJobRequest(code, id));
+    return id;
+  }
+
+  public Future<String> getReplJobResult(String id) throws Exception {
+    return driverRpc.call(new BaseProtocol.GetReplJobResult(id), String.class);
+  }
+
+  public Future<String> getReplState() {
+    return driverRpc.call(new BaseProtocol.GetReplState(), String.class);
   }
 
   private class ClientProtocol extends BaseProtocol {

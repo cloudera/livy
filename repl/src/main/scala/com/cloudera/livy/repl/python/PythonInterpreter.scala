@@ -25,13 +25,14 @@ import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
+import org.apache.spark.Logging
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
 import py4j.GatewayServer
 
-import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.LivyConf
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
 
