@@ -105,27 +105,41 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
   private void handleCall(ChannelHandlerContext ctx, Object msg) throws Exception {
     Method handler = handlers.get(msg.getClass());
     if (handler == null) {
-      handler = getClass().getDeclaredMethod("handle", ChannelHandlerContext.class,
-          msg.getClass());
+      // Try both getDeclaredMethod() and getMethod() so that we try both private methods
+      // of the class, and public methods of parent classes.
+      try {
+        handler = getClass().getDeclaredMethod("handle", ChannelHandlerContext.class,
+            msg.getClass());
+      } catch (NoSuchMethodException e) {
+        try {
+          handler = getClass().getMethod("handle", ChannelHandlerContext.class,
+              msg.getClass());
+        } catch (NoSuchMethodException e2) {
+          LOG.warn(String.format("[%s] Failed to find handler for msg '%s'.", name(),
+            msg.getClass().getName()));
+          writeMessage(ctx, Rpc.MessageType.ERROR, Throwables.getStackTraceAsString(e.getCause()));
+          return;
+        }
+      }
       handler.setAccessible(true);
       handlers.put(msg.getClass(), handler);
     }
 
-    Rpc.MessageType replyType;
-    Object replyPayload;
     try {
-      replyPayload = handler.invoke(this, ctx, msg);
-      if (replyPayload == null) {
-        replyPayload = new Rpc.NullMessage();
+      Object payload = handler.invoke(this, ctx, msg);
+      if (payload == null) {
+        payload = new Rpc.NullMessage();
       }
-      replyType = Rpc.MessageType.REPLY;
+      writeMessage(ctx, Rpc.MessageType.REPLY, payload);
     } catch (InvocationTargetException ite) {
       LOG.debug(String.format("[%s] Error in RPC handler.", name()), ite.getCause());
-      replyPayload = Throwables.getStackTraceAsString(ite.getCause());
-      replyType = Rpc.MessageType.ERROR;
+      writeMessage(ctx, Rpc.MessageType.ERROR, Throwables.getStackTraceAsString(ite.getCause()));
     }
+  }
+
+  private void writeMessage(ChannelHandlerContext ctx, Rpc.MessageType replyType, Object payload) {
     ctx.channel().write(new Rpc.MessageHeader(lastHeader.id, replyType));
-    ctx.channel().writeAndFlush(replyPayload);
+    ctx.channel().writeAndFlush(payload);
   }
 
   private void handleReply(ChannelHandlerContext ctx, Object msg, OutstandingRpc rpc)

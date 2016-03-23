@@ -35,6 +35,17 @@ case class SparkR() extends Kind {
   override def toString: String = "sparkr"
 }
 
+object Kind {
+
+  def apply(kind: String): Kind = kind match {
+    case "spark" | "scala" => Spark()
+    case "pyspark" | "python" => PySpark()
+    case "sparkr" | "r" => SparkR()
+    case other => throw new IllegalArgumentException(s"Invalid kind: $other")
+  }
+
+}
+
 class SessionKindModule extends SimpleModule("SessionKind") {
 
   addSerializer(classOf[Kind], new JsonSerializer[Kind]() {
@@ -46,12 +57,7 @@ class SessionKindModule extends SimpleModule("SessionKind") {
   addDeserializer(classOf[Kind], new JsonDeserializer[Kind]() {
     override def deserialize(jp: JsonParser, ctxt: DeserializationContext): Kind = {
       require(jp.getCurrentToken() == JsonToken.VALUE_STRING, "Kind should be a string.")
-      jp.getText() match {
-        case "spark" | "scala" => Spark()
-        case "pyspark" | "python" => PySpark()
-        case "sparkr" | "r" => SparkR()
-        case other => throw new IllegalArgumentException(s"Invalid kind: $other")
-      }
+      Kind(jp.getText())
     }
   })
 

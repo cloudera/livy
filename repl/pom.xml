@@ -34,9 +34,23 @@
     <dependencies>
 
         <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-client-local</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>livy-core</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+              <!-- Provided and shaded by livy-client-local already. -->
+              <exclusion>
+                <groupId>com.cloudera.livy</groupId>
+                <artifactId>livy-client-common</artifactId>
+              </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -63,21 +77,9 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
           <groupId>log4j</groupId>
           <artifactId>log4j</artifactId>
           <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -92,30 +94,6 @@
             <artifactId>spark-core_${scala.binary.version}</artifactId>
             <version>${spark.version}</version>
             <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpcore</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.fasterxml.jackson.core</groupId>
-                    <artifactId>jackson-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-servlet</artifactId>
         </dependency>
 
         <dependency>
@@ -152,22 +130,6 @@
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-reflect</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra-json_${scala.binary.version}</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.scalatra</groupId>
-            <artifactId>scalatra-test_${scala.binary.version}</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <dependency>

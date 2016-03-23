@@ -17,6 +17,8 @@
 
 package com.cloudera.livy.client.local.driver;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -28,22 +30,20 @@ import org.apache.spark.api.java.JavaFutureAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cloudera.livy.Job;
-import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.BypassJobStatus;
 import com.cloudera.livy.client.local.rpc.Rpc;
 
-class DriverProtocol extends BaseProtocol {
+public class DriverProtocol extends BaseProtocol {
 
   private static final Logger LOG = LoggerFactory.getLogger(DriverProtocol.class);
 
   private final Rpc clientRpc;
   private final Object jcLock;
-  private final RemoteDriver driver;
+  private final Driver driver;
   private final List<BypassJobWrapper> bypassJobs;
 
-  DriverProtocol(RemoteDriver driver, Rpc clientRpc, Object jcLock) {
+  public DriverProtocol(Driver driver, Rpc clientRpc, Object jcLock) {
     this.driver = driver;
     this.clientRpc = clientRpc;
     this.jcLock = jcLock;
@@ -76,7 +76,8 @@ class DriverProtocol extends BaseProtocol {
     }
   }
 
-  private void handle(ChannelHandlerContext ctx, EndSession msg) {
+  // Needs to be public so that the REPL driver also sees it.
+  public void handle(ChannelHandlerContext ctx, EndSession msg) {
     LOG.debug("Shutting down due to EndSession request.");
     driver.shutdown(null);
   }
@@ -85,7 +86,7 @@ class DriverProtocol extends BaseProtocol {
     LOG.info("Received job request {}", msg.id);
     JobWrapper<?> wrapper = new JobWrapper<>(driver, this, msg.id, msg.job);
     driver.activeJobs.put(msg.id, wrapper);
-    driver.submit(wrapper);
+    ((RemoteDriver)driver).submit(wrapper);
   }
 
   private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
@@ -102,14 +103,17 @@ class DriverProtocol extends BaseProtocol {
         // to the RPC layer.
       }
     } else {
-      driver.submit(wrapper);
+      ((RemoteDriver)driver).submit(wrapper);
     }
   }
 
   @SuppressWarnings("unchecked")
   private Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
     waitForJobContext();
-    driver.jc.setMonitorCb(new MonitorCallback() {
+    if (!(driver instanceof RemoteDriver)) {
+      throw new IllegalStateException("JobContext.monitor is not available for REPL driver");
+    }
+    driver.setMonitorCallback(new MonitorCallback() {
       @Override
       public void call(JavaFutureAction<?> future) {
         throw new IllegalStateException(
@@ -117,9 +121,9 @@ class DriverProtocol extends BaseProtocol {
       }
     });
     try {
-      return msg.job.call(driver.jc);
+      return msg.job.call(((RemoteDriver)driver).jc);
     } finally {
-      driver.jc.setMonitorCb(null);
+      driver.setMonitorCallback(null);
     }
   }
 
@@ -147,9 +151,9 @@ class DriverProtocol extends BaseProtocol {
 
   private void waitForJobContext() throws InterruptedException {
     // Wait until initialization finishes.
-    if (driver.jc == null) {
+    if (((RemoteDriver)driver).jc == null) {
       synchronized (jcLock) {
-        while (driver.jc == null) {
+        while (((RemoteDriver)driver).jc == null) {
           jcLock.wait();
           if (!driver.running) {
             throw new IllegalStateException("Remote context is shutting down.");

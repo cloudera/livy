@@ -26,11 +26,6 @@ import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 
-import com.ning.http.client.Response
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
-
-
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {
     val inReader = new InputStreamReader(new FileInputStream(file), "UTF-8")
@@ -108,6 +103,4 @@ object Utils {
     }
   }
 
-  def toJson(r: Response): JValue =
-    parse(StringInput(r.getResponseBody), true)
 }

@@ -33,7 +33,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   private volatile JobHandle.State state;
   private volatile List<Integer> newSparkJobs;
 
-  BypassJobWrapper(RemoteDriver driver, DriverProtocol client, String jobId, byte[] serializedJob) {
+  BypassJobWrapper(Driver driver, DriverProtocol client, String jobId, byte[] serializedJob) {
     super(driver, client, jobId, new BypassJob(driver.serializer, serializedJob));
     state = JobHandle.State.QUEUED;
   }
