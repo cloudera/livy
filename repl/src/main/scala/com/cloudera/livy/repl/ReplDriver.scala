@@ -56,7 +56,8 @@ class ReplDriver(args: Array[String]) extends Driver(args) {
   private val jobFutures = mutable.Map[String, JValue]()
 
   private val interpreter = Kind(getLivyConf.get("session.kind")) match {
-    case PySpark() => PythonInterpreter()
+    case PySpark() => PythonInterpreter("pyspark")
+    case PySpark3() => PythonInterpreter("pyspark3")
     case Spark() => SparkInterpreter()
     case SparkR() => SparkRInterpreter()
   }
