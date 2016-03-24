@@ -32,7 +32,6 @@ import org.json4s.JsonDSL._
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
-import org.apache.spark.{SparkConf, SparkContext}
 
 // scalastyle:off println
 object SparkRInterpreter {
@@ -50,7 +49,7 @@ object SparkRInterpreter {
       "(?:lines)|" +
       "(?:pie)|" +
       "(?:pie3D)|" +
-      //"(?:plot)|" +
+      "(?:plot)|" +
       "(?:qqline)|" +
       "(?:qqnorm)|" +
       "(?:scatterplot)|" +
@@ -63,21 +62,15 @@ object SparkRInterpreter {
     ).r.unanchored
 
   def apply(): SparkRInterpreter = {
-    val conf = new SparkConf().setAppName("Livy TEST")    
-    val sc = new SparkContext(conf)
-    
     val executable = sparkRExecutable
       .getOrElse(throw new IllegalStateException("Cannot find sparkR executable."))
 
-    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath, "--properties-file", "/home/devir/spark/conf/spark-defaults.conf").asJava)
-    println("executable.getAbsolutePath : " + executable.getAbsolutePath)
+    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath).asJava)
+
     val env = builder.environment()
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
-    env.put("SPARK_CONF_DIR", sys.env.getOrElse("SPARK_HOME", ".") + "/conf")
     env.put("SPARKR_DRIVER_R", createFakeShell().toString)
-    
-    println("SPARK_CONF_DIR : " + env.get("SPARK_CONF_DIR"))
-    
+
     builder.redirectError(Redirect.PIPE)
 
     val process = builder.start()
@@ -137,7 +130,6 @@ class SparkRInterpreter(process: Process)
     var code = command
 
     // Create a image file if this command is trying to plot.
-    
     val tempFile = PLOT_REGEX.findFirstIn(code).map { case _ =>
       val tempFile = Files.createTempFile("", ".png")
       val tempFileString = tempFile.toAbsolutePath
@@ -173,15 +165,9 @@ class SparkRInterpreter(process: Process)
   }
 
   private def sendRequest(code: String): String = {
-    System.out.println("stdout.code :" + code)
-    System.err.println("stderr.code :" + code)
-    
     stdin.println(code)
     stdin.flush()
 
-    System.out.println("stdout.PRINT_MARKER : " + PRINT_MARKER)
-    System.err.println("stderr.PRINT_MARKER : " + PRINT_MARKER)
-    
     stdin.println(PRINT_MARKER)
     stdin.flush()
 
@@ -199,8 +185,6 @@ class SparkRInterpreter(process: Process)
   private def readTo(marker: String, output: StringBuilder = StringBuilder.newBuilder): String = {
     var char = readChar(output)
 
-    System.out.println("stdout.output : " + output.toString())
-    
     // Remove any ANSI color codes which match the pattern "\u001b\\[[0-9;]*[mG]".
     // It would be easier to do this with a regex, but unfortunately I don't see an easy way to do
     // without copying the StringBuilder into a string for each character.
