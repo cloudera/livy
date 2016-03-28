@@ -18,10 +18,32 @@
 #
 # Runs Livy server.
 
+
+usage="Usage: livy-server (start|stop)"
+
+# Find the java binary
+if [ -n "${JAVA_HOME}" ]; then
+  RUNNER="${JAVA_HOME}/bin/java"
+else
+  if [ `command -v java` ]; then
+    RUNNER="java"
+  else
+    echo "JAVA_HOME is not set" >&2
+    exit 1
+  fi
+fi
+
 set -e
 
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
-cd $LIVY_HOME
+export LIVY_CONF_DIR="${LIVY_CONF_DIR:-"${LIVY_HOME}/conf"}"
+
+if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
+  # Promote all variable declarations to environment (exported) variables
+  set -a
+  . "${LIVY_CONF_DIR}/livy-env.sh"
+  set +a
+fi
 
 LIBDIR="$LIVY_HOME/jars"
 if [ ! -d "$LIBDIR" ]; then
@@ -38,17 +60,108 @@ fi
 
 LIVY_CLASSPATH="$LIBDIR/*:$LIVY_CONF_DIR"
 
-if [ -n "$SPARK_CONF_DIR" ]; then
-  LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_CONF_DIR"
-fi
-if [ -n "$HADOOP_CONF_DIR" ]; then
-  LIVY_CLASSPATH="$LIVY_CLASSPATH:$HADOOP_CONF_DIR"
-fi
-if [ -n "$YARN_CONF_DIR" ]; then
-  LIVY_CLASSPATH="$LIVY_CLASSPATH:$YARN_CONF_DIR"
+if [ "$LIVY_IDENT_STRING" = "" ]; then
+  export LIVY_IDENT_STRING="$USER"
 fi
 
-exec java \
-	$LIVY_SERVER_JAVA_OPTS \
-	-cp "$LIVY_CLASSPATH:$CLASSPATH" \
-	com.cloudera.livy.server.LivyServer
+# get log directory
+if [ "$LIVY_LOG_DIR" = "" ]; then
+  export LIVY_LOG_DIR="${LIVY_HOME}/logs"
+fi
+mkdir -p "$LIVY_LOG_DIR"
+touch "$LIVY_LOG_DIR"/.livy_test > /dev/null 2>&1
+TEST_LOG_DIR=$?
+if [ "${TEST_LOG_DIR}" = "0" ]; then
+  rm -f "$LIVY_LOG_DIR"/.livy_test
+else
+  chown "$LIVY_IDENT_STRING" "$LIVY_LOG_DIR"
+fi
+
+if [ "$LIVY_PID_DIR" = "" ]; then
+  LIVY_PID_DIR=/tmp
+fi
+
+# some variables
+log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
+pid="$LIVY_PID_DIR/livy-$LIVY_IDENT_STRING-server.pid"
+
+# Set default scheduling priority
+if [ "$LIVY_NICENESS" = "" ]; then
+    export LIVY_NICENESS=0
+fi
+
+livy_rotate_log ()
+{
+    log=$1;
+    num=5;
+    if [ -n "$2" ]; then
+	num=$2
+    fi
+    if [ -f "$log" ]; then # rotate logs
+	while [ $num -gt 1 ]; do
+	    prev=`expr $num - 1`
+	    [ -f "$log.$prev" ] && mv "$log.$prev" "$log.$num"
+	    num=$prev
+	done
+	mv "$log" "$log.$num";
+    fi
+}
+
+start_livy_server() {
+  mkdir -p "$LIVY_PID_DIR"
+
+  if [ -f "$pid" ]; then
+    TARGET_ID="$(cat "$pid")"
+    if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
+      echo "$command running as process $TARGET_ID.  Stop it first."
+      exit 1
+    fi
+  fi
+
+
+  livy_rotate_log "$log"
+  CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
+  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $CLASSPATH com.cloudera.livy.server.Main"
+  echo "starting $command, logging to $log"
+  nohup nice -n "$LIVY_NICENESS" $command >> "$log" 2>&1 < /dev/null &
+  newpid="$!"
+  echo "$newpid" > "$pid"
+  sleep 2
+  # Check if the process has died; in that case we'll tail the log so the user can see
+  if [[ ! $(ps -p "$newpid" -o comm=) =~ "java" ]]; then
+    echo "failed to launch $command:"
+    tail -2 "$log" | sed 's/^/  /'
+    echo "full log in $log"
+  fi
+}
+
+option=$1
+
+case $option in
+
+  (start)
+    start_livy_server
+    ;;
+
+  (stop)
+
+    if [ -f $pid ]; then
+      TARGET_ID="$(cat "$pid")"
+      if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
+        echo "stopping $command"
+        kill "$TARGET_ID" && rm -f "$pid"
+      else
+        echo "no $command to stop"
+      fi
+    else
+      echo "no $command to stop"
+    fi
+    ;;
+
+  (*)
+    echo $usage
+    exit 1
+    ;;
+
+esac
+
