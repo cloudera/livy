@@ -30,7 +30,6 @@ import scala.reflect.runtime.universe
 import org.apache.commons.codec.binary.Base64
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
-
 import org.json4s._
 import org.json4s.JsonDSL._
 
