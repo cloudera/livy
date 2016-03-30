@@ -21,7 +21,7 @@ package com.cloudera.livy.server.interactive
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.scalatest.FunSpec
 
-import com.cloudera.livy.sessions.{PySpark, SessionKindModule}
+import com.cloudera.livy.sessions.{PySpark, PySpark3, SessionKindModule}
 
 class CreateInteractiveRequestSpec extends FunSpec {
 
@@ -50,6 +50,11 @@ class CreateInteractiveRequestSpec extends FunSpec {
       assert(req.conf === Map())
     }
 
+    it("should have default values for fields after deserialization with pyspark3 selected") {
+      val json = """{ "kind" : "pyspark3" }"""
+      val req = mapper.readValue(json, classOf[CreateInteractiveRequest])
+      assert(req.kind === PySpark3())
+    }
   }
 
 }
