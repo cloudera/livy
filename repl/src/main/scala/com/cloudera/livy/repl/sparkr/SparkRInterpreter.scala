@@ -27,9 +27,10 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe
 
+import org.apache.commons.codec.binary.Base64
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
-import org.apache.commons.codec.binary.Base64
+
 import org.json4s._
 import org.json4s.JsonDSL._
 
@@ -92,7 +93,7 @@ object SparkRInterpreter {
 
     env.put("EXISTING_SPARKR_BACKEND_PORT", sparkRBackendPort.toString)
     env.put("SPARKR_PACKAGE_DIR", "./sparkr")
-    env.put("R_PROFILE_USER", 
+    env.put("R_PROFILE_USER",
         Seq("./sparkr", "SparkR", "profile", "general.R").mkString(File.separator))
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
 
@@ -146,7 +147,7 @@ class SparkRInterpreter(process: Process)
   private[this] var isStart = false
 
   final override protected def waitUntilReady(): Unit = {
-    if(! LivyConf.TEST_MODE) {
+    if (! LivyConf.TEST_MODE) {
         sendRequest("library(SparkR)")
         sendRequest("sc <- sparkR.init()")
     }
@@ -157,7 +158,7 @@ class SparkRInterpreter(process: Process)
   }
 
   override protected def sendExecuteRequest(command: String): Interpreter.ExecuteResponse = {
-    while(! isStart) {
+    while (! isStart) {
         Thread sleep 1000
     }
     var code = command
