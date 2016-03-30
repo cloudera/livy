@@ -21,10 +21,14 @@ package com.cloudera.livy.repl.sparkr
 import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
+import java.util.concurrent.{Semaphore, TimeUnit}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe
 
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
 import org.apache.commons.codec.binary.Base64
 import org.json4s._
 import org.json4s.JsonDSL._
@@ -33,12 +37,6 @@ import com.cloudera.livy.LivyConf
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
-
-import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
-import java.util.concurrent.{Semaphore, TimeUnit}
-
-import scala.reflect.runtime.universe
 
 // scalastyle:off println
 object SparkRInterpreter {
@@ -94,7 +92,8 @@ object SparkRInterpreter {
 
     env.put("EXISTING_SPARKR_BACKEND_PORT", sparkRBackendPort.toString)
     env.put("SPARKR_PACKAGE_DIR", "./sparkr")
-    env.put("R_PROFILE_USER", Seq("./sparkr", "SparkR", "profile", "general.R").mkString(File.separator))
+    env.put("R_PROFILE_USER", 
+        Seq("./sparkr", "SparkR", "profile", "general.R").mkString(File.separator))
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
 
     builder.redirectError(Redirect.PIPE)
@@ -147,7 +146,7 @@ class SparkRInterpreter(process: Process)
   private[this] var isStart = false
 
   final override protected def waitUntilReady(): Unit = {
-    if(!LivyConf.TEST_MODE) {
+    if(! LivyConf.TEST_MODE) {
         sendRequest("library(SparkR)")
         sendRequest("sc <- sparkR.init()")
     }
@@ -158,7 +157,7 @@ class SparkRInterpreter(process: Process)
   }
 
   override protected def sendExecuteRequest(command: String): Interpreter.ExecuteResponse = {
-    while(!isStart) {
+    while(! isStart) {
         Thread sleep 1000
     }
     var code = command
