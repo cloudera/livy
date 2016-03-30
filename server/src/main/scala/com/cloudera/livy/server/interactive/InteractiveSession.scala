@@ -79,7 +79,10 @@ class InteractiveSession(
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
-
+      case SparkR() =>
+        val packageFile = livyConf.get("livy.repl.sparkr.package")
+        require(packageFile != null, "Can not find SparkR pakcage path.")
+        builder.setConf("sparkr.package", packageFile)
       case _ =>
     }
     builder.setConf("session.kind", request.kind.toString)

@@ -195,11 +195,11 @@ class ContextLauncher implements ContextInfo {
       if (sparkHome == null) {
         sparkHome = System.getenv(SPARK_HOME_ENV);
       }
+
       if (sparkHome == null) {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
       launcher.setSparkHome(sparkHome);
-
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
 
@@ -247,6 +247,10 @@ class ContextLauncher implements ContextInfo {
       }
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
+      if ("sparkr".equals(conf.get("session.kind"))) {
+        launcher.addSparkArg("--archives", conf.get("sparkr.package"));
+      }
+
       return new ChildProcess(conf, launcher.launch());
     }
   }

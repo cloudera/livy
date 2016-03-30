@@ -44,6 +44,7 @@ object LivyConf {
   val LIVY_HOME = Entry("livy.home", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val SUPERUSERS = Entry("livy.superusers", null)
+  val SPARKR_PACKAGE = Entry("livy.repl.sparkr.package", null)
 
   lazy val TEST_LIVY_HOME = Files.createTempDirectory("livyTemp").toUri.toString
 }

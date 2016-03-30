@@ -38,3 +38,6 @@
 # or an hdfs:// directory. Be careful setting this option, as it may allow users to access
 # any file the Livy process can access, such as Livy's SSL certificate.
 ## livy.files.dir = /var/run/livy/uploaded-files
+
+# Location to sparkr package file(sparkr.zip) with symbolic link
+## livy.repl.sparkr.package = file:///home/livy/spark/R/lib/sparkr.zip#sparkr
