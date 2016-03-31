@@ -152,6 +152,9 @@ class ClientServletSpec
           case _ => fail("Response is not an array.")
         }
       }
+
+      // Make sure the session's staging directory was cleaned up.
+      assert(tempDir.listFiles().length === 0)
     }
 
     it("should support user impersonation") {
@@ -177,8 +180,13 @@ class ClientServletSpec
           data.proxyUser should be (PROXY)
           val user = runJob(data.id, new GetUserJob(), headers = adminHeaders)
           user should be (PROXY)
+
+          // Test that files are uploaded to a new session directory.
+          assert(tempDir.listFiles().length === 0)
+          testResourceUpload("file", data.id)
         } finally {
           deleteSession(data.id)
+          assert(tempDir.listFiles().length === 0)
         }
       }
     }
