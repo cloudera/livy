@@ -19,10 +19,12 @@
 package com.cloudera.livy.server
 
 import java.io.{File, IOException}
+import java.net.InetAddress
 import java.util.EnumSet
 import javax.servlet._
 
 import org.apache.hadoop.security.authentication.server._
+import org.apache.hadoop.security.SecurityUtil
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
@@ -83,11 +85,12 @@ object Main extends Logging {
 
     livyConf.get(AUTH_TYPE) match {
       case authType @ KerberosAuthenticationHandler.TYPE =>
-        val principal = livyConf.get(KERBEROS_PRINCIPAL)
+        val principal = SecurityUtil.getServerPrincipal(livyConf.get(KERBEROS_PRINCIPAL),
+          server.host)
         val keytab = livyConf.get(KERBEROS_KEYTAB)
         require(principal != null,
           s"Kerberos auth requires ${KERBEROS_PRINCIPAL.key} to be provided.")
-        require(principal != null,
+        require(keytab != null,
           s"Kerberos auth requires ${KERBEROS_KEYTAB.key} to be provided.")
 
         val holder = new FilterHolder(new AuthenticationFilter())
