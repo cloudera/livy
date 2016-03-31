@@ -31,6 +31,7 @@ import org.scalatra._
 import com.cloudera.livy.{ExecuteRequest, LivyConf, Logging}
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
+import com.cloudera.livy.sessions.interactive.Statement
 
 object InteractiveSessionServlet extends Logging
 
@@ -82,6 +83,19 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       "id" -> statement.id,
       "state" -> statement.state.toString,
       "output" -> output)
+  }
+
+  jpost[CallbackRequest]("/:id/callback") { callback =>
+    withUnprotectedSession { session =>
+      if (session.state == SessionState.Starting()) {
+        session.url = new URL(callback.url)
+        Accepted()
+      } else if (session.state.isActive) {
+        Ok()
+      } else {
+        BadRequest("Session is in wrong state")
+      }
+    }
   }
 
   post("/:id/stop") {
@@ -141,3 +155,5 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   }
 
 }
+
+private case class CallbackRequest(url: String)

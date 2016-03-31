@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.server.interactive
+package com.cloudera.livy.sessions.interactive
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.{Failure, Success}

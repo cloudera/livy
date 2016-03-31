@@ -19,7 +19,11 @@ package com.cloudera.livy.client.local;
 
 import java.util.List;
 
+import com.google.common.base.Throwables;
+
+import com.cloudera.livy.Job;
 import com.cloudera.livy.JobHandle;
+import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 
 public class BypassJobStatus {
 

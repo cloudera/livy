@@ -33,6 +33,7 @@ import org.mockito.stubbing.Answer
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions._
+import com.cloudera.livy.sessions.interactive.Statement
 
 class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
 

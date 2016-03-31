@@ -174,7 +174,7 @@ class ClientServletSpec
     val classpath = sys.props("java.class.path")
     val conf = new HashMap[String, String]
     conf.put("spark.master", "local")
-    conf.put(LocalConf.Entry.LIVY_JARS.key(), "")
+    conf.put("livy.local.jars", "")
     conf.put("spark.driver.extraClassPath", classpath)
     conf.put("spark.executor.extraClassPath", classpath)
     if (inProcess) {

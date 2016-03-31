@@ -20,12 +20,10 @@ package com.cloudera.livy.repl
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
+import scala.concurrent.duration.Duration
 
 import org.json4s.DefaultFormats
 import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.sessions.SessionState
 
@@ -36,9 +34,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers {
   def withSession(testCode: Session => Any): Unit = {
     val session = Session(createInterpreter())
     try {
-      eventually(timeout(30 seconds), interval(100 millis)) {
-        assert(session.state === SessionState.Idle())
-      }
+      session.waitForStateChange(SessionState.NotStarted(), Duration(30, TimeUnit.SECONDS))
       testCode(session)
     } finally {
       session.close()
@@ -47,19 +43,12 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers {
 
   def createInterpreter(): Interpreter
 
-  it should "start in the starting or idle state" in {
-    val session = Session(createInterpreter())
-    try {
-      eventually(timeout(30 seconds), interval(100 millis)) {
-        session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
-      }
-    } finally {
-      session.close()
-    }
+  it should "start in the starting or idle state" in withSession { session =>
+    session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
   }
 
   it should "eventually become the idle state" in withSession { session =>
+    session.waitForStateChange(SessionState.Starting(), Duration(30, TimeUnit.SECONDS))
     session.state should equal (SessionState.Idle())
   }
-
 }

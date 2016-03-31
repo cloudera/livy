@@ -23,7 +23,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.Duration
 
-import org.json4s.{DefaultFormats, JValue}
+import org.json4s.{DefaultFormats, Extraction, JValue}
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.{Logging, Utils}
@@ -70,7 +70,7 @@ class Session(interpreter: Interpreter)
 
   def execute(code: String): Statement = synchronized {
     val executionCount = _history.length
-    val statement = Statement(executionCount, executeCode(executionCount, code))
+    val statement = Statement(executionCount, Future { executeCode(executionCount, code) })
     _history :+= statement
     statement
   }
@@ -82,6 +82,12 @@ class Session(interpreter: Interpreter)
 
   def clearHistory(): Unit = synchronized {
     _history = IndexedSeq()
+  }
+
+  @throws(classOf[TimeoutException])
+  @throws(classOf[InterruptedException])
+  def waitForStateChange(oldState: SessionState, atMost: Duration): Unit = {
+    Utils.waitUntil({ () => state != oldState }, atMost)
   }
 
   private def executeCode(executionCount: Int, code: String) = {
@@ -96,7 +102,6 @@ class Session(interpreter: Interpreter)
           (STATUS -> OK) ~
           (EXECUTION_COUNT -> executionCount) ~
           (DATA -> data)
-
         case Interpreter.ExecuteIncomplete() =>
           _state = SessionState.Idle()
 
@@ -105,7 +110,6 @@ class Session(interpreter: Interpreter)
           (ENAME -> "Error") ~
           (EVALUE -> "incomplete statement") ~
           (TRACEBACK -> List())
-
         case Interpreter.ExecuteError(ename, evalue, traceback) =>
           _state = SessionState.Idle()
 
@@ -114,7 +118,6 @@ class Session(interpreter: Interpreter)
           (ENAME -> ename) ~
           (EVALUE -> evalue) ~
           (TRACEBACK -> traceback)
-
         case Interpreter.ExecuteAborted(message) =>
           _state = SessionState.Error(System.nanoTime())
 
@@ -130,6 +133,7 @@ class Session(interpreter: Interpreter)
 
         _state = SessionState.Idle()
 
+
         (STATUS -> ERROR) ~
         (EXECUTION_COUNT -> executionCount) ~
         (ENAME -> f"Internal Error: ${e.getClass.getName}") ~
@@ -139,4 +143,4 @@ class Session(interpreter: Interpreter)
   }
 }
 
-case class Statement(id: Int, result: JValue)
+case class Statement(id: Int, result: Future[JValue])

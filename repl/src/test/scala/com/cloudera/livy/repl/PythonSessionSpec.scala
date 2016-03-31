@@ -33,7 +33,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     val statement = session.execute("1 + 2")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = Await.result(statement.result, Duration.Inf)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -49,7 +49,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     var statement = session.execute("x = 1")
     statement.id should equal (0)
 
-    var result = statement.result
+    var result = Await.result(statement.result, Duration.Inf)
     var expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -63,7 +63,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     statement = session.execute("y = 2")
     statement.id should equal (1)
 
-    result = statement.result
+    result = Await.result(statement.result, Duration.Inf)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 1,
@@ -77,7 +77,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     statement = session.execute("x + y")
     statement.id should equal (2)
 
-    result = statement.result
+    result = Await.result(statement.result, Duration.Inf)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 2,
@@ -93,7 +93,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     val statement = session.execute("x = [[1, 'a'], [3, 'b']]\n%table x")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = Await.result(statement.result, Duration.Inf)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -114,7 +114,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""print 'Hello World'""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = Await.result(statement.result, Duration.Inf)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -130,7 +130,7 @@ class PythonSessionSpec extends BaseSessionSpec {
     val statement = session.execute("""x""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = Await.result(statement.result, Duration.Inf)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "error",
       "execution_count" -> 0,
@@ -153,7 +153,7 @@ class PythonSessionSpec extends BaseSessionSpec {
         |""".stripMargin)
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = Await.result(statement.result, Duration.Inf)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "error",
       "execution_count" -> 0,
