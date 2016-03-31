@@ -19,9 +19,12 @@
 package com.cloudera.livy.server
 
 import java.io.{File, IOException}
+import java.net.InetAddress
+import java.security.PrivilegedExceptionAction
 import java.util.EnumSet
 import javax.servlet._
 
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
@@ -39,7 +42,11 @@ object Main extends Logging {
   private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
   private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
   private val SERVER_PORT = LivyConf.Entry("livy.server.port", 8998)
+  // used for launch yarn application
+  private val SERVER_PRINCIPAL = LivyConf.Entry("livy.server.kerberos.principal", null)
+  private val SERVER_KEYTAB = LivyConf.Entry("livy.server.kerberos.keytab", null)
   private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
+  // used for spengo
   private val KERBEROS_PRINCIPAL = LivyConf.Entry("livy.server.auth.kerberos.principal", null)
   private val KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
   private val KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
@@ -47,13 +54,35 @@ object Main extends Logging {
 
   def main(args: Array[String]): Unit = {
     val livyConf = new LivyConf().loadFromFile("livy-defaults.conf")
-    val host = livyConf.get(SERVER_HOST)
-    val port = livyConf.getInt(SERVER_PORT)
 
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
 
+    val principalName = SecurityUtil.getServerPrincipal(livyConf.get(SERVER_PRINCIPAL),
+      InetAddress.getLocalHost)
+    val keytabFilename = livyConf.get(SERVER_KEYTAB)
+    if (principalName != null && keytabFilename != null) {
+      info(s"loggin with principal:${principalName} keytab:${keytabFilename}")
+      val ugi = UserGroupInformation.loginUserFromKeytabAndReturnUGI(principalName, keytabFilename)
+      ugi.doAs(new PrivilegedExceptionAction[Unit]() {
+        override def run(): Unit = {
+          startServer(livyConf)
+        }
+      })
+    } else {
+      if (principalName != null || keytabFilename != null) {
+        warn(SERVER_PRINCIPAL + " and " + SERVER_KEYTAB
+          + " are both required, one of them is missing")
+      }
+      startServer(livyConf)
+    }
+
+  }
+
+  private def startServer(livyConf: LivyConf): Unit = {
+    val host = livyConf.get(SERVER_HOST)
+    val port = livyConf.getInt(SERVER_PORT)
     val server = new WebServer(livyConf, host, port)
 
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
@@ -83,7 +112,8 @@ object Main extends Logging {
 
     livyConf.get(AUTH_TYPE) match {
       case authType @ KerberosAuthenticationHandler.TYPE =>
-        val principal = livyConf.get(KERBEROS_PRINCIPAL)
+        val principal = SecurityUtil.getServerPrincipal(livyConf.get(KERBEROS_PRINCIPAL),
+          InetAddress.getLocalHost)
         val keytab = livyConf.get(KERBEROS_KEYTAB)
         require(principal != null,
           s"Kerberos auth requires ${KERBEROS_PRINCIPAL.key} to be provided.")
@@ -104,7 +134,7 @@ object Main extends Logging {
         }
 
       case null =>
-        // Nothing to do.
+      // Nothing to do.
 
       case other =>
         throw new IllegalArgumentException(s"Invalid auth type: $other")
