@@ -96,6 +96,12 @@ public abstract class Driver {
       }
     }
 
+    // Set up a class loader that can be modified, so that we can add jars uploaded
+    // by the client to the driver's class path.
+    ClassLoader driverClassLoader = new MutableClassLoader(
+      Thread.currentThread().getContextClassLoader());
+    Thread.currentThread().setContextClassLoader(driverClassLoader);
+
     LOG.info("Connecting to: {}:{}", serverAddress, serverPort);
 
     String clientId = livyConf.get(CLIENT_ID);

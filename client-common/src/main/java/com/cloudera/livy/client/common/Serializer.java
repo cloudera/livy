@@ -52,6 +52,7 @@ public class Serializer {
           count++;
         }
         kryo.setInstantiatorStrategy(new StdInstantiatorStrategy());
+        kryo.setClassLoader(Thread.currentThread().getContextClassLoader());
         return kryo;
       }
     };
