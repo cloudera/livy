@@ -21,13 +21,15 @@ package com.cloudera.livy.repl
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.util.{Failure, Success}
 
 import io.netty.channel.ChannelHandlerContext
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
+import com.cloudera.livy.{JobContext, Logging}
 import com.cloudera.livy.client.local.BaseProtocol
-import com.cloudera.livy.client.local.driver.{Driver, DriverProtocol, MonitorCallback}
+import com.cloudera.livy.client.local.driver.{Driver, DriverProtocol, JobWrapper, MonitorCallback}
 import com.cloudera.livy.client.local.rpc.Rpc
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
@@ -52,7 +54,7 @@ class ReplProtocol(driver: ReplDriver, clientRpc: Rpc, jcLock: Object)
 
 }
 
-class ReplDriver(args: Array[String]) extends Driver(args) {
+class ReplDriver(args: Array[String]) extends Driver(args) with Logging {
   private val jobFutures = mutable.Map[String, JValue]()
 
   private val interpreter = Kind(getLivyConf.get("session.kind")) match {
@@ -74,6 +76,19 @@ class ReplDriver(args: Array[String]) extends Driver(args) {
   override def setMonitorCallback(bc: MonitorCallback): Unit = {
     // no op
   }
+
+  override def submit(job: JobWrapper[_]): Unit = {
+    info(s"Received job ${job.getClass.getName()}")
+    session.startTask.andThen {
+      case Success(_) =>
+        info(s"Running job ${job.getClass.getName()}")
+        job.call()
+      case Failure(_) => // Session will die in this case.
+        info("Session start failed.")
+    }
+  }
+
+  override def jobContext(): JobContext = null
 
   def run(id: String, code: String): Unit = {
     Future {

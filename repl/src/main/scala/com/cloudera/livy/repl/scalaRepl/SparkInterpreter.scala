@@ -22,6 +22,7 @@ import java.io._
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.{JPrintWriter, Results}
+import scala.tools.nsc.settings.MutableSettings
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.{SparkConf, SparkContext}
@@ -48,6 +49,7 @@ class SparkInterpreter extends Interpreter {
 
   private implicit def formats = DefaultFormats
 
+  private val originalClassLoader = Thread.currentThread().getContextClassLoader
   private val outputStream = new ByteArrayOutputStream()
   private var sparkIMain: SparkIMain = _
   private var sparkContext: SparkContext = _
@@ -58,6 +60,7 @@ class SparkInterpreter extends Interpreter {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()
+    settings.embeddedDefaults(originalClassLoader)
     settings.usejavacp.value = true
 
     sparkIMain = new SparkIMain(settings, new JPrintWriter(outputStream, true))
@@ -79,6 +82,13 @@ class SparkInterpreter extends Interpreter {
         sparkConf.set("spark.repl.class.outputDir",
           outputDir.invoke(sparkIMain).asInstanceOf[File].getAbsolutePath())
     }
+
+    // Call sparkIMain.setContextClassLoader() to make sure SparkContext and repl are using the
+    // same ClassLoader. Otherwise if someone defined a new class in interactive shell,
+    // SparkContext cannot see them and will result in job stage failure.
+    val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
+    setContextClassLoaderMethod.setAccessible(true)
+    setContextClassLoaderMethod.invoke(sparkIMain)
 
     sparkContext = SparkContext.getOrCreate(sparkConf)
 
@@ -104,6 +114,9 @@ class SparkInterpreter extends Interpreter {
       sparkIMain.close()
       sparkIMain = null
     }
+
+    // SparkIMain.interpret will change current thread's contextClassLoader. Restore the original.
+    Thread.currentThread().setContextClassLoader(originalClassLoader)
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {

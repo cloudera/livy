@@ -54,11 +54,13 @@ class Session(interpreter: Interpreter)
   private var _state: SessionState = SessionState.NotStarted()
   private var _history = IndexedSeq[Statement]()
 
-  Future {
+  val startTask = Future {
     _state = SessionState.Starting()
     interpreter.start()
     _state = SessionState.Idle()
-  }.onFailure { case _ =>
+  }
+
+  startTask.onFailure { case _ =>
     _state = SessionState.Error(System.currentTimeMillis())
   }
 
