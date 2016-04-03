@@ -218,7 +218,7 @@ class InteractiveSession(
       }
   }
 
-  
+
   private def findPySparkArchives(): Seq[String] = {
     sys.env.get("PYSPARK_ARCHIVES_PATH")
       .map(_.split(",").toSeq)
