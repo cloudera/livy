@@ -21,7 +21,7 @@ package com.cloudera.livy.repl.sparkr
 import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
-import java.util.concurrent.{Semaphore, TimeUnit, CountDownLatch}
+import java.util.concurrent.{CountDownLatch, Semaphore, TimeUnit}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -96,7 +96,7 @@ object SparkRInterpreter {
     env.put("R_PROFILE_USER",
         Seq("./sparkr.zip", "SparkR", "profile", "general.R").mkString(File.separator))
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
-    
+
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
     new SparkRInterpreter(process)
