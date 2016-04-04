@@ -64,7 +64,9 @@ class ReplDriver(args: Array[String]) extends Driver(args) with Logging {
   }
 
   private[repl] val session = Session(interpreter)
-  jcLock.notifyAll()
+  jcLock.synchronized {
+    jcLock.notifyAll()
+  }
 
   override def createProtocol(client: Rpc): DriverProtocol = {
     new ReplProtocol(this, client, jcLock)

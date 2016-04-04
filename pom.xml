@@ -629,6 +629,7 @@
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
+              <jacoco.args>${argLine}</jacoco.args>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -650,6 +651,7 @@
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
+              <jacoco.args>${argLine}</jacoco.args>
             </systemProperties>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
@@ -890,6 +892,24 @@
             </goals>
             <configuration>
               <append>true</append>
+              <destFile>${project.build.directory}/jacoco/main.exec</destFile>
+            </configuration>
+          </execution>
+          <execution>
+            <id>merge-reports</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>merge</goal>
+            </goals>
+            <configuration>
+              <fileSets>
+                <fileSet>
+                  <directory>${project.build.directory}/jacoco</directory>
+                  <includes>
+                    <include>*.exec</include>
+                  </includes>
+                </fileSet>
+              </fileSets>
             </configuration>
           </execution>
           <execution>

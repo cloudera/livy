@@ -7,7 +7,9 @@
 
 PROP_FILE=
 DRIVER_CP=
-CONF_KEY="spark.driver.extraClassPath"
+DRIVER_OPTS=
+CP_KEY="spark.driver.extraClassPath"
+OPTS_KEY="spark.driver.extraJavaOptions"
 
 INDEX=1
 ARGS=($@)
@@ -19,8 +21,10 @@ for IDX in $(seq 0 ${#ARGS[@]}); do
     --conf)
       CONF="${ARGS[$NEXT]}"
       IFS='=' read KEY VALUE <<< "$CONF"
-      if [ "$KEY" = "$CONF_KEY" ]; then
+      if [ "$KEY" = "$CP_KEY" ]; then
         DRIVER_CP="$VALUE"
+      elif [ "$KEY" = "$OPTS_KEY" ]; then
+        DRIVER_OPTS="$VALUE"
       fi
       ;;
     --driver-class-path)
@@ -32,12 +36,24 @@ for IDX in $(seq 0 ${#ARGS[@]}); do
   esac
 done
 
-if [ -n "$PROP_FILE" ] && [ -z "$DRIVER_CP" ]; then
-  CONF=$(grep -s "^$CONF_KEY=" "$PROP_FILE" | tail -n 1)
+read_opt() {
+  local FILE="$1"
+  local KEY="$2"
+  CONF=$(grep -s "^$KEY=" "$PROP_FILE" | tail -n 1)
   if [ -n "$CONF" ]; then
     IFS='=' read KEY VALUE <<< "$CONF"
-    DRIVER_CP="$VALUE"
+    echo "$VALUE"
+  fi
+}
+
+if [ -n "$PROP_FILE" ]; then
+  if [ -z "$DRIVER_CP" ]; then
+    DRIVER_CP=$(read_opt "$PROP_FILE" "$CP_KEY")
+  fi
+  if [ -z "$DRIVER_OPTS" ]; then
+    DRIVER_OPTS=$(read_opt "$PROP_FILE" "$OPTS_KEY")
   fi
 fi
 
-exec $JAVA_HOME/bin/java -cp "$DRIVER_CP" org.apache.spark.deploy.SparkSubmit "$@"
+echo "Running Spark: " $JAVA_HOME/bin/java $DRIVER_OPTS org.apache.spark.deploy.SparkSubmit "$@" >&2
+exec $JAVA_HOME/bin/java $DRIVER_OPTS -cp "$DRIVER_CP" org.apache.spark.deploy.SparkSubmit "$@"

@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.server
 
+import java.io.ByteArrayOutputStream
 import javax.servlet.http.HttpServletResponse._
 
 import scala.reflect.ClassTag
@@ -107,8 +108,22 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
     if ((status / 100) * 100 == SC_OK) {
       val result =
         if (header("Content-Type").startsWith("application/json")) {
-          if (header("Content-Length").toInt > 0) {
-            mapper.readValue(response.inputStream, klass.runtimeClass)
+          // Sometimes there's an empty body with no "Content-Length" header. So read the whole
+          // body first, and only send it to Jackson if there's content.
+          val in = response.inputStream
+          val out = new ByteArrayOutputStream()
+          val buf = new Array[Byte](1024)
+          var read = 0
+          while (read >= 0) {
+            read = in.read(buf)
+            if (read > 0) {
+              out.write(buf, 0, read)
+            }
+          }
+
+          val data = out.toByteArray()
+          if (data.length > 0) {
+            mapper.readValue(data, klass.runtimeClass)
           } else {
             null
           }
