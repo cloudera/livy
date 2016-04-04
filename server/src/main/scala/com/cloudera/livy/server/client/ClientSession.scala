@@ -22,7 +22,8 @@ import java.io.InputStream
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.Files
-import java.util.{HashMap => JHashMap}
+import java.security.PrivilegedExceptionAction
+import java.util.{HashMap => JHashMap, UUID}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -31,8 +32,10 @@ import scala.concurrent.{ExecutionContext, Future}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.permission.FsPermission
+import org.apache.hadoop.security.UserGroupInformation
 
-import com.cloudera.livy.{LivyClientBuilder, Logging}
+import com.cloudera.livy.{LivyClientBuilder, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.client.local.{LocalClient, LocalConf}
 import com.cloudera.livy.sessions.{Session, SessionState}
@@ -42,7 +45,7 @@ class ClientSession(
       owner: String,
       val proxyUser: Option[String],
       createRequest: CreateClientRequest,
-      livyHome: String)
+      livyConf: LivyConf)
     extends Session(id, owner) with Logging {
   implicit val executionContext = ExecutionContext.global
 
@@ -64,12 +67,9 @@ class ClientSession(
     builder.build()
   }.asInstanceOf[LocalClient]
 
-  private val fs = FileSystem.get(new Configuration())
-
-  // TODO: It is important that each session's home be readable only by the user that created
-  // that session and not by anyone else. Else, one session might be able to read files uploaded
-  // by another. Fix this when we add security support.
-  private val sessionHome = new Path(livyHome + "/" + id.toString)
+  // Directory where the session's staging files are created. The directory is only accessible
+  // to the session's effective user.
+  private var stagingDir: Path = null
 
   info("Livy client created.")
 
@@ -117,19 +117,57 @@ class ClientSession(
     operations.remove(id).foreach { client.cancel }
   }
 
-  private def copyResourceToHDFS(dataStream: InputStream, name: String): URI = {
-    val filePath = new Path(sessionHome, name)
-    val outFile = fs.create(filePath, true)
-    val buffer = new Array[Byte](512 * 1024)
-    var read = -1
-    try {
-      while ({read = dataStream.read(buffer); read != -1}) {
-        outFile.write(buffer, 0, read)
+  private def doAsOwner[T](fn: => T): T = {
+    val user = proxyUser.getOrElse(owner)
+    if (user != null) {
+      val ugi = if (UserGroupInformation.isSecurityEnabled) {
+        UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
+      } else {
+        UserGroupInformation.createRemoteUser(user)
       }
-    } finally {
-      outFile.close()
+      ugi.doAs(new PrivilegedExceptionAction[T] {
+        override def run(): T = fn
+      })
+    } else {
+      fn
     }
-    filePath.toUri
+  }
+
+  private def copyResourceToHDFS(dataStream: InputStream, name: String): URI = doAsOwner {
+    val fs = FileSystem.newInstance(new Configuration())
+
+    try {
+      val filePath = new Path(getStagingDir(fs), name)
+      debug(s"Uploading user file to $filePath")
+
+      val outFile = fs.create(filePath, true)
+      val buffer = new Array[Byte](512 * 1024)
+      var read = -1
+      try {
+        while ({read = dataStream.read(buffer); read != -1}) {
+          outFile.write(buffer, 0, read)
+        }
+      } finally {
+        outFile.close()
+      }
+      filePath.toUri
+    } finally {
+      fs.close()
+    }
+  }
+
+  private def getStagingDir(fs: FileSystem): Path = synchronized {
+    if (stagingDir == null) {
+      val stagingRoot = Option(livyConf.get(LivyConf.SESSION_STAGING_DIR)).getOrElse {
+        new Path(fs.getHomeDirectory(), ".livy-sessions").toString()
+      }
+
+      val sessionDir = new Path(stagingRoot, UUID.randomUUID().toString())
+      fs.mkdirs(sessionDir, new FsPermission("700"))
+      stagingDir = sessionDir
+      debug(s"Session $id staging directory is $stagingDir")
+    }
+    stagingDir
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {
@@ -142,9 +180,31 @@ class ClientSession(
 
   override def stop(): Future[Unit] = {
     Future {
-      sessionState = SessionState.ShuttingDown()
-      client.stop(true)
-      sessionState = SessionState.Dead()
+      try {
+        sessionState = SessionState.ShuttingDown()
+        client.stop(true)
+        sessionState = SessionState.Dead()
+      } catch {
+        case e: Exception =>
+          warn(s"Error stopping session $id.", e)
+      }
+
+      try {
+        if (stagingDir != null) {
+          debug(s"Deleting session $id staging directory $stagingDir")
+          doAsOwner {
+            val fs = FileSystem.newInstance(new Configuration())
+            try {
+              fs.delete(stagingDir, true)
+            } finally {
+              fs.close()
+            }
+          }
+        }
+      } catch {
+        case e: Exception =>
+          warn(s"Error cleaning up session $id staging dir.", e)
+      }
     }
   }
 

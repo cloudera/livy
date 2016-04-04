@@ -48,7 +48,7 @@ class ClientSessionServlet(livyConf: LivyConf)
         None
       }
     val proxyUser = checkImpersonation(requestedProxy, req)
-    new ClientSession(id, user, proxyUser, createRequest, livyConf.livyHome)
+    new ClientSession(id, user, proxyUser, createRequest, livyConf)
   }
 
   // This endpoint is used by the client-http module to "connect" to an existing session and

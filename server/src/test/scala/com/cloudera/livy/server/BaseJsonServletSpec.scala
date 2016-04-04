@@ -98,7 +98,11 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
 
   private def doTest[R: ClassTag](expectedStatus: Int, fn: R => Unit)
       (implicit klass: ClassTag[R]): Unit = {
-    status should be (expectedStatus)
+    if (status != expectedStatus) {
+      // Yeah this is weird, but we don't want to evaluate "response.body" if there's no error.
+      assert(status === expectedStatus,
+        s"Unexpected response status: $status != $expectedStatus (${response.body})")
+    }
     // Only try to parse the body if response is in the "OK" range (20x).
     if ((status / 100) * 100 == SC_OK) {
       val result =
