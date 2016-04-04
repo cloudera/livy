@@ -58,7 +58,7 @@ class ReplDriverSuite extends FunSuite {
 
       val statementId = client.submitReplCode("1 + 1")
       eventually(timeout(30 seconds), interval(100 millis)) {
-        val rawResult = client.getReplJobResult(statementId).get(1, TimeUnit.SECONDS)
+        val rawResult = client.getReplJobResult(statementId).get(10, TimeUnit.SECONDS)
         val result = parse(rawResult)
         assert((result \ Session.STATUS).extract[String] === Session.OK)
       }

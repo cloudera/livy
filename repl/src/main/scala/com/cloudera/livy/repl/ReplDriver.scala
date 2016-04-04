@@ -64,6 +64,7 @@ class ReplDriver(args: Array[String]) extends Driver(args) with Logging {
   }
 
   private[repl] val session = Session(interpreter)
+  jcLock.notifyAll()
 
   override def createProtocol(client: Rpc): DriverProtocol = {
     new ReplProtocol(this, client, jcLock)
@@ -79,6 +80,16 @@ class ReplDriver(args: Array[String]) extends Driver(args) with Logging {
 
   override def submit(job: JobWrapper[_]): Unit = {
     info(s"Received job ${job.getClass.getName()}")
+
+    // Since the parent class sets up the RPC channel, messages may arrive before the fields
+    // in this class have been properly initialized. Use the jcLock field to make sure this
+    // method waits until needed fields are initialized.
+    jcLock.synchronized {
+      while (session == null) {
+        jcLock.wait()
+      }
+    }
+
     session.startTask.andThen {
       case Success(_) =>
         info(s"Running job ${job.getClass.getName()}")
