@@ -106,6 +106,9 @@ public class TestSparkClient {
         verify(listener).onJobQueued(handle);
         verify(listener).onJobStarted(handle);
         verify(listener).onJobSucceeded(same(handle), eq(handle.get()));
+
+        // Try a PingJob, both to make sure it works and also to test "null" results.
+        assertNull(client.submit(new PingJob()).get(TIMEOUT, TimeUnit.SECONDS));
       }
     });
   }

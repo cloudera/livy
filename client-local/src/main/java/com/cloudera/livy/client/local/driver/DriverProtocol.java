@@ -69,27 +69,26 @@ public class DriverProtocol extends BaseProtocol {
     clientRpc.call(new JobSubmitted(jobId, sparkJobId));
   }
 
-  private void handle(ChannelHandlerContext ctx, CancelJob msg) {
+  public void handle(ChannelHandlerContext ctx, CancelJob msg) {
     JobWrapper<?> job = driver.activeJobs.get(msg.id);
     if (job == null || !job.cancel()) {
       LOG.info("Requested to cancel an already finished job.");
     }
   }
 
-  // Needs to be public so that the REPL driver also sees it.
   public void handle(ChannelHandlerContext ctx, EndSession msg) {
     LOG.debug("Shutting down due to EndSession request.");
     driver.shutdown(null);
   }
 
-  private void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
+  public void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
     LOG.info("Received job request {}", msg.id);
     JobWrapper<?> wrapper = new JobWrapper<>(driver, this, msg.id, msg.job);
     driver.activeJobs.put(msg.id, wrapper);
-    ((RemoteDriver)driver).submit(wrapper);
+    driver.submit(wrapper);
   }
 
-  private void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
+  public void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
     BypassJobWrapper wrapper = new BypassJobWrapper(driver, this, msg.id, msg.serializedJob);
     bypassJobs.add(wrapper);
@@ -103,12 +102,12 @@ public class DriverProtocol extends BaseProtocol {
         // to the RPC layer.
       }
     } else {
-      ((RemoteDriver)driver).submit(wrapper);
+      driver.submit(wrapper);
     }
   }
 
   @SuppressWarnings("unchecked")
-  private Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
+  public Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
     waitForJobContext();
     if (!(driver instanceof RemoteDriver)) {
       throw new IllegalStateException("JobContext.monitor is not available for REPL driver");
@@ -127,7 +126,7 @@ public class DriverProtocol extends BaseProtocol {
     }
   }
 
-  private BypassJobStatus handle(ChannelHandlerContext ctx, GetBypassJobStatus msg) {
+  public BypassJobStatus handle(ChannelHandlerContext ctx, GetBypassJobStatus msg) {
     for (Iterator<BypassJobWrapper> it = bypassJobs.iterator(); it.hasNext();) {
       BypassJobWrapper job = it.next();
       if (job.jobId.equals(msg.id)) {

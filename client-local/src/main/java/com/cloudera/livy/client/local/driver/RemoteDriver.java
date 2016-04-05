@@ -32,6 +32,7 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.JobContext;
 import com.cloudera.livy.client.local.rpc.Rpc;
 
 /**
@@ -83,7 +84,8 @@ public class RemoteDriver extends Driver {
     }
   }
 
-  void submit(JobWrapper<?> job) {
+  @Override
+  public void submit(JobWrapper<?> job) {
     synchronized (jcLock) {
       if (jc != null) {
         job.submit(executor);
@@ -92,6 +94,11 @@ public class RemoteDriver extends Driver {
         jobQueue.add(job);
       }
     }
+  }
+
+  @Override
+  public JobContext jobContext() {
+    return jc;
   }
 
   @Override
