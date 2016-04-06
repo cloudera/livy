@@ -1,9 +1,0 @@
-#!/bin/bash
-#
-# This is a fake version of "sparkR" that just runs "SPARKR_DRIVER_R", which during Livy tests is
-# just plain "R". So it can't really be used to test SparkR, but can be used to test the backend in
-# Livy.
-#
-
-CMD=${SPARKR_DRIVER_R:-R}
-exec $CMD

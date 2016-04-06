@@ -79,7 +79,9 @@ class InteractiveSession(
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
-
+      case SparkR() =>
+        val sparkRFile = if (!LivyConf.TEST_MODE) findSparkRArchives() else Nil
+        builder.setConf(LocalConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
       case _ =>
     }
     builder.setConf("session.kind", request.kind.toString)
@@ -138,6 +140,7 @@ class InteractiveSession(
       transition(SessionState.Idle())
     }
   })
+
 
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
@@ -216,6 +219,21 @@ class InteractiveSession(
       jars.listFiles().map(_.getAbsolutePath()).toList
     }
   }
+
+  private def findSparkRArchives(): Seq[String] = {
+    sys.env.get("SPARKR_ARCHIVES_PATH")
+      .map(_.split(",").toSeq)
+      .getOrElse {
+        sys.env.get("SPARK_HOME").map { case sparkHome =>
+          val rLibPath = Seq(sparkHome, "R", "lib").mkString(File.separator)
+          val rArchivesFile = new File(rLibPath, "sparkr.zip")
+          require(rArchivesFile.exists(),
+            "sparkr.zip not found; cannot run sparkr application.")
+          Seq(rArchivesFile.getAbsolutePath)
+        }.getOrElse(Seq())
+      }
+  }
+
 
   private def findPySparkArchives(): Seq[String] = {
     sys.env.get("PYSPARK_ARCHIVES_PATH")

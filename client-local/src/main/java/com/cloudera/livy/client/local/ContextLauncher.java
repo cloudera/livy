@@ -61,6 +61,7 @@ class ContextLauncher implements ContextInfo {
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
 
   private static final String SPARK_JARS_KEY = "spark.jars";
+  private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
   private static final String SPARK_HOME_KEY = "spark.home";
 
@@ -195,11 +196,11 @@ class ContextLauncher implements ContextInfo {
       if (sparkHome == null) {
         sparkHome = System.getenv(SPARK_HOME_ENV);
       }
+
       if (sparkHome == null) {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
       launcher.setSparkHome(sparkHome);
-
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
 
@@ -221,6 +222,18 @@ class ContextLauncher implements ContextInfo {
       }
 
       String userJars = conf.get(SPARK_JARS_KEY);
+      String userArchives = conf.get(SPARK_ARCHIVES_KEY);
+
+      if ("sparkr".equals(conf.get("session.kind"))) {
+        String sparkRArchives = conf.get(LocalConf.Entry.SPARKR_PACKAGE);
+        if (userArchives != null) {
+            String archives = Joiner.on(",").join(sparkRArchives, userArchives);
+            conf.set(SPARK_ARCHIVES_KEY, archives);
+        } else {
+            conf.set(SPARK_ARCHIVES_KEY, sparkRArchives);
+        }
+      }
+
       if (userJars != null) {
         String allJars = Joiner.on(",").join(livyJars, userJars);
         conf.set(SPARK_JARS_KEY, allJars);
@@ -262,6 +275,7 @@ class ContextLauncher implements ContextInfo {
       }
       launcher.addAppArgs("--remote-host", serverAddress);
       launcher.addAppArgs("--remote-port",  serverPort);
+
       return new ChildProcess(conf, launcher.launch());
     }
   }

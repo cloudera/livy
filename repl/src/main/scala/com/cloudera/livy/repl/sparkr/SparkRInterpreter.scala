@@ -21,14 +21,19 @@ package com.cloudera.livy.repl.sparkr
 import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
+import java.util.concurrent.{CountDownLatch, Semaphore, TimeUnit}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.reflect.runtime.universe
 
 import org.apache.commons.codec.binary.Base64
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
 import org.json4s._
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.LivyConf
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
@@ -62,50 +67,61 @@ object SparkRInterpreter {
     ).r.unanchored
 
   def apply(): SparkRInterpreter = {
-    val executable = sparkRExecutable
-      .getOrElse(throw new IllegalStateException("Cannot find sparkR executable."))
+    val backendTimeout = sys.env.getOrElse("SPARKR_BACKEND_TIMEOUT", "120").toInt
+    val mirror = universe.runtimeMirror(getClass.getClassLoader)
+    val sparkRBackendClass = mirror.classLoader.loadClass("org.apache.spark.api.r.RBackend")
+    val backendInstance = sparkRBackendClass.getDeclaredConstructor().newInstance()
 
-    val builder = new ProcessBuilder(Seq(executable.getAbsolutePath).asJava)
+    var sparkRBackendPort = 0
+    val initialized = new Semaphore(0)
+    // Launch a SparkR backend server for the R process to connect to
+    val sparkRBackendThread = new Thread("SparkR backend") {
+      override def run(): Unit = {
+        sparkRBackendPort = sparkRBackendClass.getMethod("init").invoke(backendInstance)
+          .asInstanceOf[Int]
 
-    val env = builder.environment()
-    env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
-    env.put("SPARKR_DRIVER_R", createFakeShell().toString)
-
-    builder.redirectError(Redirect.PIPE)
-
-    val process = builder.start()
-
-    new SparkRInterpreter(process)
-  }
-
-  def sparkRExecutable: Option[File] = {
-    sys.env.get("SPARKR_DRIVER_R")
-      .orElse(sys.env.get("SPARK_HOME").map(_ + "/bin/sparkR"))
-      .map(new File(_))
-      .filter(_.exists())
-  }
-
-  private def createFakeShell(): File = {
-    val source = getClass.getClassLoader.getResourceAsStream("fake_R.sh")
-
-    val file = Files.createTempFile("", "").toFile
-    file.deleteOnExit()
-
-    val sink = new FileOutputStream(file)
-    val buf = new Array[Byte](1024)
-    var n = source.read(buf)
-
-    while (n > 0) {
-      sink.write(buf, 0, n)
-      n = source.read(buf)
+        initialized.release()
+        sparkRBackendClass.getMethod("run").invoke(backendInstance)
+      }
     }
 
-    source.close()
-    sink.close()
+    sparkRBackendThread.setDaemon(true)
+    sparkRBackendThread.start()
+    try {
+      // Wait for RBackend initialization to finish
+      initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
+      val rExec = sys.env.getOrElse("DRIVER_R", "R")
+      var packageDir = ""
+      if (sys.env.getOrElse("SPARK_YARN_MODE", "") == "true") {
+        packageDir = "./sparkr.zip"
+      } else {
+        // local mode
+        val rLibPath = new File(sys.env.getOrElse("SPARKR_PACKAGE_DIR",
+          Seq(sys.env.getOrElse("SPARK_HOME", "."), "R", "lib").mkString(File.separator)))
+        if (!LivyConf.TEST_MODE) {
+          require(rLibPath.exists(), "Cannot find sparkr package directory.")
+          packageDir = rLibPath.getAbsolutePath()
+        }
+      }
 
-    file.setExecutable(true)
+      val builder = new ProcessBuilder(Seq(rExec, "--slave @").asJava)
+      val env = builder.environment()
+      env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
+      env.put("EXISTING_SPARKR_BACKEND_PORT", sparkRBackendPort.toString)
+      env.put("SPARKR_PACKAGE_DIR", packageDir)
+      env.put("R_PROFILE_USER",
+        Seq(packageDir, "SparkR", "profile", "general.R").mkString(File.separator))
 
-    file
+      builder.redirectError(Redirect.PIPE)
+      val process = builder.start()
+      new SparkRInterpreter(process)
+    } catch {
+      case e: Exception =>
+        if (sparkRBackendThread != null) {
+          sparkRBackendThread.interrupt()
+        }
+        throw e
+    }
   }
 }
 
@@ -117,16 +133,23 @@ class SparkRInterpreter(process: Process)
   implicit val formats = DefaultFormats
 
   private[this] var executionCount = 0
-
   override def kind: String = "sparkR"
+  private[this] val isStarted = new CountDownLatch(1);
 
   final override protected def waitUntilReady(): Unit = {
     // Set the option to catch and ignore errors instead of halting.
-    sendExecuteRequest("options(error = dump.frames)")
+    sendRequest("options(error = dump.frames)")
+    if (!LivyConf.TEST_MODE) {
+      sendRequest("library(SparkR)")
+      sendRequest("sc <- sparkR.init()")
+    }
+
+    isStarted.countDown()
     executionCount = 0
   }
 
   override protected def sendExecuteRequest(command: String): Interpreter.ExecuteResponse = {
+    isStarted.await()
     var code = command
 
     // Create a image file if this command is trying to plot.

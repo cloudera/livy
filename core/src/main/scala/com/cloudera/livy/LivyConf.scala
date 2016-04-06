@@ -43,6 +43,7 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val SUPERUSERS = Entry("livy.superusers", null)
+  val SPARKR_PACKAGE = Entry("livy.repl.sparkr.package", null)
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
 }
 
