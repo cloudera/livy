@@ -98,8 +98,10 @@ object SparkRInterpreter {
         // local mode
         val rLibPath = new File(sys.env.getOrElse("SPARKR_PACKAGE_DIR",
           Seq(sys.env.getOrElse("SPARK_HOME", "."), "R", "lib").mkString(File.separator)))
-        require(rLibPath.exists(), "Cannot find sparkr package directory.")
-        packageDir = rLibPath.getAbsolutePath()
+        if (!LivyConf.TEST_MODE) {
+          require(rLibPath.exists(), "Cannot find sparkr package directory.")
+          packageDir = rLibPath.getAbsolutePath()
+        }
       }
 
       val builder = new ProcessBuilder(Seq(rExec, "--slave @").asJava)
