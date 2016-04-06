@@ -141,6 +141,7 @@ class InteractiveSession(
     }
   })
 
+
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
 
@@ -227,7 +228,7 @@ class InteractiveSession(
           val rLibPath = Seq(sparkHome, "R", "lib").mkString(File.separator)
           val rArchivesFile = new File(rLibPath, "sparkr.zip")
           require(rArchivesFile.exists(),
-            "sparkr.zip not found; cannot run sparkr application in YARN mode.")
+            "sparkr.zip not found; cannot run sparkr application.")
           Seq(rArchivesFile.getAbsolutePath)
         }.getOrElse(Seq())
       }
