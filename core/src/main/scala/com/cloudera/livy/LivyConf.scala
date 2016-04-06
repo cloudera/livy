@@ -41,12 +41,10 @@ object LivyConf {
   val SPARK_HOME = Entry("livy.server.spark-home", null)
   val SPARK_SUBMIT_KEY = Entry("livy.server.spark-submit", null)
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
-  val LIVY_HOME = Entry("livy.home", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val SUPERUSERS = Entry("livy.superusers", null)
   val SPARKR_PACKAGE = Entry("livy.repl.sparkr.package", null)
-
-  lazy val TEST_LIVY_HOME = Files.createTempDirectory("livyTemp").toUri.toString
+  val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
 }
 
 /**
@@ -78,16 +76,6 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   /** Return the location of the spark home directory */
   def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
-
-  def livyHome(): String = {
-    Option(get(LIVY_HOME)).orElse(sys.env.get("LIVY_HOME")).getOrElse {
-      if (LivyConf.TEST_MODE) {
-        LivyConf.TEST_LIVY_HOME
-      } else {
-        throw new IllegalStateException("livy.home must be specified!")
-      }
-    }
-  }
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {

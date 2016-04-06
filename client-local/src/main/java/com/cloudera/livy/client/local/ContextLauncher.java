@@ -241,6 +241,21 @@ class ContextLauncher implements ContextInfo {
         conf.set(SPARK_JARS_KEY, livyJars);
       }
 
+      // For testing; propagate jacoco settings so that we also do coverage analysis
+      // on the launched driver. We replace the name of the main file ("main.exec")
+      // so that we don't end up fighting with the main test launcher.
+      String jacocoArgs = System.getProperty("jacoco.args");
+      if (jacocoArgs != null) {
+        jacocoArgs = jacocoArgs.replace("main.exec", "child.exec");
+        String userArgs = conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS);
+        if (userArgs != null) {
+          userArgs = userArgs + " " + jacocoArgs;
+        } else {
+          userArgs = jacocoArgs;
+        }
+        conf.set(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, userArgs);
+      }
+
       // Disable multiple attempts since the RPC server doesn't yet support multiple
       // connections for the same registered app.
       conf.set("spark.yarn.maxAppAttempts", "1");

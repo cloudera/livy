@@ -70,36 +70,43 @@ object SparkRInterpreter {
     val backendTimeout = sys.env.getOrElse("SPARKR_BACKEND_TIMEOUT", "120").toInt
     val mirror = universe.runtimeMirror(getClass.getClassLoader)
     val sparkRBackendClass = mirror.classLoader.loadClass("org.apache.spark.api.r.RBackend")
-    val ctor = sparkRBackendClass.getDeclaredConstructor().newInstance()
+    val backendInstance = sparkRBackendClass.getDeclaredConstructor().newInstance()
 
     var sparkRBackendPort = 0
     val initialized = new Semaphore(0)
     // Launch a SparkR backend server for the R process to connect to
     val sparkRBackendThread = new Thread("SparkR backend") {
       override def run(): Unit = {
-        sparkRBackendPort = sparkRBackendClass.getMethod("init").invoke(ctor).asInstanceOf[Int]
+        sparkRBackendPort = sparkRBackendClass.getMethod("init").invoke(backendInstance).asInstanceOf[Int]
         initialized.release()
-        sparkRBackendClass.getMethod("run").invoke(ctor)
+        sparkRBackendClass.getMethod("run").invoke(backendInstance)
       }
     }
 
     sparkRBackendThread.setDaemon(true)
     sparkRBackendThread.start()
     // Wait for RBackend initialization to finish
-    initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
+    try {
+      initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
+      val builder = new ProcessBuilder(Seq("R", "--slave @").asJava)
+      val env = builder.environment()
 
-    val builder = new ProcessBuilder(Seq("R", "--slave @").asJava)
-    val env = builder.environment()
+      env.put("EXISTING_SPARKR_BACKEND_PORT", sparkRBackendPort.toString)
+      env.put("SPARKR_PACKAGE_DIR", "./sparkr.zip")
+      env.put("R_PROFILE_USER",
+          Seq("./sparkr.zip", "SparkR", "profile", "general.R").mkString(File.separator))
+      env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
 
-    env.put("EXISTING_SPARKR_BACKEND_PORT", sparkRBackendPort.toString)
-    env.put("SPARKR_PACKAGE_DIR", "./sparkr.zip")
-    env.put("R_PROFILE_USER",
-        Seq("./sparkr.zip", "SparkR", "profile", "general.R").mkString(File.separator))
-    env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
-
-    builder.redirectError(Redirect.PIPE)
-    val process = builder.start()
-    new SparkRInterpreter(process)
+      builder.redirectError(Redirect.PIPE)
+      val process = builder.start()
+      new SparkRInterpreter(process)
+    } catch {
+      // SparkR backend server shutting down.
+      sparkRBackendClass.getMethod("close").invoke(backendInstance)
+      if (sparkRBackendThread != null) {
+        sparkRBackendThread.interrupt()
+      }
+    }
   }
 }
 
@@ -112,21 +119,21 @@ class SparkRInterpreter(process: Process)
 
   private[this] var executionCount = 0
   override def kind: String = "sparkR"
-  private[this] val isStart = new CountDownLatch(1);
+  private[this] val isStarted = new CountDownLatch(1);
 
   final override protected def waitUntilReady(): Unit = {
     if (!LivyConf.TEST_MODE) {
-        sendRequest("library(SparkR)")
-        sendRequest("sc <- sparkR.init()")
+      sendRequest("library(SparkR)")
+      sendRequest("sc <- sparkR.init()")
     }
     // Set the option to catch and ignore errors instead of halting.
     sendRequest("options(error = dump.frames)")
-    isStart.countDown()
+    isStarted.countDown()
     executionCount = 0
   }
 
   override protected def sendExecuteRequest(command: String): Interpreter.ExecuteResponse = {
-    isStart.await()
+    isStarted.await()
     var code = command
 
     // Create a image file if this command is trying to plot.

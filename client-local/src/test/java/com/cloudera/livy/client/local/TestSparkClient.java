@@ -106,6 +106,9 @@ public class TestSparkClient {
         verify(listener).onJobQueued(handle);
         verify(listener).onJobStarted(handle);
         verify(listener).onJobSucceeded(same(handle), eq(handle.get()));
+
+        // Try a PingJob, both to make sure it works and also to test "null" results.
+        assertNull(client.submit(new PingJob()).get(TIMEOUT, TimeUnit.SECONDS));
       }
     });
   }
@@ -534,7 +537,8 @@ public class TestSparkClient {
   private static class JarJob implements Job<String>, Function<Integer, String> {
 
     @Override
-    public String call(JobContext jc) {
+    public String call(JobContext jc) throws Exception {
+      call(0);
       return jc.sc().parallelize(Arrays.asList(1)).map(this).collect().get(0);
     }
 

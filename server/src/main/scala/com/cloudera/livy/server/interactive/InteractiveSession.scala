@@ -37,7 +37,7 @@ import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy._
-import com.cloudera.livy.client.local.{LocalClient, LocalConf}
+import com.cloudera.livy.client.local.{LocalClient, LocalConf, PingJob}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.utils.SparkProcessBuilder
 import com.cloudera.livy.Utils
@@ -123,8 +123,23 @@ class InteractiveSession(
     builder.build()
   }.asInstanceOf[LocalClient]
 
-  // Client is ready to receive commands now.
-  _state = SessionState.Idle()
+  // Send a dummy job that will return once the client is ready to be used, and set the
+  // state to "idle" at that point.
+  client.submit(new PingJob()).addListener(new JobHandle.Listener[Void]() {
+    override def onJobQueued(job: JobHandle[Void]): Unit = { }
+    override def onJobStarted(job: JobHandle[Void]): Unit = { }
+    override def onJobCancelled(job: JobHandle[Void]): Unit = { }
+    override def onSparkJobStarted(job: JobHandle[Void], jobId: Int): Unit = { }
+
+    override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = {
+      transition(SessionState.Error())
+      stop()
+    }
+
+    override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
+      transition(SessionState.Idle())
+    }
+  })
 
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
@@ -135,9 +150,9 @@ class InteractiveSession(
 
   override def stop(): Future[Unit] = {
     Future {
-      _state = SessionState.ShuttingDown()
+      transition(SessionState.ShuttingDown())
       client.stop(true)
-      _state = SessionState.Dead()
+      transition(SessionState.Dead())
     }
   }
 

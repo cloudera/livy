@@ -31,13 +31,13 @@ import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.Job;
 
-class JobWrapper<T> implements Callable<Void> {
+public class JobWrapper<T> implements Callable<Void> {
 
   private static final Logger LOG = LoggerFactory.getLogger(JobWrapper.class);
 
   public final String jobId;
 
-  private final RemoteDriver driver;
+  private final Driver driver;
   private final DriverProtocol client;
   private final List<JavaFutureAction<?>> sparkJobs;
   private final Job<T> job;
@@ -46,7 +46,7 @@ class JobWrapper<T> implements Callable<Void> {
   private Future<?> future;
 
   JobWrapper(Driver driver, DriverProtocol client, String jobId, Job<T> job) {
-    this.driver = (RemoteDriver) driver;
+    this.driver = driver;
     this.client = client;
     this.jobId = jobId;
     this.job = job;
@@ -65,7 +65,7 @@ class JobWrapper<T> implements Callable<Void> {
           jobSubmitted(future);
         }
       });
-      T result = job.call(driver.jc);
+      T result = job.call(driver.jobContext());
       synchronized (completed) {
         while (completed.get() < sparkJobs.size()) {
           LOG.debug("Client job {} finished, {} of {} Spark jobs finished.",
@@ -88,7 +88,7 @@ class JobWrapper<T> implements Callable<Void> {
       finished(null, t);
       throw new ExecutionException(t);
     } finally {
-      ((JobContextImpl)driver.jc).setMonitorCb(null);
+      driver.setMonitorCallback(null);
       driver.activeJobs.remove(jobId);
     }
     return null;

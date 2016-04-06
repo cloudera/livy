@@ -30,6 +30,7 @@ import org.apache.spark.SparkConf;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.JobContext;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.client.local.BaseProtocol;
 import com.cloudera.livy.client.local.LocalConf;
@@ -95,6 +96,12 @@ public abstract class Driver {
           + Joiner.on(" ").join(args));
       }
     }
+
+    // Set up a class loader that can be modified, so that we can add jars uploaded
+    // by the client to the driver's class path.
+    ClassLoader driverClassLoader = new MutableClassLoader(
+      Thread.currentThread().getContextClassLoader());
+    Thread.currentThread().setContextClassLoader(driverClassLoader);
 
     LOG.info("Connecting to: {}:{}", serverAddress, serverPort);
 
@@ -175,6 +182,10 @@ public abstract class Driver {
   public abstract void shutdownDriver();
 
   public abstract DriverProtocol createProtocol(Rpc client);
+
+  public abstract void submit(JobWrapper<?> job);
+
+  public abstract JobContext jobContext();
 
   public void run() throws InterruptedException {
     synchronized (shutdownLock) {

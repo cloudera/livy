@@ -42,6 +42,7 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
+import com.cloudera.livy.client.local.driver.AddJarJob;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import static com.cloudera.livy.client.local.LocalConf.Entry.*;
 
@@ -135,7 +136,7 @@ public class LocalClient implements LivyClient {
 
   @Override
   public Future<?> addJar(URI uri) {
-    return run(new AddJarJob(uri.toString()));
+    return submit(new AddJarJob(uri.toString()));
   }
 
   @Override
@@ -145,7 +146,7 @@ public class LocalClient implements LivyClient {
 
   @Override
   public Future<?> addFile(URI uri) {
-    return run(new AddFileJob(uri.toString()));
+    return submit(new AddFileJob(uri.toString()));
   }
 
   public String bypass(ByteBuffer serializedJob, boolean sync) {
@@ -282,26 +283,6 @@ public class LocalClient implements LivyClient {
       } else {
         LOG.warn("Received spark job ID: {} for unknown job {}", msg.sparkJobId, msg.clientJobId);
       }
-    }
-
-  }
-
-  private static class AddJarJob implements Job<Object> {
-
-    private final String path;
-
-    AddJarJob() {
-      this(null);
-    }
-
-    AddJarJob(String path) {
-      this.path = path;
-    }
-
-    @Override
-    public Object call(JobContext jc) throws Exception {
-      jc.sc().addJar(path);
-      return null;
     }
 
   }
