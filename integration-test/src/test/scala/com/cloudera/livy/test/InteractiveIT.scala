@@ -42,6 +42,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     sessionId = livyClient.startSession(Spark())
 
     matchResult("1+1", "res0: Int = 2")
+    matchResult("sqlContext", startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
     matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
       startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
 
@@ -54,6 +55,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     sessionId = livyClient.startSession(PySpark())
 
     matchResult("1+1", "2")
+    matchResult("sqlContext", startsWith("<pyspark.sql.context.HiveContext"))
     matchResult("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)",
       "9900")
 
@@ -71,6 +73,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
 
     matchResult("1+1", startsWith(s"[$count] 2"))
     matchResult("sqlContext <- sparkRSQL.init(sc)", null)
+    matchResult("hiveContext <- sparkRHive.init(sc)", null)
     matchResult("""localDF <- data.frame(name=c("John", "Smith", "Sarah"), age=c(19, 23, 18))""",
       null)
     matchResult("df <- createDataFrame(sqlContext, localDF)", null)

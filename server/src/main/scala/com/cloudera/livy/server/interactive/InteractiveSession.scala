@@ -22,12 +22,12 @@ import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
-import java.util.{HashMap => JHashMap}
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Future, _}
 import scala.util.{Failure, Success, Try}
 
@@ -45,6 +45,7 @@ import com.cloudera.livy.sessions._
 object InteractiveSession {
   val LivyReplJars = "livy.repl.jars"
   val SparkYarnIsPython = "spark.yarn.isPython"
+  val EnableHiveContext = "spark.repl.enableHiveContext"
 }
 
 class InteractiveSession(
@@ -70,18 +71,29 @@ class InteractiveSession(
     val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
       request.pyFiles)
 
-    info(s"Creating LivyClient for sessionId: $id")
-    val builder = new LivyClientBuilder()
-      .setConf("spark.app.name", s"livy-session-$id")
-      .setAll(conf.asJava)
-      .setConf("livy.client.sessionId", id.toString)
-      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
-      .setURI(new URI("rsc:/"))
+    val builderProperties = mutable.Map[String, String]()
+    builderProperties ++= conf
 
     def mergeConfList(list: Seq[String], key: String): Unit = {
       if (list.nonEmpty) {
-        val newList = (list ++ conf.get(key)).mkString(",")
-        builder.setConf(key, newList)
+        builderProperties.get(key) match {
+          case None =>
+            builderProperties.put(key, list.mkString(","))
+          case Some(oldList) =>
+            val newList = (oldList :: list.toList).mkString(",")
+            builderProperties.put(key, newList)
+        }
+      }
+    }
+
+    def mergeHiveSiteAndHiveDeps(): Unit = {
+      hiveSiteFile(livyConf) match {
+        case Some(file) =>
+          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+          builderProperties.put(EnableHiveContext, "true")
+        case None =>
+          builderProperties.put(EnableHiveContext, "false")
       }
     }
 
@@ -89,17 +101,18 @@ class InteractiveSession(
       case PySpark() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
-        builder.setConf(SparkYarnIsPython, "true")
+        builderProperties.put(SparkYarnIsPython, "true")
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
-          builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
         }
       case _ =>
     }
-    builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
+    builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
     mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
+    mergeHiveSiteAndHiveDeps()
 
     val userOpts: Map[String, Option[String]] = Map(
       "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -110,10 +123,17 @@ class InteractiveSession(
     )
 
     userOpts.foreach { case (key, opt) =>
-      opt.foreach { value => builder.setConf(key, value) }
+      opt.foreach { value => builderProperties.put(key, value) }
     }
 
-    builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
+    info(s"Creating LivyClient for sessionId: $id")
+    val builder = new LivyClientBuilder()
+      .setAll(builderProperties.asJava)
+      .setConf("spark.app.name", s"livy-session-$id")
+      .setConf("livy.client.sessionId", id.toString)
+      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
+      .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
+      .setURI(new URI("rsc:/"))
     builder.build()
   }.asInstanceOf[RSCClient]
 
@@ -266,6 +286,51 @@ class InteractiveSession(
         rArchivesFile.getAbsolutePath()
       }
     }
+  }
+
+  private def datanucleusJars(livyConf: LivyConf): ArrayBuffer[String] = {
+    if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
+      // datanucleus jars has already been in classpath in integration test
+      ArrayBuffer.empty
+    } else {
+      val jars = ArrayBuffer.empty[String]
+      val sparkHome = livyConf.sparkHome().get
+      val libdir =
+        if (new File(sparkHome, "RELEASE").isFile) {
+          new File(sparkHome, "lib")
+        } else {
+          new File(sparkHome, "lib_managed/jars")
+        }
+
+      if (libdir.isDirectory()) {
+        jars ++= libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
+          .map(_.getAbsolutePath)
+      }
+      require(jars.nonEmpty, "datanucleus jars can not be found")
+      jars
+    }
+  }
+
+  /**
+   * Look for hive-site.xml
+   * 1. First look for under classpath
+   * 2. If not found under classpath, then look for that under SPARK_CONF_DIR and SPARK_HOME/conf
+   * @param livyConf
+   * @return
+   */
+  private def hiveSiteFile(livyConf: LivyConf): Option[File] = {
+    val hiveSiteURL = getClass.getResource("/hive-site.xml")
+    if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
+      return Some(new File(hiveSiteURL.toURI))
+    }
+    val hiveSiteFile = sys.env.get("SPARK_CONF_DIR")
+      .map(conf_dir => new File(conf_dir + "/hive-site.xml"))
+      .getOrElse(new File(livyConf.sparkHome().get + "/conf/hive-site.xml"))
+    if (hiveSiteFile.isFile) {
+      return Some(hiveSiteFile)
+    }
+    warn("Can't find hive-site.xml under SPARK_CONF_DIR, SPARK_HOME/conf and livy's CLASSPATH")
+    None
   }
 
   private def findPySparkArchives(): Seq[String] = {

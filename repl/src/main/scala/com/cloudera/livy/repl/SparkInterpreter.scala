@@ -29,6 +29,8 @@ import scala.util.{Failure, Success, Try}
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.repl.SparkIMain
+import org.apache.spark.sql.hive.HiveContext
+import org.apache.spark.sql.SQLContext
 import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
@@ -53,6 +55,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
   private val outputStream = new ByteArrayOutputStream()
   private var sparkIMain: SparkIMain = _
   private var sparkContext: SparkContext = _
+  private var sqlContext: SQLContext = _
 
   def kind: String = "spark"
 
@@ -118,12 +121,33 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
       }
 
       sparkContext = SparkContext.getOrCreate(conf)
-
+      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
+        try {
+          val loader = Option(Thread.currentThread().getContextClassLoader)
+            .getOrElse(getClass.getClassLoader)
+          sqlContext = new HiveContext(sparkContext)
+          info("Created sql context (with Hive support)..")
+        } catch {
+          case _: java.lang.NoClassDefFoundError =>
+            sqlContext = new SQLContext(sparkContext)
+            info("Created sql context..")
+        }
+      } else {
+        sqlContext = new SQLContext(sparkContext)
+        info("Created sql context..")
+      }
       sparkIMain.beQuietDuring {
         sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
       }
+      sparkIMain.beQuietDuring {
+        sparkIMain.bind("sqlContext", sqlContext.getClass.getCanonicalName,
+          sqlContext, List("""@transient"""))
+      }
+      execute("import org.apache.spark.SparkContext._")
+      execute("import sqlContext.implicits._")
+      execute("import sqlContext.sql")
+      execute("import org.apache.spark.sql.functions._")
     }
-
     sparkContext
   }
 
@@ -144,6 +168,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
       sparkIMain.close()
       sparkIMain = null
     }
+    sqlContext = null
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {
