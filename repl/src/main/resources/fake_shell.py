@@ -22,11 +22,11 @@ import json
 import logging
 import sys
 import traceback
-import base64  
+import base64
 import io
 import os
 
-if sys.version >= '3' :    
+if sys.version >= '3' :
     unicode = str
 else :
     import StringIO
@@ -96,7 +96,7 @@ class NormalNode(object):
                 exec(code, global_dict)
         except :
             # We don't need to log the exception because we're just executing user
-            # code and passing the error along.            
+            # code and passing the error along.
             raise ExecutionError(sys.exc_info())
 
 
@@ -138,7 +138,7 @@ def parse_code_into_nodes(code):
 
         # Split the code into chunks of normal code, and possibly magic code, which starts with
         # a '%'.
-        
+
         normal = []
         chunks = []
         for i, line in enumerate(code.rstrip().split('\n')):
@@ -268,7 +268,7 @@ def magic_table_convert_map(m):
 magic_table_types = {
     type(None): lambda x: ('NULL_TYPE', x),
     bool: lambda x: ('BOOLEAN_TYPE', x),
-    int: lambda x: ('INT_TYPE', x),    
+    int: lambda x: ('INT_TYPE', x),
     float: lambda x: ('DOUBLE_TYPE', x),
     str: lambda x: ('STRING_TYPE', str(x)),
     datetime.date: lambda x: ('DATE_TYPE', str(x)),
@@ -276,16 +276,16 @@ magic_table_types = {
     decimal.Decimal: lambda x: ('DECIMAL_TYPE', str(x)),
     tuple: magic_table_convert_seq,
     list: magic_table_convert_seq,
-    dict: magic_table_convert_map,    
+    dict: magic_table_convert_map,
 }
 
 # python 2.x only
-if sys.version < '3': 
+if sys.version < '3':
     magic_table_types.update({
-        long: lambda x: ('BIGINT_TYPE', x), 
+        long: lambda x: ('BIGINT_TYPE', x),
         unicode: lambda x: ('STRING_TYPE', x.encode('utf-8'))
     })
-    
+
 
 
 def magic_table(name):
@@ -364,7 +364,7 @@ def magic_matplot(name):
         encode = base64.b64encode(imgdata.getvalue())
         if sys.version >= '3' :
             encode = encode.decode()
-        
+
     except:
         exc_type, exc_value, tb = sys.exc_info()
         return execute_reply_error(exc_type, exc_value, None)
@@ -397,7 +397,7 @@ else :
     fake_stdin = StringIO.StringIO()
     fake_stdout = StringIO.StringIO()
     fake_stderr = StringIO.StringIO()
-    
+
 
 def main():
     sys_stdin = sys.stdin
@@ -408,23 +408,23 @@ def main():
     sys.stdout = fake_stdout
     sys.stderr = fake_stderr
 
-    try:        
+    try:
         if os.environ.get("livy.test") != "true":
             # Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
         print(fake_stdout.getvalue(), file=sys_stderr)
         print(fake_stderr.getvalue(), file=sys_stderr)
-        
+
         fake_stdout.truncate(0)
         fake_stdout.seek(0)
         fake_stderr.truncate(0)
         fake_stderr.seek(0)
-        
+
         print('READY', file=sys_stdout)
         sys_stdout.flush()
 
         while True:
-            line = sys_stdin.readline()            
+            line = sys_stdin.readline()
 
             if line == '':
                 break
