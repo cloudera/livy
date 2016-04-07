@@ -48,6 +48,7 @@ public class LocalConf extends ClientConf<LocalConf> {
     CLIENT_REPL_MODE("repl", false),
 
     LIVY_JARS("jars", null),
+    SPARKR_PACKAGE("sparkr.package", null),
 
     PROXY_USER("proxy_user", null),
 
