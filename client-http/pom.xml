@@ -117,7 +117,6 @@
                 </includes>
                 <excludes>
                   <exclude>com.cloudera.livy:livy-api</exclude>
-                  <exclude>com.cloudera.livy:livy-client-common</exclude>
                 </excludes>
               </artifactSet>
               <filters>

@@ -32,9 +32,20 @@ if [ ! -d "$LIBDIR" ]; then
   exit 1
 fi
 
-CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
+
+LIVY_CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf"
+
+if [ -n "$SPARK_CONF_DIR" ]; then
+  LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_CONF_DIR"
+fi
+if [ -n "$HADOOP_CONF_DIR" ]; then
+  LIVY_CLASSPATH="$LIVY_CLASSPATH:$HADOOP_CONF_DIR"
+fi
+if [ -n "$YARN_CONF_DIR" ]; then
+  LIVY_CLASSPATH="$LIVY_CLASSPATH:$YARN_CONF_DIR"
+fi
 
 exec java \
 	$LIVY_SERVER_JAVA_OPTS \
-	-cp "$CLASSPATH" \
+	-cp "$LIVY_CLASSPATH:$CLASSPATH" \
 	com.cloudera.livy.server.Main

@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.server
 
+import java.io.ByteArrayOutputStream
 import javax.servlet.http.HttpServletResponse._
 
 import scala.reflect.ClassTag
@@ -98,13 +99,31 @@ abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
 
   private def doTest[R: ClassTag](expectedStatus: Int, fn: R => Unit)
       (implicit klass: ClassTag[R]): Unit = {
-    status should be (expectedStatus)
+    if (status != expectedStatus) {
+      // Yeah this is weird, but we don't want to evaluate "response.body" if there's no error.
+      assert(status === expectedStatus,
+        s"Unexpected response status: $status != $expectedStatus (${response.body})")
+    }
     // Only try to parse the body if response is in the "OK" range (20x).
     if ((status / 100) * 100 == SC_OK) {
       val result =
         if (header("Content-Type").startsWith("application/json")) {
-          if (header("Content-Length").toInt > 0) {
-            mapper.readValue(response.inputStream, klass.runtimeClass)
+          // Sometimes there's an empty body with no "Content-Length" header. So read the whole
+          // body first, and only send it to Jackson if there's content.
+          val in = response.inputStream
+          val out = new ByteArrayOutputStream()
+          val buf = new Array[Byte](1024)
+          var read = 0
+          while (read >= 0) {
+            read = in.read(buf)
+            if (read > 0) {
+              out.write(buf, 0, read)
+            }
+          }
+
+          val data = out.toByteArray()
+          if (data.length > 0) {
+            mapper.readValue(data, klass.runtimeClass)
           } else {
             null
           }

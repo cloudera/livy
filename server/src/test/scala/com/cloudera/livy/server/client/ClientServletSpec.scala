@@ -31,6 +31,7 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
 
+import org.apache.commons.io.FileUtils
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.api.java.function.VoidFunction
 import org.scalatest.concurrent.Eventually._
@@ -45,6 +46,23 @@ class ClientServletSpec
   extends BaseSessionServletSpec[ClientSession] {
 
   private val PROXY = "__proxy__"
+
+  private var tempDir: File = _
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    if (tempDir != null) {
+      scala.util.Try(FileUtils.deleteDirectory(tempDir))
+      tempDir = null
+    }
+  }
+
+  override protected def createConf(): LivyConf = synchronized {
+    if (tempDir == null) {
+      tempDir = Files.createTempDirectory("client-test").toFile()
+    }
+    super.createConf().set(LivyConf.SESSION_STAGING_DIR, tempDir.toURI().toString())
+  }
 
   override def createServlet(): ClientSessionServlet = {
     new ClientSessionServlet(createConf()) with RemoteUserOverride
@@ -134,6 +152,9 @@ class ClientServletSpec
           case _ => fail("Response is not an array.")
         }
       }
+
+      // Make sure the session's staging directory was cleaned up.
+      assert(tempDir.listFiles().length === 0)
     }
 
     it("should support user impersonation") {
@@ -159,8 +180,13 @@ class ClientServletSpec
           data.proxyUser should be (PROXY)
           val user = runJob(data.id, new GetUserJob(), headers = adminHeaders)
           user should be (PROXY)
+
+          // Test that files are uploaded to a new session directory.
+          assert(tempDir.listFiles().length === 0)
+          testResourceUpload("file", data.id)
         } finally {
           deleteSession(data.id)
+          assert(tempDir.listFiles().length === 0)
         }
       }
     }
@@ -185,12 +211,17 @@ class ClientServletSpec
 
   private def testResourceUpload(cmd: String, sessionId: Int): Unit = {
     val f = File.createTempFile("uploadTestFile", cmd)
-    val conf = new LivyConf()
+    val conf = createConf()
 
     Files.write(Paths.get(f.getAbsolutePath), "Test data".getBytes())
 
     jupload[Unit](s"/$sessionId/upload-$cmd", Map(cmd -> f), expectedStatus = SC_OK) { _ =>
-      val resultFile = new File(new URI(s"${conf.livyHome()}/$sessionId/${f.getName}"))
+      // There should be a single directory under the staging dir.
+      val subdirs = tempDir.listFiles()
+      assert(subdirs.length === 1)
+      val stagingDir = subdirs(0).toURI().toString()
+
+      val resultFile = new File(new URI(s"$stagingDir/${f.getName}"))
       resultFile.deleteOnExit()
       resultFile.exists() should be(true)
       Source.fromFile(resultFile).mkString should be("Test data")
