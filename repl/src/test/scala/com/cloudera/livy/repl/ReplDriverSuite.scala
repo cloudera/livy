@@ -46,7 +46,7 @@ class ReplDriverSuite extends FunSuite {
       .setConf(LocalConf.Entry.LIVY_JARS.key(), "")
       .setConf("session.kind", Spark().toString)
       .setURI(new URI("local:spark"))
-      .setConf(LocalConf.Entry.CLIENT_REPL_MODE.key(), "true")
+      .setConf(LocalConf.Entry.DRIVER_CLASS.key(), classOf[ReplDriver].getName())
       .build()
       .asInstanceOf[LocalClient]
 
