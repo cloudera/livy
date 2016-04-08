@@ -45,7 +45,7 @@ import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cloudera.livy.client.local.driver.RemoteDriver;
+import com.cloudera.livy.client.local.driver.RSCDriverBootstrapper;
 import com.cloudera.livy.client.local.rpc.Rpc;
 import com.cloudera.livy.client.local.rpc.RpcDispatcher;
 import com.cloudera.livy.client.local.rpc.RpcServer;
@@ -84,13 +84,7 @@ class ContextLauncher implements ContextInfo {
       factory.getServer().registerClient(clientId, secret, handler);
       String replMode = conf.get("repl");
       boolean repl = replMode != null && replMode.equals("true");
-      String className;
-      if (conf.getBoolean(CLIENT_REPL_MODE)) {
-        className = "com.cloudera.livy.repl.ReplDriver";
-      } else {
-        className = RemoteDriver.class.getName();
-      }
-      this.child = startDriver(factory.getServer(), conf, clientId, secret, className);
+      this.child = startDriver(factory.getServer(), conf, clientId, secret);
 
       // Wait for the handler to receive the driver information. Wait a little at a time so
       // that we can check whether the child process is still alive, and throw an error if the
@@ -155,42 +149,63 @@ class ContextLauncher implements ContextInfo {
       final RpcServer rpcServer,
       final LocalConf conf,
       final String clientId,
-      final String secret,
-      final String className) throws IOException {
-    final String serverAddress = rpcServer.getAddress();
-    final String serverPort = String.valueOf(rpcServer.getPort());
+      final String secret) throws IOException {
+    // Write out the config file used by the remote context.
+    conf.set(LAUNCHER_ADDRESS, rpcServer.getAddress());
+    conf.set(LAUNCHER_PORT, rpcServer.getPort());
+    conf.set(CLIENT_ID, clientId);
+    conf.set(CLIENT_SECRET, secret);
+
+    String livyJars = conf.get(LIVY_JARS);
+    if (livyJars == null) {
+      String livyHome = System.getenv("LIVY_HOME");
+      Preconditions.checkState(livyHome != null,
+        "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
+      File clientJars = new File(livyHome, "client-jars");
+      Preconditions.checkState(clientJars.isDirectory(),
+        "Cannot find 'client-jars' directory under LIVY_HOME.");
+      List<String> jars = new ArrayList<>();
+      for (File f : clientJars.listFiles()) {
+         jars.add(f.getAbsolutePath());
+      }
+      livyJars = Joiner.on(",").join(jars);
+    }
+    merge(conf, SPARK_JARS_KEY, livyJars, ",");
+
+    if ("sparkr".equals(conf.get("session.kind"))) {
+      merge(conf, SPARK_ARCHIVES_KEY, conf.get(LocalConf.Entry.SPARKR_PACKAGE), ",");
+    }
+
+    // Disable multiple attempts since the RPC server doesn't yet support multiple
+    // connections for the same registered app.
+    conf.set("spark.yarn.maxAppAttempts", "1");
+
+    // For testing; propagate jacoco settings so that we also do coverage analysis
+    // on the launched driver. We replace the name of the main file ("main.exec")
+    // so that we don't end up fighting with the main test launcher.
+    String jacocoArgs = System.getProperty("jacoco.args");
+    if (jacocoArgs != null) {
+      jacocoArgs = jacocoArgs.replace("main.exec", "child.exec");
+      merge(conf, SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, jacocoArgs, " ");
+    }
+
+    final File confFile = writeConfToFile(conf);
+
     if (conf.get(CLIENT_IN_PROCESS) != null) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
       Runnable child = new Runnable() {
         @Override
         public void run() {
-          List<String> args = new ArrayList<>();
-          args.add("--remote-host");
-          args.add(serverAddress);
-          args.add("--remote-port");
-          args.add(serverPort);
-          args.add("--client-id");
-          args.add(clientId);
-          args.add("--secret");
-          args.add(secret);
-
-          for (Map.Entry<String, String> e : conf) {
-            args.add("--conf");
-            args.add(String.format("%s=%s", e.getKey(), e.getValue()));
-          }
           try {
-            RemoteDriver.main(args.toArray(new String[args.size()]));
+            RSCDriverBootstrapper.main(new String[] { confFile.getAbsolutePath() });
           } catch (Exception e) {
-            LOG.error("Error running driver.", e);
+            throw Throwables.propagate(e);
           }
         }
       };
-      return new ChildProcess(conf, child);
+      return new ChildProcess(conf, child, confFile);
     } else {
-      // If a Spark installation is provided, use the spark-submit script. Otherwise, call the
-      // SparkSubmit class directly, which has some caveats (like having to provide a proper
-      // version of Guava on the classpath depending on the deploy mode).
       final SparkLauncher launcher = new SparkLauncher();
       String sparkHome = conf.get(SPARK_HOME_KEY);
       if (sparkHome == null) {
@@ -201,66 +216,8 @@ class ContextLauncher implements ContextInfo {
         sparkHome = System.getProperty(SPARK_HOME_KEY);
       }
       launcher.setSparkHome(sparkHome);
-      conf.set(CLIENT_ID, clientId);
-      conf.set(CLIENT_SECRET, secret);
 
       launcher.setAppResource("spark-internal");
-
-      String livyJars = conf.get(LIVY_JARS);
-      if (livyJars == null) {
-        String livyHome = System.getenv("LIVY_HOME");
-        Preconditions.checkState(livyHome != null,
-          "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
-        File clientJars = new File(livyHome, "client-jars");
-        Preconditions.checkState(clientJars.isDirectory(),
-          "Cannot find 'client-jars' directory under LIVY_HOME.");
-        List<String> jars = new ArrayList<>();
-        for (File f : clientJars.listFiles()) {
-           jars.add(f.getAbsolutePath());
-        }
-        livyJars = Joiner.on(",").join(jars);
-      }
-
-      String userJars = conf.get(SPARK_JARS_KEY);
-      String userArchives = conf.get(SPARK_ARCHIVES_KEY);
-
-      if ("sparkr".equals(conf.get("session.kind"))) {
-        String sparkRArchives = conf.get(LocalConf.Entry.SPARKR_PACKAGE);
-        if (userArchives != null) {
-            String archives = Joiner.on(",").join(sparkRArchives, userArchives);
-            conf.set(SPARK_ARCHIVES_KEY, archives);
-        } else {
-            conf.set(SPARK_ARCHIVES_KEY, sparkRArchives);
-        }
-      }
-
-      if (userJars != null) {
-        String allJars = Joiner.on(",").join(livyJars, userJars);
-        conf.set(SPARK_JARS_KEY, allJars);
-      } else {
-        conf.set(SPARK_JARS_KEY, livyJars);
-      }
-
-      // For testing; propagate jacoco settings so that we also do coverage analysis
-      // on the launched driver. We replace the name of the main file ("main.exec")
-      // so that we don't end up fighting with the main test launcher.
-      String jacocoArgs = System.getProperty("jacoco.args");
-      if (jacocoArgs != null) {
-        jacocoArgs = jacocoArgs.replace("main.exec", "child.exec");
-        String userArgs = conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS);
-        if (userArgs != null) {
-          userArgs = userArgs + " " + jacocoArgs;
-        } else {
-          userArgs = jacocoArgs;
-        }
-        conf.set(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, userArgs);
-      }
-
-      // Disable multiple attempts since the RPC server doesn't yet support multiple
-      // connections for the same registered app.
-      conf.set("spark.yarn.maxAppAttempts", "1");
-
-      File confFile = writeConfToFile(conf);
 
       // Define how to pass options to the child process. If launching in client (or local)
       // mode, the driver options need to be passed directly on the command line. Otherwise,
@@ -269,15 +226,18 @@ class ContextLauncher implements ContextInfo {
       Preconditions.checkArgument(master != null, "spark.master is not defined.");
       launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
-      launcher.setMainClass(className);
+      launcher.setMainClass(RSCDriverBootstrapper.class.getName());
       if (conf.get(PROXY_USER) != null) {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
-      launcher.addAppArgs("--remote-host", serverAddress);
-      launcher.addAppArgs("--remote-port",  serverPort);
 
-      return new ChildProcess(conf, launcher.launch());
+      return new ChildProcess(conf, launcher.launch(), confFile);
     }
+  }
+
+  private static void merge(LocalConf conf, String key, String livyConf, String sep) {
+    String confValue = Joiner.on(sep).skipNulls().join(livyConf, conf.get(key));
+    conf.set(key, confValue);
   }
 
   /**
@@ -375,23 +335,26 @@ class ContextLauncher implements ContextInfo {
     private final Thread monitor;
     private final Thread stdout;
     private final Thread stderr;
+    private final File confFile;
     private volatile boolean childFailed;
 
-    public ChildProcess(LocalConf conf, Runnable child) {
+    public ChildProcess(LocalConf conf, Runnable child, File confFile) {
       this.conf = conf;
       this.monitor = monitor(child, CHILD_IDS.incrementAndGet());
       this.child = null;
       this.stdout = null;
       this.stderr = null;
+      this.confFile = confFile;
       this.childFailed = false;
     }
 
-    public ChildProcess(LocalConf conf, final Process childProc) {
+    public ChildProcess(LocalConf conf, final Process childProc, File confFile) {
       int childId = CHILD_IDS.incrementAndGet();
       this.conf = conf;
       this.child = childProc;
       this.stdout = redirect("stdout-redir-" + childId, child.getInputStream());
       this.stderr = redirect("stderr-redir-" + childId, child.getErrorStream());
+      this.confFile = confFile;
       this.childFailed = false;
 
       Runnable monitorTask = new Runnable() {
@@ -470,8 +433,18 @@ class ContextLauncher implements ContextInfo {
       return thread;
     }
 
-    private Thread monitor(Runnable task, int childId) {
-      Thread thread = new Thread(task);
+    private Thread monitor(final Runnable task, int childId) {
+      Runnable wrappedTask = new Runnable() {
+        @Override
+        public void run() {
+          try {
+            task.run();
+          } finally {
+            confFile.delete();
+          }
+        }
+      };
+      Thread thread = new Thread(wrappedTask);
       thread.setDaemon(true);
       thread.setName("ContextLauncher-" + childId);
       thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {

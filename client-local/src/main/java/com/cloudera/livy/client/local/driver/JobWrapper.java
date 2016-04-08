@@ -37,17 +37,15 @@ public class JobWrapper<T> implements Callable<Void> {
 
   public final String jobId;
 
-  private final Driver driver;
-  private final DriverProtocol client;
+  private final RSCDriver driver;
   private final List<JavaFutureAction<?>> sparkJobs;
   private final Job<T> job;
   private final AtomicInteger completed;
 
   private Future<?> future;
 
-  JobWrapper(Driver driver, DriverProtocol client, String jobId, Job<T> job) {
+  JobWrapper(RSCDriver driver, String jobId, Job<T> job) {
     this.driver = driver;
-    this.client = client;
     this.jobId = jobId;
     this.job = job;
     this.sparkJobs = Lists.newArrayList();
@@ -58,7 +56,7 @@ public class JobWrapper<T> implements Callable<Void> {
   public Void call() throws Exception {
     try {
       jobStarted();
-      driver.setMonitorCallback(new MonitorCallback() {
+      driver.jobContext().setMonitorCb(new MonitorCallback() {
         @Override
         public void call(JavaFutureAction<?> future) {
           sparkJobs.add(future);
@@ -88,7 +86,7 @@ public class JobWrapper<T> implements Callable<Void> {
       finished(null, t);
       throw new ExecutionException(t);
     } finally {
-      driver.setMonitorCallback(null);
+      driver.jobContext().setMonitorCb(null);
       driver.activeJobs.remove(jobId);
     }
     return null;
@@ -123,23 +121,23 @@ public class JobWrapper<T> implements Callable<Void> {
   }
 
   void recordNewJob(int sparkJobId) {
-    client.jobSubmitted(jobId, sparkJobId);
+    driver.jobSubmitted(jobId, sparkJobId);
   }
 
   protected void finished(T result, Throwable error) {
     if (error == null) {
-      client.jobFinished(jobId, result, null);
+      driver.jobFinished(jobId, result, null);
     } else {
-      client.jobFinished(jobId, null, error);
+      driver.jobFinished(jobId, null, error);
     }
   }
 
   protected void jobSubmitted(JavaFutureAction<?> job) {
-    client.jobSubmitted(jobId, job.jobIds().get(0));
+    driver.jobSubmitted(jobId, job.jobIds().get(0));
   }
 
   protected void jobStarted() {
-    client.jobStarted(jobId);
+    driver.jobStarted(jobId);
   }
 
 }

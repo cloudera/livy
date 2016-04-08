@@ -19,104 +19,66 @@
 package com.cloudera.livy.repl
 
 import scala.collection.mutable
+import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
 
 import io.netty.channel.ChannelHandlerContext
+import org.apache.spark.SparkConf
+import org.apache.spark.api.java.JavaSparkContext
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy.{JobContext, Logging}
-import com.cloudera.livy.client.local.BaseProtocol
-import com.cloudera.livy.client.local.driver.{Driver, DriverProtocol, JobWrapper, MonitorCallback}
+import com.cloudera.livy.client.local.{BaseProtocol, LocalConf}
+import com.cloudera.livy.client.local.driver.RSCDriver
 import com.cloudera.livy.client.local.rpc.Rpc
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 import com.cloudera.livy.sessions._
 
-class ReplProtocol(driver: ReplDriver, clientRpc: Rpc, jcLock: Object)
-  extends DriverProtocol(driver, clientRpc, jcLock) {
+class ReplDriver(conf: SparkConf, livyConf: LocalConf)
+  extends RSCDriver(conf, livyConf)
+  with Logging {
 
-  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Unit = {
-    driver.run(msg.id, msg.code)
-  }
-
-  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResult): String = {
-    val result = driver.getJobStatus(msg.id)
-    Option(result).map { r => compact(render(r)) }.orNull
-  }
-
-  private def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
-    return driver.session.state.toString
-  }
-
-}
-
-class ReplDriver(args: Array[String]) extends Driver(args) with Logging {
   private val jobFutures = mutable.Map[String, JValue]()
 
-  private val interpreter = Kind(getLivyConf.get("session.kind")) match {
+  private val interpreter = Kind(livyConf.get("session.kind")) match {
     case PySpark() => PythonInterpreter()
     case Spark() => SparkInterpreter()
     case SparkR() => SparkRInterpreter()
   }
 
   private[repl] val session = Session(interpreter)
-  jcLock.synchronized {
-    jcLock.notifyAll()
+
+  override protected def initializeContext(): JavaSparkContext = {
+    Await.ready(session.startTask, Duration.Inf)
+    null
   }
 
-  override def createProtocol(client: Rpc): DriverProtocol = {
-    new ReplProtocol(this, client, jcLock)
-  }
-
-  override def shutdownDriver(): Unit = {
-    session.close()
-  }
-
-  override def setMonitorCallback(bc: MonitorCallback): Unit = {
-    // no op
-  }
-
-  override def submit(job: JobWrapper[_]): Unit = {
-    info(s"Received job ${job.getClass.getName()}")
-
-    // Since the parent class sets up the RPC channel, messages may arrive before the fields
-    // in this class have been properly initialized. Use the jcLock field to make sure this
-    // method waits until needed fields are initialized.
-    jcLock.synchronized {
-      while (session == null) {
-        jcLock.wait()
-      }
-    }
-
-    session.startTask.andThen {
-      case Success(_) =>
-        info(s"Running job ${job.getClass.getName()}")
-        job.call()
-      case Failure(_) => // Session will die in this case.
-        info("Session start failed.")
+  override protected def shutdownContext(): Unit = {
+    try {
+      session.close()
+    } finally {
+      super.shutdownContext()
     }
   }
 
-  override def jobContext(): JobContext = null
-
-  def run(id: String, code: String): Unit = {
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Unit = {
     Future {
-      jobFutures(id) = session.execute(code).result
+      jobFutures(msg.id) = session.execute(msg.code).result
     }
   }
 
-  def getJobStatus(id: String): JValue = {
-    jobFutures.getOrElse(id, null)
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResult): String = {
+    val result = jobFutures.getOrElse(msg.id, null)
+    Option(result).map { r => compact(render(r)) }.orNull
   }
 
-}
-
-object ReplDriver {
-
-  def main(args: Array[String]): Unit = new ReplDriver(args).run()
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
+    return session.state.toString
+  }
 
 }
