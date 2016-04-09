@@ -55,5 +55,9 @@ if [ -n "$PROP_FILE" ]; then
   fi
 fi
 
+if [ -n "$LIVY_TEST_CLASSPATH" ]; then
+  DRIVER_CP="$DRIVER_CP:$LIVY_TEST_CLASSPATH"
+fi
+
 echo "Running Spark: " $JAVA_HOME/bin/java $DRIVER_OPTS org.apache.spark.deploy.SparkSubmit "$@" >&2
 exec $JAVA_HOME/bin/java $DRIVER_OPTS -cp "$DRIVER_CP" org.apache.spark.deploy.SparkSubmit "$@"
