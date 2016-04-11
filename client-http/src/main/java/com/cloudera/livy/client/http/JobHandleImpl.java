@@ -234,12 +234,6 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
         Throwable error = null;
         boolean finished = false;
 
-        if (status.newSparkJobs != null) {
-          for (Integer i : status.newSparkJobs) {
-            addSparkJobId(i);
-          }
-        }
-
         switch (status.state) {
           case SUCCEEDED:
             @SuppressWarnings("unchecked")

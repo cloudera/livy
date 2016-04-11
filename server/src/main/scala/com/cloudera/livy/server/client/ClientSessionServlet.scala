@@ -67,7 +67,7 @@ class ClientSessionServlet(livyConf: LivyConf)
       try {
       require(req.job != null && req.job.length > 0, "no job provided.")
       val jobId = session.submitJob(req.job)
-      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null, null))
+      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null))
       } catch {
         case e: Throwable =>
           e.printStackTrace()
@@ -80,7 +80,7 @@ class ClientSessionServlet(livyConf: LivyConf)
     withSession { session =>
       require(req.job != null && req.job.length > 0, "no job provided.")
       val jobId = session.runJob(req.job)
-      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null, null))
+      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null))
     }
   }
 

@@ -28,19 +28,12 @@ import com.cloudera.livy.annotations.Private;
 @Private
 public abstract class AbstractJobHandle<T> implements JobHandle<T> {
 
-  private final List<Integer> sparkJobIds;
   protected final List<Listener<T>> listeners;
   protected volatile State state;
 
   protected AbstractJobHandle() {
     this.listeners = new LinkedList<>();
-    this.sparkJobIds = new CopyOnWriteArrayList<Integer>();
     this.state = State.SENT;
-  }
-
-  @Override
-  public List<Integer> getSparkJobIds() {
-    return sparkJobIds;
   }
 
   @Override
@@ -52,22 +45,7 @@ public abstract class AbstractJobHandle<T> implements JobHandle<T> {
   public void addListener(Listener<T> l) {
     synchronized (listeners) {
       listeners.add(l);
-      // If current state is a final state, notify of Spark job IDs before notifying about the
-      // state transition.
-      if (state.ordinal() >= State.CANCELLED.ordinal()) {
-        for (Integer i : sparkJobIds) {
-          l.onSparkJobStarted(this, i);
-        }
-      }
-
       fireStateChange(state, l);
-
-      // Otherwise, notify about Spark jobs after the state notification.
-      if (state.ordinal() < State.CANCELLED.ordinal()) {
-        for (Integer i : sparkJobIds) {
-          l.onSparkJobStarted(this, i);
-        }
-      }
     }
   }
 
@@ -90,15 +68,6 @@ public abstract class AbstractJobHandle<T> implements JobHandle<T> {
         return true;
       }
       return false;
-    }
-  }
-
-  public void addSparkJobId(int sparkJobId) {
-    synchronized (listeners) {
-      sparkJobIds.add(sparkJobId);
-      for (Listener<T> l : listeners) {
-        l.onSparkJobStarted(this, sparkJobId);
-      }
     }
   }
 

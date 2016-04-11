@@ -56,13 +56,6 @@ public class JobWrapper<T> implements Callable<Void> {
   public Void call() throws Exception {
     try {
       jobStarted();
-      driver.jobContext().setMonitorCb(new MonitorCallback() {
-        @Override
-        public void call(JavaFutureAction<?> future) {
-          sparkJobs.add(future);
-          jobSubmitted(future);
-        }
-      });
       T result = job.call(driver.jobContext());
       synchronized (completed) {
         while (completed.get() < sparkJobs.size()) {
@@ -86,7 +79,6 @@ public class JobWrapper<T> implements Callable<Void> {
       finished(null, t);
       throw new ExecutionException(t);
     } finally {
-      driver.jobContext().setMonitorCb(null);
       driver.activeJobs.remove(jobId);
     }
     return null;
@@ -120,20 +112,12 @@ public class JobWrapper<T> implements Callable<Void> {
     return false;
   }
 
-  void recordNewJob(int sparkJobId) {
-    driver.jobSubmitted(jobId, sparkJobId);
-  }
-
   protected void finished(T result, Throwable error) {
     if (error == null) {
       driver.jobFinished(jobId, result, null);
     } else {
       driver.jobFinished(jobId, null, error);
     }
-  }
-
-  protected void jobSubmitted(JavaFutureAction<?> job) {
-    driver.jobSubmitted(jobId, job.jobIds().get(0));
   }
 
   protected void jobStarted() {

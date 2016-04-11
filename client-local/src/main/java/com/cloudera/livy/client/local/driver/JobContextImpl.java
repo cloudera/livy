@@ -36,7 +36,6 @@ class JobContextImpl implements JobContext {
   private static final Logger LOG = LoggerFactory.getLogger(JobContextImpl.class);
 
   private final JavaSparkContext sc;
-  private final ThreadLocal<MonitorCallback> monitorCb;
   private final File localTmpDir;
   private volatile SQLContext sqlctx;
   private volatile HiveContext hivectx;
@@ -44,7 +43,6 @@ class JobContextImpl implements JobContext {
 
   public JobContextImpl(JavaSparkContext sc, File localTmpDir) {
     this.sc = sc;
-    this.monitorCb = new ThreadLocal<MonitorCallback>();
     this.localTmpDir = localTmpDir;
   }
 
@@ -97,18 +95,8 @@ class JobContextImpl implements JobContext {
   }
 
   @Override
-  public <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job) {
-    monitorCb.get().call(job);
-    return job;
-  }
-
-  @Override
   public File getLocalTmpDir() {
     return localTmpDir;
-  }
-
-  void setMonitorCb(MonitorCallback cb) {
-    monitorCb.set(cb);
   }
 
   public synchronized void stop() {

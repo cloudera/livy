@@ -129,7 +129,6 @@ class InteractiveSession(
     override def onJobQueued(job: JobHandle[Void]): Unit = { }
     override def onJobStarted(job: JobHandle[Void]): Unit = { }
     override def onJobCancelled(job: JobHandle[Void]): Unit = { }
-    override def onSparkJobStarted(job: JobHandle[Void], jobId: Int): Unit = { }
 
     override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = {
       transition(SessionState.Error())

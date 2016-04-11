@@ -109,7 +109,7 @@ class ClientSession(
     recordActivity()
     // TODO: don't block indefinitely?
     val status = client.getBypassJobStatus(clientJobId).get()
-    new JobStatus(id, status.state, status.result, status.error, status.newSparkJobs)
+    new JobStatus(id, status.state, status.result, status.error)
   }
 
   def cancelJob(id: Long): Unit = {
