@@ -180,6 +180,10 @@ class ContextLauncher implements ContextInfo {
     // connections for the same registered app.
     conf.set("spark.yarn.maxAppAttempts", "1");
 
+    // Let the launcher go away when launcher in yarn cluster mode. This avoids keeping lots
+    // of "small" Java processes lingering on the Livy server node.
+    conf.set("spark.yarn.submit.waitAppCompletion", "false");
+
     // For testing; propagate jacoco settings so that we also do coverage analysis
     // on the launched driver. We replace the name of the main file ("main.exec")
     // so that we don't end up fighting with the main test launcher.
