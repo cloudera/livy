@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.hive.HiveContext;
@@ -58,15 +57,6 @@ public interface JobContext {
 
   /** Stops the SparkStreaming context. */
   void stopStreamingCtx();
-
-  /**
-   * Monitor a job. This allows job-related information (such as metrics) to be communicated
-   * back to the client.
-   *
-   * @param job The asynchronous job to monitor.
-   * @return The job (unmodified).
-   */
-  <T> JavaFutureAction<T> monitor(JavaFutureAction<T> job);
 
   /**
    * Returns a local tmp dir specific to the context

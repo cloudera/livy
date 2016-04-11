@@ -275,16 +275,6 @@ public class LocalClient implements LivyClient {
       }
     }
 
-    private void handle(ChannelHandlerContext ctx, JobSubmitted msg) {
-      JobHandleImpl<?> handle = jobs.get(msg.clientJobId);
-      if (handle != null) {
-        LOG.info("Received spark job ID: {} for {}", msg.sparkJobId, msg.clientJobId);
-        handle.addSparkJobId(msg.sparkJobId);
-      } else {
-        LOG.warn("Received spark job ID: {} for unknown job {}", msg.sparkJobId, msg.clientJobId);
-      }
-    }
-
   }
 
   private static class AddFileJob implements Job<Object> {

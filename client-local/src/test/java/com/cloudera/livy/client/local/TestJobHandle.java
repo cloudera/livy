@@ -47,9 +47,6 @@ public class TestJobHandle {
     assertTrue(handle.changeState(JobHandle.State.STARTED));
     verify(listener).onJobStarted(handle);
 
-    handle.addSparkJobId(1);
-    verify(listener).onSparkJobStarted(same(handle), eq(1));
-
     assertTrue(handle.changeState(JobHandle.State.CANCELLED));
     verify(listener).onJobCancelled(handle);
 
@@ -92,13 +89,10 @@ public class TestJobHandle {
     verify(listener).onJobQueued(handle);
 
     handle.changeState(JobHandle.State.STARTED);
-    handle.addSparkJobId(1);
     handle.changeState(JobHandle.State.CANCELLED);
 
     handle.addListener(listener2);
-    InOrder inOrder = inOrder(listener2);
-    inOrder.verify(listener2).onSparkJobStarted(same(handle), eq(1));
-    inOrder.verify(listener2).onJobCancelled(same(handle));
+    verify(listener2).onJobCancelled(same(handle));
   }
 
 }

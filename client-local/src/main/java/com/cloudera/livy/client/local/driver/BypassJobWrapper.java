@@ -65,30 +65,13 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   }
 
   @Override
-  synchronized void recordNewJob(int sparkJobId) {
-    if (newSparkJobs == null) {
-      newSparkJobs = new ArrayList<>();
-    }
-    newSparkJobs.add(sparkJobId);
-  }
-
-  @Override
-  protected synchronized void jobSubmitted(JavaFutureAction<?> job) {
-    for (Integer i : job.jobIds()) {
-      recordNewJob(i);
-    }
-  }
-
-  @Override
   protected void jobStarted() {
     // Do nothing; just avoid sending data back to the driver.
   }
 
   synchronized BypassJobStatus getStatus() {
     String stackTrace = error != null ? Throwables.getStackTraceAsString(error) : null;
-    List<Integer> jobs = newSparkJobs;
-    newSparkJobs = null;
-    return new BypassJobStatus(state, result, stackTrace, jobs);
+    return new BypassJobStatus(state, result, stackTrace);
   }
 
 }

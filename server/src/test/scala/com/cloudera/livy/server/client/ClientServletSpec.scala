@@ -114,24 +114,15 @@ class ClientServletSpec
       val ser = new Serializer()
       val job = BufferUtils.toByteArray(ser.serialize(new AsyncTestJob()))
       var jobId: Long = -1L
-      val collectedSparkJobs = new ArrayList[Integer]()
       jpost[JobStatus](s"/$sid/submit-job", new SerializedJob(job)) { status =>
         jobId = status.id
-        if (status.newSparkJobs != null) {
-          collectedSparkJobs.addAll(status.newSparkJobs)
-        }
       }
 
       eventually(timeout(1 minute), interval(100 millis)) {
         jget[JobStatus](s"/$sid/jobs/$jobId") { status =>
-          if (status.newSparkJobs != null) {
-            collectedSparkJobs.addAll(status.newSparkJobs)
-          }
           status.state should be (JobHandle.State.SUCCEEDED)
         }
       }
-
-      collectedSparkJobs.size should be (1)
     }
 
     withSessionId("should update last activity on connect") { sid =>
@@ -272,7 +263,6 @@ class AsyncTestJob extends Job[Int] {
       new VoidFunction[Integer]() {
         override def call(l: Integer): Unit = Thread.sleep(1)
       })
-    jc.monitor(future)
     future.get(10, TimeUnit.SECONDS)
     42
   }

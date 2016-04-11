@@ -107,14 +107,11 @@ public class HttpMessages {
     public final State state;
     public final byte[] result;
     public final String error;
-    public final List<Integer> newSparkJobs;
 
-    public JobStatus(long id, State state, byte[] result, String error,
-        List<Integer> newSparkJobs) {
+    public JobStatus(long id, State state, byte[] result, String error) {
       this.id = id;
       this.state = state;
       this.error = error;
-      this.newSparkJobs = newSparkJobs;
 
       // json4s, at least, seems confused about whether a "null" in the JSON payload should
       // become a null array or a byte array with length 0. Since there shouldn't be any
@@ -131,7 +128,7 @@ public class HttpMessages {
     }
 
     private JobStatus() {
-      this(-1, null, null, null, null);
+      this(-1, null, null, null);
     }
 
   }

@@ -343,15 +343,11 @@ public class TestSparkClient {
         long deadline = System.nanoTime() + TimeUnit.NANOSECONDS.convert(TIMEOUT, TimeUnit.SECONDS);
         long sleep = 100;
         BypassJobStatus status = null;
-        List<Integer> collectedIds = new ArrayList<>();
         while (System.nanoTime() < deadline) {
           BypassJobStatus currStatus = lclient.getBypassJobStatus(jobId).get(TIMEOUT,
             TimeUnit.SECONDS);
           assertNotEquals(JobHandle.State.CANCELLED, currStatus.state);
           assertNotEquals(JobHandle.State.FAILED, currStatus.state);
-          if (currStatus.newSparkJobs != null) {
-            collectedIds.addAll(currStatus.newSparkJobs);
-          }
           if (currStatus.state.equals(JobHandle.State.SUCCEEDED)) {
             status = currStatus;
             break;
@@ -365,8 +361,6 @@ public class TestSparkClient {
 
         Integer resultVal = (Integer) s.deserialize(ByteBuffer.wrap(status.result));
         assertEquals(Integer.valueOf(1), resultVal);
-
-        assertNotEquals(0, collectedIds.size());
 
         // After the result is retrieved, the driver should stop tracking the job and release
         // resources associated with it.
@@ -520,12 +514,12 @@ public class TestSparkClient {
     @Override
     public Integer call(JobContext jc) throws Exception {
       JavaRDD<Integer> rdd = jc.sc().parallelize(Arrays.asList(1, 2, 3, 4, 5));
-      JavaFutureAction<?> future = jc.monitor(rdd.foreachAsync(new VoidFunction<Integer>() {
+      JavaFutureAction<?> future = rdd.foreachAsync(new VoidFunction<Integer>() {
         @Override
         public void call(Integer l) throws Exception {
           Thread.sleep(1);
         }
-      }));
+      });
 
       future.get(TIMEOUT, TimeUnit.SECONDS);
 

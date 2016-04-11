@@ -296,11 +296,6 @@ public class RSCDriver extends BaseProtocol {
     broadcast(new JobStarted(jobId));
   }
 
-  void jobSubmitted(String jobId, int sparkJobId) {
-    LOG.debug("Send job({}/{}) submitted to Client.", jobId, sparkJobId);
-    broadcast(new JobSubmitted(jobId, sparkJobId));
-  }
-
   public void handle(ChannelHandlerContext ctx, CancelJob msg) {
     JobWrapper<?> job = activeJobs.get(msg.id);
     if (job == null || !job.cancel()) {
@@ -341,18 +336,7 @@ public class RSCDriver extends BaseProtocol {
   @SuppressWarnings("unchecked")
   public Object handle(ChannelHandlerContext ctx, SyncJobRequest msg) throws Exception {
     waitForJobContext();
-    jc.setMonitorCb(new MonitorCallback() {
-      @Override
-      public void call(JavaFutureAction<?> future) {
-        throw new IllegalStateException(
-          "JobContext.monitor() is not available for synchronous jobs.");
-      }
-    });
-    try {
-      return msg.job.call(jc);
-    } finally {
-      jc.setMonitorCb(null);
-    }
+    return msg.job.call(jc);
   }
 
   public BypassJobStatus handle(ChannelHandlerContext ctx, GetBypassJobStatus msg) {

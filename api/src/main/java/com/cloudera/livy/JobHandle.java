@@ -26,11 +26,6 @@ import java.util.concurrent.Future;
 public interface JobHandle<T> extends Future<T> {
 
   /**
-   * Get corresponding spark job IDs for this job.
-   */
-  List<Integer> getSparkJobIds();
-
-  /**
    * Return the current state of the job.
    */
   State getState();
@@ -70,12 +65,6 @@ public interface JobHandle<T> extends Future<T> {
     void onJobFailed(JobHandle<T> job, Throwable cause);
 
     void onJobSucceeded(JobHandle<T> job, T result);
-
-    /**
-     * Called when a monitored Spark job is started on the remote context. This callback
-     * does not indicate a state change in the client job's status.
-     */
-    void onSparkJobStarted(JobHandle<T> job, int sparkJobId);
 
   }
 
