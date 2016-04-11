@@ -36,6 +36,9 @@ abstract class BaseSessionServletSpec[S <: Session]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
+  /** Config map containing option that is blacklisted. */
+  protected val BLACKLISTED_CONFIG = Map("spark.do_not_set" -> "true")
+
   /** Name of the admin user. */
   protected val ADMIN = "__admin__"
 

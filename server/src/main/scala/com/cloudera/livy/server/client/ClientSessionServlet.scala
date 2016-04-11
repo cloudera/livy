@@ -21,6 +21,8 @@ package com.cloudera.livy.server.client
 import java.net.URI
 import javax.servlet.http.HttpServletRequest
 
+import scala.collection.JavaConverters._
+
 import org.scalatra._
 import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
@@ -40,6 +42,7 @@ class ClientSessionServlet(livyConf: LivyConf)
   override protected def createSession(req: HttpServletRequest): ClientSession = {
     val id = sessionManager.nextId()
     val createRequest = bodyAs[CreateClientRequest](req)
+    validateConf(createRequest.conf.asScala.toMap)
     val user = remoteUser(req)
     val requestedProxy =
       if (createRequest.conf != null) {

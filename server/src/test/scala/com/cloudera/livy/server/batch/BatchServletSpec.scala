@@ -21,6 +21,7 @@ package com.cloudera.livy.server.batch
 import java.io.FileWriter
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
+import javax.servlet.http.HttpServletResponse._
 
 import scala.concurrent.duration.Duration
 
@@ -98,6 +99,14 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
         batch should not be defined
       }
     }
+
+    it("should respect config black list") {
+      val createRequest = new CreateBatchRequest()
+      createRequest.file = script.toString
+      createRequest.conf = BLACKLISTED_CONFIG
+      jpost[Map[String, Any]]("/", createRequest, expectedStatus = SC_BAD_REQUEST) { _ => }
+    }
+
   }
 
 }

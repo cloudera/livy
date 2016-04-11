@@ -19,6 +19,8 @@
 package com.cloudera.livy
 
 import java.io.{Closeable, File, FileInputStream, InputStreamReader}
+import java.net.URL
+import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Properties
 
 import scala.annotation.tailrec
@@ -28,7 +30,11 @@ import scala.concurrent.duration.Duration
 
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {
-    val inReader = new InputStreamReader(new FileInputStream(file), "UTF-8")
+    loadProperties(file.toURL())
+  }
+
+  def loadProperties(url: URL): Map[String, String] = {
+    val inReader = new InputStreamReader(url.openStream(), UTF_8)
     try {
       val properties = new Properties()
       properties.load(inReader)
