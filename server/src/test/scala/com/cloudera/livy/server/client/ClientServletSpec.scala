@@ -181,13 +181,21 @@ class ClientServletSpec
         }
       }
     }
+
+    it("should respect config black list") {
+      jpost[SessionInfo]("/", createRequest(extraConf = BLACKLISTED_CONFIG),
+        expectedStatus = SC_BAD_REQUEST) { _ => }
+    }
+
   }
 
   private def deleteSession(id: Int): Unit = {
     jdelete[Map[String, Any]](s"/$id", headers = adminHeaders) { _ => }
   }
 
-  private def createRequest(inProcess: Boolean = true): CreateClientRequest = {
+  private def createRequest(
+      inProcess: Boolean = true,
+      extraConf: Map[String, String] = Map()): CreateClientRequest = {
     val classpath = sys.props("java.class.path")
     val conf = new HashMap[String, String]
     conf.put("spark.master", "local")
@@ -197,6 +205,7 @@ class ClientServletSpec
     if (inProcess) {
       conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
     }
+    extraConf.foreach { case (k, v) => conf.put(k, v) }
     new CreateClientRequest(10000L, conf)
   }
 
