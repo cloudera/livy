@@ -20,6 +20,8 @@ package com.cloudera.livy.test.framework
 
 import java.util.Properties
 
+import scala.collection.JavaConverters.propertiesAsScalaMapConverter
+
 trait ClusterPool {
   def init(): Unit
   def destroy(): Unit
@@ -28,17 +30,31 @@ trait ClusterPool {
 }
 
 object TestEnvConfig {
-  private val prop = new Properties()
-  prop.load(getClass.getClassLoader.getResourceAsStream("test-env.properties"))
+  private val properties = {
+    val p = new Properties()
+    p.load(getClass.getClassLoader.getResourceAsStream("test-env.properties"))
+    p.asScala
+  }
 
-  def clusterType: String = prop.getProperty("cluster.type", "real")
-  def realClusterIp: Option[String] = Option(prop.getProperty("cluster.real.ip"))
-  def realClusterLivyPort: Int = prop.getProperty("cluster.real.livy.port", "8998").toInt
-  def realClusterUseExistingLivyServer: Boolean =
-    prop.getProperty("cluster.real.use.existing.livy.server", "false").toBoolean
-  def realClusterSshLogin: Option[String] = Option(prop.getProperty("cluster.real.ssh.login"))
-  def realClusterSshPubKey: Option[String] =
-    Option(prop.getProperty("cluster.real.ssh.pubkey-path"))
+  class RealClusterConfig {
+    val ip: String = properties.get("real-cluster.ip").get
+
+    val sshLogin: String = properties.get("real-cluster.ssh.login").get
+    val sshPubKey: String = properties.get("real-cluster.ssh.pubkey").get
+    val livyPort = properties.getOrElse("real-cluster.livy.port", "8998").toInt
+    val livyClasspath = properties.get("real-cluster.livy.classpath").get
+
+    val deployLivy = properties.getOrElse("real-cluster.deploy-livy", "true").toBoolean
+    val deployLivyPath = properties.get("real-cluster.deploy-livy.path")
+    val noDeployLivyHome = properties.get("real-cluster.livy.no-deploy.livy-home")
+  }
+
+  def clusterType: String = properties.getOrElse("cluster.type", "real")
+
+  val realCluster: Option[RealClusterConfig] = clusterType match {
+    case "real" => Some(new RealClusterConfig())
+    case _ => None
+  }
 }
 
 object ClusterPool {
@@ -64,27 +80,27 @@ object ClusterPool {
  * if there are spare clusters.
  */
 class RealClusterPool extends ClusterPool {
-  val ip = TestEnvConfig.realClusterIp.get
-  val livyPort = TestEnvConfig.realClusterLivyPort
-  val sshLogin = TestEnvConfig.realClusterSshLogin.get
-  val sshPubKey = TestEnvConfig.realClusterSshPubKey.get
-  val useExistingLivyServer = TestEnvConfig.realClusterUseExistingLivyServer
+  val ipList = TestEnvConfig.realCluster.get.ip.split(",")
+  val realClusterConfig = TestEnvConfig.realCluster.get
 
-  val clusters = List(new RealCluster(ip, livyPort, sshLogin, sshPubKey, useExistingLivyServer))
+  val clusters = ipList.map(ip => new RealCluster(ip, realClusterConfig)).toBuffer
 
   override def init(): Unit = synchronized {
     clusters.foreach(_.deploy())
+    clusters.foreach(_.stopLivy())
+    clusters.foreach(_.runLivy())
   }
 
   override def destroy(): Unit = synchronized {
+    clusters.foreach(_.stopLivy())
     clusters.foreach(_.cleanUp())
   }
 
   override def lease(): Cluster = synchronized {
-    clusters.head
+    clusters.remove(0)
   }
 
   override def returnCluster(cluster: Cluster): Unit = synchronized {
-
+    clusters.append(cluster.asInstanceOf[RealCluster])
   }
 }

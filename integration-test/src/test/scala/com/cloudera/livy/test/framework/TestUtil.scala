@@ -18,12 +18,19 @@
 
 package com.cloudera.livy.test.framework
 
-import com.ning.http.client.AsyncHttpClient
-import org.scalatest.{BeforeAndAfterAll, FunSpecLike, Matchers, Suite}
+import java.io.File
 
-class BaseIntegrationTestSuite extends Suite with FunSpecLike with Matchers {
-  val cluster = ClusterPool.get.lease()
-  val httpClient = new AsyncHttpClient()
+import org.apache.commons.io.FileUtils
 
-  protected def livyEndpoint: String = cluster.livyEndpoint
+object TestUtil {
+  def saveTestSourceToTempFile(fileName: String): File = {
+    val testResourceStream = getClass.getClassLoader.getResourceAsStream(fileName)
+    assert(testResourceStream != null, "Cannot find $fileName in test resource.")
+
+    val tmpFile = File.createTempFile("livy-int-test-", fileName)
+    FileUtils.copyInputStreamToFile(testResourceStream, tmpFile)
+    tmpFile.deleteOnExit()
+
+    tmpFile
+  }
 }

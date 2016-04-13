@@ -18,7 +18,6 @@
 
 package com.cloudera.livy.test
 
-import java.io.File
 import javax.servlet.http.HttpServletResponse
 
 import scala.annotation.tailrec
@@ -26,11 +25,10 @@ import scala.concurrent.duration._
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.commons.io.FileUtils
 
 import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
-import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
+import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, TestUtil}
 
 private class FatalException(msg: String) extends Exception(msg)
 
@@ -111,11 +109,7 @@ class BatchIT extends BaseIntegrationTestSuite {
   }
 
   private def uploadPySparkTestScript(): String = {
-    val testScriptStream = getClass.getClassLoader.getResourceAsStream("pyspark-test.py")
-    assert(testScriptStream != null, "Cannot find pyspark-test.py in test resource.")
-
-    val tmpFile = File.createTempFile("pyspark-test", ".py")
-    FileUtils.copyInputStreamToFile(testScriptStream, tmpFile)
+    val tmpFile = TestUtil.saveTestSourceToTempFile("pyspark-test.py")
 
     val destPath = s"/tmp/${tmpFile.getName}"
     cluster.upload(tmpFile.getAbsolutePath, destPath)
