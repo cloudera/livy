@@ -100,7 +100,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     withClient("should propagate errors from jobs") {
       val errorMessage = "This job throws an error."
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.FAILED, null, errorMessage, null))
+          new JobStatus(id, JobHandle.State.FAILED, null, errorMessage))
         })
 
       val error = intercept[ExecutionException] {
@@ -133,8 +133,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
     withClient("should cancel jobs") {
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-          new JobStatus(id, JobHandle.State.CANCELLED, null, null, null))
+          new JobStatus(id, JobHandle.State.STARTED, null, null),
+          new JobStatus(id, JobHandle.State.CANCELLED, null, null))
         })
       handle.cancel(true)
 
@@ -147,9 +147,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
     withClient("should notify listeners of new Spark jobs") {
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-          new JobStatus(id, JobHandle.State.STARTED, null, null, List[Integer](1, 2, 3).asJava),
-          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
+          new JobStatus(id, JobHandle.State.STARTED, null, null),
+          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null))
         })
 
       val listener = mock(classOf[JobHandle.Listener[Long]])
@@ -157,9 +156,6 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
       assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === jobId)
       verify(listener, times(1)).onJobSucceeded(any(), any())
-      verify(listener, times(1)).onSparkJobStarted(any(), meq(1))
-      verify(listener, times(1)).onSparkJobStarted(any(), meq(2))
-      verify(listener, times(1)).onSparkJobStarted(any(), meq(3))
     }
 
     withClient("should time out handle get() call") {
@@ -167,10 +163,10 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       // wait of 100ms, 4 iterations should result in a wait of 800ms, so the handle should at that
       // point timeout a wait of 100ms.
       val (jobId, handle) = runJob(false, { id => Seq(
-          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-          new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null, null))
+          new JobStatus(id, JobHandle.State.STARTED, null, null),
+          new JobStatus(id, JobHandle.State.STARTED, null, null),
+          new JobStatus(id, JobHandle.State.STARTED, null, null),
+          new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null))
         })
 
       intercept[TimeoutException] {
@@ -232,8 +228,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
   private def testJob(sync: Boolean, response: Option[Any] = None): Unit = {
     val (jobId, handle) = runJob(sync, { id => Seq(
-        new JobStatus(id, JobHandle.State.STARTED, null, null, null),
-        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(response.getOrElse(id)), null, null))
+        new JobStatus(id, JobHandle.State.STARTED, null, null),
+        new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(response.getOrElse(id)), null))
       })
     assert(handle.get(TIMEOUT_S, TimeUnit.SECONDS) === response.getOrElse(jobId))
     verify(session, times(2)).jobStatus(meq(jobId))

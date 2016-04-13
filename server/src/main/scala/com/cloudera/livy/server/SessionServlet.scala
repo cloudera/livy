@@ -24,7 +24,7 @@ import scala.concurrent.Future
 
 import org.scalatra._
 
-import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.{LivyConf, Logging, Utils}
 import com.cloudera.livy.sessions.{Session, SessionManager}
 
 object SessionServlet extends Logging
@@ -44,6 +44,11 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
 {
 
   private[livy] val sessionManager = new SessionManager[S](livyConf)
+
+  private val configBlackList: Set[String] = {
+    val url = getClass.getResource("/spark-blacklist.properties")
+    if (url != null) Utils.loadProperties(url).keySet else Set()
+  }
 
   /**
    * Creates a new session based on the current request. The implementation is responsible for
@@ -156,6 +161,17 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
    * Returns the remote user for the given request. Separate method so that tests can override it.
    */
   protected def remoteUser(req: HttpServletRequest): String = req.getRemoteUser()
+
+  /**
+   * Validate that the user-provided configuration does not contain anything blacklisted.
+   */
+  protected def validateConf(conf: Map[String, String]): Unit = {
+    val errors = conf.keySet.filter(configBlackList.contains)
+    if (errors.nonEmpty) {
+      throw new IllegalArgumentException(
+        "Blacklisted configuration values in session config: " + errors.mkString(", "))
+    }
+  }
 
   /**
    * Checks that the request's user can impersonate the target user.

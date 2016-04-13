@@ -114,24 +114,15 @@ class ClientServletSpec
       val ser = new Serializer()
       val job = BufferUtils.toByteArray(ser.serialize(new AsyncTestJob()))
       var jobId: Long = -1L
-      val collectedSparkJobs = new ArrayList[Integer]()
       jpost[JobStatus](s"/$sid/submit-job", new SerializedJob(job)) { status =>
         jobId = status.id
-        if (status.newSparkJobs != null) {
-          collectedSparkJobs.addAll(status.newSparkJobs)
-        }
       }
 
       eventually(timeout(1 minute), interval(100 millis)) {
         jget[JobStatus](s"/$sid/jobs/$jobId") { status =>
-          if (status.newSparkJobs != null) {
-            collectedSparkJobs.addAll(status.newSparkJobs)
-          }
           status.state should be (JobHandle.State.SUCCEEDED)
         }
       }
-
-      collectedSparkJobs.size should be (1)
     }
 
     withSessionId("should update last activity on connect") { sid =>
@@ -190,13 +181,21 @@ class ClientServletSpec
         }
       }
     }
+
+    it("should respect config black list") {
+      jpost[SessionInfo]("/", createRequest(extraConf = BLACKLISTED_CONFIG),
+        expectedStatus = SC_BAD_REQUEST) { _ => }
+    }
+
   }
 
   private def deleteSession(id: Int): Unit = {
     jdelete[Map[String, Any]](s"/$id", headers = adminHeaders) { _ => }
   }
 
-  private def createRequest(inProcess: Boolean = true): CreateClientRequest = {
+  private def createRequest(
+      inProcess: Boolean = true,
+      extraConf: Map[String, String] = Map()): CreateClientRequest = {
     val classpath = sys.props("java.class.path")
     val conf = new HashMap[String, String]
     conf.put("spark.master", "local")
@@ -206,6 +205,7 @@ class ClientServletSpec
     if (inProcess) {
       conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
     }
+    extraConf.foreach { case (k, v) => conf.put(k, v) }
     new CreateClientRequest(10000L, conf)
   }
 
@@ -272,7 +272,6 @@ class AsyncTestJob extends Job[Int] {
       new VoidFunction[Integer]() {
         override def call(l: Integer): Unit = Thread.sleep(1)
       })
-    jc.monitor(future)
     future.get(10, TimeUnit.SECONDS)
     42
   }

@@ -140,23 +140,6 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  /**
-   * Inform the client that a new spark job has been submitted for the client job.
-   */
-  protected static class JobSubmitted {
-    public final String clientJobId;
-    public final int sparkJobId;
-
-    public JobSubmitted(String clientJobId, int sparkJobId) {
-      this.clientJobId = clientJobId;
-      this.sparkJobId = sparkJobId;
-    }
-
-    public JobSubmitted() {
-      this(null, -1);
-    }
-  }
-
   protected static class SyncJobRequest<T> {
 
     public final Job<T> job;

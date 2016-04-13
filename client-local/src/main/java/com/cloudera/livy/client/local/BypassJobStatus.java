@@ -26,18 +26,15 @@ public class BypassJobStatus {
   public final JobHandle.State state;
   public final byte[] result;
   public final String error;
-  public final List<Integer> newSparkJobs;
 
-  public BypassJobStatus(JobHandle.State state, byte[] result, String error,
-      List<Integer> newSparkJobs) {
+  public BypassJobStatus(JobHandle.State state, byte[] result, String error) {
     this.state = state;
     this.result = result;
     this.error = error;
-    this.newSparkJobs = newSparkJobs;
   }
 
   BypassJobStatus() {
-    this(null, null, null, null);
+    this(null, null, null);
   }
 
 }

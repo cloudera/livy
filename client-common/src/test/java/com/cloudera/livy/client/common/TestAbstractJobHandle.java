@@ -33,21 +33,14 @@ public class TestAbstractJobHandle {
   @Test
   public void testJobHandle() {
     AbstractJobHandle<Void> handle = new TestJobHandle();
-    assertEquals(0, handle.getSparkJobIds().size());
 
     assertTrue(handle.changeState(State.QUEUED));
     assertEquals(State.QUEUED, handle.getState());
-
-    handle.addSparkJobId(21);
 
     @SuppressWarnings("unchecked")
     JobHandle.Listener<Void> l1 = mock(JobHandle.Listener.class);
     handle.addListener(l1);
     verify(l1).onJobQueued(handle);
-    verify(l1).onSparkJobStarted(same(handle), eq(21));
-
-    handle.addSparkJobId(42);
-    verify(l1).onSparkJobStarted(same(handle), eq(42));
 
     assertTrue(handle.changeState(State.STARTED));
     verify(l1).onJobStarted(handle);
@@ -56,15 +49,6 @@ public class TestAbstractJobHandle {
     verify(l1).onJobSucceeded(handle, null);
 
     assertFalse(handle.changeState(State.CANCELLED));
-
-    // Make sure that after the job is finished the spark job IDs are reported first.
-    @SuppressWarnings("unchecked")
-    JobHandle.Listener<Void> l2 = mock(JobHandle.Listener.class);
-    handle.addListener(l2);
-
-    InOrder inOrder = inOrder(l2);
-    inOrder.verify(l2, times(2)).onSparkJobStarted(same(handle), anyInt());
-    inOrder.verify(l2).onJobSucceeded(handle, null);
   }
 
   private static class TestJobHandle extends AbstractJobHandle<Void> {
