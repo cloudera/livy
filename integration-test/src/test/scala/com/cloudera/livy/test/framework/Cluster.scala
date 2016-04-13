@@ -30,6 +30,8 @@ trait Cluster {
   def stopLivy(): Unit
   def livyEndpoint: String
   def getLivyLog(): String
+
+  def runCommand(cmd: String): String
 }
 
 /*

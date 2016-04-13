@@ -36,7 +36,7 @@ class RealCluster(
   config: TestEnvConfig.RealClusterConfig)
   extends Cluster with Logging {
 
-  private var livyHomePath: Option[String] = None
+  private var livyHomePath: Option[String] = Some("/usr/bin/livy")
   private var pathsToCleanUp = ListBuffer.empty[String]
 
   def sshClient[T](body: SshClient => SSH.Result[T]): Validated[T] = {
@@ -81,8 +81,6 @@ class RealCluster(
         val tempDirPath = s"/tmp/${Random.alphanumeric.take(16).mkString}"
         pathsToCleanUp += tempDirPath
 
-        val livyConfPath = TestUtil.saveTestSourceToTempFile("livy-defaults.conf").getAbsolutePath
-
         // SSH to the node to unzip and install Livy.
         val deployResult = for {
           _ <- sshClient(_.exec(s"mkdir -p $tempDirPath")).right
@@ -123,39 +121,44 @@ class RealCluster(
 
   override def getYarnRmEndpoint(): String = ""
 
-  private val livyServerThread = new Thread {
-    override def run() = {
-      val livyHome = livyHomePath.get
-      val livyPort = config.livyPort
-      val livyJavaOptsValue = Seq(
-        s"livy.server.port=$livyPort",
-        "livy.server.master=yarn",
-        "livy.server.deployMode=cluster",
-        "livy.environment=development").map("-D" + _).mkString(" ")
-
-      val livyJavaOpts = s"LIVY_SERVER_JAVA_OPTS='$livyJavaOptsValue'"
-      val classPath = s"CLASSPATH=${config.livyClasspath}"
-      val opts = s"$classPath $livyJavaOpts"
-      val livyServerPath = s"$livyHome/bin/livy-server"
-
-      info(s"Starting Livy @ port $livyPort...")
-      val r = sshClient(_.exec(s"$opts $livyServerPath 2>&1"))
-      r match {
-        case Left(err) => throw new Exception(err)
-        case Right(cr: CommandResult) =>
-          livyLog = cr.stdOutAsString()
-          cr.exitCode match {
-            case Some(0) =>
-            case _ =>
-              error(cr.stdOutAsString())
-              throw new Exception(s"Livy exited with code ${cr.exitCode}.")
-          }
-      }
-    }
-  }
+  private var livyServerThread: Option[Thread] = None
 
   override def runLivy(): Unit = {
-    livyServerThread.start()
+    // If there's already a thread running, we cannot start livy again.
+    assert(livyServerThread.fold(true)(!_.isAlive), "Livy is running already.")
+    livyServerThread = Some(new Thread {
+      override def run() = {
+        val livyHome = livyHomePath.get
+        val livyPort = config.livyPort
+        val livyJavaOptsValue = Seq(
+          s"livy.server.port=$livyPort",
+          "livy.server.master=yarn",
+          "livy.server.deployMode=cluster",
+          //"livy.server.recovery.mode=local",
+          "livy.environment=development").map("-D" + _).mkString(" ")
+
+        val livyJavaOpts = s"LIVY_SERVER_JAVA_OPTS='$livyJavaOptsValue'"
+        val classPath = s"CLASSPATH=${config.livyClasspath}"
+        val opts = s"$classPath $livyJavaOpts"
+        val livyServerPath = s"$livyHome/bin/livy-server"
+
+        info(s"Starting Livy @ port $livyPort...")
+        val r = sshClient(_.exec(s"$opts $livyServerPath 2>&1"))
+        r match {
+          case Left(err) => throw new Exception(err)
+          case Right(cr: CommandResult) =>
+            livyLog = cr.stdOutAsString()
+            cr.exitCode match {
+              case Some(0) =>
+              case _ =>
+                error(cr.stdOutAsString())
+              //throw new Exception(s"Livy exited with code ${cr.exitCode}.")
+            }
+        }
+      }
+    })
+
+    livyServerThread.get.start()
 
     // block until Livy server is up.
     // This is really ugly. Fix this!
@@ -188,8 +191,17 @@ class RealCluster(
 
   override def stopLivy(): Unit = {
     sshClient(_.exec(s"pkill -f com.cloudera.livy.server.Main")).right.map(_.stdOutAsString())
-    if (livyServerThread.isAlive) {
-      livyServerThread.join()
+    livyServerThread.foreach({ t =>
+      if (t.isAlive) {
+        t.join()
+      }
+    })
+  }
+
+  override def runCommand(cmd: String): String = {
+    sshClient(_.exec(cmd)).right.map(_.stdOutAsString()) match {
+      case Left(_) => s"Failed to get result for command: $cmd"
+      case Right(s) => s
     }
   }
 
