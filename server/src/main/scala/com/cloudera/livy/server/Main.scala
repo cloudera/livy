@@ -126,14 +126,12 @@ object Main extends Logging {
   /**
    * Sets the spark-submit path if it's not configured in the LivyConf
    */
-  private def testSparkHome(livyConf: LivyConf): Unit = {
+  private[server] def testSparkHome(livyConf: LivyConf): Unit = {
     val sparkHome = livyConf.sparkHome().getOrElse {
       throw new IllegalArgumentException("Livy requires the SPARK_HOME environment variable")
     }
 
-    val sparkHomeFile = new File(sparkHome)
-
-    require(sparkHomeFile.exists, "SPARK_HOME path does not exist")
+    require(new File(sparkHome).isDirectory(), "SPARK_HOME path does not exist")
   }
 
   /**
@@ -141,27 +139,10 @@ object Main extends Logging {
    *
    * @param livyConf
    */
-  private def testSparkSubmit(livyConf: LivyConf): Unit = {
+  private[server] def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
-      val versions_regex = (
-        """^(?:""" +
-          """(1\.3\.0)|""" +
-          """(1\.3\.1)|""" +
-          """(1\.4\.0)|""" +
-          """(1\.4\.1)|""" +
-          """(1\.5\.0)|""" +
-          """(1\.5\.1)""" +
-        """)(-.*)?"""
-      ).r
-
       val version = sparkSubmitVersion(livyConf)
-
-      versions_regex.findFirstIn(version) match {
-        case Some(_) =>
-          logger.info(f"Using spark-submit version $version")
-        case None =>
-          logger.warn(f"Warning, livy has not been tested with spark-submit version $version")
-      }
+      logger.info(f"Using spark-submit version $version")
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
@@ -179,6 +160,10 @@ object Main extends Logging {
     val pb = new ProcessBuilder(sparkSubmit, "--version")
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)
+
+    if (LivyConf.TEST_MODE) {
+      pb.environment().put("LIVY_TEST_CLASSPATH", sys.props("java.class.path"))
+    }
 
     val process = new LineBufferedProcess(pb.start())
     val exitCode = process.waitFor()

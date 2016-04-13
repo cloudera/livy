@@ -85,7 +85,11 @@ public final class LivyClientBuilder {
   }
 
   public LivyClientBuilder setConf(String key, String value) {
-    config.setProperty(key, value);
+    if (value != null) {
+      config.setProperty(key, value);
+    } else {
+      config.remove(key);
+    }
     return this;
   }
 

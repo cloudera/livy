@@ -246,8 +246,8 @@ public class LocalClient implements LivyClient {
       return driverRpc.call(new EndSession());
     }
 
-    private void handle(ChannelHandlerContext ctx, java.lang.Error msg) {
-      LOG.warn("Error reported from remote driver.", msg.getCause());
+    private void handle(ChannelHandlerContext ctx, InitializationError msg) {
+      LOG.warn("Error reported from remote driver: %s", msg.stackTrace);
     }
 
     private void handle(ChannelHandlerContext ctx, JobResult msg) {

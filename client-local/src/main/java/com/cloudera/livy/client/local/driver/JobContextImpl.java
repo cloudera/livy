@@ -115,7 +115,9 @@ class JobContextImpl implements JobContext {
     if (streamingctx != null) {
       stopStreamingCtx();
     }
-    sc.stop();
+    if (sc != null) {
+      sc.stop();
+    }
   }
 
 }

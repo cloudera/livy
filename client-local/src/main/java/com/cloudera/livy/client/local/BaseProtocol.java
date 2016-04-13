@@ -220,4 +220,18 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
+  public static class InitializationError {
+
+    public final String stackTrace;
+
+    public InitializationError(String stackTrace) {
+      this.stackTrace = stackTrace;
+    }
+
+    public InitializationError() {
+      this(null);
+    }
+
+  }
+
 }

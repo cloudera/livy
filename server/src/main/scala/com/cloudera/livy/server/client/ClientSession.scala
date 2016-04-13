@@ -61,7 +61,7 @@ class ClientSession(
       .setAll(Option(createRequest.conf).getOrElse(new JHashMap()))
       .setURI(new URI("local:spark"))
       .setConf("livy.client.sessionId", id.toString)
-      .setConf(LocalConf.Entry.CLIENT_REPL_MODE.key(), "false")
+      .setConf(LocalConf.Entry.DRIVER_CLASS.key(), null)
 
     proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
     builder.build()

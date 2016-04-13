@@ -30,9 +30,9 @@ import org.apache.spark.scheduler.SparkListenerTaskEnd;
 class DriverSparkListener extends JavaSparkListener {
 
   private final Map<Integer, Integer> stageToJobId = Maps.newHashMap();
-  private final RemoteDriver driver;
+  private final RSCDriver driver;
 
-  DriverSparkListener(RemoteDriver driver) {
+  DriverSparkListener(RSCDriver driver) {
     this.driver = driver;
   }
 
