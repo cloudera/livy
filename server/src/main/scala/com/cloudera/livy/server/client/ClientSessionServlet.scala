@@ -28,7 +28,7 @@ import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
 import com.cloudera.livy.{JobHandle, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.client.local.LocalConf
+import com.cloudera.livy.client.rsc.RSCConf
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions.SessionManager
 
@@ -46,7 +46,7 @@ class ClientSessionServlet(livyConf: LivyConf)
     val user = remoteUser(req)
     val requestedProxy =
       if (createRequest.conf != null) {
-        Option(createRequest.conf.get(LocalConf.Entry.PROXY_USER.key()))
+        Option(createRequest.conf.get(RSCConf.Entry.PROXY_USER.key()))
       } else {
         None
       }

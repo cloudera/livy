@@ -46,7 +46,7 @@
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-client-local</artifactId>
+      <artifactId>livy-client-rsc</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

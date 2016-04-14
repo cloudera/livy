@@ -31,15 +31,15 @@ import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy.{JobContext, Logging}
-import com.cloudera.livy.client.local.{BaseProtocol, LocalConf}
-import com.cloudera.livy.client.local.driver.RSCDriver
-import com.cloudera.livy.client.local.rpc.Rpc
+import com.cloudera.livy.client.rsc.{BaseProtocol, RSCConf}
+import com.cloudera.livy.client.rsc.driver.RSCDriver
+import com.cloudera.livy.client.rsc.rpc.Rpc
 import com.cloudera.livy.repl.python.PythonInterpreter
 import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 import com.cloudera.livy.sessions._
 
-class ReplDriver(conf: SparkConf, livyConf: LocalConf)
+class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   extends RSCDriver(conf, livyConf)
   with Logging {
 

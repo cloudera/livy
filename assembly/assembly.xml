@@ -22,8 +22,8 @@
       </includes>
     </fileSet>
     <fileSet>
-      <directory>${project.parent.basedir}/client-local/target/jars</directory>
-      <outputDirectory>${assembly.name}/client-jars</outputDirectory>
+      <directory>${project.parent.basedir}/client-rsc/target/jars</directory>
+      <outputDirectory>${assembly.name}/rsc-jars</outputDirectory>
       <includes>
         <include>*</include>
       </includes>

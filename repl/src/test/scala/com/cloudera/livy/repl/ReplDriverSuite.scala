@@ -31,7 +31,7 @@ import org.scalatest.FunSuite
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy._
-import com.cloudera.livy.client.local.{LocalClient, LocalConf, PingJob}
+import com.cloudera.livy.client.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions.Spark
 
 class ReplDriverSuite extends FunSuite {
@@ -43,12 +43,12 @@ class ReplDriverSuite extends FunSuite {
       .setConf("spark.master", "local")
       .setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, sys.props("java.class.path"))
       .setConf(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, sys.props("java.class.path"))
-      .setConf(LocalConf.Entry.LIVY_JARS.key(), "")
+      .setConf(RSCConf.Entry.LIVY_JARS.key(), "")
       .setConf("session.kind", Spark().toString)
       .setURI(new URI("local:spark"))
-      .setConf(LocalConf.Entry.DRIVER_CLASS.key(), classOf[ReplDriver].getName())
+      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), classOf[ReplDriver].getName())
       .build()
-      .asInstanceOf[LocalClient]
+      .asInstanceOf[RSCClient]
 
     try {
       // This is sort of what InteractiveSession.scala does to detect an idle session.
