@@ -35,7 +35,7 @@ object LivyConf {
     def apply(key: String, dflt: Long): Entry = Entry(key, dflt: JLong)
   }
 
-  val TEST_MODE = sys.env.get("livy.test").map(_.toBoolean).getOrElse(false)
+  val TEST_MODE = ClientConf.TEST_MODE
 
   val SESSION_FACTORY = Entry("livy.server.session.factory", "process")
   val SPARK_HOME = Entry("livy.server.spark-home", null)
@@ -68,7 +68,7 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   }
 
   def loadFromFile(name: String): LivyConf = {
-    Utils.getLivyConfigFile(name)
+    getConfigFile(name)
       .map(Utils.getPropertiesFromFile)
       .foreach(loadFromMap)
     this
@@ -86,6 +86,17 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   /** Return the list of superusers. */
   def superusers(): Seq[String] = _superusers
+
+  private val configDir: Option[File] = {
+    sys.env.get("LIVY_CONF_DIR")
+      .orElse(sys.env.get("LIVY_HOME").map(path => s"$path${File.separator}conf"))
+      .map(new File(_))
+      .filter(_.exists())
+  }
+
+  private def getConfigFile(name: String): Option[File] = {
+    configDir.map(new File(_, name)).filter(_.exists())
+  }
 
   private def loadFromMap(map: Iterable[(String, String)]): Unit = {
     map.foreach { case (k, v) =>
