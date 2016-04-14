@@ -18,16 +18,13 @@
 package com.cloudera.livy.rsc.rpc;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.security.sasl.SaslException;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.concurrent.Future;
@@ -52,7 +49,7 @@ public class TestRpc {
 
   @Before
   public void setUp() {
-    closeables = Lists.newArrayList();
+    closeables = new ArrayList<>();
     emptyConfig = new RSCConf(null);
   }
 

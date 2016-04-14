@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.base.Preconditions;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import org.apache.commons.io.FileUtils;
@@ -49,6 +48,7 @@ import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.rsc.BaseProtocol;
 import com.cloudera.livy.rsc.BypassJobStatus;
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 import com.cloudera.livy.rsc.rpc.RpcServer;
@@ -116,14 +116,14 @@ public class RSCDriver extends BaseProtocol {
 
   private void initializeServer() throws Exception {
     String clientId = livyConf.get(CLIENT_ID);
-    Preconditions.checkArgument(clientId != null, "No client ID provided.");
+    Utils.checkArgument(clientId != null, "No client ID provided.");
     String secret = livyConf.get(CLIENT_SECRET);
-    Preconditions.checkArgument(secret != null, "No secret provided.");
+    Utils.checkArgument(secret != null, "No secret provided.");
 
     String launcherAddress = livyConf.get(LAUNCHER_ADDRESS);
-    Preconditions.checkArgument(launcherAddress != null, "Missing launcher address.");
+    Utils.checkArgument(launcherAddress != null, "Missing launcher address.");
     int launcherPort = livyConf.getInt(LAUNCHER_PORT);
-    Preconditions.checkArgument(launcherPort > 0, "Missing launcher port.");
+    Utils.checkArgument(launcherPort > 0, "Missing launcher port.");
 
     LOG.info("Connecting to: {}:{}", launcherAddress, launcherPort);
 
@@ -175,7 +175,6 @@ public class RSCDriver extends BaseProtocol {
     JavaSparkContext sc = new JavaSparkContext(conf);
     LOG.info("Spark context finished initialization in {}ms",
       TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
-    sc.sc().addSparkListener(new DriverSparkListener(this));
     return sc;
   }
 

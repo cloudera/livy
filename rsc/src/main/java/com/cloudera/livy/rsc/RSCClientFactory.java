@@ -22,10 +22,6 @@ import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import org.apache.spark.SparkException;
-
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientFactory;
 import com.cloudera.livy.rsc.rpc.RpcServer;
@@ -70,7 +66,7 @@ public final class RSCClientFactory implements LivyClientFactory {
       if (needsServer) {
         unref();
       }
-      throw Throwables.propagate(e);
+      throw Utils.propagate(e);
     }
   }
 
@@ -84,12 +80,12 @@ public final class RSCClientFactory implements LivyClientFactory {
       return;
     }
 
-    Preconditions.checkState(server == null);
+    Utils.checkState(server == null, "Server already running but ref count is 0.");
     if (server == null) {
       try {
         server = new RpcServer(config);
       } catch (InterruptedException ie) {
-        throw Throwables.propagate(ie);
+        throw Utils.propagate(ie);
       }
     }
 

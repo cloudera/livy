@@ -23,12 +23,9 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
@@ -42,6 +39,7 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
+import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.driver.AddJarJob;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
@@ -62,14 +60,11 @@ public class RSCClient implements LivyClient {
     this.ctx = ctx;
     this.factory = factory;
     this.conf = conf;
-    this.jobs = Maps.newConcurrentMap();
+    this.jobs = new ConcurrentHashMap<>();
     this.protocol = new ClientProtocol();
     this.eventLoopGroup = new NioEventLoopGroup(
         conf.getInt(RPC_MAX_THREADS),
-        new ThreadFactoryBuilder()
-            .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
-            .setDaemon(true)
-            .build());
+        Utils.newDaemonThreadFactory("Client-RPC-Handler-" + ctx.getClientId() + "-%d"));
 
     try {
       this.driverRpc = Rpc.createClient(conf,
@@ -81,7 +76,7 @@ public class RSCClient implements LivyClient {
         protocol).get();
     } catch (Throwable e) {
       ctx.dispose(true);
-      throw Throwables.propagate(e);
+      throw Utils.propagate(e);
     }
 
     driverRpc.addListener(new Rpc.Listener() {
@@ -161,7 +156,6 @@ public class RSCClient implements LivyClient {
     protocol.cancel(jobId);
   }
 
-  @VisibleForTesting
   ContextInfo getContextInfo() {
     return ctx;
   }

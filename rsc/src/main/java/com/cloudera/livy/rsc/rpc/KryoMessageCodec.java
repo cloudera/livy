@@ -28,7 +28,6 @@ import com.esotericsoftware.kryo.io.ByteBufferInputStream;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.shaded.org.objenesis.strategy.StdInstantiatorStrategy;
-import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageCodec;
@@ -36,6 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.client.common.Serializer;
+import com.cloudera.livy.rsc.Utils;
 
 /**
  * Codec that serializes / deserializes objects using Kryo. Objects are encoded with a 4-byte
@@ -105,8 +105,8 @@ class KryoMessageCodec extends ByteToMessageCodec<Object> {
   }
 
   private void checkSize(int msgSize) {
-    Preconditions.checkArgument(msgSize > 0, "Message size (%s bytes) must be positive.", msgSize);
-    Preconditions.checkArgument(maxMessageSize <= 0 || msgSize <= maxMessageSize,
+    Utils.checkArgument(msgSize > 0, "Message size (%s bytes) must be positive.", msgSize);
+    Utils.checkArgument(maxMessageSize <= 0 || msgSize <= maxMessageSize,
         "Message (%s bytes) exceeds maximum allowed size (%s bytes).", msgSize, maxMessageSize);
   }
 

@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import com.google.common.collect.Lists;
 import io.netty.util.concurrent.Promise;
 
 import com.cloudera.livy.JobHandle;
