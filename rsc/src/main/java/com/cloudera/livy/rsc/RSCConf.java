@@ -129,10 +129,10 @@ public class RSCConf extends ClientConf<RSCConf> {
     }
 
     LOG.warn("Your hostname, {}, resolves to a loopback address, but we couldn't find "
-        + " any external IP address!", address.getHostName());
+        + "any external IP address!", address.getCanonicalHostName());
     LOG.warn("Set {} if you need to bind to another address.",
       Entry.RPC_SERVER_ADDRESS.key);
-    return address.getHostName();
+    return address.getCanonicalHostName();
   }
 
 }
