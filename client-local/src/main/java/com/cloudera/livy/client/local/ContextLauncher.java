@@ -162,6 +162,9 @@ class ContextLauncher implements ContextInfo {
       Preconditions.checkState(livyHome != null,
         "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
       File clientJars = new File(livyHome, "client-jars");
+      if (!clientJars.isDirectory()) {
+        clientJars = new File(livyHome, "client-local/target/jars");
+      }
       Preconditions.checkState(clientJars.isDirectory(),
         "Cannot find 'client-jars' directory under LIVY_HOME.");
       List<String> jars = new ArrayList<>();
