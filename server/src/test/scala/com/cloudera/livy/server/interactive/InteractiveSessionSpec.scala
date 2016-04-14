@@ -30,7 +30,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
-import com.cloudera.livy.client.local.LocalConf
+import com.cloudera.livy.client.rsc.RSCConf
 import com.cloudera.livy.sessions.{PySpark, SessionState}
 
 class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
@@ -49,7 +49,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
     req.conf = Map(
-      LocalConf.Entry.LIVY_JARS.key() -> "",
+      RSCConf.Entry.LIVY_JARS.key() -> "",
       SparkLauncher.SPARK_MASTER -> "local"
     )
     new InteractiveSession(0, null, None, livyConf, req)

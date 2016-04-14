@@ -168,7 +168,7 @@
     <module>repl</module>
     <module>server</module>
     <module>client-common</module>
-    <module>client-local</module>
+    <module>client-rsc</module>
     <module>client-http</module>
   </modules>
 
