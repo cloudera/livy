@@ -33,7 +33,7 @@ import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, U
 import org.json4s._
 import org.json4s.JsonDSL._
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.repl
 import com.cloudera.livy.repl.Interpreter
 import com.cloudera.livy.repl.process.ProcessInterpreter
@@ -98,7 +98,7 @@ object SparkRInterpreter {
         // local mode
         val rLibPath = new File(sys.env.getOrElse("SPARKR_PACKAGE_DIR",
           Seq(sys.env.getOrElse("SPARK_HOME", "."), "R", "lib").mkString(File.separator)))
-        if (!LivyConf.TEST_MODE) {
+        if (!ClientConf.TEST_MODE) {
           require(rLibPath.exists(), "Cannot find sparkr package directory.")
           packageDir = rLibPath.getAbsolutePath()
         }
@@ -139,7 +139,7 @@ class SparkRInterpreter(process: Process)
   final override protected def waitUntilReady(): Unit = {
     // Set the option to catch and ignore errors instead of halting.
     sendRequest("options(error = dump.frames)")
-    if (!LivyConf.TEST_MODE) {
+    if (!ClientConf.TEST_MODE) {
       sendRequest("library(SparkR)")
       sendRequest("sc <- sparkR.init()")
     }

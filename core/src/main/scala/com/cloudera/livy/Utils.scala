@@ -46,17 +46,6 @@ object Utils {
     }
   }
 
-  def getLivyConfDir(env: Map[String, String] = sys.env): Option[File] = {
-    env.get("LIVY_CONF_DIR")
-      .orElse(env.get("LIVY_HOME").map(path => s"$path${File.separator}conf"))
-      .map(new File(_))
-      .filter(_.exists())
-  }
-
-  def getLivyConfigFile(name: String): Option[File] = {
-    getLivyConfDir().map(new File(_, name)).filter(_.exists())
-  }
-
   /**
    * Checks if event has occurred during some time period. This performs an exponential backoff
    * to limit the poll calls.
