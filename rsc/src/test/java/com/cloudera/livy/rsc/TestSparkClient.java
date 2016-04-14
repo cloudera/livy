@@ -17,9 +17,11 @@
 
 package com.cloudera.livy.rsc;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URI;
@@ -32,9 +34,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Strings;
-import com.google.common.io.ByteStreams;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.spark.SparkFiles;
 import org.apache.spark.api.java.JavaFutureAction;
@@ -404,6 +403,16 @@ public class TestSparkClient {
     }
   }
 
+  private static byte[] toByteArray(InputStream in) throws IOException {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    byte[] buf = new byte[1024];
+    int read;
+    while ((read = in.read(buf)) >= 0) {
+      out.write(buf, 0, read);
+    }
+    return out.toByteArray();
+  }
+
   private static class HiveJob implements Job<ArrayList<String>> {
 
     @Override
@@ -540,7 +549,7 @@ public class TestSparkClient {
     public String call(Integer i) throws Exception {
       ClassLoader ccl = Thread.currentThread().getContextClassLoader();
       InputStream in = ccl.getResourceAsStream("test.resource");
-      byte[] bytes = ByteStreams.toByteArray(in);
+      byte[] bytes = toByteArray(in);
       in.close();
       return new String(bytes, 0, bytes.length, "UTF-8");
     }
@@ -563,7 +572,7 @@ public class TestSparkClient {
     @Override
     public String call(Integer i) throws Exception {
       InputStream in = new FileInputStream(SparkFiles.get(fileName));
-      byte[] bytes = ByteStreams.toByteArray(in);
+      byte[] bytes = toByteArray(in);
       in.close();
       return new String(bytes, 0, bytes.length, "UTF-8");
     }

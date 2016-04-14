@@ -23,6 +23,7 @@ import java.net.InetSocketAddress;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -36,10 +37,6 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -56,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 /**
@@ -79,10 +77,7 @@ public class RpcServer implements Closeable {
     this.config = lconf;
     this.group = new NioEventLoopGroup(
         this.config.getInt(RPC_MAX_THREADS),
-        new ThreadFactoryBuilder()
-            .setNameFormat("RPC-Handler-%d")
-            .setDaemon(true)
-            .build());
+        Utils.newDaemonThreadFactory("RPC-Handler-%d"));
     this.channel = new ServerBootstrap()
       .group(group)
       .channel(NioServerSocketChannel.class)
@@ -112,7 +107,7 @@ public class RpcServer implements Closeable {
       .sync()
       .channel();
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
-    this.pendingClients = Maps.newConcurrentMap();
+    this.pendingClients = new ConcurrentHashMap<>();
 
     String address = config.get(RPC_SERVER_ADDRESS);
     if (address == null) {
@@ -228,11 +223,11 @@ public class RpcServer implements Closeable {
     @Override
     protected Rpc.SaslMessage update(Rpc.SaslMessage challenge) throws IOException {
       if (clientId == null) {
-        Preconditions.checkArgument(challenge.clientId != null,
+        Utils.checkArgument(challenge.clientId != null,
           "Missing client ID in SASL handshake.");
         clientId = challenge.clientId;
         client = pendingClients.get(clientId);
-        Preconditions.checkArgument(client != null,
+        Utils.checkArgument(client != null,
           "Unexpected client ID '%s' in SASL handshake.", clientId);
       }
 
@@ -280,7 +275,7 @@ public class RpcServer implements Closeable {
 
     @Override
     public void handle(Callback[] callbacks) {
-      Preconditions.checkState(client != null, "Handshake not initialized yet.");
+      Utils.checkState(client != null, "Handshake not initialized yet.");
       for (Callback cb : callbacks) {
         if (cb instanceof NameCallback) {
           ((NameCallback)cb).setName(clientId);

@@ -18,10 +18,10 @@
 package com.cloudera.livy.rsc.rpc;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import com.google.common.collect.Lists;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.embedded.EmbeddedChannel;
@@ -53,7 +53,7 @@ public class TestKryoMessageCodec {
       indices[i] = buf.writerIndex();
     }
 
-    List<Object> objects = Lists.newArrayList();
+    List<Object> objects = new ArrayList<>();
 
     // Don't read enough data for the first message to be decoded.
     codec.decode(null, buf.slice(0, indices[0] - 1), objects);
@@ -84,7 +84,7 @@ public class TestKryoMessageCodec {
     ByteBuf buf = newBuffer();
     codec.encode(null, new TestMessage(), buf);
 
-    List<Object> out = Lists.newArrayList();
+    List<Object> out = new ArrayList<>();
     codec.decode(null, buf, out);
 
     assertEquals(1, out.size());
@@ -109,7 +109,7 @@ public class TestKryoMessageCodec {
     unlimited.encode(null, new TestMessage(new byte[1025]), buf);
 
     try {
-      List<Object> out = Lists.newArrayList();
+      List<Object> out = new ArrayList<>();
       codec.decode(null, buf, out);
       fail("Should have failed to decode large message.");
     } catch (IllegalArgumentException e) {
@@ -124,7 +124,7 @@ public class TestKryoMessageCodec {
     buf.writeInt(-1);
 
     try {
-      List<Object> out = Lists.newArrayList();
+      List<Object> out = new ArrayList<>();
       codec.decode(null, buf, out);
       fail("Should have failed to decode message with negative size.");
     } catch (IllegalArgumentException e) {
@@ -174,7 +174,7 @@ public class TestKryoMessageCodec {
     codec.setEncryptionHandler(eh);
     codec.encode(null, message, buf);
 
-    List<Object> objects = Lists.newArrayList();
+    List<Object> objects = new ArrayList<>();
     codec.decode(null, buf, objects);
     return objects;
   }

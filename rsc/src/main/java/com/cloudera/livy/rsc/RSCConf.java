@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Properties;
 import javax.security.sasl.Sasl;
 
-import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -90,16 +89,11 @@ public class RSCConf extends ClientConf<RSCConf> {
     Map<String, String> opts = new HashMap<>();
 
     // TODO: add more options?
-    Map<String, Entry> saslOpts = ImmutableMap.<String, Entry>builder()
-      .put(Sasl.QOP, Entry.SASL_QOP)
-      .build();
-
-    for (Map.Entry<String, Entry> e : saslOpts.entrySet()) {
-      String value = get(e.getValue());
-      if (value != null) {
-        opts.put(e.getKey(), value);
-      }
+    String qop = get(Entry.SASL_QOP);
+    if (qop != null) {
+      opts.put(Sasl.QOP, qop);
     }
+
     return opts;
   }
 

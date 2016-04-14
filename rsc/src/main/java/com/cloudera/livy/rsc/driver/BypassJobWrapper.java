@@ -20,11 +20,9 @@ package com.cloudera.livy.rsc.driver;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.google.common.base.Throwables;
-import org.apache.spark.api.java.JavaFutureAction;
-
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.rsc.BypassJobStatus;
+import com.cloudera.livy.rsc.Utils;
 
 class BypassJobWrapper extends JobWrapper<byte[]> {
 
@@ -70,7 +68,7 @@ class BypassJobWrapper extends JobWrapper<byte[]> {
   }
 
   synchronized BypassJobStatus getStatus() {
-    String stackTrace = error != null ? Throwables.getStackTraceAsString(error) : null;
+    String stackTrace = error != null ? Utils.stackTraceAsString(error) : null;
     return new BypassJobStatus(state, result, stackTrace);
   }
 
