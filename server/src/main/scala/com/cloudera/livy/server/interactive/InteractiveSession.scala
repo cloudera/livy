@@ -213,7 +213,7 @@ class InteractiveSession(
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "com/cloudera/livy/repl/target/jars"))
+        .getOrElse(new File(home, "repl/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toList
     }
