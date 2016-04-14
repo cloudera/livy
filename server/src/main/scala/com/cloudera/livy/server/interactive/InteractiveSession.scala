@@ -37,7 +37,7 @@ import org.json4s.JsonAST.{JNull, JString}
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy._
-import com.cloudera.livy.client.local.{LocalClient, LocalConf, PingJob}
+import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.utils.SparkProcessBuilder
 import com.cloudera.livy.Utils
@@ -72,7 +72,7 @@ class InteractiveSession(
       .setURI(new URI("local:spark"))
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
-      .setConf(LocalConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
+      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
 
     request.kind match {
       case PySpark() =>
@@ -81,7 +81,7 @@ class InteractiveSession(
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
       case SparkR() =>
         val sparkRFile = if (!LivyConf.TEST_MODE) findSparkRArchives() else Nil
-        builder.setConf(LocalConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
+        builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
       case _ =>
     }
     builder.setConf("session.kind", request.kind.toString)
@@ -119,9 +119,9 @@ class InteractiveSession(
       opt.foreach { value => builder.setConf(configKey, value) }
     }
 
-    proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
+    proxyUser.foreach(builder.setConf(RSCConf.Entry.PROXY_USER.key(), _))
     builder.build()
-  }.asInstanceOf[LocalClient]
+  }.asInstanceOf[RSCClient]
 
   // Send a dummy job that will return once the client is ready to be used, and set the
   // state to "idle" at that point.
