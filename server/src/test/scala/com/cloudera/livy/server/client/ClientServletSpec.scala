@@ -39,7 +39,7 @@ import org.scalatest.concurrent.Eventually._
 import com.cloudera.livy.{Job, JobContext, JobHandle, LivyConf}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.client.local.LocalConf
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.server.{BaseSessionServletSpec, RemoteUserOverride}
 
 class ClientServletSpec
@@ -101,7 +101,7 @@ class ClientServletSpec
     withSessionId("should handle synchronous jobs") { testJobSubmission(_, true) }
 
     // Test that the file does get copied over to the live home dir on HDFS - does not test end
-    // to end that the LocalClient class copies it over to the app.
+    // to end that the RSCClient class copies it over to the app.
     withSessionId("should support file uploads") { id =>
       testResourceUpload("file", id)
     }
@@ -164,7 +164,7 @@ class ClientServletSpec
 
     it("should honor impersonation requests") {
       val request = createRequest(inProcess = false)
-      request.conf.put(LocalConf.Entry.PROXY_USER.key(), PROXY)
+      request.conf.put(RSCConf.Entry.PROXY_USER.key(), PROXY)
       jpost[SessionInfo]("/", request, headers = adminHeaders) { data =>
         try {
           data.owner should be (ADMIN)
@@ -199,11 +199,11 @@ class ClientServletSpec
     val classpath = sys.props("java.class.path")
     val conf = new HashMap[String, String]
     conf.put("spark.master", "local")
-    conf.put(LocalConf.Entry.LIVY_JARS.key(), "")
+    conf.put(RSCConf.Entry.LIVY_JARS.key(), "")
     conf.put("spark.driver.extraClassPath", classpath)
     conf.put("spark.executor.extraClassPath", classpath)
     if (inProcess) {
-      conf.put(LocalConf.Entry.CLIENT_IN_PROCESS.key(), "true")
+      conf.put(RSCConf.Entry.CLIENT_IN_PROCESS.key(), "true")
     }
     extraConf.foreach { case (k, v) => conf.put(k, v) }
     new CreateClientRequest(10000L, conf)
