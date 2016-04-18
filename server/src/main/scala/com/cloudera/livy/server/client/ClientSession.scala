@@ -37,7 +37,7 @@ import org.apache.hadoop.security.UserGroupInformation
 
 import com.cloudera.livy.{LivyClientBuilder, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.client.local.{LocalClient, LocalConf}
+import com.cloudera.livy.rsc.{RSCClient, RSCConf}
 import com.cloudera.livy.sessions.{Session, SessionState}
 
 class ClientSession(
@@ -61,11 +61,11 @@ class ClientSession(
       .setAll(Option(createRequest.conf).getOrElse(new JHashMap()))
       .setURI(new URI("local:spark"))
       .setConf("livy.client.sessionId", id.toString)
-      .setConf(LocalConf.Entry.DRIVER_CLASS.key(), null)
+      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), null)
 
-    proxyUser.foreach(builder.setConf(LocalConf.Entry.PROXY_USER.key(), _))
+    proxyUser.foreach(builder.setConf(RSCConf.Entry.PROXY_USER.key(), _))
     builder.build()
-  }.asInstanceOf[LocalClient]
+  }.asInstanceOf[RSCClient]
 
   // Directory where the session's staging files are created. The directory is only accessible
   // to the session's effective user.
