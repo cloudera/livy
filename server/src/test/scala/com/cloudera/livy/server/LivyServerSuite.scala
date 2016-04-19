@@ -22,16 +22,16 @@ import org.scalatest.FunSuite
 
 import com.cloudera.livy.LivyConf
 
-class MainSuite extends FunSuite {
+class LivyServerSuite extends FunSuite {
 
   private val livyConf = new LivyConf()
 
   test("check for SPARK_HOME") {
-    Main.testSparkHome(livyConf)
+    new LivyServer().testSparkHome(livyConf)
   }
 
   test("check spark-submit version") {
-    Main.testSparkSubmit(livyConf)
+    new LivyServer().testSparkSubmit(livyConf)
   }
 
 }

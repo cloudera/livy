@@ -28,9 +28,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
-import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, TestUtil}
-
-import com.cloudera.livy.test.framework.{FatalException, BaseIntegrationTestSuite}
+import com.cloudera.livy.test.framework._
 
 class BatchIT extends BaseIntegrationTestSuite {
 

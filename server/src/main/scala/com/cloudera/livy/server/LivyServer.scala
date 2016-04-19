@@ -36,7 +36,7 @@ import com.cloudera.livy.server.client.ClientSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
 
-object Main extends Logging {
+class LivyServer extends Logging {
 
   private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
   private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
@@ -47,7 +47,10 @@ object Main extends Logging {
   private val KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
     "DEFAULT")
 
-  def main(args: Array[String]): Unit = {
+  private var server: WebServer = _
+  private var _serverUrl: Option[String] = None
+
+  def start(): Unit = {
     val livyConf = new LivyConf().loadFromFile("livy-defaults.conf")
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
@@ -56,8 +59,7 @@ object Main extends Logging {
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
 
-    val server = new WebServer(livyConf, host, port)
-
+    server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
@@ -113,17 +115,20 @@ object Main extends Logging {
         throw new IllegalArgumentException(s"Invalid auth type: $other")
     }
 
-    try {
-      server.start()
+    server.start()
 
-      if (!sys.props.contains("livy.server.serverUrl")) {
-        sys.props("livy.server.serverUrl") = f"http://${server.host}:${server.port}"
-      }
+    _serverUrl = Some(s"http://${server.host}:${server.port}")
+    sys.props("livy.server.serverUrl") = _serverUrl.get
+  }
 
-      server.join()
-    } finally {
-      server.stop()
-    }
+  def join(): Unit = server.join()
+
+  def stop(): Unit = {
+    server.stop()
+  }
+
+  def serverUrl(): String = {
+    _serverUrl.getOrElse(throw new IllegalStateException("Server not yet started."))
   }
 
   /**
@@ -178,6 +183,19 @@ object Main extends Logging {
       case regex(version) => version
       case _ =>
         throw new IOException(f"Unable to determine spark-submit version [$exitCode]:\n$output")
+    }
+  }
+
+}
+
+object LivyServer {
+
+  def main(args: Array[String]): Unit = {
+    val server = new LivyServer()
+    try {
+      server.join()
+    } finally {
+      server.stop()
     }
   }
 

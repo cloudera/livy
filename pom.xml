@@ -292,7 +292,21 @@
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-common</artifactId>
+        <classifier>tests</classifier>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-client</artifactId>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-hdfs</artifactId>
+        <classifier>tests</classifier>
         <version>${hadoop.version}</version>
       </dependency>
 
@@ -311,6 +325,13 @@
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-yarn-common</artifactId>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-yarn-server-tests</artifactId>
+        <classifier>tests</classifier>
         <version>${hadoop.version}</version>
       </dependency>
 
@@ -354,6 +375,12 @@
             <artifactId>unused</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-repl_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
       </dependency>
 
       <dependency>
@@ -737,18 +764,6 @@
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.8</version>
         <executions>
-          <execution>
-            <id>create-tmp-dir</id>
-            <phase>generate-test-resources</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <mkdir dir="${project.build.directory}/tmp" />
-              </target>
-            </configuration>
-          </execution>
           <!-- Cleans up files that tests append to (because we have two test plugins). -->
           <execution>
             <id>pre-test-clean</id>
@@ -760,6 +775,20 @@
               <target>
                 <delete file="${project.build.directory}/unit-tests.log" quiet="true" />
                 <delete file="${project.build.directory}/jacoco.exec" quiet="true" />
+                <delete dir="${project.build.directory}/tmp" quiet="true" />
+              </target>
+            </configuration>
+          </execution>
+          <!-- Create the temp directory to be  used by tests. -->
+          <execution>
+            <id>create-tmp-dir</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.directory}/tmp" />
               </target>
             </configuration>
           </execution>

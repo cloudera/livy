@@ -60,15 +60,17 @@ object TestEnvConfig {
 object ClusterPool {
   private val clusterPool = TestEnvConfig.clusterType match {
     case "real" => new RealClusterPool()
+    case "mini" => new MiniClusterPool()
     case t => throw new Exception(s"Unknown cluster.type $t")
   }
-  clusterPool.init()
 
   Runtime.getRuntime.addShutdownHook(new Thread {
     override def run(): Unit = {
       clusterPool.destroy()
     }
   })
+
+  clusterPool.init()
 
   def get: ClusterPool = {
     clusterPool

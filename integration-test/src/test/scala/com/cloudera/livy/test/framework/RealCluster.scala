@@ -134,7 +134,7 @@ class RealCluster(
           s"livy.server.port=$livyPort",
           "livy.server.master=yarn",
           "livy.server.deployMode=cluster",
-          //"livy.server.recovery.mode=local",
+          // "livy.server.recovery.mode=local",
           "livy.environment=development").map("-D" + _).mkString(" ")
 
         val livyJavaOpts = s"LIVY_SERVER_JAVA_OPTS='$livyJavaOptsValue'"
@@ -152,7 +152,6 @@ class RealCluster(
               case Some(0) =>
               case _ =>
                 error(cr.stdOutAsString())
-              //throw new Exception(s"Livy exited with code ${cr.exitCode}.")
             }
         }
       }

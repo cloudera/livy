@@ -18,14 +18,15 @@
 
 package com.cloudera.livy.test.framework
 
-import com.cloudera.livy.server.interactive.CreateInteractiveRequest
+import javax.servlet.http.HttpServletResponse
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
-import javax.servlet.http.HttpServletResponse
 import org.scalatest._
 
-import com.cloudera.livy.sessions.{Spark, SessionKindModule, SessionState}
+import com.cloudera.livy.server.interactive.CreateInteractiveRequest
+import com.cloudera.livy.sessions.{SessionKindModule, SessionState, Spark}
 
 class FatalException(msg: String) extends Exception(msg)
 
@@ -111,7 +112,7 @@ class BaseIntegrationTestSuite extends Suite with FunSpecLike with Matchers {
 
     def runStatementInSession(sessionId: Int, stmt: String): Int = {
       withClue(cluster.getLivyLog()) {
-        val requestBody = "{ \"code\": \"" + stmt+ "\" }"
+        val requestBody = "{ \"code\": \"" + stmt + "\" }"
         info(requestBody)
         val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
           .setBody(requestBody)

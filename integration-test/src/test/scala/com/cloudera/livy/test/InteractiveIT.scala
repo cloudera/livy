@@ -30,7 +30,7 @@ import org.apache.commons.io.FileUtils
 
 import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
-import com.cloudera.livy.test.framework.{FatalException, BaseIntegrationTestSuite}
+import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, FatalException}
 
 case class StatementObject (stmt: String, expectedResult: Option[String], var stmtId: Int = -1)
 
@@ -42,7 +42,8 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     val testStmts = List(
       new StatementObject ("1+1", Some("res0: Int = 2")),
       new StatementObject ("val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)",
-        Some("hiveContext: org.apache.spark.sql.hive.HiveContext = org.apache.spark.sql.hive.HiveContext")))
+        Some("hiveContext: org.apache.spark.sql.hive.HiveContext = " +
+          "org.apache.spark.sql.hive.HiveContext")))
 
     waitTillSessionIdle(sessionId)
 
@@ -87,7 +88,8 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
     val testStmts = List(
       new StatementObject ("val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)",
-        Some("hiveContext: org.apache.spark.sql.hive.HiveContext = org.apache.spark.sql.hive.HiveContext")))
+        Some("hiveContext: org.apache.spark.sql.hive.HiveContext = " +
+          "org.apache.spark.sql.hive.HiveContext")))
 
     val sessionId = livyClient.startInteractiveSession()
     waitTillSessionIdle(sessionId)
