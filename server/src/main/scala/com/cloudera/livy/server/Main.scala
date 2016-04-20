@@ -87,7 +87,7 @@ object Main extends Logging {
         val keytab = livyConf.get(KERBEROS_KEYTAB)
         require(principal != null,
           s"Kerberos auth requires ${KERBEROS_PRINCIPAL.key} to be provided.")
-        require(principal != null,
+        require(keytab != null,
           s"Kerberos auth requires ${KERBEROS_KEYTAB.key} to be provided.")
 
         val holder = new FilterHolder(new AuthenticationFilter())
