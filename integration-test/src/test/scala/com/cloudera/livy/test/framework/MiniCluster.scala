@@ -193,8 +193,13 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     val sparkConf = Map(
       SparkLauncher.SPARK_MASTER -> "yarn",
       "spark.submit.deployMode" -> "cluster",
+      "spark.executor.instances" -> "1",
+      "spark.scheduler.minRegisteredResourcesRatio" -> "0.0",
+      "spark.ui.enabled" -> "false",
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
-      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sys.props("java.class.path")
+      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sys.props("java.class.path"),
+      SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console",
+      SparkLauncher.EXECUTOR_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console"
     )
     saveProperties(sparkConf, new File(sparkConfDir, "spark-defaults.conf"))
 
@@ -280,6 +285,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
     pb.environment().put("HADOOP_CONF_DIR", configDir.getAbsolutePath())
     pb.environment().put("SPARK_CONF_DIR", sparkConfDir.getAbsolutePath())
+    pb.environment().put("SPARK_LOCAL_IP", "127.0.0.1")
 
     val child = pb.start()
 
