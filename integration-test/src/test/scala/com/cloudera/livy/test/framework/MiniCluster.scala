@@ -80,10 +80,7 @@ sealed abstract class MiniClusterBase extends MiniClusterUtils with Logging {
   def main(args: Array[String]): Unit = {
     val klass = getClass().getSimpleName()
 
-    info(s"$klass is starting up. Classpath is:")
-    sys.props("java.class.path").split(File.pathSeparator).foreach { cp =>
-      info(s"  $cp")
-    }
+    info(s"$klass is starting up.")
 
     val Array(configPath) = args
     start(configPath)
@@ -186,7 +183,6 @@ class MiniCluster extends Cluster with MiniClusterUtils with Logging {
   private var livyUrl: String = _
 
   override def deploy(): Unit = {
-    error("Initializing mini cluster.", new Exception())
     sparkConfDir = mkdir("spark-conf")
 
     val sparkConf = new Properties()

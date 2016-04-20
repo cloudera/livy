@@ -27,118 +27,61 @@ import scala.concurrent.duration._
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.apache.commons.io.FileUtils
+import org.scalatest.BeforeAndAfter
 
 import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
 import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, FatalException}
 
-case class StatementObject (stmt: String, expectedResult: Option[String], var stmtId: Int = -1)
+private case class TestStatement(
+  stmt: String,
+  expectedResult: Option[String],
+  var stmtId: Int = -1)
 
-class InteractiveIT extends BaseIntegrationTestSuite {
+class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
 
-  it("Idle interactive session recovery") {
-    val sessionId = livyClient.startInteractiveSession()
+  private var sessionId: Int = -1
+
+  after {
+    if (sessionId != -1) {
+      httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
+      sessionId = -1
+    }
+  }
+
+  it("basic interactive session") {
+    sessionId = livyClient.startInteractiveSession()
 
     val testStmts = List(
-      new StatementObject ("1+1", Some("res0: Int = 2")),
-      new StatementObject ("val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)",
+      new TestStatement("1+1", Some("res0: Int = 2")),
+      new TestStatement("val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)",
         Some("hiveContext: org.apache.spark.sql.hive.HiveContext = " +
           "org.apache.spark.sql.hive.HiveContext")))
 
-    waitTillSessionIdle(sessionId)
+    waitTillSessionIdle()
 
     // Run the statements
     testStmts.foreach {
-      runAndValidateStatment(sessionId, _)
+      runAndValidateStatement(_)
     }
-    // Now kill livy and restart
-    //
-    cluster.stopLivy()
-
-    cluster.runLivy()
-
-    val stateAfterRestart = livyClient.getInteractivelStatus(sessionId)
-
-    stateAfterRestart should equal(SessionState.Idle().toString)
-
-    val newTestStmts = List(
-      new StatementObject ("4 * 8", Some("Int = 32")),
-      new StatementObject ("hiveContext.sql(\\\"SELECT count(*)\\\")",
-        Some("org.apache.spark.sql.DataFrame = [_c0: bigint]")))
-
-    // Run the statements
-    newTestStmts.foreach {
-      runAndValidateStatment(sessionId, _)
-    }
-
-    // Verify the old statements
-    testStmts.foreach ({ s =>
-      s.expectedResult.map({ r =>
-        val result = livyClient.getStatementResult(sessionId, s.stmtId)
-        if (result.indexOf(r) == -1) {
-          throw new FatalException(s"Statement result doesn't match. Expected: $r. Actual: $result")
-        }
-      })
-    })
-
-    httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
   }
 
-  it("running interactive session recovery") {
-
-    val testStmts = List(
-      new StatementObject ("val hiveContext = new org.apache.spark.sql.hive.HiveContext(sc)",
-        Some("hiveContext: org.apache.spark.sql.hive.HiveContext = " +
-          "org.apache.spark.sql.hive.HiveContext")))
-
-    val sessionId = livyClient.startInteractiveSession()
-    waitTillSessionIdle(sessionId)
-
-    // Run the statements
-    testStmts.foreach ({ s =>
-      s.stmtId = livyClient.runStatementInSession(sessionId, s.stmt)
-    })
-    // Now kill livy and restart
-    //
-    cluster.stopLivy()
-
-    cluster.runLivy()
-
-    val stateAfterRestart = livyClient.getInteractivelStatus(sessionId)
-
-    stateAfterRestart should equal(SessionState.Busy().toString)
-
-    waitTillSessionIdle(sessionId)
-
-    // Verify the old statements
-    testStmts.foreach ({ s =>
-      s.expectedResult.map({ r =>
-        val result = livyClient.getStatementResult(sessionId, s.stmtId)
-        if (result.indexOf(r) == -1) {
-          throw new FatalException(s"Statement result doesn't match. Expected: $r. Actual: $result")
-        }
-      })
-    })
-
-    httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
-  }
-
-  private def runAndValidateStatment(sessionId: Int, testStmt: StatementObject) = {
+  private def runAndValidateStatement(testStmt: TestStatement) = {
     testStmt.stmtId = livyClient.runStatementInSession(sessionId, testStmt.stmt)
 
-    waitTillSessionIdle(sessionId)
+    waitTillSessionIdle()
 
-    testStmt.expectedResult.map({ s =>
+    testStmt.expectedResult.map { s =>
       val result = livyClient.getStatementResult(sessionId, testStmt.stmtId)
       if (result.indexOf(s) == -1) {
         throw new FatalException(s"Statement result doesn't match. Expected: $s. Actual: $result")
       }
-    })
+    }
 
   }
 
   @tailrec
-  private def waitTillSessionIdle (sessionId: Int): Unit = {
+  private def waitTillSessionIdle(): Unit = {
     val curState = livyClient.getInteractivelStatus(sessionId)
     val terminalStates = Set(SessionState.Success().toString, SessionState.Dead().toString,
       SessionState.Error().toString)
@@ -147,7 +90,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       throw new FatalException(s"Session is in unexpected terminal state $curState.")
     } else if (curState != SessionState.Idle().toString) {
       Thread.sleep(1.second.toMillis)
-      waitTillSessionIdle(sessionId)
+      waitTillSessionIdle()
     }
   }
 
