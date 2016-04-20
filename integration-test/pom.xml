@@ -31,6 +31,16 @@
   <version>0.2.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
+  <properties>
+    <!--
+      Set this to the file containing the cluster description to use. By default a mini cluster
+      with 1 DN and 1 NM will be run. Location is tried first in the classpath, then the file
+      system.
+    -->
+    <cluster.spec>default</cluster.spec>
+    <skipITs>${skipTests}</skipITs>
+  </properties>
+
   <dependencies>
 
     <!--
@@ -212,25 +222,15 @@
       <plugin>
         <groupId>org.scalatest</groupId>
         <artifactId>scalatest-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>test</id>
-            <phase>none</phase>
-          </execution>
-          <execution>
-            <id>integration-test</id>
-            <phase>integration-test</phase>
-            <goals>
-              <goal>test</goal>
-            </goals>
-            <configuration>
-              <environmentVariables>
-                <LIVY_HOME>${execution.root}</LIVY_HOME>
-              </environmentVariables>
-              <skipTests>${skipITs}</skipTests>
-            </configuration>
-          </execution>
-        </executions>
+        <configuration>
+          <environmentVariables>
+            <LIVY_HOME>${execution.root}</LIVY_HOME>
+          </environmentVariables>
+          <systemProperties>
+            <cluster.spec>${cluster.spec}</cluster.spec>
+          </systemProperties>
+          <skipTests>${skipITs}</skipTests>
+        </configuration>
       </plugin>
     </plugins>
   </build>

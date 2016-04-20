@@ -22,6 +22,7 @@ import java.io._
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Properties
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -35,6 +36,19 @@ import org.scalatest.concurrent.Eventually._
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.LivyServer
 
+private class MiniClusterConfig(val config: Map[String, String]) {
+
+  val nmCount = getInt("yarn.nm-count", 1)
+  val localDirCount = getInt("yarn.local-dir-count", 1)
+  val logDirCount = getInt("yarn.log-dir-count", 1)
+  val dnCount = getInt("hdfs.dn-count", 1)
+
+  private def getInt(key: String, default: Int): Int = {
+    config.get(key).map(_.toInt).getOrElse(default)
+  }
+
+}
+
 sealed trait MiniClusterUtils {
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
@@ -46,11 +60,14 @@ sealed trait MiniClusterUtils {
     }
   }
 
-  protected def saveProperties(props: Properties, dest: File): Unit = {
+  protected def saveProperties(props: Map[String, String], dest: File): Unit = {
+    val jprops = new Properties()
+    props.foreach { case (k, v) => jprops.put(k, v) }
+
     val tempFile = new File(dest.getAbsolutePath() + ".tmp")
     val out = new OutputStreamWriter(new FileOutputStream(tempFile), UTF_8)
     try {
-      props.store(out, "Configuration")
+      jprops.store(out, "Configuration")
     } finally {
       out.close()
     }
@@ -61,29 +78,24 @@ sealed trait MiniClusterUtils {
 
 sealed abstract class MiniClusterBase extends MiniClusterUtils with Logging {
 
-  protected val testConfig = {
-    val in = new InputStreamReader(
-      getClass().getResourceAsStream("/test-env.properties"), UTF_8)
-    val props = new Properties()
-    try {
-      props.load(in)
-    } finally {
-      in.close()
-    }
-    props
-  }
-
-  protected def getIntConfig(key: String, default: Int): Int = {
-    Option(testConfig.getProperty(key)).map(_.toInt).getOrElse(default)
-  }
-
   def main(args: Array[String]): Unit = {
     val klass = getClass().getSimpleName()
 
     info(s"$klass is starting up.")
 
     val Array(configPath) = args
-    start(configPath)
+    val config = {
+      val file = new File(s"$configPath/cluster.conf")
+      val in = new InputStreamReader(new FileInputStream(file), UTF_8)
+      val props = new Properties()
+      try {
+        props.load(in)
+      } finally {
+        in.close()
+      }
+      new MiniClusterConfig(props.asScala.toMap)
+    }
+    start(config, configPath)
 
     info(s"$klass running.")
 
@@ -92,66 +104,59 @@ sealed abstract class MiniClusterBase extends MiniClusterUtils with Logging {
     }
   }
 
-  protected def start(configPath: String): Unit
+  protected def start(config: MiniClusterConfig, configPath: String): Unit
 
 }
 
 object MiniHdfsMain extends MiniClusterBase {
 
-  override protected def start(configPath: String): Unit = {
-    val dnCount = getIntConfig("mini-cluster.hdfs.dn-count", 1)
-
-    val config = new Configuration()
-    val hdfsCluster = new MiniDFSCluster.Builder(config)
-      .numDataNodes(dnCount)
+  override protected def start(config: MiniClusterConfig, configPath: String): Unit = {
+    val hadoopConf = new Configuration()
+    val hdfsCluster = new MiniDFSCluster.Builder(hadoopConf)
+      .numDataNodes(config.dnCount)
       .format(true)
       .waitSafeMode(true)
       .build()
 
     hdfsCluster.waitActive()
 
-    saveConfig(config, new File(configPath + "/core-site.xml"))
+    saveConfig(hadoopConf, new File(configPath + "/core-site.xml"))
   }
 
 }
 
 object MiniYarnMain extends MiniClusterBase {
 
-  override protected def start(configPath: String): Unit = {
-    val nmCount = getIntConfig("mini-cluster.yarn.nm-count", 1)
-    val localDirCount = getIntConfig("mini-cluster.yarn.local-dir-count", 1)
-    val logDirCount = getIntConfig("mini-cluster.yarn.log-dir-count", 1)
-
+  override protected def start(config: MiniClusterConfig, configPath: String): Unit = {
     val baseConfig = new YarnConfiguration()
-    var yarnCluster = new MiniYARNCluster(getClass().getName(), nmCount, localDirCount, logDirCount)
+    var yarnCluster = new MiniYARNCluster(getClass().getName(), config.nmCount,
+      config.localDirCount, config.logDirCount)
     yarnCluster.init(baseConfig)
     yarnCluster.start()
 
     // Woraround for YARN-2642.
-    val config = yarnCluster.getConfig()
+    val yarnConfig = yarnCluster.getConfig()
     eventually(timeout(30 seconds), interval(100 millis)) {
-      assert(config.get(YarnConfiguration.RM_ADDRESS).split(":")(1) != "0",
+      assert(yarnConfig.get(YarnConfiguration.RM_ADDRESS).split(":")(1) != "0",
         "RM not up yes.")
     }
 
-    info(s"RM address in configuration is ${config.get(YarnConfiguration.RM_ADDRESS)}")
-    saveConfig(config, new File(configPath + "/yarn-site.xml"))
+    info(s"RM address in configuration is ${yarnConfig.get(YarnConfiguration.RM_ADDRESS)}")
+    saveConfig(yarnConfig, new File(configPath + "/yarn-site.xml"))
   }
 
 }
 
 object MiniLivyMain extends MiniClusterBase {
 
-  def start(configPath: String): Unit = {
+  def start(config: MiniClusterConfig, configPath: String): Unit = {
     val server = new LivyServer()
     server.start()
 
     // Write a livy-defaults.conf file to the conf directory with the location of the Livy
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.
-    val clientConf = new Properties()
-    clientConf.setProperty("livy.server.serverUrl", server.serverUrl())
-
+    val clientConf = Map("livy.server.serverUrl" -> server.serverUrl())
     saveProperties(clientConf, new File(configPath + "/livy-defaults.conf"))
   }
 
@@ -172,7 +177,7 @@ private case class ProcessInfo(process: Process, logFile: File)
  *
  * TODO: add support for MiniKdc.
  */
-class MiniCluster extends Cluster with MiniClusterUtils with Logging {
+class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterUtils with Logging {
 
   private val tempDir = new File(sys.props("java.io.tmpdir"))
   private var sparkConfDir: File = _
@@ -185,14 +190,16 @@ class MiniCluster extends Cluster with MiniClusterUtils with Logging {
   override def deploy(): Unit = {
     sparkConfDir = mkdir("spark-conf")
 
-    val sparkConf = new Properties()
-    sparkConf.setProperty(SparkLauncher.SPARK_MASTER, "yarn")
-    sparkConf.setProperty("spark.submit.deployMode", "cluster")
-    sparkConf.setProperty(SparkLauncher.DRIVER_EXTRA_CLASSPATH, sys.props("java.class.path"))
-    sparkConf.setProperty(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, sys.props("java.class.path"))
+    val sparkConf = Map(
+      SparkLauncher.SPARK_MASTER -> "yarn",
+      "spark.submit.deployMode" -> "cluster",
+      SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
+      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sys.props("java.class.path")
+    )
     saveProperties(sparkConf, new File(sparkConfDir, "spark-defaults.conf"))
 
     configDir = mkdir("hadoop-conf")
+    saveProperties(config, new File(configDir, "cluster.conf"))
     hdfs = Some(start(MiniHdfsMain.getClass, new File(configDir, "core-site.xml")))
     yarn = Some(start(MiniYarnMain.getClass, new File(configDir, "yarn-site.xml")))
     runLivy()
@@ -292,9 +299,9 @@ class MiniCluster extends Cluster with MiniClusterUtils with Logging {
 
 }
 
-class MiniClusterPool extends ClusterPool {
+class MiniClusterPool(config: Map[String, String]) extends ClusterPool {
 
-  private val cluster = new MiniCluster()
+  private val cluster = new MiniCluster(config)
 
   override def init(): Unit = synchronized {
     cluster.deploy()

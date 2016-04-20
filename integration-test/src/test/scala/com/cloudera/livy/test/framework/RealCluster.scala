@@ -31,9 +31,22 @@ import com.ning.http.client.AsyncHttpClient
 
 import com.cloudera.livy.Logging
 
+private class RealClusterConfig(config: Map[String, String]) {
+  val ipList = config("real-cluster.ip").split(",")
+
+  val sshLogin = config("real-cluster.ssh.login")
+  val sshPubKey = config("real-cluster.ssh.pubkey")
+  val livyPort = config.getOrElse("real-cluster.livy.port", "8998").toInt
+  val livyClasspath = config("real-cluster.livy.classpath")
+
+  val deployLivy = config.getOrElse("real-cluster.deploy-livy", "true").toBoolean
+  val deployLivyPath = config.get("real-cluster.deploy-livy.path")
+  val noDeployLivyHome = config.get("real-cluster.livy.no-deploy.livy-home")
+}
+
 class RealCluster(
   ip: String,
-  config: TestEnvConfig.RealClusterConfig)
+  config: RealClusterConfig)
   extends Cluster with Logging {
 
   private var livyHomePath: Option[String] = Some("/usr/bin/livy")
@@ -62,7 +75,7 @@ class RealCluster(
 
         def rsync(src: String, dest: String): Either[String, Unit] = {
           val rsyncOutput = new StringBuilder
-          val cmd = s"rsync -avc $src ${config.sshLogin}@${config.ip}:$dest"
+          val cmd = s"rsync -avc $src ${config.sshLogin}@${ip}:$dest"
           val exitCode = cmd.run(ProcessLogger(rsyncOutput.append(_))).exitValue()
           if (exitCode != 0) {
             Left(s"rsync '$cmd' failed with ${rsyncOutput.toString()}")
@@ -212,4 +225,35 @@ class RealCluster(
   }
 
   override def livyEndpoint: String = s"http://$ip:${config.livyPort}"
+}
+
+/**
+ * Test cases will request a cluster from this class so test cases can run in parallel
+ * if there are spare clusters.
+ */
+class RealClusterPool(config: Map[String, String]) extends ClusterPool {
+
+  private val clusterConfig = new RealClusterConfig(config)
+  private val clusters = clusterConfig.ipList.map {
+    ip => new RealCluster(ip, clusterConfig)
+  }.toBuffer
+
+  override def init(): Unit = synchronized {
+    clusters.foreach(_.deploy())
+    clusters.foreach(_.stopLivy())
+    clusters.foreach(_.runLivy())
+  }
+
+  override def destroy(): Unit = synchronized {
+    clusters.foreach(_.stopLivy())
+    clusters.foreach(_.cleanUp())
+  }
+
+  override def lease(): Cluster = synchronized {
+    clusters.remove(0)
+  }
+
+  override def returnCluster(cluster: Cluster): Unit = synchronized {
+    clusters.append(cluster.asInstanceOf[RealCluster])
+  }
 }

@@ -86,9 +86,10 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     val terminalStates = Set(SessionState.Success().toString, SessionState.Dead().toString,
       SessionState.Error().toString)
 
-    if (terminalStates(curState)) {
-      throw new FatalException(s"Session is in unexpected terminal state $curState.")
-    } else if (curState != SessionState.Idle().toString) {
+    assert(!terminalStates.contains(curState),
+      s"Session is in unexpected terminal state $curState.")
+
+    if (curState != SessionState.Idle().toString) {
       Thread.sleep(1.second.toMillis)
       waitTillSessionIdle()
     }
