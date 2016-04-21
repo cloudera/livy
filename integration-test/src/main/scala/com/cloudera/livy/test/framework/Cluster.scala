@@ -16,22 +16,21 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.server
+package com.cloudera.livy.test.framework
 
-import org.scalatest.FunSuite
+/**
+ * An common interface to run test on real cluster and mini cluster.
+ */
+trait Cluster {
+  def deploy(): Unit
+  def cleanUp(): Unit
+  def getYarnRmEndpoint: String
+  def upload(srcPath: String, destPath: String): Unit
 
-import com.cloudera.livy.LivyConf
+  def runLivy(): Unit
+  def stopLivy(): Unit
+  def livyEndpoint: String
+  def getLivyLog(): String
 
-class MainSuite extends FunSuite {
-
-  private val livyConf = new LivyConf()
-
-  test("check for SPARK_HOME") {
-    Main.testSparkHome(livyConf)
-  }
-
-  test("check spark-submit version") {
-    Main.testSparkSubmit(livyConf)
-  }
-
+  def runCommand(cmd: String): String
 }

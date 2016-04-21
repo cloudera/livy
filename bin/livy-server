@@ -48,4 +48,4 @@ fi
 exec java \
 	$LIVY_SERVER_JAVA_OPTS \
 	-cp "$LIVY_CLASSPATH:$CLASSPATH" \
-	com.cloudera.livy.server.Main
+	com.cloudera.livy.server.LivyServer

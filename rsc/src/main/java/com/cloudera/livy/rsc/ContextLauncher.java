@@ -19,11 +19,13 @@ package com.cloudera.livy.rsc;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -61,7 +63,6 @@ class ContextLauncher implements ContextInfo {
   private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
-  private static final String SPARK_HOME_KEY = "spark.home";
 
   private final String clientId;
   private final String secret;
@@ -212,16 +213,7 @@ class ContextLauncher implements ContextInfo {
       return new ChildProcess(conf, child, confFile);
     } else {
       final SparkLauncher launcher = new SparkLauncher();
-      String sparkHome = conf.get(SPARK_HOME_KEY);
-      if (sparkHome == null) {
-        sparkHome = System.getenv(SPARK_HOME_ENV);
-      }
-
-      if (sparkHome == null) {
-        sparkHome = System.getProperty(SPARK_HOME_KEY);
-      }
-      launcher.setSparkHome(sparkHome);
-
+      launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
       launcher.setAppResource("spark-internal");
 
       // Define how to pass options to the child process. If launching in client (or local)
@@ -249,6 +241,10 @@ class ContextLauncher implements ContextInfo {
    * Write the configuration to a file readable only by the process's owner. Livy properties
    * are written with an added prefix so that they can be loaded using SparkConf on the driver
    * side.
+   *
+   * The default Spark configuration (from either SPARK_HOME or SPARK_CONF_DIR) is merged into
+   * the user configuration, so that defaults set by Livy's admin take effect when not overridden
+   * by the user.
    */
   private static File writeConfToFile(RSCConf conf) throws IOException {
     Properties confView = new Properties();
@@ -260,9 +256,34 @@ class ContextLauncher implements ContextInfo {
       confView.setProperty(key, e.getValue());
     }
 
+    // Load the default Spark configuration.
+    String confDir = System.getenv("SPARK_CONF_DIR");
+    if (confDir == null && System.getenv(SPARK_HOME_ENV) != null) {
+      confDir = System.getenv(SPARK_HOME_ENV) + File.separator + "conf";
+    }
+
+    if (confDir != null) {
+      File sparkDefaults = new File(confDir + File.separator + "spark-defaults.conf");
+      if (sparkDefaults.isFile()) {
+        Properties sparkConf = new Properties();
+        Reader r = new InputStreamReader(new FileInputStream(sparkDefaults), UTF_8);
+        try {
+          sparkConf.load(r);
+        } finally {
+          r.close();
+        }
+
+        for (String key : sparkConf.stringPropertyNames()) {
+          if (!confView.containsKey(key)) {
+            confView.put(key, sparkConf.getProperty(key));
+          }
+        }
+      }
+    }
+
     File file = File.createTempFile("livyConf", ".properties");
     Files.setPosixFilePermissions(file.toPath(), EnumSet.of(OWNER_READ, OWNER_WRITE));
-    file.deleteOnExit();
+    //file.deleteOnExit();
 
     Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
     try {
@@ -445,7 +466,7 @@ class ContextLauncher implements ContextInfo {
           try {
             task.run();
           } finally {
-            confFile.delete();
+            //confFile.delete();
           }
         }
       };
