@@ -17,6 +17,7 @@
  */
 
 package com.cloudera.livy.test.framework
+
 /**
  * An common interface to run test on real cluster and mini cluster.
  */

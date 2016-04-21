@@ -26,9 +26,7 @@ import com.ning.http.client.AsyncHttpClient
 import org.scalatest._
 
 import com.cloudera.livy.server.interactive.CreateInteractiveRequest
-import com.cloudera.livy.sessions.{SessionKindModule, SessionState, Spark}
-
-class FatalException(msg: String) extends Exception(msg)
+import com.cloudera.livy.sessions.{SessionKindModule, Spark}
 
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   var cluster: Cluster = _

@@ -31,7 +31,7 @@ import org.scalatest.BeforeAndAfter
 
 import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
-import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, FatalException}
+import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 
 private case class TestStatement(
   stmt: String,
@@ -73,9 +73,8 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
 
     testStmt.expectedResult.map { s =>
       val result = livyClient.getStatementResult(sessionId, testStmt.stmtId)
-      if (result.indexOf(s) == -1) {
-        throw new FatalException(s"Statement result doesn't match. Expected: $s. Actual: $result")
-      }
+      assert(result.indexOf(s) >= 0,
+        s"Statement result doesn't match. Expected: $s. Actual: $result")
     }
 
   }

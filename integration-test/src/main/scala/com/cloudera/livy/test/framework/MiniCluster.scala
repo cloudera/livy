@@ -33,7 +33,7 @@ import org.apache.hadoop.yarn.server.MiniYARNCluster
 import org.apache.spark.launcher.SparkLauncher
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.Logging
 import com.cloudera.livy.server.LivyServer
 
 private class MiniClusterConfig(val config: Map[String, String]) {

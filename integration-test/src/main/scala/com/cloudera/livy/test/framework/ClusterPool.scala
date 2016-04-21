@@ -36,7 +36,7 @@ trait ClusterPool {
 object ClusterPool extends Logging {
   private val CLUSTER_TYPE = "cluster.type"
 
-  private val config = {
+  private lazy val config = {
     sys.props.get("cluster.spec")
       .filter { path => path.nonEmpty && path != "default" }
       .map { path =>
@@ -54,7 +54,7 @@ object ClusterPool extends Logging {
       .getOrElse(Map(CLUSTER_TYPE -> "mini"))
   }
 
-  private val clusterPool =
+  private lazy val clusterPool =
     try {
       val pool = config.get(CLUSTER_TYPE) match {
         case Some("real") => new RealClusterPool(config)

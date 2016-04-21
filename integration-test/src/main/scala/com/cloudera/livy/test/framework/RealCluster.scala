@@ -45,8 +45,8 @@ private class RealClusterConfig(config: Map[String, String]) {
 }
 
 class RealCluster(
-  ip: String,
-  config: RealClusterConfig)
+    ip: String,
+    config: RealClusterConfig)
   extends Cluster with Logging {
 
   private var livyHomePath: Option[String] = Some("/usr/bin/livy")
