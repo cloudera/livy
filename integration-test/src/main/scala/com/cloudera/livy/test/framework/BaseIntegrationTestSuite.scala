@@ -47,34 +47,6 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       .registerModule(DefaultScalaModule)
       .registerModule(new SessionKindModule())
 
-    def getBatchStatus(batchId: Int): String = {
-      val rep = httpClient.prepareGet(s"$livyEndpoint/batches/$batchId").execute().get()
-      withClue(rep.getResponseBody) {
-        rep.getStatusCode should equal(HttpServletResponse.SC_OK)
-
-        val sessionState =
-          mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-
-        sessionState should contain key ("state")
-
-        sessionState("state").asInstanceOf[String]
-      }
-    }
-
-    def getBatchAppId(batchId: Int): String = {
-      val rep = httpClient.prepareGet(s"$livyEndpoint/batches/$batchId").execute().get()
-      withClue(rep.getResponseBody) {
-        rep.getStatusCode should equal(HttpServletResponse.SC_OK)
-
-        val sessionState =
-          mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-
-        sessionState should contain key ("appId")
-
-        sessionState("appId").asInstanceOf[String]
-      }
-    }
-
     def startInteractiveSession(): Int = {
       withClue(cluster.getLivyLog()) {
         val requestBody = new CreateInteractiveRequest()
