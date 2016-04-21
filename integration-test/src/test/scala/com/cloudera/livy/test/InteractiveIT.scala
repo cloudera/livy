@@ -49,7 +49,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     }
   }
 
-  it("basic interactive session") {
+  test("basic interactive session") {
     sessionId = livyClient.startInteractiveSession()
 
     val testStmts = List(

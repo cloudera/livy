@@ -30,14 +30,20 @@ import com.cloudera.livy.sessions.{SessionKindModule, SessionState, Spark}
 
 class FatalException(msg: String) extends Exception(msg)
 
-class BaseIntegrationTestSuite extends Suite with FunSpecLike with Matchers {
-  val cluster = ClusterPool.get.lease()
-  val httpClient = new AsyncHttpClient()
-  val livyClient = new LivyClient (httpClient, livyEndpoint)
+abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
+  var cluster: Cluster = _
+  var httpClient: AsyncHttpClient = _
+  var livyClient: LivyClient = _
 
   protected def livyEndpoint: String = cluster.livyEndpoint
 
-  class LivyClient (httpClient: AsyncHttpClient, livyEndpoint: String){
+  test("initialize test cluster") {
+    cluster = ClusterPool.get.lease()
+    httpClient = new AsyncHttpClient()
+    livyClient = new LivyClient(httpClient, livyEndpoint)
+  }
+
+  class LivyClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
     private val mapper = new ObjectMapper()
       .registerModule(DefaultScalaModule)
