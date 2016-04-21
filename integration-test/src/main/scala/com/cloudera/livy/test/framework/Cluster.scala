@@ -33,12 +33,3 @@ trait Cluster {
 
   def runCommand(cmd: String): String
 }
-
-/*
-class MiniCluster extends Cluster {
-  override def deployLivy(): Unit = {
-    // Create MiniYARNCluster
-    // Prepare fake Spark dir
-  }
-}
-*/
