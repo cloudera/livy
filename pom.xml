@@ -674,6 +674,7 @@
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
             </systemProperties>
+            <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
