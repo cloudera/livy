@@ -21,14 +21,13 @@ package com.cloudera.livy.repl
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+import org.apache.spark.SparkConf
 import org.json4s.Extraction
 import org.json4s.JsonAST.JValue
 
-import com.cloudera.livy.repl.sparkr.SparkRInterpreter
-
 class SparkRSessionSpec extends BaseSessionSpec {
 
-  override def createInterpreter(): Interpreter = SparkRInterpreter()
+  override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = session.execute("1 + 2")

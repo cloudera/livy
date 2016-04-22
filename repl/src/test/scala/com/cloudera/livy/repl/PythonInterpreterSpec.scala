@@ -18,40 +18,38 @@
 
 package com.cloudera.livy.repl
 
+import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 import org.scalatest.Outcome
-
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.python.PythonInterpreter
 
 class PythonInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter(): Interpreter = PythonInterpreter()
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
   it should "execute multiple statements" in withInterpreter { interpreter =>
     var response = interpreter.execute("x = 1")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> ""
+      TEXT_PLAIN -> ""
     ))
 
     response = interpreter.execute("y = 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> ""
+      TEXT_PLAIN -> ""
     ))
 
     response = interpreter.execute("x + y")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
@@ -65,7 +63,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
         |x + y
       """.stripMargin)
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
@@ -88,7 +86,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
         |counter.count
       """.stripMargin)
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
@@ -99,7 +97,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       """.stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.APPLICATION_JSON -> List[JValue](
+      APPLICATION_JSON -> List[JValue](
         List[JValue](1, "a"),
         List[JValue](3, "b")
       )
@@ -113,7 +111,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       """.stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.APPLICATION_LIVY_TABLE_JSON -> (
+      APPLICATION_LIVY_TABLE_JSON -> (
         ("headers" -> List(
           ("type" -> "INT_TYPE") ~ ("name" -> "0"),
           ("type" -> "STRING_TYPE") ~ ("name" -> "1")
@@ -134,14 +132,14 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       """.stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
   it should "capture stdout" in withInterpreter { interpreter =>
     val response = interpreter.execute("print 'Hello World'")
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "Hello World"
+      TEXT_PLAIN -> "Hello World"
     ))
   }
 

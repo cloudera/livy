@@ -16,13 +16,12 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.server.client
+package com.cloudera.livy.server.interactive
 
 import java.io.File
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
-import java.util.{ArrayList, HashMap}
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletResponse._
 
@@ -31,44 +30,26 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
 
-import org.apache.commons.io.FileUtils
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.spark.api.java.function.VoidFunction
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.{Job, JobContext, JobHandle, LivyConf}
+import com.cloudera.livy.{Job, JobContext, JobHandle}
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.RSCConf
-import com.cloudera.livy.server.{BaseSessionServletSpec, RemoteUserOverride}
+import com.cloudera.livy.server.RemoteUserOverride
+import com.cloudera.livy.sessions.SessionState
 
-class ClientServletSpec
-  extends BaseSessionServletSpec[ClientSession] {
+class JobApiSpec extends BaseInteractiveServletSpec {
 
   private val PROXY = "__proxy__"
 
-  private var tempDir: File = _
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    if (tempDir != null) {
-      scala.util.Try(FileUtils.deleteDirectory(tempDir))
-      tempDir = null
-    }
-  }
-
-  override protected def createConf(): LivyConf = synchronized {
-    if (tempDir == null) {
-      tempDir = Files.createTempDirectory("client-test").toFile()
-    }
-    super.createConf().set(LivyConf.SESSION_STAGING_DIR, tempDir.toURI().toString())
-  }
-
-  override def createServlet(): ClientSessionServlet = {
-    new ClientSessionServlet(createConf()) with RemoteUserOverride
-  }
-
   private var sessionId: Int = -1
+
+  override def createServlet(): InteractiveSessionServlet = {
+    new InteractiveSessionServlet(createConf()) with RemoteUserOverride
+  }
 
   def withSessionId(desc: String)(fn: (Int) => Unit): Unit = {
     it(desc) {
@@ -77,22 +58,14 @@ class ClientServletSpec
     }
   }
 
-  describe("Client Servlet") {
+  describe("Interactive Servlet") {
 
-    it("should create client sessions") {
+    it("should create sessions") {
       jpost[SessionInfo]("/", createRequest()) { data =>
+        waitForIdle(data.id)
         header("Location") should equal("/0")
         data.id should equal (0)
         sessionId = data.id
-      }
-    }
-
-    it("should list existing sessions") {
-      jget[Map[String, Any]]("/") { data =>
-        data("sessions") match {
-          case contents: Seq[_] => contents.size should equal (1)
-          case _ => fail("Response is not an array.")
-        }
       }
     }
 
@@ -152,6 +125,7 @@ class ClientServletSpec
       val headers = makeUserHeaders(PROXY)
       jpost[SessionInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
         try {
+          waitForIdle(data.id)
           data.owner should be (PROXY)
           data.proxyUser should be (PROXY)
           val user = runJob(data.id, new GetUserJob(), headers = headers)
@@ -164,9 +138,10 @@ class ClientServletSpec
 
     it("should honor impersonation requests") {
       val request = createRequest(inProcess = false)
-      request.conf.put(RSCConf.Entry.PROXY_USER.key(), PROXY)
+      request.proxyUser = Some(PROXY)
       jpost[SessionInfo]("/", request, headers = adminHeaders) { data =>
         try {
+          waitForIdle(data.id)
           data.owner should be (ADMIN)
           data.proxyUser should be (PROXY)
           val user = runJob(data.id, new GetUserJob(), headers = adminHeaders)
@@ -189,24 +164,16 @@ class ClientServletSpec
 
   }
 
-  private def deleteSession(id: Int): Unit = {
-    jdelete[Map[String, Any]](s"/$id", headers = adminHeaders) { _ => }
+  private def waitForIdle(id: Int): Unit = {
+    eventually(timeout(1 minute), interval(100 millis)) {
+      jget[SessionInfo](s"/$id") { status =>
+        status.state should be (SessionState.Idle().toString())
+      }
+    }
   }
 
-  private def createRequest(
-      inProcess: Boolean = true,
-      extraConf: Map[String, String] = Map()): CreateClientRequest = {
-    val classpath = sys.props("java.class.path")
-    val conf = new HashMap[String, String]
-    conf.put("spark.master", "local")
-    conf.put(RSCConf.Entry.LIVY_JARS.key(), "")
-    conf.put("spark.driver.extraClassPath", classpath)
-    conf.put("spark.executor.extraClassPath", classpath)
-    if (inProcess) {
-      conf.put(RSCConf.Entry.CLIENT_IN_PROCESS.key(), "true")
-    }
-    extraConf.foreach { case (k, v) => conf.put(k, v) }
-    new CreateClientRequest(10000L, conf)
+  private def deleteSession(id: Int): Unit = {
+    jdelete[Map[String, Any]](s"/$id", headers = adminHeaders) { _ => }
   }
 
   private def testResourceUpload(cmd: String, sessionId: Int): Unit = {

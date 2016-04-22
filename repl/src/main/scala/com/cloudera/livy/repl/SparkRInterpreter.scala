@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl.sparkr
+package com.cloudera.livy.repl
 
 import java.io.{File, FileOutputStream}
 import java.lang.ProcessBuilder.Redirect
@@ -34,9 +34,6 @@ import org.json4s._
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.client.common.ClientConf
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.Interpreter
-import com.cloudera.livy.repl.process.ProcessInterpreter
 
 // scalastyle:off println
 object SparkRInterpreter {
@@ -66,7 +63,7 @@ object SparkRInterpreter {
     ")"
     ).r.unanchored
 
-  def apply(): SparkRInterpreter = {
+  def apply(conf: SparkConf): SparkRInterpreter = {
     val backendTimeout = sys.env.getOrElse("SPARKR_BACKEND_TIMEOUT", "120").toInt
     val mirror = universe.runtimeMirror(getClass.getClassLoader)
     val sparkRBackendClass = mirror.classLoader.loadClass("org.apache.spark.api.r.RBackend")
@@ -163,14 +160,14 @@ class SparkRInterpreter(process: Process)
     }
 
     try {
-      var content: JObject = repl.TEXT_PLAIN -> (sendRequest(code) + takeErrorLines())
+      var content: JObject = TEXT_PLAIN -> (sendRequest(code) + takeErrorLines())
 
       // If we rendered anything, pass along the last image.
       tempFile.foreach { case file =>
         val bytes = Files.readAllBytes(file)
         if (bytes.nonEmpty) {
           val image = Base64.encodeBase64String(bytes)
-          content = content ~ (repl.IMAGE_PNG -> image)
+          content = content ~ (IMAGE_PNG -> image)
         }
       }
 

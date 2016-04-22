@@ -174,7 +174,7 @@ class ContextLauncher implements ContextInfo {
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
-    if ("sparkr".equals(conf.get("session.kind"))) {
+    if ("sparkr".equals(conf.get(SESSION_KIND))) {
       merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
     }
 
@@ -197,7 +197,7 @@ class ContextLauncher implements ContextInfo {
 
     final File confFile = writeConfToFile(conf);
 
-    if (conf.get(CLIENT_IN_PROCESS) != null) {
+    if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
       Runnable child = new Runnable() {
@@ -224,6 +224,7 @@ class ContextLauncher implements ContextInfo {
       launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
+
       if (conf.get(PROXY_USER) != null) {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
