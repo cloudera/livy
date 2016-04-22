@@ -165,7 +165,6 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
-
   </repositories>
 
   <modules>
@@ -174,6 +173,7 @@
     <module>client-common</module>
     <module>client-http</module>
     <module>core</module>
+    <module>coverage</module>
     <module>repl</module>
     <module>rsc</module>
     <module>scala-api</module>
@@ -785,7 +785,7 @@
             <configuration>
               <target>
                 <delete file="${project.build.directory}/unit-tests.log" quiet="true" />
-                <delete file="${project.build.directory}/jacoco.exec" quiet="true" />
+                <delete dir="${project.build.directory}/jacoco" quiet="true" />
                 <delete dir="${project.build.directory}/tmp" quiet="true" />
               </target>
             </configuration>
@@ -918,7 +918,7 @@
       <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
-        <version>0.7.5.201505241946</version>
+        <version>0.7.7.201606060606</version>
         <executions>
           <execution>
             <goals>
@@ -928,30 +928,6 @@
               <append>true</append>
               <destFile>${project.build.directory}/jacoco/main.exec</destFile>
             </configuration>
-          </execution>
-          <execution>
-            <id>merge-reports</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>merge</goal>
-            </goals>
-            <configuration>
-              <fileSets>
-                <fileSet>
-                  <directory>${project.build.directory}/jacoco</directory>
-                  <includes>
-                    <include>*.exec</include>
-                  </includes>
-                </fileSet>
-              </fileSets>
-            </configuration>
-          </execution>
-          <execution>
-            <id>report</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>report</goal>
-            </goals>
           </execution>
         </executions>
       </plugin>

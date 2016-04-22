@@ -35,6 +35,7 @@ import org.apache.spark.launcher.SparkLauncher
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.client.common.TestUtils
 import com.cloudera.livy.server.LivyServer
 
 private class MiniClusterConfig(val config: Map[String, String]) {
@@ -253,7 +254,11 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   def runLivy(): Unit = {
     assert(!livy.isDefined)
     val confFile = new File(configDir, "serverUrl.conf")
-    val localLivy = start(MiniLivyMain.getClass, confFile)
+    val jacocoArgs = Option(TestUtils.getJacocoArgs())
+      .map { args =>
+        Seq(args, s"-Djacoco.args=$args")
+      }.getOrElse(Nil)
+    val localLivy = start(MiniLivyMain.getClass, confFile, extraJavaArgs = jacocoArgs)
 
     val props = loadProperties(confFile)
     livyUrl = props("livy.server.serverUrl")
@@ -285,7 +290,10 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     dir
   }
 
-  private def start(klass: Class[_], configFile: File): ProcessInfo = {
+  private def start(
+      klass: Class[_],
+      configFile: File,
+      extraJavaArgs: Seq[String] = Nil): ProcessInfo = {
     val simpleName = klass.getSimpleName().stripSuffix("$")
     val procDir = mkdir(simpleName)
     val procTmp = mkdir("tmp", parent = procDir)
@@ -294,14 +302,17 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     sys.process.Process(s"pkill -f $simpleName") !
 
     val java = sys.props("java.home") + "/bin/java"
-    val cmd = Seq(
-      sys.props("java.home") + "/bin/java",
-      "-Dtest.appender=console",
-      "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
-      "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
-      "-XX:MaxPermSize=256m",
-      klass.getName().stripSuffix("$"),
-      configDir.getAbsolutePath())
+    val cmd =
+      Seq(
+        sys.props("java.home") + "/bin/java",
+        "-Dtest.appender=console",
+        "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
+        "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
+        "-XX:MaxPermSize=256m") ++
+      extraJavaArgs ++
+      Seq(
+        klass.getName().stripSuffix("$"),
+        configDir.getAbsolutePath())
 
     val logFile = new File(procDir, "output.log")
     val pb = new ProcessBuilder(cmd.toArray: _*)
