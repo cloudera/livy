@@ -169,6 +169,7 @@
     <module>repl</module>
     <module>rsc</module>
     <module>server</module>
+    <module>test-lib</module>
     <module>integration-test</module>
   </modules>
 

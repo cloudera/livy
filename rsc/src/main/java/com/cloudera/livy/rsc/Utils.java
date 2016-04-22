@@ -91,11 +91,8 @@ public class Utils {
     StringBuilder sb = new StringBuilder();
     sb.append(t.getClass().getName()).append(": ").append(t.getMessage());
     for (StackTraceElement e : t.getStackTrace()) {
-      sb.append(e.toString());
       sb.append("\n");
-    }
-    if (sb.length() > 0) {
-      sb.setLength(sb.length() - 1);
+      sb.append(e.toString());
     }
     return sb.toString();
   }
