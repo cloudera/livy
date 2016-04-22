@@ -42,6 +42,7 @@ import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.WebServer
 import com.cloudera.livy.server.client.{ClientSession, ClientSessionServlet}
 import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.test.jobs.Echo
 
 /**
  * The test for the HTTP client is written in Scala so we can reuse the code in the livy-server
@@ -213,7 +214,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     assert(expectedStr === new String(b))
   }
 
-  private def runJob(sync: Boolean, genStatusFn: Long => Seq[JobStatus]): (Long, JFuture[Long]) = {
+  private def runJob(sync: Boolean, genStatusFn: Long => Seq[JobStatus]): (Long, JFuture[Int]) = {
     val jobId = java.lang.Long.valueOf(ID_GENERATOR.incrementAndGet())
     when(session.submitJob(any(classOf[Array[Byte]]))).thenReturn(jobId)
 
@@ -222,7 +223,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     val remaining = statuses.drop(1)
     when(session.jobStatus(meq(jobId))).thenReturn(first, remaining: _*)
 
-    val handle = if (sync) client.run(new DummyJob()) else client.submit(new DummyJob())
+    val job = new Echo(42)
+    val handle = if (sync) client.run(job) else client.submit(job)
     (jobId, handle)
   }
 
@@ -245,13 +247,6 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
   def serialize(value: Any): Array[Byte] = {
     BufferUtils.toByteArray(serializer.serialize(value))
   }
-
-}
-
-// Won't really get called, here just so we can use the API.
-class DummyJob extends Job[Long] {
-
-  override def call(jc: JobContext): Long = 42L
 
 }
 
