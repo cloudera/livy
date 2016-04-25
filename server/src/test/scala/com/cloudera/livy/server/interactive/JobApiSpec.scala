@@ -40,6 +40,7 @@ import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.server.RemoteUserOverride
 import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.test.jobs.{Echo, GetCurrentUser}
 
 class JobApiSpec extends BaseInteractiveServletSpec {
 
@@ -85,7 +86,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
 
     withSessionId("should monitor async Spark jobs") { sid =>
       val ser = new Serializer()
-      val job = BufferUtils.toByteArray(ser.serialize(new AsyncTestJob()))
+      val job = BufferUtils.toByteArray(ser.serialize(new Echo("hello")))
       var jobId: Long = -1L
       jpost[JobStatus](s"/$sid/submit-job", new SerializedJob(job)) { status =>
         jobId = status.id
@@ -128,7 +129,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
           waitForIdle(data.id)
           data.owner should be (PROXY)
           data.proxyUser should be (PROXY)
-          val user = runJob(data.id, new GetUserJob(), headers = headers)
+          val user = runJob(data.id, new GetCurrentUser(), headers = headers)
           user should be (PROXY)
         } finally {
           deleteSession(data.id)
@@ -144,7 +145,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
           waitForIdle(data.id)
           data.owner should be (ADMIN)
           data.proxyUser should be (PROXY)
-          val user = runJob(data.id, new GetUserJob(), headers = adminHeaders)
+          val user = runJob(data.id, new GetCurrentUser(), headers = adminHeaders)
           user should be (PROXY)
 
           // Test that files are uploaded to a new session directory.
@@ -196,7 +197,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
   }
 
   private def testJobSubmission(sid: Int, sync: Boolean): Unit = {
-    val result = runJob(sid, new TestJob(), sync = sync)
+    val result = runJob(sid, new Echo(42), sync = sync)
     result should be (42)
   }
 
@@ -223,30 +224,5 @@ class JobApiSpec extends BaseInteractiveServletSpec {
     }
     result.getOrElse(throw new IllegalStateException())
   }
-
-}
-
-class TestJob extends Job[Int] {
-
-  override def call(jc: JobContext): Int = 42
-
-}
-
-class AsyncTestJob extends Job[Int] {
-
-  override def call(jc: JobContext): Int = {
-    val future = jc.sc().parallelize(List[Integer](1, 2, 3).asJava).foreachAsync(
-      new VoidFunction[Integer]() {
-        override def call(l: Integer): Unit = Thread.sleep(1)
-      })
-    future.get(10, TimeUnit.SECONDS)
-    42
-  }
-
-}
-
-class GetUserJob extends Job[String] {
-
-  override def call(jc: JobContext): String = UserGroupInformation.getCurrentUser().getUserName()
 
 }
