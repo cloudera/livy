@@ -643,7 +643,7 @@
           <version>2.19</version>
           <configuration>
             <environmentVariables>
-              <livy.test>true</livy.test>
+              <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
@@ -651,6 +651,7 @@
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
+              <spark.ui.enabled>false</spark.ui.enabled>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -665,7 +666,7 @@
           <version>1.0</version>
           <configuration>
             <environmentVariables>
-              <livy.test>true</livy.test>
+              <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
@@ -673,6 +674,7 @@
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
+              <spark.ui.enabled>false</spark.ui.enabled>
             </systemProperties>
             <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
