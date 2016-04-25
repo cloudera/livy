@@ -124,7 +124,9 @@ class LivyServer extends Logging {
   def join(): Unit = server.join()
 
   def stop(): Unit = {
-    server.stop()
+    if (server != null) {
+      server.stop()
+    }
   }
 
   def serverUrl(): String = {
@@ -193,6 +195,7 @@ object LivyServer {
   def main(args: Array[String]): Unit = {
     val server = new LivyServer()
     try {
+      server.start()
       server.join()
     } finally {
       server.stop()
