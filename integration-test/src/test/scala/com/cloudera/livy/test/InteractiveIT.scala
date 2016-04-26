@@ -55,12 +55,21 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
       matchError("throw new IllegalStateException()",
         evalue = ".*java\\.lang\\.IllegalStateException.*")
 
+      // Make sure appInfo is reported correctly.
+      val result = livyClient.getSessionInfo(sessionId)
+      result should contain key ("appInfo")
+      val appInfo = result("appInfo").asInstanceOf[Map[String, String]]
+      appInfo should contain key ("driverLogUrl")
+      appInfo should contain key ("sparkUiUrl")
+      appInfo("driverLogUrl") should include ("containerlogs")
+      appInfo("sparkUiUrl") should startWith ("http")
+
       // Stop session and verify the YARN app state is finished.
       // This is important because if YARN app state is killed, Spark history is not archived.
       val appId = getAppId(sessionId)
       livyClient.stopSession(sessionId)
       val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
-      assert(appReport.getYarnApplicationState() == YarnApplicationState.FINISHED)
+      appReport.getYarnApplicationState() shouldEqual YarnApplicationState.FINISHED
     }
   }
 

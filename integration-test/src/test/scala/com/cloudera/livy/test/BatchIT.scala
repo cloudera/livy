@@ -56,6 +56,10 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     dumpLogOnFailure(result.id) {
       assert(result.state === SessionState.Success().toString())
       assert(cluster.fs.isDirectory(new Path(output)))
+      result.appInfo should contain key ("driverLogUrl")
+      result.appInfo should contain key ("sparkUiUrl")
+      result.appInfo.get("driverLogUrl")
+      result.appInfo.get("sparkUiUrl") should startWith ("http")
     }
   }
 

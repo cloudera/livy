@@ -25,17 +25,18 @@ import scala.util.Random
 
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionState}
-import com.cloudera.livy.utils.{SparkApp, SparkAppListener, SparkProcessBuilder}
+import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
 
 class BatchSession(
     id: Int,
     owner: String,
     override val proxyUser: Option[String],
     livyConf: LivyConf,
-    request: CreateBatchRequest)
-    extends Session(id, owner, livyConf) with SparkAppListener {
+    request: CreateBatchRequest,
+    mockApp: Option[SparkApp] = None) // For unit test.
+  extends Session(id, owner, livyConf) with SparkAppListener {
 
-  private val app = {
+  private val app = mockApp.getOrElse {
     val uniqueAppTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
 
     val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
@@ -92,4 +93,6 @@ class BatchSession(
       }
     }
   }
+
+  override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
 }

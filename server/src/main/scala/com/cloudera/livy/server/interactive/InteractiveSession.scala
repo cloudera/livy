@@ -40,7 +40,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.utils.{SparkApp, SparkAppListener}
+import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener}
 
 object InteractiveSession {
   val LivyReplJars = "livy.repl.jars"
@@ -52,7 +52,8 @@ class InteractiveSession(
     owner: String,
     override val proxyUser: Option[String],
     livyConf: LivyConf,
-    request: CreateInteractiveRequest)
+    request: CreateInteractiveRequest,
+    mockApp: Option[SparkApp] = None) // For unit test.
   extends Session(id, owner, livyConf)
   with SparkAppListener {
 
@@ -149,14 +150,16 @@ class InteractiveSession(
       .setURI(new URI("rsc:/"))
     val client = builder.build().asInstanceOf[RSCClient]
 
-    val app = if (livyConf.isRunningOnYarn()) {
-      // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
-      // (e.g. Reflect YARN application state to session state).
-      Option(SparkApp.create(uniqueAppTag, None, livyConf, Some(this)))
-    } else {
-      // When Livy is running with other cluster manager, SparkApp doesn't provide any additional
-      // benefit over controlling RSCDriver using RSCClient. Don't use it.
-      None
+    val app = mockApp.orElse {
+      if (livyConf.isRunningOnYarn()) {
+        // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
+        // (e.g. Reflect YARN application state to session state).
+        Option(SparkApp.create(uniqueAppTag, None, livyConf, Some(this)))
+      } else {
+        // When Livy is running with other cluster manager, SparkApp doesn't provide any additional
+        // benefit over controlling RSCDriver using RSCClient. Don't use it.
+        None
+      }
     }
     (client, app)
   }
@@ -435,4 +438,6 @@ class InteractiveSession(
       }
     }
   }
+
+  override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
 }

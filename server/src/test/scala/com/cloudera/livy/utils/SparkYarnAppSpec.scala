@@ -21,12 +21,12 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.control.Exception.noCatch
 
-import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
+import org.apache.hadoop.yarn.api.records._
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus.UNDEFINED
 import org.apache.hadoop.yarn.api.records.YarnApplicationState._
 import org.apache.hadoop.yarn.client.api.YarnClient
+import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
@@ -40,7 +40,7 @@ import com.cloudera.livy.utils.SparkApp._
 
 class SparkYarnAppSpec extends FunSpec {
   private def cleanupThread(t: Thread)(f: => Unit) = {
-    noCatch.andFinally { t.interrupt() } (f)
+    try { f } finally { t.interrupt() }
   }
 
   private def mockSleep(ms: Long) = {
@@ -141,7 +141,7 @@ class SparkYarnAppSpec extends FunSpec {
         when(mockSparkSubmit.waitFor()).thenAnswer(new Answer[Int]() {
           override def answer(invocation: InvocationOnMock): Int = {
             waitForCalledLatch.countDown()
-            1
+            0
           }
         })
 
@@ -202,6 +202,137 @@ class SparkYarnAppSpec extends FunSpec {
         assert(app.mapYarnState(appId, FINISHED, UNDEFINED) == State.FAILED)
         assert(app.mapYarnState(appId, FAILED, UNDEFINED) == State.FAILED)
         assert(app.mapYarnState(appId, KILLED, UNDEFINED) == State.KILLED)
+      }
+    }
+
+    it("should expose driver log url and Spark UI url") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+        val driverLogUrl = "DRIVER LOG URL"
+        val sparkUiUrl = "SPARK UI URL"
+
+        val mockApplicationAttemptId = mock[ApplicationAttemptId]
+        val mockAppReport = mock[ApplicationReport]
+        when(mockAppReport.getApplicationId).thenReturn(appId)
+        when(mockAppReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
+        when(mockAppReport.getTrackingUrl).thenReturn(sparkUiUrl)
+        when(mockAppReport.getCurrentApplicationAttemptId).thenReturn(mockApplicationAttemptId)
+        var done = false
+        when(mockAppReport.getYarnApplicationState).thenAnswer(new Answer[YarnApplicationState]() {
+          override def answer(invocation: InvocationOnMock): YarnApplicationState = {
+            if (!done) {
+              RUNNING
+            } else {
+              FINISHED
+            }
+          }
+        })
+        when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
+
+        val mockAttemptReport = mock[ApplicationAttemptReport]
+        val mockContainerId = mock[ContainerId]
+        when(mockAttemptReport.getAMContainerId).thenReturn(mockContainerId)
+        when(mockYarnClient.getApplicationAttemptReport(mockApplicationAttemptId))
+          .thenReturn(mockAttemptReport)
+
+        val mockContainerReport = mock[ContainerReport]
+        when(mockYarnClient.getContainerReport(mockContainerId)).thenReturn(mockContainerReport)
+
+        // Block test until getLogUrl is called 10 times.
+        val getLogUrlCountDown = new CountDownLatch(10)
+        when(mockContainerReport.getLogUrl).thenAnswer(new Answer[String] {
+          override def answer(invocation: InvocationOnMock): String = {
+            getLogUrlCountDown.countDown()
+            driverLogUrl
+          }
+        })
+
+        val mockListener = mock[SparkAppListener]
+
+        val app = new SparkYarnApp(
+          appTag, Some(appId), None, Some(mockListener), livyConf, mockYarnClient)
+        cleanupThread(app.yarnAppMonitorThread) {
+          getLogUrlCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
+          done = true
+
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+          assert(!app.yarnAppMonitorThread.isAlive,
+            "YarnAppMonitorThread should terminate after YARN app is finished.")
+
+          verify(mockYarnClient, atLeast(1)).getApplicationReport(appId)
+          verify(mockAppReport, atLeast(1)).getTrackingUrl()
+          verify(mockContainerReport, atLeast(1)).getLogUrl()
+          verify(mockListener).appIdKnown(appId.toString)
+          verify(mockListener).infoChanged(AppInfo(Some(driverLogUrl), Some(sparkUiUrl)))
+        }
+      }
+    }
+
+    it("should not die on YARN-4411") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+
+        // Block test until getApplicationReport is called 10 times.
+        val pollCountDown = new CountDownLatch(10)
+        when(mockYarnClient.getApplicationReport(appId)).thenAnswer(new Answer[ApplicationReport] {
+          override def answer(invocation: InvocationOnMock): ApplicationReport = {
+            pollCountDown.countDown()
+            throw new IllegalArgumentException("No enum constant " +
+              "org.apache.hadoop.yarn.api.records.YarnApplicationAttemptState.FINAL_SAVING")
+          }
+        })
+
+        val app = new SparkYarnApp(appTag, Some(appId), None, None, livyConf, mockYarnClient)
+        cleanupThread(app.yarnAppMonitorThread) {
+          pollCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
+          assert(app.state == SparkApp.State.STARTING)
+
+          app.state = SparkApp.State.FINISHED
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+        }
+      }
+    }
+
+    it("should not die on ApplicationAttemptNotFoundException") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+        val mockAppReport = mock[ApplicationReport]
+        val mockApplicationAttemptId = mock[ApplicationAttemptId]
+        var done = false
+
+        when(mockAppReport.getApplicationId).thenReturn(appId)
+        when(mockAppReport.getYarnApplicationState).thenAnswer(
+          new Answer[YarnApplicationState]() {
+            override def answer(invocation: InvocationOnMock): YarnApplicationState = {
+              if (done) {
+                FINISHED
+              } else {
+                RUNNING
+              }
+            }
+          })
+        when(mockAppReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
+        when(mockAppReport.getCurrentApplicationAttemptId).thenReturn(mockApplicationAttemptId)
+        when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
+
+        // Block test until getApplicationReport is called 10 times.
+        val pollCountDown = new CountDownLatch(10)
+        when(mockYarnClient.getApplicationAttemptReport(mockApplicationAttemptId)).thenAnswer(
+          new Answer[ApplicationReport] {
+            override def answer(invocation: InvocationOnMock): ApplicationReport = {
+              pollCountDown.countDown()
+              throw new ApplicationAttemptNotFoundException("unit test")
+            }
+          })
+
+        val app = new SparkYarnApp(appTag, Some(appId), None, None, livyConf, mockYarnClient)
+        cleanupThread(app.yarnAppMonitorThread) {
+          pollCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
+          assert(app.state == SparkApp.State.RUNNING)
+          done = true
+
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+        }
       }
     }
   }

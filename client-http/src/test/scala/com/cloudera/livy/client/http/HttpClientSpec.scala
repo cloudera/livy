@@ -43,6 +43,7 @@ import com.cloudera.livy.server.WebServer
 import com.cloudera.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
 import com.cloudera.livy.sessions.{SessionState, Spark}
 import com.cloudera.livy.test.jobs.Echo
+import com.cloudera.livy.utils.AppInfo
 
 /**
  * The test for the HTTP client is written in Scala so we can reuse the code in the livy-server
@@ -270,6 +271,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
         val id = sessionManager.nextId()
         when(session.id).thenReturn(id)
         when(session.appId).thenReturn(None)
+        when(session.appInfo).thenReturn(AppInfo())
         when(session.state).thenReturn(SessionState.Idle())
         when(session.proxyUser).thenReturn(None)
         when(session.kind).thenReturn(Spark())

@@ -25,10 +25,12 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.Try
 
 import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
+import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
 import com.cloudera.livy.util.LineBufferedProcess
@@ -78,7 +80,7 @@ class SparkYarnApp private[utils] (
   import SparkYarnApp._
 
   private val appIdPromise: Promise[ApplicationId] = Promise()
-  private var state: SparkApp.State = SparkApp.State.STARTING
+  private[utils] var state: SparkApp.State = SparkApp.State.STARTING
   private var yarnDiagnostics: IndexedSeq[String] = IndexedSeq.empty[String]
 
   override def log(): IndexedSeq[String] =
@@ -209,16 +211,43 @@ class SparkYarnApp private[utils] (
       listener.foreach(_.appIdKnown(appId.toString))
 
       val pollInterval = SparkYarnApp.getYarnPollInterval(livyConf)
+      var appInfo = AppInfo()
       while (isRunning) {
-        Clock.sleep(pollInterval.toMillis)
+        try {
+          Clock.sleep(pollInterval.toMillis)
 
-        // Refresh application state
-        val appReport = yarnClient.getApplicationReport(appId)
-        yarnDiagnostics = getYarnDiagnostics(appReport)
-        changeState(mapYarnState(
-          appReport.getApplicationId,
-          appReport.getYarnApplicationState,
-          appReport.getFinalApplicationStatus))
+          // Refresh application state
+          val appReport = yarnClient.getApplicationReport(appId)
+          yarnDiagnostics = getYarnDiagnostics(appReport)
+          changeState(mapYarnState(
+            appReport.getApplicationId,
+            appReport.getYarnApplicationState,
+            appReport.getFinalApplicationStatus))
+
+          val latestAppInfo = {
+            val attempt =
+              yarnClient.getApplicationAttemptReport(appReport.getCurrentApplicationAttemptId)
+            val driverLogUrl =
+              Try(yarnClient.getContainerReport(attempt.getAMContainerId).getLogUrl)
+                .toOption
+            AppInfo(driverLogUrl, Option(appReport.getTrackingUrl))
+          }
+
+          if (appInfo != latestAppInfo) {
+            listener.foreach(_.infoChanged(latestAppInfo))
+            appInfo = latestAppInfo
+          }
+        } catch {
+          // This exception might be thrown during app is starting up. It's transient.
+          case e: ApplicationAttemptNotFoundException =>
+          // Workaround YARN-4411: No enum constant FINAL_SAVING from getApplicationAttemptReport()
+          case e: IllegalArgumentException =>
+            if (e.getMessage.contains("FINAL_SAVING")) {
+              debug("Encountered YARN-4411.")
+            } else {
+              throw e
+            }
+        }
       }
 
       debug(s"$appId $state ${yarnDiagnostics.mkString(" ")}")
