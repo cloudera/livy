@@ -72,10 +72,10 @@ class InteractiveSession(
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
       .setConf("spark.master", "yarn-cluster")
-      .setURI(new URI("local:spark"))
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
+      .setURI(new URI("local:spark"))
 
     kind match {
       case PySpark() =>
@@ -294,14 +294,6 @@ class InteractiveSession(
 
   private def transition(state: SessionState) = synchronized {
     _state = state
-  }
-
-  private def ensureState[A](state: SessionState, f: => A) = synchronized {
-    if (_state == state) {
-      f
-    } else {
-      throw new IllegalStateException("Session is in state %s" format _state)
-    }
   }
 
   private def ensureRunning(): Unit = synchronized {

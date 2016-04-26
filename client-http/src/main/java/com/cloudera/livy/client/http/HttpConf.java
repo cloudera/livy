@@ -30,9 +30,7 @@ class HttpConf extends ClientConf<HttpConf> {
     SOCKET_TIMEOUT("connection.socket.timeout", "5m"),
 
     JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "100ms"),
-    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s"),
-
-    SESSION_CREATE_TIMEOUT("session.create.timeout", "1m");
+    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s");
 
     private final String key;
     private final Object dflt;

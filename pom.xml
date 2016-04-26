@@ -62,7 +62,6 @@
     <scala.version>2.10.4</scala.version>
     <scalatest.version>2.2.4</scalatest.version>
     <scalatra.version>2.3.0</scalatra.version>
-    <snappy-java.version>1.1.1.6</snappy-java.version>
     <java.version>1.7</java.version>
     <minJavaVersion>1.7</minJavaVersion>
     <maxJavaVersion>1.8</maxJavaVersion>
@@ -509,12 +508,6 @@
         <groupId>org.scalatra</groupId>
         <artifactId>scalatra-test_${scala.binary.version}</artifactId>
         <version>${scalatra.version}</version>
-      </dependency>
-
-      <dependency>
-        <groupId>org.xerial.snappy</groupId>
-        <artifactId>snappy-java</artifactId>
-        <version>${snappy-java.version}</version>
       </dependency>
 
       <dependency>

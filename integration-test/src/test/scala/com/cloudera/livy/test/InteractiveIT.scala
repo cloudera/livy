@@ -18,19 +18,10 @@
 
 package com.cloudera.livy.test
 
-import java.io.File
-import javax.servlet.http.HttpServletResponse
-
-import scala.annotation.tailrec
 import scala.concurrent.duration._
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfter
 
-import com.cloudera.livy.server.batch.CreateBatchRequest
-import com.cloudera.livy.sessions.{SessionKindModule, SessionState}
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 
 private case class TestStatement(
@@ -43,14 +34,11 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   private var sessionId: Int = -1
 
   after {
-    if (sessionId != -1) {
-      httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
-      sessionId = -1
-    }
+    livyClient.stopSession(sessionId)
   }
 
   test("basic interactive session") {
-    sessionId = livyClient.startInteractiveSession()
+    sessionId = livyClient.startSession()
 
     val testStmts = List(
       new TestStatement("1+1", Some("res0: Int = 2")),
@@ -58,7 +46,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
         Some("hiveContext: org.apache.spark.sql.hive.HiveContext = " +
           "org.apache.spark.sql.hive.HiveContext")))
 
-    waitTillSessionIdle()
+    waitTillSessionIdle(sessionId)
 
     // Run the statements
     testStmts.foreach {
@@ -67,9 +55,9 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   }
 
   private def runAndValidateStatement(testStmt: TestStatement) = {
-    testStmt.stmtId = livyClient.runStatementInSession(sessionId, testStmt.stmt)
+    testStmt.stmtId = livyClient.runStatement(sessionId, testStmt.stmt)
 
-    waitTillSessionIdle()
+    waitTillSessionIdle(sessionId)
 
     testStmt.expectedResult.map { s =>
       val result = livyClient.getStatementResult(sessionId, testStmt.stmtId)
@@ -77,21 +65,6 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
         s"Statement result doesn't match. Expected: $s. Actual: $result")
     }
 
-  }
-
-  @tailrec
-  private def waitTillSessionIdle(): Unit = {
-    val curState = livyClient.getInteractivelStatus(sessionId)
-    val terminalStates = Set(SessionState.Success().toString, SessionState.Dead().toString,
-      SessionState.Error().toString)
-
-    assert(!terminalStates.contains(curState),
-      s"Session is in unexpected terminal state $curState.")
-
-    if (curState != SessionState.Idle().toString) {
-      Thread.sleep(1.second.toMillis)
-      waitTillSessionIdle()
-    }
   }
 
 }

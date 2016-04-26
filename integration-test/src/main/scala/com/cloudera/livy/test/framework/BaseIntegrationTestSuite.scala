@@ -20,34 +20,44 @@ package com.cloudera.livy.test.framework
 
 import javax.servlet.http.HttpServletResponse
 
+import scala.concurrent.duration._
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
 import org.scalatest._
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.server.interactive.CreateInteractiveRequest
-import com.cloudera.livy.sessions.{SessionKindModule, Spark}
+import com.cloudera.livy.sessions.{SessionKindModule, SessionState, Spark}
 
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   var cluster: Cluster = _
   var httpClient: AsyncHttpClient = _
-  var livyClient: LivyClient = _
+  var livyClient: LivyRestClient = _
 
   protected def livyEndpoint: String = cluster.livyEndpoint
+
+  protected val mapper = new ObjectMapper()
+    .registerModule(DefaultScalaModule)
+    .registerModule(new SessionKindModule())
 
   test("initialize test cluster") {
     cluster = ClusterPool.get.lease()
     httpClient = new AsyncHttpClient()
-    livyClient = new LivyClient(httpClient, livyEndpoint)
+    livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
 
-  class LivyClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
+  protected def waitTillSessionIdle(sessionId: Int): Unit = {
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      val curState = livyClient.getSessionStatus(sessionId)
+      assert(curState === SessionState.Idle().toString)
+    }
+  }
 
-    private val mapper = new ObjectMapper()
-      .registerModule(DefaultScalaModule)
-      .registerModule(new SessionKindModule())
+  class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
-    def startInteractiveSession(): Int = {
+    def startSession(): Int = {
       withClue(cluster.getLivyLog()) {
         val requestBody = new CreateInteractiveRequest()
         requestBody.kind = Spark()
@@ -72,7 +82,14 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       }
     }
 
-    def getInteractivelStatus(sessionId: Int): String = {
+    /** Stops a session. If an id < 0 is provided, do nothing. */
+    def stopSession(sessionId: Int): Unit = {
+      if (sessionId >= 0) {
+        httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
+      }
+    }
+
+    def getSessionStatus(sessionId: Int): String = {
       val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId").execute().get()
       withClue(rep.getResponseBody) {
         rep.getStatusCode should equal(HttpServletResponse.SC_OK)
@@ -86,7 +103,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       }
     }
 
-    def runStatementInSession(sessionId: Int, stmt: String): Int = {
+    def runStatement(sessionId: Int, stmt: String): Int = {
       withClue(cluster.getLivyLog()) {
         val requestBody = "{ \"code\": \"" + stmt + "\" }"
         info(requestBody)
@@ -127,4 +144,5 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       }
     }
   }
+
 }
