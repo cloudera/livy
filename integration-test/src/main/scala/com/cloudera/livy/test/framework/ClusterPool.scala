@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Properties
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 import com.cloudera.livy.Logging
 
@@ -54,9 +55,10 @@ object ClusterPool extends Logging {
       .getOrElse(Map(CLUSTER_TYPE -> "mini"))
   }
 
-  private lazy val clusterPool =
+  private lazy val clusterPool = {
+    var pool: ClusterPool = null
     try {
-      val pool = config.get(CLUSTER_TYPE) match {
+      pool = config.get(CLUSTER_TYPE) match {
         case Some("real") => new RealClusterPool(config)
         case Some("mini") => new MiniClusterPool(config)
         case t => throw new Exception(s"Unknown or unset cluster.type $t")
@@ -71,8 +73,15 @@ object ClusterPool extends Logging {
     } catch {
       case e: Throwable =>
         error("Failed to initialize cluster.", e)
+        Option(pool).foreach { p =>
+          Try(p.destroy()).recover { case e =>
+            error("Furthermore, failed to clean up cluster after failure.", e)
+          }
+        }
         throw e
     }
+    pool
+  }
 
   def get: ClusterPool = {
     clusterPool

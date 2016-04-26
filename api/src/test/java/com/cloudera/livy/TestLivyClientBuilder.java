@@ -55,14 +55,9 @@ public class TestLivyClientBuilder {
     assertNull(new LivyClientBuilder(false).setURI(new URI("mismatch")).build());
   }
 
-  @Test
+  @Test(expected=IllegalStateException.class)
   public void testFactoryError() throws Exception {
-    try {
-      assertNull(new LivyClientBuilder(false).setURI(new URI("error")).build());
-    } catch (IllegalArgumentException e) {
-      assertNotNull(e.getCause());
-      assertTrue(e.getCause() instanceof IllegalStateException);
-    }
+    new LivyClientBuilder(false).setURI(new URI("error")).build();
   }
 
   @Test

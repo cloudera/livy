@@ -187,6 +187,15 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   private var livy: Option[ProcessInfo] = None
   private var livyUrl: String = _
 
+  // Explicitly remove the "test-lib" dependency from the classpath of child processes. We
+  // want tests to explicitly upload this jar when necessary, to test those code paths.
+  private val childClasspath = {
+    val cp = sys.props("java.class.path").split(File.pathSeparator)
+    val filtered = cp.filter { path => !new File(path).getName().startsWith("livy-test-lib-") }
+    assert(cp.size != filtered.size, "livy-test-lib jar not found in classpath!")
+    filtered.mkString(File.pathSeparator)
+  }
+
   override def deploy(): Unit = {
     sparkConfDir = mkdir("spark-conf")
 
@@ -196,8 +205,8 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       "spark.executor.instances" -> "1",
       "spark.scheduler.minRegisteredResourcesRatio" -> "0.0",
       "spark.ui.enabled" -> "false",
-      SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
-      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sys.props("java.class.path"),
+      SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
+      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
       SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console",
       SparkLauncher.EXECUTOR_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console"
     )
@@ -272,7 +281,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       sys.props("java.home") + "/bin/java",
       "-Dtest.appender=console",
       "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
-      "-cp", sys.props("java.class.path") + File.pathSeparator + configDir.getAbsolutePath(),
+      "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
       "-Xmx2g",
       klass.getName().stripSuffix("$"),
       configDir.getAbsolutePath())
@@ -290,9 +299,16 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     val child = pb.start()
 
     // Wait for the config file to show up before returning, so that dependent services
-    // can see the configuration.
+    // can see the configuration. Exit early if process dies.
     eventually(timeout(30 seconds), interval(100 millis)) {
       assert(configFile.isFile(), s"$simpleName hasn't started yet.")
+
+      try {
+        val exitCode = child.exitValue()
+        throw new IOException(s"Child process exited unexpectedly (exit code $exitCode)")
+      } catch {
+        case _: IllegalThreadStateException => // Try again.
+      }
     }
 
     ProcessInfo(child, logFile)

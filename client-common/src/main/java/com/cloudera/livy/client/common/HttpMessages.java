@@ -39,16 +39,14 @@ public class HttpMessages {
 
   public static class CreateClientRequest implements ClientMessage {
 
-    public final long timeout;
     public final Map<String, String> conf;
 
-    public CreateClientRequest(long timeout, Map<String, String> conf) {
-      this.timeout = timeout;
+    public CreateClientRequest(Map<String, String> conf) {
       this.conf = conf;
     }
 
     private CreateClientRequest() {
-      this(-1, null);
+      this(null);
     }
 
   }
