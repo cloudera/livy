@@ -42,9 +42,10 @@ public class RSCConf extends ClientConf<RSCConf> {
   public static enum Entry implements ConfEntry {
     CLIENT_ID("client.auth.id", null),
     CLIENT_SECRET("client.auth.secret", null),
-    CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", null),
+    CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", false),
     CLIENT_SHUTDOWN_TIMEOUT("client.shutdown_timeout", "10s"),
     DRIVER_CLASS("driver_class", null),
+    SESSION_KIND("session.kind", null),
 
     LIVY_JARS("jars", null),
     SPARKR_PACKAGE("sparkr.package", null),

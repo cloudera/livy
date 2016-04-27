@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.repl
 
+import org.apache.spark.SparkContext
 import org.json4s.JObject
 
 object Interpreter {
@@ -36,8 +37,12 @@ trait Interpreter {
 
   def kind: String
 
-  /** Start the Interpreter */
-  def start(): Unit
+  /**
+   * Start the Interpreter.
+   *
+   * @return A SparkContext, which may be null.
+   */
+  def start(): SparkContext
 
   /**
    * Execute the code and return the result as a Future as it may

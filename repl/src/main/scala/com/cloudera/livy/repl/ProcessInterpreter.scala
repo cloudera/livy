@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl.process
+package com.cloudera.livy.repl
 
 import java.io.{BufferedReader, InputStreamReader, IOException, PrintWriter}
 import java.util.concurrent.locks.ReentrantLock
@@ -24,17 +24,17 @@ import java.util.concurrent.locks.ReentrantLock
 import scala.concurrent.Promise
 import scala.io.Source
 
+import org.apache.spark.SparkContext
 import org.json4s.JValue
 
 import com.cloudera.livy.{Logging, Utils}
-import com.cloudera.livy.repl.Interpreter
 
 private sealed trait Request
 private case class ExecuteRequest(code: String, promise: Promise[JValue]) extends Request
 private case class ShutdownRequest(promise: Promise[Unit]) extends Request
 
 /**
- * Abstract trait that describes an interpreter that is running in a separate process.
+ * Abstract class that describes an interpreter that is running in a separate process.
  *
  * This type is not thread safe, so must be protected by a mutex.
  *
@@ -47,10 +47,14 @@ abstract class ProcessInterpreter(process: Process)
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
 
-  override def start(): Unit = {
+  override def start(): SparkContext = {
     waitUntilReady()
-  }
 
+    // At this point there should be an already active SparkContext that can be retrieved
+    // using SparkContext.getOrCreate. But we don't really support running "pre-compiled"
+    // jobs against pyspark or sparkr, so just return null here.
+    null
+  }
   override def execute(code: String): Interpreter.ExecuteResponse = {
     try {
       sendExecuteRequest(code)

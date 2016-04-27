@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl.python
+package com.cloudera.livy.repl
 
 import java.io._
 import java.lang.ProcessBuilder.Redirect
@@ -25,20 +25,19 @@ import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 
-import org.apache.spark.Logging
+import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
 import py4j.GatewayServer
 
+import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
-import com.cloudera.livy.repl.Interpreter
-import com.cloudera.livy.repl.process.ProcessInterpreter
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
-  def apply(): Interpreter = {
+  def apply(conf: SparkConf): Interpreter = {
     val pythonExec = sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
 
     val gatewayServer = new GatewayServer(null, 0)

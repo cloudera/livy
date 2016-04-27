@@ -60,7 +60,7 @@ class HttpClient implements LivyClient {
     // If the given URI looks like it refers to an existing session, then try to connect to
     // an existing session. Note this means that any Spark configuration in httpConf will be
     // unused.
-    Matcher m = Pattern.compile("(.*)" + LivyConnection.CLIENT_SESSION_URI + "/([0-9]+)")
+    Matcher m = Pattern.compile("(.*)" + LivyConnection.SESSIONS_URI + "/([0-9]+)")
       .matcher(uri.getPath());
 
     try {

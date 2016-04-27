@@ -81,7 +81,7 @@ public class JobWrapper<T> implements Callable<Void> {
   }
 
   boolean cancel() {
-    return future.cancel(true);
+    return future != null ? future.cancel(true) : true;
   }
 
   protected void finished(T result, Throwable error) {

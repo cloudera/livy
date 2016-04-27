@@ -44,9 +44,9 @@ class ReplDriverSuite extends FunSuite {
       .setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, sys.props("java.class.path"))
       .setConf(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, sys.props("java.class.path"))
       .setConf(RSCConf.Entry.LIVY_JARS.key(), "")
-      .setConf("session.kind", Spark().toString)
       .setURI(new URI("local:spark"))
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), classOf[ReplDriver].getName())
+      .setConf(RSCConf.Entry.SESSION_KIND.key(), Spark().toString)
       .build()
       .asInstanceOf[RSCClient]
 

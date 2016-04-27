@@ -29,10 +29,10 @@ import com.cloudera.livy.utils.SparkProcessBuilder
 class BatchSession(
     id: Int,
     owner: String,
-    proxyUser: Option[String],
+    override val proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateBatchRequest)
-    extends Session(id, owner) {
+    extends Session(id, owner, livyConf) {
 
   private val process = {
     require(request.file != null, "File is required.")
@@ -66,11 +66,7 @@ class BatchSession(
 
   override def logLines(): IndexedSeq[String] = process.inputLines
 
-  override def stop(): Future[Unit] = {
-    Future {
-      destroyProcess()
-    }
-  }
+  override def stopSession(): Unit = destroyProcess()
 
   private def destroyProcess() = {
     if (process.isAlive) {

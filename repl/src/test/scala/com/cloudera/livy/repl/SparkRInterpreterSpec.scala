@@ -18,41 +18,37 @@
 
 package com.cloudera.livy.repl
 
+import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
-
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 
 class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter(): Interpreter = {
-    SparkRInterpreter()
-  }
+  override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "[1] 3"
+      TEXT_PLAIN -> "[1] 3"
     ))
   }
 
   it should "execute multiple statements" in withInterpreter { interpreter =>
     var response = interpreter.execute("x = 1")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> ""
+      TEXT_PLAIN -> ""
     ))
 
     response = interpreter.execute("y = 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> ""
+      TEXT_PLAIN -> ""
     ))
 
     response = interpreter.execute("x + y")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "[1] 3"
+      TEXT_PLAIN -> "[1] 3"
     ))
   }
 
@@ -66,21 +62,21 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
         |x + y
       """.stripMargin)
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "[1] 3"
+      TEXT_PLAIN -> "[1] 3"
     ))
   }
 
   it should "capture stdout" in withInterpreter { interpreter =>
     val response = interpreter.execute("cat(3)")
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "3"
+      TEXT_PLAIN -> "3"
     ))
   }
 
   it should "report an error if accessing an unknown variable" in withInterpreter { interpreter =>
     val response = interpreter.execute("x")
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "Error: object 'x' not found"
+      TEXT_PLAIN -> "Error: object 'x' not found"
     ))
   }
 

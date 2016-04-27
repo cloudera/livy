@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl.scalaRepl
+package com.cloudera.livy.repl
 
 import java.io._
 
@@ -32,19 +32,14 @@ import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.Interpreter
-
 object SparkInterpreter {
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
-
-  def apply(): SparkInterpreter = { new SparkInterpreter }
 }
 
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter extends Interpreter {
+class SparkInterpreter(conf: SparkConf) extends Interpreter {
   import SparkInterpreter._
 
   private implicit def formats = DefaultFormats
@@ -56,7 +51,7 @@ class SparkInterpreter extends Interpreter {
 
   def kind: String = "spark"
 
-  override def start(): Unit = {
+  override def start(): SparkContext = {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()
@@ -66,20 +61,18 @@ class SparkInterpreter extends Interpreter {
     sparkIMain = new SparkIMain(settings, new JPrintWriter(outputStream, true))
     sparkIMain.initializeSynchronous()
 
-    val sparkConf = new SparkConf(true)
-
     // Spark 1.6 does not have "classServerUri"; instead, the local directory where class files
     // are stored needs to be registered in SparkConf. See comment in
     // SparkILoop::createSparkContext().
     Try(sparkIMain.getClass().getMethod("classServerUri")) match {
       case Success(method) =>
         method.setAccessible(true)
-        sparkConf.set("spark.repl.class.uri", method.invoke(sparkIMain).asInstanceOf[String])
+        conf.set("spark.repl.class.uri", method.invoke(sparkIMain).asInstanceOf[String])
 
       case Failure(_) =>
         val outputDir = sparkIMain.getClass().getMethod("getClassOutputDirectory")
         outputDir.setAccessible(true)
-        sparkConf.set("spark.repl.class.outputDir",
+        conf.set("spark.repl.class.outputDir",
           outputDir.invoke(sparkIMain).asInstanceOf[File].getAbsolutePath())
     }
 
@@ -90,18 +83,20 @@ class SparkInterpreter extends Interpreter {
     setContextClassLoaderMethod.setAccessible(true)
     setContextClassLoaderMethod.invoke(sparkIMain)
 
-    sparkContext = SparkContext.getOrCreate(sparkConf)
+    sparkContext = SparkContext.getOrCreate(conf)
 
     sparkIMain.beQuietDuring {
       sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
     }
+
+    sparkContext
   }
 
   override def execute(code: String): Interpreter.ExecuteResponse = {
     require(sparkIMain != null && sparkContext != null)
 
     executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
-      (repl.TEXT_PLAIN, JString(""))
+      (TEXT_PLAIN, JString(""))
     )))
   }
 
@@ -137,7 +132,7 @@ class SparkInterpreter extends Interpreter {
       }
 
       Interpreter.ExecuteSuccess(JObject(
-        (repl.APPLICATION_JSON, Extraction.decompose(value))
+        (APPLICATION_JSON, Extraction.decompose(value))
       ))
     } catch {
       case _: Throwable =>
@@ -227,7 +222,7 @@ class SparkInterpreter extends Interpreter {
       }
 
       Interpreter.ExecuteSuccess(
-        repl.APPLICATION_LIVY_TABLE_JSON -> (
+        APPLICATION_LIVY_TABLE_JSON -> (
           ("headers" -> headers.toSeq.sortBy(_._1).map(_._2)) ~ ("data" -> data)
         ))
     } catch {
@@ -271,7 +266,7 @@ class SparkInterpreter extends Interpreter {
           sparkIMain.interpret(code) match {
             case Results.Success =>
               Interpreter.ExecuteSuccess(
-                repl.TEXT_PLAIN -> readStdout()
+                TEXT_PLAIN -> readStdout()
               )
             case Results.Incomplete => Interpreter.ExecuteIncomplete()
             case Results.Error => Interpreter.ExecuteError("Error", readStdout())

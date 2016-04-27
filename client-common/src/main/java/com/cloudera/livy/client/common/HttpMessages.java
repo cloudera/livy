@@ -59,16 +59,21 @@ public class HttpMessages {
     public final String owner;
     public final String proxyUser;
     public final String state;
+    public final String kind;
+    public final List<String> log;
 
-    public SessionInfo(int id, String owner, String proxyUser, String state) {
+    public SessionInfo(int id, String owner, String proxyUser, String state, String kind,
+        List<String> log) {
       this.id = id;
       this.owner = owner;
       this.proxyUser = proxyUser;
       this.state = state;
+      this.kind = kind;
+      this.log = log;
     }
 
     private SessionInfo() {
-      this(-1, null, null, null);
+      this(-1, null, null, null, null, null);
     }
 
   }

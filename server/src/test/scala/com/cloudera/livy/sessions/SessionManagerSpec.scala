@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.sessions
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -29,8 +29,10 @@ import com.cloudera.livy.LivyConf
 
 class SessionManagerSpec extends FlatSpec with Matchers {
 
-  class MockSession(id: Int, owner: String) extends Session(id, owner) {
-    override def stop(): Future[Unit] = Future.successful(())
+  class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
+    override val proxyUser = None
+
+    override protected def stopSession(): Unit = ()
 
     override def logLines(): IndexedSeq[String] = IndexedSeq()
 
@@ -43,7 +45,7 @@ class SessionManagerSpec extends FlatSpec with Matchers {
     val livyConf = new LivyConf()
     livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")
     val manager = new SessionManager[MockSession](livyConf)
-    val session = manager.register(new MockSession(manager.nextId(), null))
+    val session = manager.register(new MockSession(manager.nextId(), null, livyConf))
     manager.get(session.id).isDefined should be(true)
     eventually(timeout(5 seconds), interval(100 millis)) {
       Await.result(manager.collectGarbage(), Duration.Inf)

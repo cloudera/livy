@@ -32,7 +32,6 @@ import org.scalatra.servlet.ServletApiImplicits
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
-import com.cloudera.livy.server.client.ClientSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
 
@@ -74,7 +73,6 @@ class LivyServer extends Logging {
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
             context.mount(new InteractiveSessionServlet(livyConf), "/sessions/*")
             context.mount(new BatchSessionServlet(livyConf), "/batches/*")
-            context.mount(new ClientSessionServlet(livyConf), "/clients/*")
             context.mountMetricsAdminServlet("/")
           } catch {
             case e: Throwable =>
