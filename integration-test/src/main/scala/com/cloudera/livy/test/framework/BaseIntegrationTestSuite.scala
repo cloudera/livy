@@ -18,9 +18,11 @@
 
 package com.cloudera.livy.test.framework
 
+import java.io.File
 import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -41,6 +43,11 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   protected val mapper = new ObjectMapper()
     .registerModule(DefaultScalaModule)
     .registerModule(new SessionKindModule())
+
+  protected val testLib = sys.props("java.class.path")
+    .split(File.pathSeparator)
+    .find(new File(_).getName().startsWith("livy-test-lib-"))
+    .get
 
   test("initialize test cluster") {
     cluster = ClusterPool.get.lease()

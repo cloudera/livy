@@ -255,6 +255,8 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
       env.put(key, value)
     }
 
+    env.asScala.foreach { case (k, v) => info(s"  env: $k = $v") }
+
     _redirectOutput.foreach(pb.redirectOutput)
     _redirectError.foreach(pb.redirectError)
     _redirectErrorStream.foreach(pb.redirectErrorStream)

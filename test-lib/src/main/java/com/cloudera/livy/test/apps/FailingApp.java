@@ -16,24 +16,25 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.test.framework
+package com.cloudera.livy.test.apps;
 
-import java.io.File
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
-/**
- * An common interface to run test on real cluster and mini cluster.
- */
-trait Cluster {
-  def deploy(): Unit
-  def cleanUp(): Unit
-  def getYarnRmEndpoint: String
-  def upload(srcPath: String, destPath: String): Unit
-  def configDir(): File
+public class FailingApp {
 
-  def runLivy(): Unit
-  def stopLivy(): Unit
-  def livyEndpoint: String
-  def getLivyLog(): String
+  public static void main(String[] args) throws Exception {
+    if (args.length != 1) {
+      throw new IllegalArgumentException("Missing output path.");
+    }
+    String output = args[0];
 
-  def runCommand(cmd: String): String
+    FileSystem fs = FileSystem.get(new Configuration());
+    Path out = new Path(output);
+    fs.create(out).close();
+
+    throw new IllegalStateException("This app always fails.");
+  }
+
 }

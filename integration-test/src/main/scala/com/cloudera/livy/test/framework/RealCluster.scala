@@ -52,6 +52,8 @@ class RealCluster(
   private var livyHomePath: Option[String] = Some("/usr/bin/livy")
   private var pathsToCleanUp = ListBuffer.empty[String]
 
+  override def configDir(): File = throw new UnsupportedOperationException()
+
   def sshClient[T](body: SshClient => SSH.Result[T]): Validated[T] = {
     val sshLogin = PublicKeyLogin(
       config.sshLogin, None, config.sshPubKey :: Nil)
