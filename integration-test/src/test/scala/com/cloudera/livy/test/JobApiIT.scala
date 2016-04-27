@@ -74,12 +74,6 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   test("upload jar") {
     assume(client != null, "Client not active.")
-
-    val testLib = sys.props("java.class.path")
-      .split(File.pathSeparator)
-      .find(new File(_).getName().startsWith("livy-test-lib-"))
-      .get
-
     waitFor(client.uploadJar(new File(testLib)))
   }
 

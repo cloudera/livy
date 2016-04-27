@@ -181,11 +181,13 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
   private val tempDir = new File(sys.props("java.io.tmpdir"))
   private var sparkConfDir: File = _
-  private var configDir: File = _
+  private var _configDir: File = _
   private var hdfs: Option[ProcessInfo] = None
   private var yarn: Option[ProcessInfo] = None
   private var livy: Option[ProcessInfo] = None
   private var livyUrl: String = _
+
+  override def configDir(): File = _configDir
 
   // Explicitly remove the "test-lib" dependency from the classpath of child processes. We
   // want tests to explicitly upload this jar when necessary, to test those code paths.
@@ -200,8 +202,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     sparkConfDir = mkdir("spark-conf")
 
     val sparkConf = Map(
-      SparkLauncher.SPARK_MASTER -> "yarn",
-      "spark.submit.deployMode" -> "cluster",
+      SparkLauncher.SPARK_MASTER -> "yarn-cluster",
       "spark.executor.instances" -> "1",
       "spark.scheduler.minRegisteredResourcesRatio" -> "0.0",
       "spark.ui.enabled" -> "false",
@@ -212,7 +213,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     )
     saveProperties(sparkConf, new File(sparkConfDir, "spark-defaults.conf"))
 
-    configDir = mkdir("hadoop-conf")
+    _configDir = mkdir("hadoop-conf")
     saveProperties(config, new File(configDir, "cluster.conf"))
     hdfs = Some(start(MiniHdfsMain.getClass, new File(configDir, "core-site.xml")))
     yarn = Some(start(MiniYarnMain.getClass, new File(configDir, "yarn-site.xml")))
