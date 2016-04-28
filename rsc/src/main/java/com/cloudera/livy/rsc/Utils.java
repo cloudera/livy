@@ -20,6 +20,9 @@ package com.cloudera.livy.rsc;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
+
 /**
  * A few simple utility functions used by the code, mostly to avoid a direct dependency
  * on Guava.
@@ -95,6 +98,19 @@ public class Utils {
       sb.append(e.toString());
     }
     return sb.toString();
+  }
+
+  public static <T> void addListener(Future<T> future, final FutureListener<T> lsnr) {
+    future.addListener(new GenericFutureListener<Future<T>>() {
+      @Override
+      public void operationComplete(Future<T> f) throws Exception {
+        if (f.isSuccess()) {
+          lsnr.onSuccess(f.get());
+        } else {
+          lsnr.onFailure(f.cause());
+        }
+      }
+    });
   }
 
   private Utils() { }

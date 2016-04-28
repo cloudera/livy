@@ -37,7 +37,9 @@ import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import com.cloudera.livy.rsc.FutureListener;
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 public class TestRpc {
@@ -141,11 +143,11 @@ public class TestRpc {
     Rpc client = rpcs[1];
 
     final AtomicInteger closeCount = new AtomicInteger();
-    client.addListener(new Rpc.Listener() {
-        @Override
-        public void rpcClosed(Rpc rpc) {
-          closeCount.incrementAndGet();
-        }
+    Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
+      @Override
+      public void onSuccess(Void unused) {
+        closeCount.incrementAndGet();
+      }
     });
 
     client.close();

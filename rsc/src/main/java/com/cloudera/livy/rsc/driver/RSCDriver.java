@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.rsc.BaseProtocol;
 import com.cloudera.livy.rsc.BypassJobStatus;
+import com.cloudera.livy.rsc.FutureListener;
 import com.cloudera.livy.rsc.RSCConf;
 import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.rpc.Rpc;
@@ -100,12 +101,29 @@ public class RSCDriver extends BaseProtocol {
     this.bypassJobs = new ConcurrentLinkedDeque<>();
   }
 
-  public final synchronized void shutdown() {
+  private synchronized void shutdown() {
     if (!running) {
       return;
     }
 
     running = false;
+
+    // Cancel any pending jobs.
+    for (JobWrapper<?> job : activeJobs.values()) {
+      job.cancel();
+    }
+
+    try {
+      shutdownContext();
+    } catch (Exception e) {
+      LOG.warn("Error during shutdown.", e);
+    }
+    try {
+      shutdownServer();
+    } catch (Exception e) {
+      LOG.warn("Error during shutdown.", e);
+    }
+
     synchronized (shutdownLock) {
       shutdownLock.notifyAll();
     }
@@ -138,12 +156,12 @@ public class RSCDriver extends BaseProtocol {
     this.server = new RpcServer(livyConf);
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
-      public RpcDispatcher onNewClient(Rpc client) {
+      public RpcDispatcher onNewClient(final Rpc client) {
         clients.add(client);
-        client.addListener(new Rpc.Listener() {
+        Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
           @Override
-          public void rpcClosed(Rpc rpc) {
-            clients.remove(rpc);
+          public void onSuccess(Void unused) {
+            clients.remove(client);
           }
         });
         LOG.debug("Registered new connection from {}.", client.getChannel());
@@ -198,6 +216,9 @@ public class RSCDriver extends BaseProtocol {
     if (server != null) {
       server.close();
     }
+    for (Rpc client: clients) {
+      client.close();
+    }
   }
 
   private void broadcast(Object msg) {
@@ -245,21 +266,7 @@ public class RSCDriver extends BaseProtocol {
         }
       }
     } finally {
-      // Cancel any pending jobs.
-      for (JobWrapper<?> job : activeJobs.values()) {
-        job.cancel();
-      }
-
-      try {
-        shutdownContext();
-      } catch (Exception e) {
-        LOG.warn("Error during shutdown.", e);
-      }
-      try {
-        shutdownServer();
-      } catch (Exception e) {
-        LOG.warn("Error during shutdown.", e);
-      }
+      shutdown();
     }
   }
 
