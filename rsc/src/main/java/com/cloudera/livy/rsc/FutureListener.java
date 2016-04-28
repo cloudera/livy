@@ -17,21 +17,11 @@
 
 package com.cloudera.livy.rsc;
 
-/**
- * Information about a running RSC instance.
- */
-class ContextInfo {
+/** A simplified future listener for netty futures. See Utils.addListener(). */
+public abstract class FutureListener<T> {
 
-  final String remoteAddress;
-  final int remotePort;
-  final String clientId;
-  final String secret;
+  public void onSuccess(T result) throws Exception { }
 
-  ContextInfo(String remoteAddress, int remotePort, String clientId, String secret) {
-    this.remoteAddress = remoteAddress;
-    this.remotePort = remotePort;
-    this.clientId = clientId;
-    this.secret = secret;
-  }
+  public void onFailure(Throwable error) throws Exception { }
 
 }

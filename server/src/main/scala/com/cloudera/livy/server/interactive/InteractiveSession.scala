@@ -131,7 +131,11 @@ class InteractiveSession(
   client.submit(new PingJob()).addListener(new JobHandle.Listener[Void]() {
     override def onJobQueued(job: JobHandle[Void]): Unit = { }
     override def onJobStarted(job: JobHandle[Void]): Unit = { }
-    override def onJobCancelled(job: JobHandle[Void]): Unit = { }
+
+    override def onJobCancelled(job: JobHandle[Void]): Unit = {
+      transition(SessionState.Error())
+      stop()
+    }
 
     override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = {
       transition(SessionState.Error())

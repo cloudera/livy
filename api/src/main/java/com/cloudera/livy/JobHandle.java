@@ -56,6 +56,11 @@ public interface JobHandle<T> extends Future<T> {
    */
   static interface Listener<T> {
 
+    /**
+     * Notifies when a job has been queued for execution on the remote context. Note that it is
+     * possible for jobs to bypass this state and got directly from the SENT state to the STARTED
+     * state.
+     */
     void onJobQueued(JobHandle<T> job);
 
     void onJobStarted(JobHandle<T> job);

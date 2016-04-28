@@ -22,6 +22,9 @@ import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import io.netty.util.concurrent.ImmediateEventExecutor;
+import io.netty.util.concurrent.Promise;
+
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientFactory;
 import com.cloudera.livy.rsc.rpc.RpcServer;
@@ -53,15 +56,15 @@ public final class RSCClientFactory implements LivyClientFactory {
 
     boolean needsServer = false;
     try {
-      ContextInfo info;
+      Promise<ContextInfo> info;
       if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
         info = createContextInfo(uri);
       } else {
         needsServer = true;
         ref(lconf);
-        info = new ContextLauncher(this, lconf);
+        info = ContextLauncher.create(this, lconf);
       }
-      return new RSCClient(this, lconf, info);
+      return new RSCClient(lconf, info);
     } catch (Exception e) {
       if (needsServer) {
         unref();
@@ -99,36 +102,12 @@ public final class RSCClientFactory implements LivyClientFactory {
     }
   }
 
-  private static ContextInfo createContextInfo(final URI uri) {
-    final String[] userInfo = uri.getUserInfo().split(":", 2);
-    return new ContextInfo() {
-
-      @Override
-      public String getRemoteAddress() {
-        return uri.getHost();
-      }
-
-      @Override
-      public int getRemotePort() {
-        return uri.getPort();
-      }
-
-      @Override
-      public String getClientId() {
-        return userInfo[0];
-      }
-
-      @Override
-      public String getSecret() {
-        return userInfo[1];
-      }
-
-      @Override
-      public void dispose(boolean forceKill) {
-
-      }
-
-    };
+  private static Promise<ContextInfo> createContextInfo(final URI uri) {
+    String[] userInfo = uri.getUserInfo().split(":", 2);
+    ImmediateEventExecutor executor = ImmediateEventExecutor.INSTANCE;
+    Promise<ContextInfo> promise = executor.newPromise();
+    promise.setSuccess(new ContextInfo(uri.getHost(), uri.getPort(), userInfo[0], userInfo[1]));
+    return promise;
   }
 
 }

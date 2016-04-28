@@ -103,12 +103,8 @@ public class TestSparkClient {
         // state changes.
         assertFalse(((JobHandleImpl<String>)handle).changeState(JobHandle.State.SENT));
 
-        verify(listener).onJobQueued(handle);
         verify(listener).onJobStarted(handle);
         verify(listener).onJobSucceeded(same(handle), eq(handle.get()));
-
-        // Try a PingJob, both to make sure it works and also to test "null" results.
-        assertNull(client.submit(new PingJob()).get(TIMEOUT, TimeUnit.SECONDS));
       }
     });
   }
@@ -145,7 +141,6 @@ public class TestSparkClient {
         // state changes.
         assertFalse(((JobHandleImpl<Void>)handle).changeState(JobHandle.State.SENT));
 
-        verify(listener).onJobQueued(handle);
         verify(listener).onJobStarted(handle);
         verify(listener).onJobFailed(same(handle), any(Throwable.class));
       }
@@ -294,8 +289,8 @@ public class TestSparkClient {
       @Override
       void call(LivyClient client) throws Exception {
         ContextInfo ctx = ((RSCClient) client).getContextInfo();
-        URI uri = new URI(String.format("local://%s:%s@%s:%d", ctx.getClientId(), ctx.getSecret(),
-          ctx.getRemoteAddress(), ctx.getRemotePort()));
+        URI uri = new URI(String.format("local://%s:%s@%s:%d", ctx.clientId, ctx.secret,
+          ctx.remoteAddress, ctx.remotePort));
 
         // Close the old client to make sure the driver doesn't go away when it disconnects.
         client.stop(false);
@@ -315,7 +310,7 @@ public class TestSparkClient {
 
           // Make sure the underlying ContextLauncher is cleaned up properly, since we did
           // a "stop(false)" above.
-          ((RSCClient) client).getContextInfo().dispose(true);
+          // ((RSCClient) client).getContextInfo().dispose(true);
         }
       }
     });
@@ -393,6 +388,10 @@ public class TestSparkClient {
       client = new LivyClientBuilder(false).setURI(new URI("local:spark"))
         .setAll(conf)
         .build();
+
+      // Wait for the context to be up before running the test.
+      assertNull(client.submit(new PingJob()).get(TIMEOUT, TimeUnit.SECONDS));
+
       test.call(client);
     } catch (Exception e) {
       // JUnit prints not so useful backtraces in test summary reports, and we don't see the

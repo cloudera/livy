@@ -35,12 +35,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermission.*;
 
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.concurrent.Promise;
 import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +58,7 @@ import static com.cloudera.livy.rsc.RSCConf.Entry.*;
  * Encapsulates code needed to launch a new Spark context and collect information about how
  * to establish a client connection to it.
  */
-class ContextLauncher implements ContextInfo {
+class ContextLauncher {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContextLauncher.class);
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
@@ -64,75 +67,59 @@ class ContextLauncher implements ContextInfo {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
+  static Promise<ContextInfo> create(RSCClientFactory factory, RSCConf conf)
+      throws IOException {
+    ContextLauncher launcher = new ContextLauncher(factory, conf);
+    return launcher.promise;
+  }
+
+  private final Promise<ContextInfo> promise;
+  private final ScheduledFuture<?> timeout;
   private final String clientId;
   private final String secret;
   private final ChildProcess child;
   private final RSCConf conf;
   private final RSCClientFactory factory;
 
-  private BaseProtocol.RemoteDriverAddress driverAddress;
-
-  ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
+  private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
+    this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
     this.clientId = UUID.randomUUID().toString();
     this.secret = factory.getServer().createSecret();
     this.conf = conf;
     this.factory = factory;
 
-    RegistrationHandler handler = new RegistrationHandler();
+    final RegistrationHandler handler = new RegistrationHandler();
     try {
       factory.getServer().registerClient(clientId, secret, handler);
       String replMode = conf.get("repl");
       boolean repl = replMode != null && replMode.equals("true");
       this.child = startDriver(factory.getServer(), conf, clientId, secret);
 
-      // Wait for the handler to receive the driver information. Wait a little at a time so
-      // that we can check whether the child process is still alive, and throw an error if the
-      // process goes away before we get the information back.
-      long timeout = conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT);
-      long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
-      long now = System.nanoTime();
-      long step = Math.min(500, TimeUnit.NANOSECONDS.toMillis(deadline - now));
-      synchronized (handler) {
-        while (handler.driverAddress == null && now < deadline) {
-          handler.wait(Math.min(step, deadline - now));
-          Utils.checkState(handler.driverAddress != null || !child.isFailed(),
-            "Child has exited before address information was received.");
-          now = System.nanoTime();
+      // Set up a timeout to fail the promise if we don't hear back from the context
+      // after a configurable timeout.
+      Runnable timeoutTask = new Runnable() {
+        @Override
+        public void run() {
+          connectTimeout(handler);
         }
-      }
-      Utils.checkState(handler.driverAddress != null,
-        "Timed out waiting for driver connection information.");
-      driverAddress = handler.driverAddress;
+      };
+      this.timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
+        conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      factory.getServer().unregisterClient(clientId);
+      dispose(true);
       throw Utils.propagate(e);
-    } finally {
-      handler.dispose();
     }
   }
 
-  @Override
-  public String getRemoteAddress() {
-    return driverAddress.host;
+  private void connectTimeout(RegistrationHandler handler) {
+    if (promise.tryFailure(new TimeoutException("Timed out waiting for context to start."))) {
+      handler.dispose();
+    }
+    dispose(true);
   }
 
-  @Override
-  public int getRemotePort() {
-    return driverAddress.port;
-  }
-
-  @Override
-  public String getClientId() {
-    return clientId;
-  }
-
-  @Override
-  public String getSecret() {
-    return secret;
-  }
-
-  @Override
-  public void dispose(boolean forceKill) {
+  private void dispose(boolean forceKill) {
+    factory.getServer().unregisterClient(clientId);
     try {
       if (forceKill) {
         child.kill();
@@ -324,7 +311,7 @@ class ContextLauncher implements ContextInfo {
 
   }
 
-  private static class RegistrationHandler extends BaseProtocol
+  private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
 
     volatile RemoteDriverAddress driverAddress;
@@ -345,12 +332,21 @@ class ContextLauncher implements ContextInfo {
     }
 
     private void handle(ChannelHandlerContext ctx, RemoteDriverAddress msg) {
+      ContextInfo info = new ContextInfo(msg.host, msg.port, clientId, secret);
+      if (promise.trySuccess(info)) {
+        timeout.cancel(true);
+      }
+
       LOG.debug("Received driver info for client {}: {}/{}.", client.getChannel(),
         msg.host, msg.port);
-      synchronized (this) {
-        this.driverAddress = msg;
-        notifyAll();
-      }
+
+      ctx.executor().submit(new Runnable() {
+        @Override
+        public void run() {
+          dispose();
+          ContextLauncher.this.dispose(false);
+        }
+      });
     }
 
   }
@@ -467,7 +463,7 @@ class ContextLauncher implements ContextInfo {
           try {
             task.run();
           } finally {
-            //confFile.delete();
+            confFile.delete();
           }
         }
       };
