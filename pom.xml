@@ -639,6 +639,7 @@
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -662,6 +663,7 @@
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <SPARK_LOCAL_IP>127.0.0.1</SPARK_LOCAL_IP>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>

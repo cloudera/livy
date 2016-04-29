@@ -182,6 +182,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                  <skipTests>true</skipTests>
+                </configuration>
             </plugin>
 
             <plugin>
@@ -191,7 +194,6 @@
                     <systemProperties>
                         <spark.app.name>Livy</spark.app.name>
                         <spark.master>local</spark.master>
-                        <spark.ui.enabled>false</spark.ui.enabled>
                         <settings.usejavacp.value>true</settings.usejavacp.value>
                     </systemProperties>
                 </configuration>
