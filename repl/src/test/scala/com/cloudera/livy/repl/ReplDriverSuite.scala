@@ -52,7 +52,7 @@ class ReplDriverSuite extends FunSuite {
 
     try {
       // This is sort of what InteractiveSession.scala does to detect an idle session.
-      val handle = client.submit(new PingJob()).get(1, TimeUnit.MINUTES)
+      val handle = client.submit(new PingJob()).get(30, TimeUnit.SECONDS)
 
       assert(client.getReplState().get(10, TimeUnit.SECONDS) === "idle")
 
