@@ -205,6 +205,8 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       "spark.executor.instances" -> "1",
       "spark.scheduler.minRegisteredResourcesRatio" -> "0.0",
       "spark.ui.enabled" -> "false",
+      SparkLauncher.DRIVER_MEMORY -> "512m",
+      SparkLauncher.EXECUTOR_MEMORY -> "512m",
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
       SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
       SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console",
@@ -282,7 +284,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       "-Dtest.appender=console",
       "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
       "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
-      "-Xmx2g",
+      "-Xmx1g",
       klass.getName().stripSuffix("$"),
       configDir.getAbsolutePath())
 

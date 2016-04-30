@@ -649,7 +649,7 @@
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
-            <argLine>${argLine} -Xmx4096m -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
             <failIfNoTests>false</failIfNoTests>
           </configuration>
         </plugin>
@@ -674,7 +674,7 @@
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
-            <argLine>${argLine} -Xmx4096m -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
           </configuration>
           <executions>
             <execution>
