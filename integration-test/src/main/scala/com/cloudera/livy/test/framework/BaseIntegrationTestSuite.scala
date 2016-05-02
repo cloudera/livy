@@ -31,7 +31,7 @@ import org.scalatest._
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.server.interactive.CreateInteractiveRequest
-import com.cloudera.livy.sessions.{SessionKindModule, SessionState, Spark}
+import com.cloudera.livy.sessions._
 
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   var cluster: Cluster = _
@@ -49,12 +49,6 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     .find(new File(_).getName().startsWith("livy-test-lib-"))
     .get
 
-  test("initialize test cluster") {
-    cluster = ClusterPool.get.lease()
-    httpClient = new AsyncHttpClient()
-    livyClient = new LivyRestClient(httpClient, livyEndpoint)
-  }
-
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
     eventually(timeout(30 seconds), interval(100 millis)) {
       val curState = livyClient.getSessionStatus(sessionId)
@@ -62,19 +56,39 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     }
   }
 
+  /** Wrapper around test() to be used by pyspark tests. */
+  protected def pytest(desc: String)(testFn: => Unit): Unit = {
+    test(desc) {
+      assume(cluster.isRealSpark(), "PySpark tests require a real Spark installation.")
+      testFn
+    }
+  }
+
+  /** Wrapper around test() to be used by SparkR tests. */
+  protected def rtest(desc: String)(testFn: => Unit): Unit = {
+    test(desc) {
+      assume(cluster.isRealSpark(), "SparkR tests require a real Spark installation.")
+      testFn
+    }
+  }
+
+  test("initialize test cluster") {
+    cluster = ClusterPool.get.lease()
+    httpClient = new AsyncHttpClient()
+    livyClient = new LivyRestClient(httpClient, livyEndpoint)
+  }
+
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
-    def startSession(): Int = {
+    def startSession(kind: Kind): Int = {
       withClue(cluster.getLivyLog()) {
         val requestBody = new CreateInteractiveRequest()
-        requestBody.kind = Spark()
+        requestBody.kind = kind
 
         val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
           .setBody(mapper.writeValueAsString(requestBody))
           .execute()
           .get()
-
-        info("Interactive session submitted")
 
         val sessionId: Int = withClue(rep.getResponseBody) {
           rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
@@ -83,7 +97,6 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
 
           newSession("id").asInstanceOf[Int]
         }
-        info(s"Session id $sessionId")
 
         sessionId
       }
@@ -112,10 +125,9 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
 
     def runStatement(sessionId: Int, stmt: String): Int = {
       withClue(cluster.getLivyLog()) {
-        val requestBody = "{ \"code\": \"" + stmt + "\" }"
-        info(requestBody)
+        val requestBody = Map("code" -> stmt)
         val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
-          .setBody(requestBody)
+          .setBody(mapper.writeValueAsString(requestBody))
           .execute()
           .get()
 

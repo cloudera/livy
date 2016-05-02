@@ -204,6 +204,7 @@
         <configuration>
           <environmentVariables>
             <LIVY_HOME>${execution.root}</LIVY_HOME>
+            <LIVY_TEST>false</LIVY_TEST>
           </environmentVariables>
           <systemProperties>
             <cluster.spec>${cluster.spec}</cluster.spec>
@@ -213,5 +214,19 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>real-spark-home</id>
+      <activation>
+        <property>
+          <name>real.spark.home</name>
+        </property>
+      </activation>
+      <properties>
+        <spark.home>${real.spark.home}</spark.home>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>

@@ -67,6 +67,8 @@
     <maxJavaVersion>1.8</maxJavaVersion>
     <test.redirectToFile>true</test.redirectToFile>
     <execution.root>${user.dir}</execution.root>
+    <spark.home>${execution.root}/dev/spark</spark.home>
+
     <!--
       Properties for the copyright header style checks. Modules that use the ASF header
       should override the "copyright.header" property.
@@ -638,7 +640,7 @@
           <configuration>
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
-              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <SPARK_HOME>${spark.home}</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -661,7 +663,7 @@
           <configuration>
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
-              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <SPARK_HOME>${spark.home}</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
