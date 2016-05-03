@@ -71,7 +71,6 @@ class InteractiveSession(
     info(s"Creating LivyClient for sessionId: $id")
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
-      .setConf("spark.master", "yarn-cluster")
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")

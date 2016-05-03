@@ -105,7 +105,13 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     /** Stops a session. If an id < 0 is provided, do nothing. */
     def stopSession(sessionId: Int): Unit = {
       if (sessionId >= 0) {
-        httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
+        val sessionUri = s"$livyEndpoint/sessions/$sessionId"
+        httpClient.prepareDelete(sessionUri).execute().get()
+
+        eventually(timeout(30 seconds), interval(1 second)) {
+          var res = httpClient.prepareGet(sessionUri).execute().get()
+          assert(res.getStatusCode() === HttpServletResponse.SC_NOT_FOUND)
+        }
       }
     }
 
