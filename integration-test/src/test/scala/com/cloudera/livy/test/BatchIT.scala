@@ -25,6 +25,7 @@ import javax.servlet.http.HttpServletResponse._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
@@ -61,7 +62,7 @@ class BatchIT extends BaseIntegrationTestSuite {
   test("submit spark app") {
     assume(testLibPath != null, "Test lib not uploaded.")
     val output = "/" + UUID.randomUUID().toString()
-    val result = runBatch(classOf[SimpleSparkApp], args = List(output))
+    val result = runSpark(classOf[SimpleSparkApp], args = List(output))
     assert(result.state === SessionState.Success().toString)
     assert(fs.isDirectory(new Path(output)))
   }
@@ -69,7 +70,7 @@ class BatchIT extends BaseIntegrationTestSuite {
   test("submit an app that fails") {
     assume(testLibPath != null, "Test lib not uploaded.")
     val output = "/" + UUID.randomUUID().toString()
-    val result = runBatch(classOf[FailingApp], args = List(output))
+    val result = runSpark(classOf[FailingApp], args = List(output))
     assert(result.state === SessionState.Error().toString)
 
     // The file is written to make sure the app actually ran, instead of just failing for
@@ -77,11 +78,52 @@ class BatchIT extends BaseIntegrationTestSuite {
     assert(fs.isFile(new Path(output)))
   }
 
-  private def runBatch(klass: Class[_], args: List[String] = Nil): SessionInfo = {
+  pytest("submit a pyspark application") {
+    val hdfsPath = uploadResource("pytest.py")
+    val output = "/" + UUID.randomUUID().toString()
+    val result = runScript(hdfsPath.toString, args = List(output))
+    assert(result.state === SessionState.Success().toString)
+    assert(fs.isDirectory(new Path(output)))
+  }
+
+  // This is disabled since R scripts don't seem to work in yarn-cluster mode. There's a
+  // TODO comment in Spark's ApplicationMaster.scala.
+  ignore("submit a SparkR application") {
+    val hdfsPath = uploadResource("rtest.R")
+    val result = runScript(hdfsPath.toString)
+    assert(result.state === SessionState.Success().toString)
+  }
+
+  private def uploadResource(name: String): Path = {
+    val hdfsPath = new Path(UUID.randomUUID().toString() + name)
+    val fs = FileSystem.get(hdfsPath.toUri(), conf)
+    val in = getClass.getResourceAsStream("/" + name)
+    val out = fs.create(hdfsPath)
+    try {
+      IOUtils.copy(in, out)
+    } finally {
+      in.close()
+      out.close()
+    }
+    fs.makeQualified(hdfsPath)
+  }
+
+  private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
+    val request = new CreateBatchRequest()
+    request.file = script
+    request.args = args
+    runBatch(request)
+  }
+
+  private def runSpark(klass: Class[_], args: List[String] = Nil): SessionInfo = {
     val request = new CreateBatchRequest()
     request.file = testLibPath.toString()
     request.className = Some(klass.getName())
     request.args = args
+    runBatch(request)
+  }
+
+  private def runBatch(request: CreateBatchRequest): SessionInfo = {
     request.conf = Map("spark.yarn.maxAppAttempts" -> "1")
 
     val response = httpClient.preparePost(s"$livyEndpoint/batches")

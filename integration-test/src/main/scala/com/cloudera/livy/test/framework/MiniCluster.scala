@@ -52,9 +52,14 @@ private class MiniClusterConfig(val config: Map[String, String]) {
 sealed trait MiniClusterUtils {
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
+    val redacted = new Configuration(conf)
+    // This setting references a test class that is not available when using a real Spark
+    // installation, so remove it from client configs.
+    redacted.unset("net.topology.node.switch.mapping.impl")
+
     val out = new FileOutputStream(dest)
     try {
-      conf.writeXml(out)
+      redacted.writeXml(out)
     } finally {
       out.close()
     }
@@ -189,6 +194,10 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
   override def configDir(): File = _configDir
 
+  override def isRealSpark(): Boolean = {
+    new File(sys.env("SPARK_HOME") + File.separator + "RELEASE").isFile()
+  }
+
   // Explicitly remove the "test-lib" dependency from the classpath of child processes. We
   // want tests to explicitly upload this jar when necessary, to test those code paths.
   private val childClasspath = {
@@ -201,15 +210,22 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   override def deploy(): Unit = {
     sparkConfDir = mkdir("spark-conf")
 
-    val sparkConf = Map(
+    // When running a real Spark cluster, don't set the classpath.
+    val extraCp = if (!isRealSpark()) {
+      Map(
+        SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
+        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath)
+    } else {
+      Map()
+    }
+
+    val sparkConf = extraCp ++ Map(
       SparkLauncher.SPARK_MASTER -> "yarn-cluster",
       "spark.executor.instances" -> "1",
       "spark.scheduler.minRegisteredResourcesRatio" -> "0.0",
       "spark.ui.enabled" -> "false",
       SparkLauncher.DRIVER_MEMORY -> "512m",
       SparkLauncher.EXECUTOR_MEMORY -> "512m",
-      SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
-      SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
       SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console",
       SparkLauncher.EXECUTOR_EXTRA_JAVA_OPTIONS -> "-Dtest.appender=console"
     )

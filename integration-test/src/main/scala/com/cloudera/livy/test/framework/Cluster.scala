@@ -29,6 +29,7 @@ trait Cluster {
   def getYarnRmEndpoint: String
   def upload(srcPath: String, destPath: String): Unit
   def configDir(): File
+  def isRealSpark(): Boolean
 
   def runLivy(): Unit
   def stopLivy(): Unit
