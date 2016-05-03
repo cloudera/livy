@@ -53,8 +53,8 @@ sealed trait MiniClusterUtils {
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
     val redacted = new Configuration(conf)
-    // This setting references a test class is not available when using a real Spark installation,
-    // so remove it from client configs.
+    // This setting references a test class that is not available when using a real Spark
+    // installation, so remove it from client configs.
     redacted.unset("net.topology.node.switch.mapping.impl")
 
     val out = new FileOutputStream(dest)
