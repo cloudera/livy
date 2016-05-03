@@ -137,9 +137,15 @@ object MiniYarnMain extends MiniClusterBase {
     var yarnCluster = new MiniYARNCluster(getClass().getName(), config.nmCount,
       config.localDirCount, config.logDirCount)
     yarnCluster.init(baseConfig)
+
+    // Install a shutdown hook for stop the service and kill all running applications.
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      override def run(): Unit = yarnCluster.stop()
+    })
+
     yarnCluster.start()
 
-    // Woraround for YARN-2642.
+    // Workaround for YARN-2642.
     val yarnConfig = yarnCluster.getConfig()
     eventually(timeout(30 seconds), interval(100 millis)) {
       assert(yarnConfig.get(YarnConfiguration.RM_ADDRESS).split(":")(1) != "0",

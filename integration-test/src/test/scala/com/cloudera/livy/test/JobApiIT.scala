@@ -60,28 +60,25 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     livyClient.stopSession(sessionId)
   }
 
-  test("create a new session") {
+  test("create a new session and upload test jar") {
     val tempClient = createClient(livyEndpoint)
 
-    // Figure out the session ID by poking at the REST endpoint. We should probably expose this
-    // in the Java API.
     try {
+      waitTillSessionIdle(sessionId)
+      waitFor(tempClient.uploadJar(new File(testLib)))
+
+      // Figure out the session ID by poking at the REST endpoint. We should probably expose this
+      // in the Java API.
       val list = sessionList()
       assert(list.total === 1)
       sessionId = list.sessions(0).id
 
-      waitTillSessionIdle(sessionId)
       client = tempClient
     } finally {
       if (client == null) {
         tempClient.stop(true)
       }
     }
-  }
-
-  test("upload jar") {
-    assume(client != null, "Client not active.")
-    waitFor(client.uploadJar(new File(testLib)))
   }
 
   test("upload file") {
@@ -134,6 +131,24 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     assume(client2 != null, "Client not active.")
     val result = waitFor(client2.submit(new Echo("hello")))
     assert(result === "hello")
+  }
+
+  test("run scala jobs") {
+    assume(client2 != null, "Client not active.")
+
+    val jobs = Seq(
+      new ScalaEcho("abcde"),
+      new ScalaEcho(Seq(1, 2, 3, 4)),
+      new ScalaEcho(Map(1 -> 2, 3 -> 4)),
+      new ScalaEcho(ValueHolder("abcde")),
+      new ScalaEcho(ValueHolder(Seq(1, 2, 3, 4))),
+      new ScalaEcho(Some("abcde"))
+    )
+
+    jobs.foreach { job =>
+      val result = waitFor(client2.submit(job))
+      assert(result === job.value)
+    }
   }
 
   test("destroy the session") {

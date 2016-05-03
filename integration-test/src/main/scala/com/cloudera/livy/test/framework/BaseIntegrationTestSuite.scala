@@ -50,7 +50,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     .get
 
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
-    eventually(timeout(30 seconds), interval(100 millis)) {
+    eventually(timeout(1 minute), interval(100 millis)) {
       val curState = livyClient.getSessionStatus(sessionId)
       assert(curState === SessionState.Idle().toString)
     }
