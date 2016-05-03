@@ -61,15 +61,22 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   }
 
   test("create a new session") {
-    client = createClient(livyEndpoint)
+    val tempClient = createClient(livyEndpoint)
 
     // Figure out the session ID by poking at the REST endpoint. We should probably expose this
     // in the Java API.
-    val list = sessionList()
-    assert(list.total === 1)
-    sessionId = list.sessions(0).id
+    try {
+      val list = sessionList()
+      assert(list.total === 1)
+      sessionId = list.sessions(0).id
 
-    waitTillSessionIdle(sessionId)
+      waitTillSessionIdle(sessionId)
+      client = tempClient
+    } finally {
+      if (client == null) {
+        tempClient.stop(true)
+      }
+    }
   }
 
   test("upload jar") {

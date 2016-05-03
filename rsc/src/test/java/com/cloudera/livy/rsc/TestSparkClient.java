@@ -77,7 +77,6 @@ public class TestSparkClient {
       conf.put("spark.app.name", "SparkClientSuite Local App");
     } else {
       String classpath = System.getProperty("java.class.path");
-      conf.put(SparkLauncher.SPARK_MASTER, "local");
       conf.put("spark.app.name", "SparkClientSuite Remote App");
       conf.put(SparkLauncher.DRIVER_MEMORY, "512m");
       conf.put(SparkLauncher.DRIVER_EXTRA_CLASSPATH, classpath);
