@@ -42,27 +42,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   private val jobFutures = mutable.Map[String, JValue]()
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-  private val interpreter = Kind(getLivyConf.get("session.kind")) match {
-    case PySpark() => PythonInterpreter("pyspark")
-    case PySpark3() => PythonInterpreter("pyspark3")
-=======
-  private val interpreter = Kind(livyConf.get("session.kind")) match {
-    case PySpark() => PythonInterpreter()
->>>>>>> upstream/master
-    case Spark() => SparkInterpreter()
-    case SparkR() => SparkRInterpreter()
-  }
-
-  private[repl] val session = Session(interpreter)
-=======
   private[repl] var session: Session = _
->>>>>>> upstream/master
 
   override protected def initializeContext(): JavaSparkContext = {
     val interpreter = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND)) match {
-      case PySpark() => PythonInterpreter(conf)
+      case PySpark() => PythonInterpreter(conf, "pyspark")
+      case PySpark3() => PythonInterpreter(conf, "pyspark3")
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }

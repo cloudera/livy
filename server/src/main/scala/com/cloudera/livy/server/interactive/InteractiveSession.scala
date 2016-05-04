@@ -77,13 +77,8 @@ class InteractiveSession(
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
       .setURI(new URI("local:spark"))
 
-<<<<<<< HEAD
-    request.kind match {
-      case PySpark() | PySpark3() =>
-=======
     kind match {
-      case PySpark() =>
->>>>>>> upstream/master
+      case PySpark() | PySpark3() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
