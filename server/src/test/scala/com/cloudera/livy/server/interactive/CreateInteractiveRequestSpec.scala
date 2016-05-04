@@ -49,12 +49,6 @@ class CreateInteractiveRequestSpec extends FunSpec {
       assert(req.name === None)
       assert(req.conf === Map())
     }
-
-    it("should have default values for fields after deserialization with pyspark3 selected") {
-      val json = """{ "kind" : "pyspark3" }"""
-      val req = mapper.readValue(json, classOf[CreateInteractiveRequest])
-      assert(req.kind === PySpark3())
-    }
   }
 
 }
