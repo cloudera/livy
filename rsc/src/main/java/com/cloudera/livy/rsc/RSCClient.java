@@ -23,16 +23,17 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.util.concurrent.GenericFutureListener;
+import io.netty.util.concurrent.ImmediateEventExecutor;
 import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,60 +43,131 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
+import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.driver.AddJarJob;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 public class RSCClient implements LivyClient {
   private static final Logger LOG = LoggerFactory.getLogger(RSCClient.class);
+  private static final AtomicInteger EXECUTOR_GROUP_ID = new AtomicInteger();
 
-  private final ContextInfo ctx;
-  private final RSCClientFactory factory;
   private final RSCConf conf;
   private final Map<String, JobHandleImpl<?>> jobs;
-  public final Rpc driverRpc;
   private final ClientProtocol protocol;
+  private final Promise<Rpc> driverRpc;
+  private final int executorGroupId;
   private final EventLoopGroup eventLoopGroup;
+
+  private ContextInfo contextInfo;
   private volatile boolean isAlive;
 
-  RSCClient(RSCClientFactory factory, RSCConf conf, ContextInfo ctx) throws IOException {
-    this.ctx = ctx;
-    this.factory = factory;
+  RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
     this.conf = conf;
-    this.jobs = Maps.newConcurrentMap();
+    this.jobs = new ConcurrentHashMap<>();
     this.protocol = new ClientProtocol();
+    this.driverRpc = ImmediateEventExecutor.INSTANCE.newPromise();
+    this.executorGroupId = EXECUTOR_GROUP_ID.incrementAndGet();
     this.eventLoopGroup = new NioEventLoopGroup(
         conf.getInt(RPC_MAX_THREADS),
-        new ThreadFactoryBuilder()
-            .setNameFormat("Client-RPC-Handler-" + ctx.getClientId() + "-%d")
-            .setDaemon(true)
-            .build());
+        Utils.newDaemonThreadFactory("RSCClient-" + executorGroupId + "-%d"));
 
-    try {
-      this.driverRpc = Rpc.createClient(conf,
-        eventLoopGroup,
-        ctx.getRemoteAddress(),
-        ctx.getRemotePort(),
-        ctx.getClientId(),
-        ctx.getSecret(),
-        protocol).get();
-    } catch (Throwable e) {
-      ctx.dispose(true);
-      throw Throwables.propagate(e);
-    }
+    Utils.addListener(ctx, new FutureListener<ContextInfo>() {
+      @Override
+      public void onSuccess(ContextInfo info) throws Exception {
+        connectToContext(info);
+      }
 
-    driverRpc.addListener(new Rpc.Listener() {
-        @Override
-        public void rpcClosed(Rpc rpc) {
-          if (isAlive) {
-            LOG.warn("Client RPC channel closed unexpectedly.");
-            isAlive = false;
-          }
-        }
+      @Override
+      public void onFailure(Throwable error) {
+        connectionError(error);
+      }
     });
 
     isAlive = true;
-    LOG.debug("Connected to context {} ({}).", ctx.getClientId(), driverRpc.getChannel());
+  }
+
+  private synchronized void connectToContext(final ContextInfo info) throws Exception {
+    this.contextInfo = info;
+
+    try {
+      Promise<Rpc> promise = Rpc.createClient(conf,
+        eventLoopGroup,
+        info.remoteAddress,
+        info.remotePort,
+        info.clientId,
+        info.secret,
+        protocol);
+      Utils.addListener(promise, new FutureListener<Rpc>() {
+        @Override
+        public void onSuccess(Rpc rpc) throws Exception {
+          driverRpc.setSuccess(rpc);
+          Utils.addListener(rpc.getChannel().closeFuture(), new FutureListener<Void>() {
+            @Override
+            public void onSuccess(Void unused) {
+              if (isAlive) {
+                LOG.warn("Client RPC channel closed unexpectedly.");
+                isAlive = false;
+              }
+            }
+          });
+          LOG.debug("Connected to context {} ({}, {}).", info.clientId,
+            rpc.getChannel(), executorGroupId);
+        }
+
+        @Override
+        public void onFailure(Throwable error) throws Exception {
+          driverRpc.setFailure(error);
+          connectionError(error);
+        }
+      });
+    } catch (Exception e) {
+      connectionError(e);
+    }
+  }
+
+  private void connectionError(Throwable error) {
+    LOG.error("Failed to connect to context.", error);
+    stop(false);
+  }
+
+  private <T> io.netty.util.concurrent.Future<T> deferredCall(final Object msg,
+      final Class<T> retType) {
+    if (driverRpc.isSuccess()) {
+      try {
+        return driverRpc.get().call(msg, retType);
+      } catch (Exception ie) {
+        throw Utils.propagate(ie);
+      }
+    }
+
+    // No driver RPC yet, so install a listener and return a promise that will be ready when
+    // the driver is up and the message is actually delivered.
+    final Promise<T> promise = eventLoopGroup.next().newPromise();
+    final FutureListener<T> callListener = new FutureListener<T>() {
+      @Override
+      public void onSuccess(T value) throws Exception {
+        promise.setSuccess(value);
+      }
+
+      @Override
+      public void onFailure(Throwable error) throws Exception {
+        promise.setFailure(error);
+      }
+    };
+
+    Utils.addListener(driverRpc, new FutureListener<Rpc>() {
+      @Override
+      public void onSuccess(Rpc rpc) throws Exception {
+        Utils.addListener(rpc.call(msg, retType), callListener);
+      }
+
+      @Override
+      public void onFailure(Throwable error) throws Exception {
+        promise.setFailure(error);
+      }
+    });
+    return promise;
   }
 
   @Override
@@ -113,18 +185,40 @@ public class RSCClient implements LivyClient {
     if (isAlive) {
       isAlive = false;
       try {
-        if (shutdownContext) {
+        if (shutdownContext && driverRpc.isSuccess()) {
           protocol.endSession();
-          ctx.dispose(false);
+
+          // Because the remote context won't really reply to the end session message -
+          // since it closes the channel while handling it, we wait for the RPC's channel
+          // to close instead.
+          long stopTimeout = conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT);
+          try {
+            driverRpc.get().getChannel().closeFuture().get(stopTimeout,
+              TimeUnit.MILLISECONDS);
+          } catch (Exception e) {
+            LOG.warn("Error waiting for context to shut down: {} ({}).",
+              e.getClass().getSimpleName(), e.getMessage());
+          }
         }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
-        ctx.dispose(true);
       } finally {
-        driverRpc.close();
+        if (driverRpc.isSuccess()) {
+          try {
+            driverRpc.get().close();
+          } catch (Exception e) {
+            LOG.warn("Error stopping RPC.", e);
+          }
+        }
+
+        // Report failure for all pending jobs, so that clients can react.
+        for (JobHandleImpl<?> job : jobs.values()) {
+          job.setFailure(new IOException("RSCClient instance stopped."));
+        }
+
         eventLoopGroup.shutdownGracefully();
       }
-      LOG.debug("Disconnected from context {}, shutdown = {}.", ctx.getClientId(),
+      LOG.debug("Disconnected from context {}, shutdown = {}.", contextInfo.clientId,
         shutdownContext);
     }
   }
@@ -161,23 +255,22 @@ public class RSCClient implements LivyClient {
     protocol.cancel(jobId);
   }
 
-  @VisibleForTesting
   ContextInfo getContextInfo() {
-    return ctx;
+    return contextInfo;
   }
 
   public String submitReplCode(String code) throws Exception {
     String id = UUID.randomUUID().toString();
-    driverRpc.call(new BaseProtocol.ReplJobRequest(code, id));
+    deferredCall(new BaseProtocol.ReplJobRequest(code, id), Void.class);
     return id;
   }
 
   public Future<String> getReplJobResult(String id) throws Exception {
-    return driverRpc.call(new BaseProtocol.GetReplJobResult(id), String.class);
+    return deferredCall(new BaseProtocol.GetReplJobResult(id), String.class);
   }
 
   public Future<String> getReplState() {
-    return driverRpc.call(new BaseProtocol.GetReplState(), String.class);
+    return deferredCall(new BaseProtocol.GetReplState(), String.class);
   }
 
   private class ClientProtocol extends BaseProtocol {
@@ -186,24 +279,24 @@ public class RSCClient implements LivyClient {
       final String jobId = UUID.randomUUID().toString();
       Object msg = new JobRequest<T>(jobId, job);
 
-      final Promise<T> promise = driverRpc.createPromise();
+      final Promise<T> promise = eventLoopGroup.next().newPromise();
       final JobHandleImpl<T> handle = new JobHandleImpl<T>(RSCClient.this,
         promise, jobId);
       jobs.put(jobId, handle);
 
-      final io.netty.util.concurrent.Future<Void> rpc = driverRpc.call(msg);
-      LOG.debug("Send JobRequest[{}].", jobId);
+      final io.netty.util.concurrent.Future<Void> rpc = deferredCall(msg, Void.class);
+      LOG.debug("Sending JobRequest[{}].", jobId);
 
-      // Link the RPC and the promise so that events from one are propagated to the other as
-      // needed.
-      rpc.addListener(new GenericFutureListener<io.netty.util.concurrent.Future<Void>>() {
+      Utils.addListener(rpc, new FutureListener<Void>() {
         @Override
-        public void operationComplete(io.netty.util.concurrent.Future<Void> f) {
-          if (f.isSuccess()) {
-            handle.changeState(JobHandle.State.QUEUED);
-          } else if (!promise.isDone()) {
-            promise.setFailure(f.cause());
-          }
+        public void onSuccess(Void unused) throws Exception {
+          handle.changeState(JobHandle.State.QUEUED);
+        }
+
+        @Override
+        public void onFailure(Throwable error) throws Exception {
+          error.printStackTrace();
+          promise.tryFailure(error);
         }
       });
       promise.addListener(new GenericFutureListener<Promise<T>>() {
@@ -220,30 +313,28 @@ public class RSCClient implements LivyClient {
       return handle;
     }
 
+    @SuppressWarnings("unchecked")
     <T> Future<T> run(Job<T> job) {
-      @SuppressWarnings("unchecked")
-      final io.netty.util.concurrent.Future<T> rpc = (io.netty.util.concurrent.Future<T>)
-        driverRpc.call(new SyncJobRequest(job), Object.class);
-      return rpc;
+      return (Future<T>) deferredCall(new SyncJobRequest(job), Object.class);
     }
 
     String bypass(ByteBuffer serializedJob, boolean sync) {
       String jobId = UUID.randomUUID().toString();
       Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob), sync);
-      driverRpc.call(msg);
+      deferredCall(msg, Void.class);
       return jobId;
     }
 
     Future<BypassJobStatus> getBypassJobStatus(String id) {
-      return driverRpc.call(new GetBypassJobStatus(id), BypassJobStatus.class);
+      return deferredCall(new GetBypassJobStatus(id), BypassJobStatus.class);
     }
 
     void cancel(String jobId) {
-      driverRpc.call(new CancelJob(jobId));
+      deferredCall(new CancelJob(jobId), Void.class);
     }
 
     Future<?> endSession() {
-      return driverRpc.call(new EndSession());
+      return deferredCall(new EndSession(), Void.class);
     }
 
     private void handle(ChannelHandlerContext ctx, InitializationError msg) {

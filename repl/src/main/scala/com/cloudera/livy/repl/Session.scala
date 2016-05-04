@@ -23,6 +23,7 @@ import java.util.concurrent.Executors
 import scala.concurrent.{ExecutionContext, Future, TimeoutException}
 import scala.concurrent.duration.Duration
 
+import org.apache.spark.SparkContext
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
@@ -38,8 +39,6 @@ object Session {
   val ENAME = "ename"
   val EVALUE = "evalue"
   val TRACEBACK = "traceback"
-
-  def apply(interpreter: Interpreter): Session = new Session(interpreter)
 }
 
 class Session(interpreter: Interpreter)
@@ -54,14 +53,17 @@ class Session(interpreter: Interpreter)
   private var _state: SessionState = SessionState.NotStarted()
   private var _history = IndexedSeq[Statement]()
 
-  val startTask = Future {
-    _state = SessionState.Starting()
-    interpreter.start()
-    _state = SessionState.Idle()
-  }
-
-  startTask.onFailure { case _ =>
-    _state = SessionState.Error(System.currentTimeMillis())
+  def start(): Future[SparkContext] = {
+    val future = Future {
+      _state = SessionState.Starting()
+      val sc = interpreter.start()
+      _state = SessionState.Idle()
+      sc
+    }
+    future.onFailure { case _ =>
+      _state = SessionState.Error(System.currentTimeMillis())
+    }
+    future
   }
 
   def kind: String = interpreter.kind

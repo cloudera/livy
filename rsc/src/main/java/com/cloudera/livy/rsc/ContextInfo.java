@@ -20,12 +20,18 @@ package com.cloudera.livy.rsc;
 /**
  * Information about a running RSC instance.
  */
-interface ContextInfo {
+class ContextInfo {
 
-  String getRemoteAddress();
-  int getRemotePort();
-  String getClientId();
-  String getSecret();
-  void dispose(boolean forceKill);
+  final String remoteAddress;
+  final int remotePort;
+  final String clientId;
+  final String secret;
+
+  ContextInfo(String remoteAddress, int remotePort, String clientId, String secret) {
+    this.remoteAddress = remoteAddress;
+    this.remotePort = remotePort;
+    this.clientId = clientId;
+    this.secret = secret;
+  }
 
 }

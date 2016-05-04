@@ -31,9 +31,6 @@ import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy.{JobContext, Logging}
-import com.cloudera.livy.repl.python.PythonInterpreter
-import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
-import com.cloudera.livy.repl.sparkr.SparkRInterpreter
 import com.cloudera.livy.rsc.{BaseProtocol, RSCConf}
 import com.cloudera.livy.rsc.driver.RSCDriver
 import com.cloudera.livy.rsc.rpc.Rpc
@@ -45,6 +42,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   private val jobFutures = mutable.Map[String, JValue]()
 
+<<<<<<< HEAD
 <<<<<<< HEAD
   private val interpreter = Kind(getLivyConf.get("session.kind")) match {
     case PySpark() => PythonInterpreter("pyspark")
@@ -58,17 +56,30 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   private[repl] val session = Session(interpreter)
+=======
+  private[repl] var session: Session = _
+>>>>>>> upstream/master
 
   override protected def initializeContext(): JavaSparkContext = {
-    Await.ready(session.startTask, Duration.Inf)
-    null
+    val interpreter = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND)) match {
+      case PySpark() => PythonInterpreter(conf)
+      case Spark() => new SparkInterpreter(conf)
+      case SparkR() => SparkRInterpreter(conf)
+    }
+
+    session = new Session(interpreter)
+    Option(Await.result(session.start(), Duration.Inf))
+      .map(new JavaSparkContext(_))
+      .orNull
   }
 
   override protected def shutdownContext(): Unit = {
-    try {
-      session.close()
-    } finally {
-      super.shutdownContext()
+    if (session != null) {
+      try {
+        session.close()
+      } finally {
+        super.shutdownContext()
+      }
     }
   }
 

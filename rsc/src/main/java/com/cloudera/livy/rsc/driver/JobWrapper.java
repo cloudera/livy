@@ -17,6 +17,7 @@
 
 package com.cloudera.livy.rsc.driver;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -24,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.collect.Lists;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +38,6 @@ public class JobWrapper<T> implements Callable<Void> {
   public final String jobId;
 
   private final RSCDriver driver;
-  private final List<JavaFutureAction<?>> sparkJobs;
   private final Job<T> job;
   private final AtomicInteger completed;
 
@@ -48,7 +47,6 @@ public class JobWrapper<T> implements Callable<Void> {
     this.driver = driver;
     this.jobId = jobId;
     this.job = job;
-    this.sparkJobs = Lists.newArrayList();
     this.completed = new AtomicInteger();
   }
 
@@ -57,19 +55,6 @@ public class JobWrapper<T> implements Callable<Void> {
     try {
       jobStarted();
       T result = job.call(driver.jobContext());
-      synchronized (completed) {
-        while (completed.get() < sparkJobs.size()) {
-          LOG.debug("Client job {} finished, {} of {} Spark jobs finished.",
-              jobId, completed.get(), sparkJobs.size());
-          completed.wait();
-        }
-      }
-
-      // make sure job has really succeeded
-      // at this point, future.get shall not block us
-      for (JavaFutureAction<?> future : sparkJobs) {
-        future.get();
-      }
       finished(result, null);
     } catch (Throwable t) {
       // Catch throwables in a best-effort to report job status back to the client. It's
@@ -96,20 +81,7 @@ public class JobWrapper<T> implements Callable<Void> {
   }
 
   boolean cancel() {
-    boolean cancelled = false;
-    for (JavaFutureAction<?> action : sparkJobs) {
-      cancelled |= action.cancel(true);
-    }
-    return cancelled | (future != null && future.cancel(true));
-  }
-
-  boolean hasSparkJobId(Integer sparkId) {
-    for (JavaFutureAction<?> future : sparkJobs) {
-      if (future.jobIds().contains(sparkId)) {
-        return true;
-      }
-    }
-    return false;
+    return future != null ? future.cancel(true) : true;
   }
 
   protected void finished(T result, Throwable error) {

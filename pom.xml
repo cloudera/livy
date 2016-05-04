@@ -45,7 +45,6 @@
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
     <spark.version>1.5.0-cdh5.5.0</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
-    <guava.version>14.0.1</guava.version>
     <httpclient.version>4.5</httpclient.version>
     <httpcore.version>4.4.1</httpcore.version>
     <jackson.version>2.4.4</jackson.version>
@@ -63,12 +62,13 @@
     <scala.version>2.10.4</scala.version>
     <scalatest.version>2.2.4</scalatest.version>
     <scalatra.version>2.3.0</scalatra.version>
-    <snappy-java.version>1.1.1.6</snappy-java.version>
     <java.version>1.7</java.version>
     <minJavaVersion>1.7</minJavaVersion>
     <maxJavaVersion>1.8</maxJavaVersion>
     <test.redirectToFile>true</test.redirectToFile>
     <execution.root>${user.dir}</execution.root>
+    <spark.home>${execution.root}/dev/spark</spark.home>
+
     <!--
       Properties for the copyright header style checks. Modules that use the ASF header
       should override the "copyright.header" property.
@@ -170,6 +170,8 @@
     <module>repl</module>
     <module>rsc</module>
     <module>server</module>
+    <module>test-lib</module>
+    <module>integration-test</module>
   </modules>
 
   <dependencies>
@@ -243,12 +245,6 @@
       </dependency>
 
       <dependency>
-        <groupId>com.google.guava</groupId>
-        <artifactId>guava</artifactId>
-        <version>${guava.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
         <version>${commons-codec.version}</version>
@@ -298,7 +294,21 @@
 
       <dependency>
         <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-common</artifactId>
+        <classifier>tests</classifier>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-client</artifactId>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-hdfs</artifactId>
+        <classifier>tests</classifier>
         <version>${hadoop.version}</version>
       </dependency>
 
@@ -317,6 +327,13 @@
       <dependency>
         <groupId>org.apache.hadoop</groupId>
         <artifactId>hadoop-yarn-common</artifactId>
+        <version>${hadoop.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-yarn-server-tests</artifactId>
+        <classifier>tests</classifier>
         <version>${hadoop.version}</version>
       </dependency>
 
@@ -360,6 +377,12 @@
             <artifactId>unused</artifactId>
           </exclusion>
         </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-repl_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
       </dependency>
 
       <dependency>
@@ -490,12 +513,6 @@
       </dependency>
 
       <dependency>
-        <groupId>org.xerial.snappy</groupId>
-        <artifactId>snappy-java</artifactId>
-        <version>${snappy-java.version}</version>
-      </dependency>
-
-      <dependency>
         <groupId>net.sf.py4j</groupId>
         <artifactId>py4j</artifactId>
         <version>${py4j.version}</version>
@@ -622,18 +639,19 @@
           <version>2.19</version>
           <configuration>
             <environmentVariables>
-              <livy.test>true</livy.test>
-              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <LIVY_TEST>true</LIVY_TEST>
+              <SPARK_HOME>${spark.home}</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
+              <spark.ui.enabled>false</spark.ui.enabled>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
-            <argLine>${argLine} -Xmx4096m -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
             <failIfNoTests>false</failIfNoTests>
           </configuration>
         </plugin>
@@ -644,19 +662,21 @@
           <version>1.0</version>
           <configuration>
             <environmentVariables>
-              <livy.test>true</livy.test>
-              <SPARK_HOME>${execution.root}/dev/spark</SPARK_HOME>
+              <LIVY_TEST>true</LIVY_TEST>
+              <SPARK_HOME>${spark.home}</SPARK_HOME>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
               <java.io.tmpdir>${project.build.directory}/tmp</java.io.tmpdir>
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
+              <spark.ui.enabled>false</spark.ui.enabled>
             </systemProperties>
+            <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
-            <argLine>${argLine} -Xmx4096m -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
           </configuration>
           <executions>
             <execution>
@@ -743,18 +763,6 @@
         <artifactId>maven-antrun-plugin</artifactId>
         <version>1.8</version>
         <executions>
-          <execution>
-            <id>create-tmp-dir</id>
-            <phase>generate-test-resources</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <target>
-                <mkdir dir="${project.build.directory}/tmp" />
-              </target>
-            </configuration>
-          </execution>
           <!-- Cleans up files that tests append to (because we have two test plugins). -->
           <execution>
             <id>pre-test-clean</id>
@@ -766,6 +774,20 @@
               <target>
                 <delete file="${project.build.directory}/unit-tests.log" quiet="true" />
                 <delete file="${project.build.directory}/jacoco.exec" quiet="true" />
+                <delete dir="${project.build.directory}/tmp" quiet="true" />
+              </target>
+            </configuration>
+          </execution>
+          <!-- Create the temp directory to be  used by tests. -->
+          <execution>
+            <id>create-tmp-dir</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir dir="${project.build.directory}/tmp" />
               </target>
             </configuration>
           </execution>

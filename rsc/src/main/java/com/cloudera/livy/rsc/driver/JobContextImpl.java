@@ -27,9 +27,9 @@ import org.apache.spark.streaming.Duration;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.cloudera.livy.JobContext;
+import com.cloudera.livy.rsc.Utils;
 
 class JobContextImpl implements JobContext {
 
@@ -77,19 +77,19 @@ class JobContextImpl implements JobContext {
 
   @Override
   public synchronized JavaStreamingContext streamingctx(){
-    checkState(streamingctx != null, "method createStreamingContext must be called first.");
+    Utils.checkState(streamingctx != null, "method createStreamingContext must be called first.");
     return streamingctx;
   }
 
   @Override
   public synchronized void createStreamingContext(long batchDuration) {
-    checkState(streamingctx == null, "Streaming context is not null.");
+    Utils.checkState(streamingctx == null, "Streaming context is not null.");
     streamingctx = new JavaStreamingContext(sc, new Duration(batchDuration));
   }
 
   @Override
   public synchronized void stopStreamingCtx() {
-    checkState(streamingctx != null, "Streaming Context is null");
+    Utils.checkState(streamingctx != null, "Streaming Context is null");
     streamingctx.stop();
     streamingctx = null;
   }

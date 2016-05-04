@@ -21,7 +21,7 @@ package com.cloudera.livy.server.interactive
 import java.util.concurrent.atomic.AtomicInteger
 import javax.servlet.http.HttpServletRequest
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 import org.json4s.JsonAST._
 import org.json4s.jackson.Json4sScalaModule
@@ -30,16 +30,14 @@ import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf}
-import com.cloudera.livy.server.BaseSessionServletSpec
+import com.cloudera.livy.ExecuteRequest
 import com.cloudera.livy.sessions._
 
-class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSession] {
+class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
-  mapper.registerModule(new SessionKindModule())
-    .registerModule(new Json4sScalaModule())
+  mapper.registerModule(new Json4sScalaModule())
 
-  class MockInteractiveSessionServlet extends InteractiveSessionServlet(new LivyConf()) {
+  class MockInteractiveSessionServlet extends InteractiveSessionServlet(createConf()) {
 
     private var statements = IndexedSeq[Statement]()
 
@@ -83,10 +81,7 @@ class InteractiveSessionServletSpec extends BaseSessionServletSpec[InteractiveSe
       data("sessions") should equal(Seq())
     }
 
-    val createRequest = new CreateInteractiveRequest()
-    createRequest.kind = Spark()
-
-    jpost[Map[String, Any]]("/", createRequest) { data =>
+    jpost[Map[String, Any]]("/", createRequest()) { data =>
       header("Location") should equal("/0")
       data("id") should equal (0)
 

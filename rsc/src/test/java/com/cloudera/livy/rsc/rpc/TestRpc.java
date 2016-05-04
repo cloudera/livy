@@ -18,16 +18,13 @@
 package com.cloudera.livy.rsc.rpc;
 
 import java.io.Closeable;
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.security.sasl.SaslException;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.util.concurrent.Future;
@@ -40,7 +37,9 @@ import org.slf4j.LoggerFactory;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import com.cloudera.livy.rsc.FutureListener;
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 public class TestRpc {
@@ -52,7 +51,7 @@ public class TestRpc {
 
   @Before
   public void setUp() {
-    closeables = Lists.newArrayList();
+    closeables = new ArrayList<>();
     emptyConfig = new RSCConf(null);
   }
 
@@ -144,11 +143,11 @@ public class TestRpc {
     Rpc client = rpcs[1];
 
     final AtomicInteger closeCount = new AtomicInteger();
-    client.addListener(new Rpc.Listener() {
-        @Override
-        public void rpcClosed(Rpc rpc) {
-          closeCount.incrementAndGet();
-        }
+    Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
+      @Override
+      public void onSuccess(Void unused) {
+        closeCount.incrementAndGet();
+      }
     });
 
     client.close();

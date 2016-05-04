@@ -42,9 +42,9 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   server.setStopTimeout(1000)
   server.setStopAtShutdown(true)
 
-  val connector = Option(livyConf.get(WebServer.KeystoreKey)) match {
+  val (connector, protocol) = Option(livyConf.get(WebServer.KeystoreKey)) match {
     case None =>
-      new ServerConnector(server)
+      (new ServerConnector(server), "http")
 
     case Some(keystore) =>
       val https = new HttpConfiguration()
@@ -57,9 +57,9 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
       Option(livyConf.get(WebServer.KeystorePasswordKey))
         .foreach(sslContextFactory.setKeyManagerPassword)
 
-      new ServerConnector(server,
+      (new ServerConnector(server,
         new SslConnectionFactory(sslContextFactory, "http/1.1"),
-        new HttpConnectionFactory(https))
+        new HttpConnectionFactory(https)), "https")
   }
 
   connector.setHost(host)
@@ -96,11 +96,11 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
     val connector = server.getConnectors()(0).asInstanceOf[NetworkConnector]
 
     if (host == "0.0.0.0") {
-      host = InetAddress.getLocalHost.getHostAddress
+      host = InetAddress.getLocalHost.getCanonicalHostName
     }
     port = connector.getLocalPort
 
-    info("Starting server on %s" format port)
+    info("Starting server on %s://%s:%d" format (protocol, host, port))
   }
 
   def join(): Unit = {

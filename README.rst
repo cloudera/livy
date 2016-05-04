@@ -485,7 +485,7 @@ Response Body
 +---------+---------------+------+
 | name    | description   | type |
 +=========+===============+======+
-| batches | `batch`_ list | list |
+|sessions | `batch`_ list | list |
 +---------+---------------+------+
 
 
@@ -572,7 +572,7 @@ DELETE /batches/{batchId}
 Kill the `Batch`_ job.
 
 
-GET /batches/{batchId}/logs
+GET /batches/{batchId}/log
 ---------------------------
 
 Get the log lines from this batch.

@@ -18,11 +18,11 @@
 
 package com.cloudera.livy.server.interactive
 
-import com.cloudera.livy.sessions.Kind
+import com.cloudera.livy.sessions.{Kind, Spark}
 
 class CreateInteractiveRequest {
 
-  var kind: Kind = _
+  var kind: Kind = Spark()
   var proxyUser: Option[String] = None
   var jars: List[String] = List()
   var pyFiles: List[String] = List()

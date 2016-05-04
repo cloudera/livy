@@ -22,9 +22,8 @@ import java.net.URI;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import org.apache.spark.SparkException;
+import io.netty.util.concurrent.ImmediateEventExecutor;
+import io.netty.util.concurrent.Promise;
 
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientFactory;
@@ -57,20 +56,20 @@ public final class RSCClientFactory implements LivyClientFactory {
 
     boolean needsServer = false;
     try {
-      ContextInfo info;
+      Promise<ContextInfo> info;
       if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
         info = createContextInfo(uri);
       } else {
         needsServer = true;
         ref(lconf);
-        info = new ContextLauncher(this, lconf);
+        info = ContextLauncher.create(this, lconf);
       }
-      return new RSCClient(this, lconf, info);
+      return new RSCClient(lconf, info);
     } catch (Exception e) {
       if (needsServer) {
         unref();
       }
-      throw Throwables.propagate(e);
+      throw Utils.propagate(e);
     }
   }
 
@@ -84,12 +83,12 @@ public final class RSCClientFactory implements LivyClientFactory {
       return;
     }
 
-    Preconditions.checkState(server == null);
+    Utils.checkState(server == null, "Server already running but ref count is 0.");
     if (server == null) {
       try {
         server = new RpcServer(config);
       } catch (InterruptedException ie) {
-        throw Throwables.propagate(ie);
+        throw Utils.propagate(ie);
       }
     }
 
@@ -103,36 +102,12 @@ public final class RSCClientFactory implements LivyClientFactory {
     }
   }
 
-  private static ContextInfo createContextInfo(final URI uri) {
-    final String[] userInfo = uri.getUserInfo().split(":", 2);
-    return new ContextInfo() {
-
-      @Override
-      public String getRemoteAddress() {
-        return uri.getHost();
-      }
-
-      @Override
-      public int getRemotePort() {
-        return uri.getPort();
-      }
-
-      @Override
-      public String getClientId() {
-        return userInfo[0];
-      }
-
-      @Override
-      public String getSecret() {
-        return userInfo[1];
-      }
-
-      @Override
-      public void dispose(boolean forceKill) {
-
-      }
-
-    };
+  private static Promise<ContextInfo> createContextInfo(final URI uri) {
+    String[] userInfo = uri.getUserInfo().split(":", 2);
+    ImmediateEventExecutor executor = ImmediateEventExecutor.INSTANCE;
+    Promise<ContextInfo> promise = executor.newPromise();
+    promise.setSuccess(new ContextInfo(uri.getHost(), uri.getPort(), userInfo[0], userInfo[1]));
+    return promise;
   }
 
 }

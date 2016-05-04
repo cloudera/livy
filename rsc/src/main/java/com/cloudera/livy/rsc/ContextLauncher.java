@@ -19,28 +19,31 @@ package com.cloudera.livy.rsc;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermission.*;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.concurrent.Promise;
 import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +58,7 @@ import static com.cloudera.livy.rsc.RSCConf.Entry.*;
  * Encapsulates code needed to launch a new Spark context and collect information about how
  * to establish a client connection to it.
  */
-class ContextLauncher implements ContextInfo {
+class ContextLauncher {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContextLauncher.class);
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
@@ -63,77 +66,60 @@ class ContextLauncher implements ContextInfo {
   private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
-  private static final String SPARK_HOME_KEY = "spark.home";
 
+  static Promise<ContextInfo> create(RSCClientFactory factory, RSCConf conf)
+      throws IOException {
+    ContextLauncher launcher = new ContextLauncher(factory, conf);
+    return launcher.promise;
+  }
+
+  private final Promise<ContextInfo> promise;
+  private final ScheduledFuture<?> timeout;
   private final String clientId;
   private final String secret;
   private final ChildProcess child;
   private final RSCConf conf;
   private final RSCClientFactory factory;
 
-  private BaseProtocol.RemoteDriverAddress driverAddress;
-
-  ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
+  private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
+    this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
     this.clientId = UUID.randomUUID().toString();
     this.secret = factory.getServer().createSecret();
     this.conf = conf;
     this.factory = factory;
 
-    RegistrationHandler handler = new RegistrationHandler();
+    final RegistrationHandler handler = new RegistrationHandler();
     try {
       factory.getServer().registerClient(clientId, secret, handler);
       String replMode = conf.get("repl");
       boolean repl = replMode != null && replMode.equals("true");
       this.child = startDriver(factory.getServer(), conf, clientId, secret);
 
-      // Wait for the handler to receive the driver information. Wait a little at a time so
-      // that we can check whether the child process is still alive, and throw an error if the
-      // process goes away before we get the information back.
-      long timeout = conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT);
-      long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeout);
-      long now = System.nanoTime();
-      long step = Math.min(500, TimeUnit.NANOSECONDS.toMillis(deadline - now));
-      synchronized (handler) {
-        while (handler.driverAddress == null && now < deadline) {
-          handler.wait(Math.min(step, deadline - now));
-          Preconditions.checkState(handler.driverAddress != null || !child.isFailed(),
-            "Child has exited before address information was received.");
-          now = System.nanoTime();
+      // Set up a timeout to fail the promise if we don't hear back from the context
+      // after a configurable timeout.
+      Runnable timeoutTask = new Runnable() {
+        @Override
+        public void run() {
+          connectTimeout(handler);
         }
-      }
-      Preconditions.checkState(handler.driverAddress != null,
-        "Timed out waiting for driver connection information.");
-      driverAddress = handler.driverAddress;
+      };
+      this.timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
+        conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
     } catch (Exception e) {
-      factory.getServer().unregisterClient(clientId);
-      throw Throwables.propagate(e);
-    } finally {
-      handler.dispose();
+      dispose(true);
+      throw Utils.propagate(e);
     }
   }
 
-  @Override
-  public String getRemoteAddress() {
-    return driverAddress.host;
+  private void connectTimeout(RegistrationHandler handler) {
+    if (promise.tryFailure(new TimeoutException("Timed out waiting for context to start."))) {
+      handler.dispose();
+    }
+    dispose(true);
   }
 
-  @Override
-  public int getRemotePort() {
-    return driverAddress.port;
-  }
-
-  @Override
-  public String getClientId() {
-    return clientId;
-  }
-
-  @Override
-  public String getSecret() {
-    return secret;
-  }
-
-  @Override
-  public void dispose(boolean forceKill) {
+  private void dispose(boolean forceKill) {
+    factory.getServer().unregisterClient(clientId);
     try {
       if (forceKill) {
         child.kill();
@@ -159,23 +145,23 @@ class ContextLauncher implements ContextInfo {
     String livyJars = conf.get(LIVY_JARS);
     if (livyJars == null) {
       String livyHome = System.getenv("LIVY_HOME");
-      Preconditions.checkState(livyHome != null,
+      Utils.checkState(livyHome != null,
         "Need one of LIVY_HOME or %s set.", LIVY_JARS.key());
       File rscJars = new File(livyHome, "rsc-jars");
       if (!rscJars.isDirectory()) {
         rscJars = new File(livyHome, "rsc/target/jars");
       }
-      Preconditions.checkState(rscJars.isDirectory(),
+      Utils.checkState(rscJars.isDirectory(),
         "Cannot find 'client-jars' directory under LIVY_HOME.");
       List<String> jars = new ArrayList<>();
       for (File f : rscJars.listFiles()) {
          jars.add(f.getAbsolutePath());
       }
-      livyJars = Joiner.on(",").join(jars);
+      livyJars = Utils.join(jars, ",");
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
-    if ("sparkr".equals(conf.get("session.kind"))) {
+    if ("sparkr".equals(conf.get(SESSION_KIND))) {
       merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
     }
 
@@ -198,7 +184,7 @@ class ContextLauncher implements ContextInfo {
 
     final File confFile = writeConfToFile(conf);
 
-    if (conf.get(CLIENT_IN_PROCESS) != null) {
+    if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
       Runnable child = new Runnable() {
@@ -207,33 +193,25 @@ class ContextLauncher implements ContextInfo {
           try {
             RSCDriverBootstrapper.main(new String[] { confFile.getAbsolutePath() });
           } catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw Utils.propagate(e);
           }
         }
       };
       return new ChildProcess(conf, child, confFile);
     } else {
       final SparkLauncher launcher = new SparkLauncher();
-      String sparkHome = conf.get(SPARK_HOME_KEY);
-      if (sparkHome == null) {
-        sparkHome = System.getenv(SPARK_HOME_ENV);
-      }
-
-      if (sparkHome == null) {
-        sparkHome = System.getProperty(SPARK_HOME_KEY);
-      }
-      launcher.setSparkHome(sparkHome);
-
+      launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
       launcher.setAppResource("spark-internal");
 
       // Define how to pass options to the child process. If launching in client (or local)
       // mode, the driver options need to be passed directly on the command line. Otherwise,
       // SparkSubmit will take care of that for us.
       String master = conf.get("spark.master");
-      Preconditions.checkArgument(master != null, "spark.master is not defined.");
+      Utils.checkArgument(master != null, "spark.master is not defined.");
       launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
+
       if (conf.get(PROXY_USER) != null) {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
@@ -243,7 +221,7 @@ class ContextLauncher implements ContextInfo {
   }
 
   private static void merge(RSCConf conf, String key, String livyConf, String sep) {
-    String confValue = Joiner.on(sep).skipNulls().join(livyConf, conf.get(key));
+    String confValue = Utils.join(Arrays.asList(livyConf, conf.get(key)), sep);
     conf.set(key, confValue);
   }
 
@@ -251,6 +229,10 @@ class ContextLauncher implements ContextInfo {
    * Write the configuration to a file readable only by the process's owner. Livy properties
    * are written with an added prefix so that they can be loaded using SparkConf on the driver
    * side.
+   *
+   * The default Spark configuration (from either SPARK_HOME or SPARK_CONF_DIR) is merged into
+   * the user configuration, so that defaults set by Livy's admin take effect when not overridden
+   * by the user.
    */
   private static File writeConfToFile(RSCConf conf) throws IOException {
     Properties confView = new Properties();
@@ -262,9 +244,34 @@ class ContextLauncher implements ContextInfo {
       confView.setProperty(key, e.getValue());
     }
 
+    // Load the default Spark configuration.
+    String confDir = System.getenv("SPARK_CONF_DIR");
+    if (confDir == null && System.getenv(SPARK_HOME_ENV) != null) {
+      confDir = System.getenv(SPARK_HOME_ENV) + File.separator + "conf";
+    }
+
+    if (confDir != null) {
+      File sparkDefaults = new File(confDir + File.separator + "spark-defaults.conf");
+      if (sparkDefaults.isFile()) {
+        Properties sparkConf = new Properties();
+        Reader r = new InputStreamReader(new FileInputStream(sparkDefaults), UTF_8);
+        try {
+          sparkConf.load(r);
+        } finally {
+          r.close();
+        }
+
+        for (String key : sparkConf.stringPropertyNames()) {
+          if (!confView.containsKey(key)) {
+            confView.put(key, sparkConf.getProperty(key));
+          }
+        }
+      }
+    }
+
     File file = File.createTempFile("livyConf", ".properties");
     Files.setPosixFilePermissions(file.toPath(), EnumSet.of(OWNER_READ, OWNER_WRITE));
-    file.deleteOnExit();
+    //file.deleteOnExit();
 
     Writer writer = new OutputStreamWriter(new FileOutputStream(file), UTF_8);
     try {
@@ -304,7 +311,7 @@ class ContextLauncher implements ContextInfo {
 
   }
 
-  private static class RegistrationHandler extends BaseProtocol
+  private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
 
     volatile RemoteDriverAddress driverAddress;
@@ -325,12 +332,21 @@ class ContextLauncher implements ContextInfo {
     }
 
     private void handle(ChannelHandlerContext ctx, RemoteDriverAddress msg) {
+      ContextInfo info = new ContextInfo(msg.host, msg.port, clientId, secret);
+      if (promise.trySuccess(info)) {
+        timeout.cancel(true);
+      }
+
       LOG.debug("Received driver info for client {}: {}/{}.", client.getChannel(),
         msg.host, msg.port);
-      synchronized (this) {
-        this.driverAddress = msg;
-        notifyAll();
-      }
+
+      ctx.executor().submit(new Runnable() {
+        @Override
+        public void run() {
+          dispose();
+          ContextLauncher.this.dispose(false);
+        }
+      });
     }
 
   }

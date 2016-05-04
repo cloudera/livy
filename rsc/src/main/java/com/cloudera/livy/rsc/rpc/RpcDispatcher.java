@@ -22,15 +22,16 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.util.concurrent.Promise;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.cloudera.livy.rsc.Utils;
 
 /**
  * An implementation of ChannelInboundHandler that dispatches incoming messages to an instance
@@ -48,7 +49,7 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
 
   private static final Logger LOG = LoggerFactory.getLogger(RpcDispatcher.class);
 
-  private final Map<Class<?>, Method> handlers = Maps.newConcurrentMap();
+  private final Map<Class<?>, Method> handlers = new ConcurrentHashMap<>();
   private final Collection<OutstandingRpc> rpcs = new ConcurrentLinkedQueue<OutstandingRpc>();
 
   private volatile Rpc.MessageHeader lastHeader;
@@ -117,7 +118,7 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
         } catch (NoSuchMethodException e2) {
           LOG.warn(String.format("[%s] Failed to find handler for msg '%s'.", name(),
             msg.getClass().getName()));
-          writeMessage(ctx, Rpc.MessageType.ERROR, Throwables.getStackTraceAsString(e.getCause()));
+          writeMessage(ctx, Rpc.MessageType.ERROR, Utils.stackTraceAsString(e.getCause()));
           return;
         }
       }
@@ -133,7 +134,7 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
       writeMessage(ctx, Rpc.MessageType.REPLY, payload);
     } catch (InvocationTargetException ite) {
       LOG.debug(String.format("[%s] Error in RPC handler.", name()), ite.getCause());
-      writeMessage(ctx, Rpc.MessageType.ERROR, Throwables.getStackTraceAsString(ite.getCause()));
+      writeMessage(ctx, Rpc.MessageType.ERROR, Utils.stackTraceAsString(ite.getCause()));
     }
   }
 
@@ -174,7 +175,7 @@ public abstract class RpcDispatcher extends SimpleChannelInboundHandler<Object> 
       // There's an RPC waiting for a reply. Exception was most probably caught while processing
       // the RPC, so send an error.
       ctx.channel().write(new Rpc.MessageHeader(lastHeader.id, Rpc.MessageType.ERROR));
-      ctx.channel().writeAndFlush(Throwables.getStackTraceAsString(cause));
+      ctx.channel().writeAndFlush(Utils.stackTraceAsString(cause));
       lastHeader = null;
     }
 

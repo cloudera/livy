@@ -57,7 +57,7 @@ import static com.cloudera.livy.client.http.HttpConf.Entry.*;
  */
 class LivyConnection {
 
-  static final String CLIENT_SESSION_URI = "/clients";
+  static final String SESSIONS_URI = "/sessions";
   private static final String APPLICATION_JSON = "application/json";
 
   private final URI server;
@@ -70,7 +70,7 @@ class LivyConnection {
     int port = uri.getPort() > 0 ? uri.getPort() : 8998;
 
     String path = uri.getPath() != null ? uri.getPath() : "";
-    this.uriRoot = path + CLIENT_SESSION_URI;
+    this.uriRoot = path + SESSIONS_URI;
 
     RequestConfig reqConfig = new RequestConfig() {
       @Override

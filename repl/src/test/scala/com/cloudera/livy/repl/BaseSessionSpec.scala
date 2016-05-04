@@ -18,8 +18,7 @@
 
 package com.cloudera.livy.repl
 
-import java.util.concurrent.TimeUnit
-
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -34,11 +33,10 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers {
   implicit val formats = DefaultFormats
 
   def withSession(testCode: Session => Any): Unit = {
-    val session = Session(createInterpreter())
+    val session = new Session(createInterpreter())
     try {
-      eventually(timeout(30 seconds), interval(100 millis)) {
-        assert(session.state === SessionState.Idle())
-      }
+      Await.ready(session.start(), 30 seconds)
+      assert(session.state === SessionState.Idle())
       testCode(session)
     } finally {
       session.close()
@@ -48,11 +46,13 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers {
   def createInterpreter(): Interpreter
 
   it should "start in the starting or idle state" in {
-    val session = Session(createInterpreter())
+    val session = new Session(createInterpreter())
+    val future = session.start()
     try {
       eventually(timeout(30 seconds), interval(100 millis)) {
         session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
       }
+      Await.ready(future, 30 seconds)
     } finally {
       session.close()
     }

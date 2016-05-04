@@ -21,6 +21,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -36,10 +37,6 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslClient;
 import javax.security.sasl.SaslException;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -63,6 +60,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 /**
@@ -203,7 +201,6 @@ public class Rpc implements Closeable {
     return new Rpc(config, client, egroup);
   }
 
-  @VisibleForTesting
   static Rpc createEmbedded(RpcDispatcher dispatcher) {
     EmbeddedChannel c = new EmbeddedChannel(
         new LoggingHandler(Rpc.class),
@@ -218,20 +215,18 @@ public class Rpc implements Closeable {
   private final AtomicBoolean rpcClosed;
   private final AtomicLong rpcId;
   private final Channel channel;
-  private final Collection<Listener> listeners;
   private final EventExecutorGroup egroup;
   private final Object channelLock;
   private volatile RpcDispatcher dispatcher;
 
   private Rpc(RSCConf config, Channel channel, EventExecutorGroup egroup) {
-    Preconditions.checkArgument(channel != null);
-    Preconditions.checkArgument(egroup != null);
+    Utils.checkArgument(channel != null);
+    Utils.checkArgument(egroup != null);
     this.config = config;
     this.channel = channel;
     this.channelLock = new Object();
     this.dispatcher = null;
     this.egroup = egroup;
-    this.listeners = Lists.newLinkedList();
     this.rpcClosed = new AtomicBoolean();
     this.rpcId = new AtomicLong();
 
@@ -242,12 +237,6 @@ public class Rpc implements Closeable {
           close();
         }
     });
-  }
-
-  public void addListener(Listener l) {
-    synchronized (listeners) {
-      listeners.add(l);
-    }
   }
 
   /**
@@ -267,11 +256,11 @@ public class Rpc implements Closeable {
    * @return A future used to monitor the operation.
    */
   public <T> Future<T> call(Object msg, Class<T> retType) {
-    Preconditions.checkArgument(msg != null);
-    Preconditions.checkState(channel.isOpen(), "RPC channel is closed.");
+    Utils.checkArgument(msg != null);
+    Utils.checkState(channel.isOpen(), "RPC channel is closed.");
     try {
       final long id = rpcId.getAndIncrement();
-      final Promise<T> promise = createPromise();
+      final Promise<T> promise = egroup.next().newPromise();
       ChannelFutureListener listener = new ChannelFutureListener() {
           @Override
           public void operationComplete(ChannelFuture cf) {
@@ -291,15 +280,8 @@ public class Rpc implements Closeable {
       }
       return promise;
     } catch (Exception e) {
-      throw Throwables.propagate(e);
+      throw Utils.propagate(e);
     }
-  }
-
-  /**
-   * Creates a promise backed by this RPC's event loop.
-   */
-  public <T> Promise<T> createPromise() {
-    return egroup.next().newPromise();
   }
 
   public Channel getChannel() {
@@ -307,8 +289,8 @@ public class Rpc implements Closeable {
   }
 
   void setDispatcher(RpcDispatcher dispatcher) {
-    Preconditions.checkNotNull(dispatcher);
-    Preconditions.checkState(this.dispatcher == null);
+    Utils.checkNotNull(dispatcher);
+    Utils.checkState(this.dispatcher == null, "Dispatcher already set.");
     this.dispatcher = dispatcher;
     channel.pipeline().addLast("dispatcher", dispatcher);
   }
@@ -322,23 +304,7 @@ public class Rpc implements Closeable {
       channel.close().sync();
     } catch (InterruptedException ie) {
       Thread.interrupted();
-    } finally {
-      synchronized (listeners) {
-        for (Listener l : listeners) {
-          try {
-            l.rpcClosed(this);
-          } catch (Exception e) {
-            LOG.warn("Error caught in Rpc.Listener invocation.", e);
-          }
-        }
-      }
     }
-  }
-
-  public interface Listener {
-
-    void rpcClosed(Rpc rpc);
-
   }
 
   static enum MessageType {

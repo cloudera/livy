@@ -18,39 +18,37 @@
 
 package com.cloudera.livy.repl
 
+import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
-
-import com.cloudera.livy.repl
-import com.cloudera.livy.repl.scalaRepl.SparkInterpreter
 
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter(): Interpreter = SparkInterpreter()
+  override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "res0: Int = 3"
+      TEXT_PLAIN -> "res0: Int = 3"
     ))
   }
 
   it should "execute multiple statements" in withInterpreter { interpreter =>
     var response = interpreter.execute("val x = 1")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "x: Int = 1"
+      TEXT_PLAIN -> "x: Int = 1"
     ))
 
     response = interpreter.execute("val y = 2")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "y: Int = 2"
+      TEXT_PLAIN -> "y: Int = 2"
     ))
 
     response = interpreter.execute("x + y")
     response should equal (Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "res0: Int = 3"
+      TEXT_PLAIN -> "res0: Int = 3"
     ))
   }
 
@@ -64,7 +62,7 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
         |x + y
       """.stripMargin)
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "res2: Int = 3"
+      TEXT_PLAIN -> "res2: Int = 3"
     ))
   }
 
@@ -75,7 +73,7 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
       """.stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.APPLICATION_LIVY_TABLE_JSON -> (
+      APPLICATION_LIVY_TABLE_JSON -> (
         ("headers" -> List(
           ("type" -> "BIGINT_TYPE") ~ ("name" -> "0"),
           ("type" -> "STRING_TYPE") ~ ("name" -> "1")
@@ -96,14 +94,14 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
       """.stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "res0: Int = 3"
+      TEXT_PLAIN -> "res0: Int = 3"
     ))
   }
 
   it should "capture stdout" in withInterpreter { interpreter =>
     val response = interpreter.execute("println(\"Hello World\")")
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "Hello World"
+      TEXT_PLAIN -> "Hello World"
     ))
   }
 
@@ -123,7 +121,7 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
       """sc.parallelize(0 to 1).map { i => i+1 }.collect""".stripMargin)
 
     response should equal(Interpreter.ExecuteSuccess(
-      repl.TEXT_PLAIN -> "res0: Array[Int] = Array(1, 2)"
+      TEXT_PLAIN -> "res0: Array[Int] = Array(1, 2)"
     ))
   }
 }

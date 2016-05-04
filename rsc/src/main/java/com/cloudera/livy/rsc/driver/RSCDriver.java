@@ -35,7 +35,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.base.Preconditions;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import org.apache.commons.io.FileUtils;
@@ -48,7 +47,9 @@ import org.slf4j.LoggerFactory;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.rsc.BaseProtocol;
 import com.cloudera.livy.rsc.BypassJobStatus;
+import com.cloudera.livy.rsc.FutureListener;
 import com.cloudera.livy.rsc.RSCConf;
+import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 import com.cloudera.livy.rsc.rpc.RpcServer;
@@ -100,12 +101,29 @@ public class RSCDriver extends BaseProtocol {
     this.bypassJobs = new ConcurrentLinkedDeque<>();
   }
 
-  public final synchronized void shutdown() {
+  private synchronized void shutdown() {
     if (!running) {
       return;
     }
 
     running = false;
+
+    // Cancel any pending jobs.
+    for (JobWrapper<?> job : activeJobs.values()) {
+      job.cancel();
+    }
+
+    try {
+      shutdownContext();
+    } catch (Exception e) {
+      LOG.warn("Error during shutdown.", e);
+    }
+    try {
+      shutdownServer();
+    } catch (Exception e) {
+      LOG.warn("Error during shutdown.", e);
+    }
+
     synchronized (shutdownLock) {
       shutdownLock.notifyAll();
     }
@@ -116,14 +134,14 @@ public class RSCDriver extends BaseProtocol {
 
   private void initializeServer() throws Exception {
     String clientId = livyConf.get(CLIENT_ID);
-    Preconditions.checkArgument(clientId != null, "No client ID provided.");
+    Utils.checkArgument(clientId != null, "No client ID provided.");
     String secret = livyConf.get(CLIENT_SECRET);
-    Preconditions.checkArgument(secret != null, "No secret provided.");
+    Utils.checkArgument(secret != null, "No secret provided.");
 
     String launcherAddress = livyConf.get(LAUNCHER_ADDRESS);
-    Preconditions.checkArgument(launcherAddress != null, "Missing launcher address.");
+    Utils.checkArgument(launcherAddress != null, "Missing launcher address.");
     int launcherPort = livyConf.getInt(LAUNCHER_PORT);
-    Preconditions.checkArgument(launcherPort > 0, "Missing launcher port.");
+    Utils.checkArgument(launcherPort > 0, "Missing launcher port.");
 
     LOG.info("Connecting to: {}:{}", launcherAddress, launcherPort);
 
@@ -138,12 +156,12 @@ public class RSCDriver extends BaseProtocol {
     this.server = new RpcServer(livyConf);
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
-      public RpcDispatcher onNewClient(Rpc client) {
+      public RpcDispatcher onNewClient(final Rpc client) {
         clients.add(client);
-        client.addListener(new Rpc.Listener() {
+        Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
           @Override
-          public void rpcClosed(Rpc rpc) {
-            clients.remove(rpc);
+          public void onSuccess(Void unused) {
+            clients.remove(client);
           }
         });
         LOG.debug("Registered new connection from {}.", client.getChannel());
@@ -175,7 +193,6 @@ public class RSCDriver extends BaseProtocol {
     JavaSparkContext sc = new JavaSparkContext(conf);
     LOG.info("Spark context finished initialization in {}ms",
       TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
-    sc.sc().addSparkListener(new DriverSparkListener(this));
     return sc;
   }
 
@@ -198,6 +215,9 @@ public class RSCDriver extends BaseProtocol {
   private void shutdownServer() {
     if (server != null) {
       server.close();
+    }
+    for (Rpc client: clients) {
+      client.close();
     }
   }
 
@@ -246,21 +266,7 @@ public class RSCDriver extends BaseProtocol {
         }
       }
     } finally {
-      // Cancel any pending jobs.
-      for (JobWrapper<?> job : activeJobs.values()) {
-        job.cancel();
-      }
-
-      try {
-        shutdownContext();
-      } catch (Exception e) {
-        LOG.warn("Error during shutdown.", e);
-      }
-      try {
-        shutdownServer();
-      } catch (Exception e) {
-        LOG.warn("Error during shutdown.", e);
-      }
+      shutdown();
     }
   }
 

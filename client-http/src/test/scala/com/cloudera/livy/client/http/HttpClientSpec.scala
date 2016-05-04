@@ -40,8 +40,9 @@ import com.cloudera.livy._
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.WebServer
-import com.cloudera.livy.server.client.{ClientSession, ClientSessionServlet}
-import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
+import com.cloudera.livy.sessions.{SessionState, Spark}
+import com.cloudera.livy.test.jobs.Echo
 
 /**
  * The test for the HTTP client is written in Scala so we can reuse the code in the livy-server
@@ -182,7 +183,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
     withClient("should connect to existing sessions") {
       var sid = client.asInstanceOf[HttpClient].getSessionId()
-      val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}/clients/$sid"
+      val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}" +
+        s"${LivyConnection.SESSIONS_URI}/$sid"
       val newClient = new LivyClientBuilder(false).setURI(new URI(uri)).build()
       newClient.stop(false)
       verify(session, never()).stop()
@@ -213,7 +215,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     assert(expectedStr === new String(b))
   }
 
-  private def runJob(sync: Boolean, genStatusFn: Long => Seq[JobStatus]): (Long, JFuture[Long]) = {
+  private def runJob(sync: Boolean, genStatusFn: Long => Seq[JobStatus]): (Long, JFuture[Int]) = {
     val jobId = java.lang.Long.valueOf(ID_GENERATOR.incrementAndGet())
     when(session.submitJob(any(classOf[Array[Byte]]))).thenReturn(jobId)
 
@@ -222,7 +224,8 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
     val remaining = statuses.drop(1)
     when(session.jobStatus(meq(jobId))).thenReturn(first, remaining: _*)
 
-    val handle = if (sync) client.run(new DummyJob()) else client.submit(new DummyJob())
+    val job = new Echo(42)
+    val handle = if (sync) client.run(job) else client.submit(job)
     (jobId, handle)
   }
 
@@ -248,18 +251,11 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
 
 }
 
-// Won't really get called, here just so we can use the API.
-class DummyJob extends Job[Long] {
-
-  override def call(jc: JobContext): Long = 42L
-
-}
-
 private object HttpClientSpec {
 
   // Hack warning: keep the session object available so that individual tests can mock
   // the desired behavior before making requests to the server.
-  var session: ClientSession = _
+  var session: InteractiveSession = _
 
 }
 
@@ -268,21 +264,22 @@ private class HttpClientTestBootstrap extends LifeCycle {
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
   override def init(context: ServletContext): Unit = {
-    val servlet = new ClientSessionServlet(new LivyConf()) {
-      override protected def createSession(req: HttpServletRequest): ClientSession = {
-        val session = mock(classOf[ClientSession])
+    val servlet = new InteractiveSessionServlet(new LivyConf()) {
+      override protected def createSession(req: HttpServletRequest): InteractiveSession = {
+        val session = mock(classOf[InteractiveSession])
         val id = sessionManager.nextId()
         when(session.id).thenReturn(id)
         when(session.state).thenReturn(SessionState.Idle())
         when(session.proxyUser).thenReturn(None)
-        when(session.stop()).thenReturn(Future { })
+        when(session.kind).thenReturn(Spark())
+        when(session.stop()).thenReturn(Future.successful(()))
         require(HttpClientSpec.session == null, "Session already created?")
         HttpClientSpec.session = session
         session
       }
     }
 
-    context.mount(servlet, "/clients/*")
+    context.mount(servlet, s"${LivyConnection.SESSIONS_URI}/*")
   }
 
 }

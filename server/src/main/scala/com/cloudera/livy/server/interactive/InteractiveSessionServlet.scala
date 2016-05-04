@@ -18,17 +18,20 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.net.URL
+import java.net.{URI, URL}
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
+import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
 
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
+import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf, Logging}
+import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
+import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
 
@@ -36,6 +39,7 @@ object InteractiveSessionServlet extends Logging
 
 class InteractiveSessionServlet(livyConf: LivyConf)
   extends SessionServlet[InteractiveSession](livyConf)
+  with FileUploadSupport
 {
 
   mapper.registerModule(new SessionKindModule())
@@ -54,23 +58,21 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       req: HttpServletRequest): Any = {
     val logs =
       if (hasAccess(session.owner, req)) {
-        val lines = session.logLines()
+        Option(session.logLines())
+          .map { lines =>
+            val size = 10
+            var from = math.max(0, lines.length - size)
+            val until = from + size
 
-        val size = 10
-        var from = math.max(0, lines.length - size)
-        val until = from + size
-
-        lines.view(from, until)
+            lines.view(from, until)
+          }
+          .getOrElse(Nil)
       } else {
         Nil
       }
 
-    Map(
-      "id" -> session.id,
-      "state" -> session.state.toString,
-      "kind" -> session.kind.toString,
-      "proxyUser" -> session.proxyUser,
-      "log" -> logs)
+    new SessionInfo(session.id, session.owner, session.proxyUser.orNull, session.state.toString,
+      session.kind.toString, logs.asJava)
   }
 
   private def statementView(statement: Statement): Any = {
@@ -138,6 +140,97 @@ class InteractiveSessionServlet(livyConf: LivyConf)
           "Location" -> url(getStatement,
             "id" -> session.id.toString,
             "statementId" -> statement.id.toString)))
+    }
+  }
+
+  // This endpoint is used by the client-http module to "connect" to an existing session and
+  // update its last activity time. It performs authorization checks to make sure the caller
+  // has access to the session, so even though it returns the same data, it behaves differently
+  // from get("/:id").
+  post("/:id/connect") {
+    withSession { session =>
+      session.recordActivity()
+      Ok(clientSessionView(session, request))
+    }
+  }
+
+  jpost[SerializedJob]("/:id/submit-job") { req =>
+    withSession { session =>
+      try {
+      require(req.job != null && req.job.length > 0, "no job provided.")
+      val jobId = session.submitJob(req.job)
+      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null))
+      } catch {
+        case e: Throwable =>
+          e.printStackTrace()
+        throw e
+      }
+    }
+  }
+
+  jpost[SerializedJob]("/:id/run-job") { req =>
+    withSession { session =>
+      require(req.job != null && req.job.length > 0, "no job provided.")
+      val jobId = session.runJob(req.job)
+      Created(new JobStatus(jobId, JobHandle.State.SENT, null, null))
+    }
+  }
+
+  post("/:id/upload-jar") {
+    withSession { lsession =>
+      fileParams.get("jar") match {
+        case Some(file) =>
+          doAsync {
+            lsession.addJar(file.getInputStream, file.name)
+          }
+        case None =>
+          BadRequest("No jar uploaded!")
+      }
+    }
+  }
+
+  post("/:id/upload-file") {
+    withSession { lsession =>
+      fileParams.get("file") match {
+        case Some(file) =>
+          doAsync {
+            lsession.addFile(file.getInputStream, file.name)
+          }
+        case None =>
+          BadRequest("No file sent!")
+      }
+    }
+  }
+
+  jpost[AddResource]("/:id/add-jar") { req =>
+    withSession { lsession =>
+      val uri = new URI(req.uri)
+      doAsync {
+        lsession.addJar(uri)
+      }
+    }
+  }
+
+  jpost[AddResource]("/:id/add-file") { req =>
+    withSession { lsession =>
+      val uri = new URI(req.uri)
+      doAsync {
+        lsession.addFile(uri)
+      }
+    }
+  }
+
+  get("/:id/jobs/:jobid") {
+    withSession { lsession =>
+      val jobId = params("jobid").toLong
+      doAsync { Ok(lsession.jobStatus(jobId)) }
+    }
+  }
+
+  post("/:id/jobs/:jobid/cancel") {
+    withSession { lsession =>
+      val jobId = params("jobid").toLong
+      doAsync { lsession.cancelJob(jobId) }
     }
   }
 

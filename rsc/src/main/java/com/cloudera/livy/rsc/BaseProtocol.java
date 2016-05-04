@@ -17,8 +17,6 @@
 
 package com.cloudera.livy.rsc;
 
-import com.google.common.base.Throwables;
-
 import com.cloudera.livy.Job;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 
@@ -50,7 +48,7 @@ public abstract class BaseProtocol extends RpcDispatcher {
       if (cause == null) {
         this.cause = "";
       } else {
-        this.cause = Throwables.getStackTraceAsString(cause);
+        this.cause = Utils.stackTraceAsString(cause);
       }
     }
 
@@ -117,7 +115,7 @@ public abstract class BaseProtocol extends RpcDispatcher {
     public JobResult(String id, T result, Throwable error) {
       this.id = id;
       this.result = result;
-      this.error = error != null ? Throwables.getStackTraceAsString(error) : null;
+      this.error = error != null ? Utils.stackTraceAsString(error) : null;
     }
 
     public JobResult() {

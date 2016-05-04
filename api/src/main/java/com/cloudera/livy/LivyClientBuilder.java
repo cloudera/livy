@@ -26,8 +26,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
@@ -36,8 +34,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 public final class LivyClientBuilder {
 
   public static final String LIVY_URI_KEY = "livy.uri";
-
-  private static final Logger LOG = Logger.getLogger(LivyClientBuilder.class.getName());
 
   private final Properties config;
 
@@ -127,14 +123,11 @@ public final class LivyClientBuilder {
       try {
         client = factory.createClient(uri, config);
       } catch (Exception e) {
-        // Keep the first error and re-throw it if no factories support the URI.
-        if (error == null) {
-          error = e;
+        if (!(e instanceof RuntimeException)) {
+          e = new RuntimeException(e);
         }
-        LOG.log(Level.WARNING,
-          String.format("Factory %s threw an exception.", factory.getClass().getName()), e);
+        throw (RuntimeException) e;
       }
-
       if (client != null) {
         break;
       }
@@ -154,7 +147,7 @@ public final class LivyClientBuilder {
       }
 
       throw new IllegalArgumentException(String.format(
-        "URI '%s' is not supported by any registered client factories.", uri), error);
+        "URI '%s' is not supported by any registered client factories.", uri));
     }
     return client;
   }

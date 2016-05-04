@@ -22,8 +22,6 @@ package com.cloudera.livy.server
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse._
 
-import scala.concurrent.Future
-
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionState}
 
@@ -31,13 +29,16 @@ object SessionServletSpec {
 
   val PROXY_USER = "proxyUser"
 
-  class MockSession(id: Int, owner: String) extends Session(id, owner) {
+  class MockSession(id: Int, owner: String, livyConf: LivyConf)
+    extends Session(id, owner, livyConf) {
 
-    def state: SessionState = SessionState.Idle()
+    override val proxyUser = None
 
-    def stop(): Future[Unit] = Future.successful()
+    override def state: SessionState = SessionState.Idle()
 
-    def logLines(): IndexedSeq[String] = IndexedSeq("log")
+    override protected def stopSession(): Unit = ()
+
+    override def logLines(): IndexedSeq[String] = IndexedSeq("log")
 
   }
 
@@ -51,11 +52,12 @@ class SessionServletSpec
   import SessionServletSpec._
 
   override def createServlet(): SessionServlet[Session] = {
-    new SessionServlet[Session](createConf()) with RemoteUserOverride {
+    val conf = createConf()
+    new SessionServlet[Session](conf) with RemoteUserOverride {
       override protected def createSession(req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
         checkImpersonation(params.get(PROXY_USER), req)
-        new MockSession(sessionManager.nextId(), remoteUser(req))
+        new MockSession(sessionManager.nextId(), remoteUser(req), conf)
       }
 
       override protected def clientSessionView(

@@ -18,29 +18,28 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.io.File
-import java.lang.ProcessBuilder.Redirect
-import java.net.{ConnectException, URI, URL}
+import java.io.{File, InputStream}
+import java.net.URI
+import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
 import java.util.{HashMap => JHashMap}
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.{Future, _}
-import scala.concurrent.duration.Duration
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
 import org.json4s.{DefaultFormats, Formats, JValue}
-import org.json4s.JsonAST.{JNull, JString}
+import org.json4s.JsonAST.JString
 import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy._
+import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.utils.SparkProcessBuilder
-import com.cloudera.livy.Utils
 
 object InteractiveSession {
   val LivyReplDriverClassPath = "livy.repl.driverClassPath"
@@ -52,30 +51,39 @@ object InteractiveSession {
 class InteractiveSession(
     id: Int,
     owner: String,
-    _proxyUser: Option[String],
+    override val proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
-  extends Session(id, owner) with Logging {
+  extends Session(id, owner, livyConf) {
 
   import InteractiveSession._
 
-  protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
-  protected implicit def jsonFormats: Formats = DefaultFormats
+  private implicit def jsonFormats: Formats = DefaultFormats
 
-  protected[this] var _state: SessionState = SessionState.Starting()
+  private var _state: SessionState = SessionState.Starting()
+
+  private val operations = mutable.Map[Long, String]()
+  private val operationCounter = new AtomicLong(0)
+
+  val kind = request.kind
 
   private val client = {
     info(s"Creating LivyClient for sessionId: $id")
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
       .setConf("spark.master", "yarn-cluster")
-      .setURI(new URI("local:spark"))
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
+      .setURI(new URI("local:spark"))
 
+<<<<<<< HEAD
     request.kind match {
       case PySpark() | PySpark3() =>
+=======
+    kind match {
+      case PySpark() =>
+>>>>>>> upstream/master
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
@@ -84,7 +92,7 @@ class InteractiveSession(
         builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
       case _ =>
     }
-    builder.setConf("session.kind", request.kind.toString)
+    builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
     sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { opts =>
       val userOpts = request.conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS)
@@ -119,7 +127,7 @@ class InteractiveSession(
       opt.foreach { value => builder.setConf(configKey, value) }
     }
 
-    proxyUser.foreach(builder.setConf(RSCConf.Entry.PROXY_USER.key(), _))
+    builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
     builder.build()
   }.asInstanceOf[RSCClient]
 
@@ -128,7 +136,11 @@ class InteractiveSession(
   client.submit(new PingJob()).addListener(new JobHandle.Listener[Void]() {
     override def onJobQueued(job: JobHandle[Void]): Unit = { }
     override def onJobStarted(job: JobHandle[Void]): Unit = { }
-    override def onJobCancelled(job: JobHandle[Void]): Unit = { }
+
+    override def onJobCancelled(job: JobHandle[Void]): Unit = {
+      transition(SessionState.Error())
+      stop()
+    }
 
     override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = {
       transition(SessionState.Error())
@@ -148,17 +160,11 @@ class InteractiveSession(
 
   override def state: SessionState = _state
 
-  override def stop(): Future[Unit] = {
-    Future {
-      transition(SessionState.ShuttingDown())
-      client.stop(true)
-      transition(SessionState.Dead())
-    }
+  override def stopSession(): Unit = {
+    transition(SessionState.ShuttingDown())
+    client.stop(true)
+    transition(SessionState.Dead())
   }
-
-  def kind: Kind = request.kind
-
-  def proxyUser: Option[String] = _proxyUser
 
   def statements: IndexedSeq[Statement] = _statements
 
@@ -167,22 +173,60 @@ class InteractiveSession(
   }
 
   def executeStatement(content: ExecuteRequest): Statement = {
-    ensureRunning {
-      _state = SessionState.Busy()
-      recordActivity()
+    ensureRunning()
+    _state = SessionState.Busy()
+    recordActivity()
 
-      val future = Future {
-        val id = client.submitReplCode(content.code)
-        waitForStatement(id)
-      }
-
-      val statement = new Statement(_executedStatements, content, future)
-
-      _executedStatements += 1
-      _statements = _statements :+ statement
-
-      statement
+    val future = Future {
+      val id = client.submitReplCode(content.code)
+      waitForStatement(id)
     }
+
+    val statement = new Statement(_executedStatements, content, future)
+
+    _executedStatements += 1
+    _statements = _statements :+ statement
+
+    statement
+  }
+
+  def runJob(job: Array[Byte]): Long = {
+    performOperation(job, true)
+  }
+
+  def submitJob(job: Array[Byte]): Long = {
+    performOperation(job, false)
+  }
+
+  def addFile(fileStream: InputStream, fileName: String): Unit = {
+    addFile(copyResourceToHDFS(fileStream, fileName))
+  }
+
+  def addJar(jarStream: InputStream, jarName: String): Unit = {
+    addJar(copyResourceToHDFS(jarStream, jarName))
+  }
+
+  def addFile(uri: URI): Unit = {
+    recordActivity()
+    client.addFile(uri).get()
+  }
+
+  def addJar(uri: URI): Unit = {
+    recordActivity()
+    client.addJar(uri).get()
+  }
+
+  def jobStatus(id: Long): Any = {
+    val clientJobId = operations(id)
+    recordActivity()
+    // TODO: don't block indefinitely?
+    val status = client.getBypassJobStatus(clientJobId).get()
+    new JobStatus(id, status.state, status.result, status.error)
+  }
+
+  def cancelJob(id: Long): Unit = {
+    recordActivity()
+    operations.remove(id).foreach { client.cancel }
   }
 
   @tailrec
@@ -261,25 +305,21 @@ class InteractiveSession(
     _state = state
   }
 
-  private def ensureState[A](state: SessionState, f: => A) = {
-    synchronized {
-      if (_state == state) {
-        f
-      } else {
+  private def ensureRunning(): Unit = synchronized {
+    _state match {
+      case SessionState.Idle() | SessionState.Busy() =>
+      case _ =>
         throw new IllegalStateException("Session is in state %s" format _state)
-      }
     }
   }
 
-  private def ensureRunning[A](f: => A) = {
-    synchronized {
-      _state match {
-        case SessionState.Idle() | SessionState.Busy() =>
-          f
-        case _ =>
-          throw new IllegalStateException("Session is in state %s" format _state)
-      }
-    }
-  }
+  private def performOperation(job: Array[Byte], sync: Boolean): Long = {
+    ensureRunning()
+    recordActivity()
+    val future = client.bypass(ByteBuffer.wrap(job), sync)
+    val opId = operationCounter.incrementAndGet()
+    operations(opId) = future
+    opId
+   }
 
 }
