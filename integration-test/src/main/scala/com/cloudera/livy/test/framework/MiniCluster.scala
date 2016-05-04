@@ -307,7 +307,6 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       "-Dtest.appender=console",
       "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
       "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
-      "-Xmx2g",
       "-XX:MaxPermSize=256m",
       klass.getName().stripSuffix("$"),
       configDir.getAbsolutePath())

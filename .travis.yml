@@ -1,4 +1,3 @@
-sudo: required
 language: scala
 
 jdk:
