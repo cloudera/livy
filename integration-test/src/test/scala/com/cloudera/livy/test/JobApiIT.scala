@@ -29,7 +29,7 @@ import scala.util.Try
 
 import org.scalatest.BeforeAndAfterAll
 
-import com.cloudera.livy.{LivyClient, LivyClientBuilder}
+import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
@@ -43,7 +43,7 @@ private class SessionList {
   val sessions: List[SessionInfo] = Nil
 }
 
-class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
+class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logging {
 
   private var client: LivyClient = _
   private var sessionId: Int = _
@@ -64,19 +64,24 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     val tempClient = createClient(livyEndpoint)
 
     try {
-      waitTillSessionIdle(sessionId)
-      waitFor(tempClient.uploadJar(new File(testLib)))
-
       // Figure out the session ID by poking at the REST endpoint. We should probably expose this
       // in the Java API.
       val list = sessionList()
       assert(list.total === 1)
-      sessionId = list.sessions(0).id
+      val tempSessionId = list.sessions(0).id
+
+      waitTillSessionIdle(tempSessionId)
+      waitFor(tempClient.uploadJar(new File(testLib)))
 
       client = tempClient
+      sessionId = tempSessionId
     } finally {
       if (client == null) {
-        tempClient.stop(true)
+        try {
+          tempClient.stop(true)
+        } catch {
+          case e: Exception => warn("Error stopping client.", e)
+        }
       }
     }
   }
