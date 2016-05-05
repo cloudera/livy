@@ -29,7 +29,7 @@ import scala.util.Try
 
 import org.scalatest.BeforeAndAfterAll
 
-import com.cloudera.livy.{LivyClient, LivyClientBuilder}
+import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
@@ -43,7 +43,7 @@ private class SessionList {
   val sessions: List[SessionInfo] = Nil
 }
 
-class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
+class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logging {
 
   private var client: LivyClient = _
   private var sessionId: Int = _
@@ -60,28 +60,30 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     livyClient.stopSession(sessionId)
   }
 
-  test("create a new session") {
+  test("create a new session and upload test jar") {
     val tempClient = createClient(livyEndpoint)
 
-    // Figure out the session ID by poking at the REST endpoint. We should probably expose this
-    // in the Java API.
     try {
+      // Figure out the session ID by poking at the REST endpoint. We should probably expose this
+      // in the Java API.
       val list = sessionList()
       assert(list.total === 1)
-      sessionId = list.sessions(0).id
+      val tempSessionId = list.sessions(0).id
 
-      waitTillSessionIdle(sessionId)
+      waitTillSessionIdle(tempSessionId)
+      waitFor(tempClient.uploadJar(new File(testLib)))
+
       client = tempClient
+      sessionId = tempSessionId
     } finally {
       if (client == null) {
-        tempClient.stop(true)
+        try {
+          tempClient.stop(true)
+        } catch {
+          case e: Exception => warn("Error stopping client.", e)
+        }
       }
     }
-  }
-
-  test("upload jar") {
-    assume(client != null, "Client not active.")
-    waitFor(client.uploadJar(new File(testLib)))
   }
 
   test("upload file") {
@@ -134,6 +136,24 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     assume(client2 != null, "Client not active.")
     val result = waitFor(client2.submit(new Echo("hello")))
     assert(result === "hello")
+  }
+
+  test("run scala jobs") {
+    assume(client2 != null, "Client not active.")
+
+    val jobs = Seq(
+      new ScalaEcho("abcde"),
+      new ScalaEcho(Seq(1, 2, 3, 4)),
+      new ScalaEcho(Map(1 -> 2, 3 -> 4)),
+      new ScalaEcho(ValueHolder("abcde")),
+      new ScalaEcho(ValueHolder(Seq(1, 2, 3, 4))),
+      new ScalaEcho(Some("abcde"))
+    )
+
+    jobs.foreach { job =>
+      val result = waitFor(client2.submit(job))
+      assert(result === job.value)
+    }
   }
 
   test("destroy the session") {
