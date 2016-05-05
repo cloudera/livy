@@ -26,8 +26,6 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import org.apache.commons.io.IOUtils
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
 import org.scalatest.concurrent.Eventually._
 
@@ -40,50 +38,39 @@ import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 class BatchIT extends BaseIntegrationTestSuite {
 
   private var testLibPath: Path = _
-  private var conf: Configuration = _
-  private var fs: FileSystem = _
 
   test("upload test lib") {
-    // Load the HDFS config from the generated path, if available.
-    // TODO: how to do this for remote clusters.
-    conf = new Configuration(false)
-    cluster.configDir().listFiles().foreach { f =>
-      if (f.getName().endsWith(".xml")) {
-        conf.addResource(new Path(f.toURI()))
-      }
-    }
-
-    val hdfsPath = new Path("/testlib-" + UUID.randomUUID().toString() + ".jar")
-    fs = FileSystem.get(hdfsPath.toUri(), conf)
-    fs.copyFromLocalFile(new Path(new File(testLib).toURI()), hdfsPath)
-    testLibPath = fs.makeQualified(hdfsPath)
+    val hdfsPath = new Path(cluster.hdfsScratchDir(),
+      "testlib-" + UUID.randomUUID().toString() + ".jar")
+    cluster.fs.copyFromLocalFile(new Path(new File(testLib).toURI()), hdfsPath)
+    testLibPath = cluster.fs.makeQualified(hdfsPath)
   }
 
   test("submit spark app") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = "/" + UUID.randomUUID().toString()
+    val output = newOutputPath()
     val result = runSpark(classOf[SimpleSparkApp], args = List(output))
     assert(result.state === SessionState.Success().toString)
-    assert(fs.isDirectory(new Path(output)))
+    assert(cluster.fs.isDirectory(new Path(output)))
   }
 
   test("submit an app that fails") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = "/" + UUID.randomUUID().toString()
+    val output = newOutputPath()
     val result = runSpark(classOf[FailingApp], args = List(output))
     assert(result.state === SessionState.Error().toString)
 
     // The file is written to make sure the app actually ran, instead of just failing for
     // some other reason.
-    assert(fs.isFile(new Path(output)))
+    assert(cluster.fs.isFile(new Path(output)))
   }
 
   pytest("submit a pyspark application") {
     val hdfsPath = uploadResource("pytest.py")
-    val output = "/" + UUID.randomUUID().toString()
+    val output = newOutputPath()
     val result = runScript(hdfsPath.toString, args = List(output))
     assert(result.state === SessionState.Success().toString)
-    assert(fs.isDirectory(new Path(output)))
+    assert(cluster.fs.isDirectory(new Path(output)))
   }
 
   // This is disabled since R scripts don't seem to work in yarn-cluster mode. There's a
@@ -94,18 +81,21 @@ class BatchIT extends BaseIntegrationTestSuite {
     assert(result.state === SessionState.Success().toString)
   }
 
+  private def newOutputPath(): String = {
+    cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()
+  }
+
   private def uploadResource(name: String): Path = {
-    val hdfsPath = new Path(UUID.randomUUID().toString() + name)
-    val fs = FileSystem.get(hdfsPath.toUri(), conf)
+    val hdfsPath = new Path(cluster.hdfsScratchDir(), UUID.randomUUID().toString() + "-" + name)
     val in = getClass.getResourceAsStream("/" + name)
-    val out = fs.create(hdfsPath)
+    val out = cluster.fs.create(hdfsPath)
     try {
       IOUtils.copy(in, out)
     } finally {
       in.close()
       out.close()
     }
-    fs.makeQualified(hdfsPath)
+    cluster.fs.makeQualified(hdfsPath)
   }
 
   private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
