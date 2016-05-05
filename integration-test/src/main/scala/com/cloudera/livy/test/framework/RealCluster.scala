@@ -18,246 +18,250 @@
 
 package com.cloudera.livy.test.framework
 
-import java.io.File
+import java.io.{File, IOException}
+import java.security.PrivilegedExceptionAction
+import javax.servlet.http.HttpServletResponse._
 
-import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.sys.process._
 import scala.util.Random
 
 import com.decodified.scalassh._
 import com.ning.http.client.AsyncHttpClient
+import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.permission.FsPermission
+import org.apache.hadoop.security.UserGroupInformation
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.Logging
 
 private class RealClusterConfig(config: Map[String, String]) {
-  val ipList = config("real-cluster.ip").split(",")
+  val ip = config("ip")
 
-  val sshLogin = config("real-cluster.ssh.login")
-  val sshPubKey = config("real-cluster.ssh.pubkey")
-  val livyPort = config.getOrElse("real-cluster.livy.port", "8998").toInt
-  val livyClasspath = config("real-cluster.livy.classpath")
+  val sshLogin = config("ssh.login")
+  val sshPubKey = config("ssh.pubkey")
+  val livyPort = config.getOrElse("livy.port", "8998").toInt
+  val livyClasspath = config.getOrElse("livy.classpath", "")
 
-  val deployLivy = config.getOrElse("real-cluster.deploy-livy", "true").toBoolean
-  val deployLivyPath = config.get("real-cluster.deploy-livy.path")
-  val noDeployLivyHome = config.get("real-cluster.livy.no-deploy.livy-home")
+  val deployLivy = config.getOrElse("deploy-livy", "true").toBoolean
+  val noDeployLivyHome = config.get("livy-home")
+
+  val sparkHome = config("env.spark_home")
+  val sparkConf = config.getOrElse("env.spark_conf", "/etc/spark/conf")
+  val hadoopConf = config.getOrElse("env.hadoop_conf", "/etc/hadoop/conf")
 }
 
-class RealCluster(
-    ip: String,
-    config: RealClusterConfig)
-  extends Cluster with Logging {
+class RealCluster(_config: Map[String, String])
+  extends Cluster with ClusterUtils with Logging {
 
-  private var livyHomePath: Option[String] = Some("/usr/bin/livy")
-  private var pathsToCleanUp = ListBuffer.empty[String]
+  private val config = new RealClusterConfig(_config)
+
+  private var livyIsRunning = false
+  private var livyHomePath: String = _
+  private var livyEpoch = 0
+
+  private var _configDir: File = _
+
+  private var hdfsScratch: Path = _
+
+  private var sparkConfDir: String = _
+  private var tempDirPath: String = _
+  private var _hasSparkR: Boolean = _
 
   override def isRealSpark(): Boolean = true
 
-  override def configDir(): File = throw new UnsupportedOperationException()
+  override def hasSparkR(): Boolean = _hasSparkR
 
-  def sshClient[T](body: SshClient => SSH.Result[T]): Validated[T] = {
+  override def configDir(): File = _configDir
+
+  override def hdfsScratchDir(): Path = hdfsScratch
+
+  override def doAsClusterUser[T](task: => T): T = {
+    val user = UserGroupInformation.createRemoteUser(config.sshLogin)
+    user.doAs(new PrivilegedExceptionAction[T] {
+      override def run(): T = task
+    })
+  }
+
+  private def sshClient[T](body: SshClient => SSH.Result[T]): T = {
     val sshLogin = PublicKeyLogin(
       config.sshLogin, None, config.sshPubKey :: Nil)
     val hostConfig = HostConfig(login = sshLogin, hostKeyVerifier = HostKeyVerifiers.DontVerify)
-    SSH(ip, hostConfig)(body)
+    SSH(config.ip, hostConfig)(body) match {
+      case Left(err) => throw new IOException(err)
+      case Right(result) => result
+    }
+  }
+
+  private def exec(cmd: String): CommandResult = {
+    info(s"Running command: $cmd")
+    val result = sshClient(_.exec(cmd))
+    result.exitCode match {
+      case Some(ec) if ec > 0 => throw new IOException(s"Command failed: $ec")
+      case _ =>
+    }
+    result
+  }
+
+  private def upload(local: String, remote: String): Unit = {
+    info(s"Uploading local path $local")
+    sshClient(_.upload(local, remote))
+  }
+
+  private def download(remote: String, local: String): Unit = {
+    info(s"Downloading remote path $remote")
+    sshClient(_.download(remote, local))
   }
 
   override def deploy(): Unit = {
+    // Make sure Livy is not running.
+    stopLivy()
+
+    // Check whether SparkR is supported in YARN (need the sparkr.zip archive).\
+    _hasSparkR = try {
+      exec(s"test -f ${config.sparkHome}/R/lib/sparkr.zip")
+      true
+    } catch {
+      case e: IOException => false
+    }
+
+    // Copy the remove Hadoop configuration to a local temp dir so that tests can use it to
+    // talk to HDFS and YARN.
+    val localTemp = new File(sys.props("java.io.tmpdir") + File.separator + "hadoop-conf")
+    download(config.hadoopConf, localTemp.getAbsolutePath())
+    _configDir = localTemp
+
+    // Create a temp directory where test files will be written.
+    tempDirPath = s"/tmp/livy-it-${Random.alphanumeric.take(16).mkString}"
+    exec(s"mkdir -p $tempDirPath")
+
+    // Also create an HDFS scratch directory for tests.
+    doAsClusterUser {
+      hdfsScratch = fs.makeQualified(
+        new Path(s"/tmp/livy-it-${Random.alphanumeric.take(16).mkString}"))
+      fs.mkdirs(hdfsScratch)
+      fs.setPermission(hdfsScratch, new FsPermission("777"))
+    }
+
+    // Create a copy of the Spark configuration, and make sure the master is "yarn-cluster".
+    sparkConfDir = s"$tempDirPath/spark-conf"
+    val sparkProps = s"$sparkConfDir/spark-defaults.conf"
+    Seq(
+      s"cp -Lr ${config.sparkConf} $sparkConfDir",
+      s"touch $sparkProps",
+      s"sed -i.old '/spark.master.*/d' $sparkProps",
+      s"sed -i.old '/spark.submit.deployMode.*/d' $sparkProps",
+      s"echo 'spark.master=yarn-cluster' >> $sparkProps"
+    ).foreach(exec)
+
     if (config.deployLivy) {
       try {
-        def findLivyHomePath(tempDirPath: String): Either[String, String] = {
-          sshClient(_.exec(s"ls -d $tempDirPath/*/")).right.map { r =>
-            val stdOut = r.stdOutAsString().trim
-            if (stdOut.isEmpty) {
-              Left("ls didn't return any folders.")
-            } else {
-              Right(stdOut)
-            }
-          }.joinRight
-        }
-
-        def rsync(src: String, dest: String): Either[String, Unit] = {
-          val rsyncOutput = new StringBuilder
-          val cmd = s"rsync -avc $src ${config.sshLogin}@${ip}:$dest"
-          val exitCode = cmd.run(ProcessLogger(rsyncOutput.append(_))).exitValue()
-          if (exitCode != 0) {
-            Left(s"rsync '$cmd' failed with ${rsyncOutput.toString()}")
-          } else {
-            Right()
-          }
-        }
-
-        info(s"Deploying Livy to $ip...")
-        val assemblyZip = new File("../assembly/target/livy-server-0.2.0-SNAPSHOT-livy-server.zip")
+        info(s"Deploying Livy to ${config.ip}...")
+        val version = sys.props("project.version")
+        val assemblyZip = new File(s"../assembly/target/livy-server-$version.zip")
         assert(assemblyZip.isFile,
           s"Can't find livy assembly zip at ${assemblyZip.getCanonicalPath}")
-
-        val uploadAssemblyZipPath = config.deployLivyPath.get
-        // Upload Livy to /tmp/<random dir>
-        val tempDirPath = s"/tmp/${Random.alphanumeric.take(16).mkString}"
-        pathsToCleanUp += tempDirPath
+        val assemblyName = assemblyZip.getName()
 
         // SSH to the node to unzip and install Livy.
-        val deployResult = for {
-          _ <- sshClient(_.exec(s"mkdir -p $tempDirPath")).right
-          _ <- rsync(assemblyZip.getCanonicalPath, uploadAssemblyZipPath).right
-          _ <- sshClient(_.exec(s"unzip -o $uploadAssemblyZipPath -d $tempDirPath")).right
-          livyHome <- findLivyHomePath(tempDirPath).right
-        } yield {
-          livyHome
-        }
-
-        livyHomePath = deployResult match {
-          case Left(err) => throw new Exception(err)
-          case Right(livyHome) =>
-            info(s"Livy installed @ $livyHome")
-            Option(livyHome)
-        }
-        info(s"Deployed Livy to $ip.")
+        upload(assemblyZip.getCanonicalPath, s"$tempDirPath/$assemblyName")
+        exec(s"unzip -o $tempDirPath/$assemblyName -d $tempDirPath")
+        livyHomePath = s"$tempDirPath/livy-server-$version"
+        info(s"Deployed Livy to ${config.ip} at $livyHomePath.")
       } catch {
         case e: Exception =>
-          error(s"Failed to deploy Livy to $ip.", e)
+          error(s"Failed to deploy Livy to ${config.ip}.", e)
           cleanUp()
           throw e
       }
     } else {
-      livyHomePath = config.noDeployLivyHome
+      livyHomePath = config.noDeployLivyHome.get
       info("Skipping deployment.")
     }
+
+    runLivy()
   }
 
   override def cleanUp(): Unit = {
-    if (config.deployLivy) {
-      pathsToCleanUp.foreach(p => sshClient(_.exec(s"rm -rf $p")))
-      pathsToCleanUp.clear()
+    stopLivy()
+    if (tempDirPath != null) {
+      exec(s"rm -rf $tempDirPath")
+    }
+    if (hdfsScratch != null) {
+      doAsClusterUser {
+        // Cannot use the shared `fs` since this runs in a shutdown hook, and that instance
+        // may have been closed already.
+        val fs = FileSystem.newInstance(hadoopConf)
+        try {
+          fs.delete(hdfsScratch, true)
+        } finally {
+          fs.close()
+        }
+      }
     }
   }
 
-  private var livyLog: String = ""
+  override def runLivy(): Unit = synchronized {
+    assert(!livyIsRunning, "Livy is running already.")
 
-  override def getYarnRmEndpoint(): String = ""
+    val livyConf = Map(
+      "livy.server.port" -> config.livyPort.toString,
+      // "livy.server.recovery.mode=local",
+      "livy.environment" -> "development"
+    )
+    val livyConfFile = File.createTempFile("livy.", ".properties")
+    saveProperties(livyConf, livyConfFile)
+    upload(livyConfFile.getAbsolutePath(), s"$livyHomePath/conf/livy-defaults.conf")
 
-  private var livyServerThread: Option[Thread] = None
+    val env = Map(
+        "HADOOP_CONF_DIR" -> config.hadoopConf,
+        "SPARK_CONF_DIR" -> sparkConfDir,
+        "SPARK_HOME" -> config.sparkHome,
+        "CLASSPATH" -> config.livyClasspath
+      )
+      .map { case (k, v) => s"$k=$v" }
+      .mkString(" ")
 
-  override def runLivy(): Unit = {
-    // If there's already a thread running, we cannot start livy again.
-    assert(livyServerThread.fold(true)(!_.isAlive), "Livy is running already.")
-    livyServerThread = Some(new Thread {
-      override def run() = {
-        val livyHome = livyHomePath.get
-        val livyPort = config.livyPort
-        val livyJavaOptsValue = Seq(
-          s"livy.server.port=$livyPort",
-          "livy.server.master=yarn",
-          "livy.server.deployMode=cluster",
-          // "livy.server.recovery.mode=local",
-          "livy.environment=development").map("-D" + _).mkString(" ")
+    val livyServerPath = s"$livyHomePath/bin/livy-server"
 
-        val livyJavaOpts = s"LIVY_SERVER_JAVA_OPTS='$livyJavaOptsValue'"
-        val classPath = s"CLASSPATH=${config.livyClasspath}"
-        val opts = s"$classPath $livyJavaOpts"
-        val livyServerPath = s"$livyHome/bin/livy-server"
+    info(s"Starting Livy @ port ${config.livyPort}...")
+    livyEpoch += 1
+    val logPath = s"$tempDirPath/livy-$livyEpoch.log"
+    exec(s"env $env nohup $livyServerPath > $logPath 2>&1 &")
+    livyIsRunning = true
 
-        info(s"Starting Livy @ port $livyPort...")
-        val r = sshClient(_.exec(s"$opts $livyServerPath 2>&1"))
-        r match {
-          case Left(err) => throw new Exception(err)
-          case Right(cr: CommandResult) =>
-            livyLog = cr.stdOutAsString()
-            cr.exitCode match {
-              case Some(0) =>
-              case _ =>
-                error(cr.stdOutAsString())
-            }
-        }
-      }
-    })
-
-    livyServerThread.get.start()
-
-    // block until Livy server is up.
-    // This is really ugly. Fix this!
     val httpClient = new AsyncHttpClient()
-    @tailrec
-    def healthCheck(deadline: Deadline = 1.minute.fromNow): Unit = {
-      try {
-        require(httpClient.prepareGet(livyEndpoint).execute().get().getStatusCode == 200)
-      } catch {
-        case e: Exception =>
-          if (deadline.isOverdue()) {
-            throw new Exception("Livy server failed to start within a minute.")
-          } else {
-            Thread.sleep(1.second.toMillis)
-            healthCheck(deadline)
-          }
-      }
+    eventually(timeout(1 minute), interval(1 second)) {
+      assert(httpClient.prepareGet(livyEndpoint).execute().get().getStatusCode == SC_OK)
     }
-    healthCheck()
     info(s"Started Livy.")
   }
 
-  override def getLivyLog(): String = {
-    if (config.deployLivy) {
-      livyLog
-    } else {
-      "Unable to get log if using an existing livy server."
+  override def stopLivy(): Unit = synchronized {
+    info("Stopping Livy Server")
+    try {
+      exec(s"pkill -f com.cloudera.livy.server.LivyServer")
+    } catch {
+      case e: Exception =>
+        if (livyIsRunning) {
+          throw e
+        }
+    }
+
+    if (livyIsRunning) {
+      // Wait a tiny bit so that the process finishes closing its output files.
+      Thread.sleep(2)
+
+      val logName = s"livy-$livyEpoch.log"
+      val logPath = s"$tempDirPath/$logName"
+      val localLog = sys.props("java.io.tmpdir") + File.separator + logName
+      download(logPath, localLog)
+      info(s"Log for epoch $livyEpoch available at $localLog")
     }
   }
 
-  override def stopLivy(): Unit = {
-    sshClient(_.exec(s"pkill -f com.cloudera.livy.server.Main")).right.map(_.stdOutAsString())
-    livyServerThread.foreach({ t =>
-      if (t.isAlive) {
-        t.join()
-      }
-    })
-  }
-
-  override def runCommand(cmd: String): String = {
-    sshClient(_.exec(cmd)).right.map(_.stdOutAsString()) match {
-      case Left(_) => s"Failed to get result for command: $cmd"
-      case Right(s) => s
-    }
-  }
-
-  override def upload(srcPath: String, destPath: String): Unit = {
-    sshClient(_.upload(srcPath, destPath)) match {
-      case Left(err) => throw new Exception(err)
-      case Right(_) =>
-    }
-  }
-
-  override def livyEndpoint: String = s"http://$ip:${config.livyPort}"
+  override def livyEndpoint: String = s"http://${config.ip}:${config.livyPort}"
 }
 
-/**
- * Test cases will request a cluster from this class so test cases can run in parallel
- * if there are spare clusters.
- */
-class RealClusterPool(config: Map[String, String]) extends ClusterPool {
-
-  private val clusterConfig = new RealClusterConfig(config)
-  private val clusters = clusterConfig.ipList.map {
-    ip => new RealCluster(ip, clusterConfig)
-  }.toBuffer
-
-  override def init(): Unit = synchronized {
-    clusters.foreach(_.deploy())
-    clusters.foreach(_.stopLivy())
-    clusters.foreach(_.runLivy())
-  }
-
-  override def destroy(): Unit = synchronized {
-    clusters.foreach(_.stopLivy())
-    clusters.foreach(_.cleanUp())
-  }
-
-  override def lease(): Cluster = synchronized {
-    clusters.remove(0)
-  }
-
-  override def returnCluster(cluster: Cluster): Unit = synchronized {
-    clusters.append(cluster.asInstanceOf[RealCluster])
-  }
-}

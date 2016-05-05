@@ -136,7 +136,8 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
       }
 
       val sessionDir = new Path(stagingRoot, UUID.randomUUID().toString())
-      fs.mkdirs(sessionDir, new FsPermission("700"))
+      fs.mkdirs(sessionDir)
+      fs.setPermission(sessionDir, new FsPermission("700"))
       stagingDir = sessionDir
       debug(s"Session $id staging directory is $stagingDir")
     }

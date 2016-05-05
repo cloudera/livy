@@ -20,11 +20,15 @@ package com.cloudera.livy.test.jobs;
 
 import java.io.File;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
@@ -44,13 +48,23 @@ public class SQLGetTweets implements Job<List<String>> {
   public List<String> call(JobContext jc) throws Exception {
     InputStream source = getClass().getResourceAsStream("/testweet.json");
 
-    // Save the resource as a file in the temp directory.
-    File target = File.createTempFile("tweets", ".json", jc.getLocalTmpDir());
-    Files.copy(source, target.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    // Save the resource as a file in HDFS (or the local tmp dir when using a local filesystem).
+    URI input;
+    File local = File.createTempFile("tweets", ".json", jc.getLocalTmpDir());
+    Files.copy(source, local.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    FileSystem fs = FileSystem.get(jc.sc().sc().hadoopConfiguration());
+    if ("file".equals(fs.getUri().getScheme())) {
+      input = local.toURI();
+    } else {
+      String uuid = UUID.randomUUID().toString();
+      Path target = new Path("/tmp/" + uuid + "-tweets.json");
+      fs.copyFromLocalFile(new Path(local.toURI()), target);
+      input = target.toUri();
+    }
 
     SQLContext sqlctx = useHiveContext ? jc.hivectx() : jc.sqlctx();
-    DataFrame input = sqlctx.jsonFile(target.toURI().toString());
-    input.registerTempTable("tweets");
+    DataFrame df = sqlctx.jsonFile(input.toString());
+    df.registerTempTable("tweets");
 
     DataFrame topTweets = sqlctx.sql(
       "SELECT text, retweetCount FROM tweets ORDER BY retweetCount LIMIT 10");

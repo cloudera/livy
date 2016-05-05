@@ -68,12 +68,13 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   protected def rtest(desc: String)(testFn: => Unit): Unit = {
     test(desc) {
       assume(cluster.isRealSpark(), "SparkR tests require a real Spark installation.")
+      assume(cluster.hasSparkR(), "Spark under test does not support R.")
       testFn
     }
   }
 
   test("initialize test cluster") {
-    cluster = ClusterPool.get.lease()
+    cluster = Cluster.get()
     httpClient = new AsyncHttpClient()
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
@@ -81,25 +82,23 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
     def startSession(kind: Kind): Int = {
-      withClue(cluster.getLivyLog()) {
-        val requestBody = new CreateInteractiveRequest()
-        requestBody.kind = kind
+      val requestBody = new CreateInteractiveRequest()
+      requestBody.kind = kind
 
-        val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
-          .setBody(mapper.writeValueAsString(requestBody))
-          .execute()
-          .get()
+      val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
+        .setBody(mapper.writeValueAsString(requestBody))
+        .execute()
+        .get()
 
-        val sessionId: Int = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
-          val newSession = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newSession should contain key ("id")
+      val sessionId: Int = withClue(rep.getResponseBody) {
+        rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
+        val newSession = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        newSession should contain key ("id")
 
-          newSession("id").asInstanceOf[Int]
-        }
-
-        sessionId
+        newSession("id").asInstanceOf[Int]
       }
+
+      sessionId
     }
 
     /** Stops a session. If an id < 0 is provided, do nothing. */
@@ -130,43 +129,39 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     }
 
     def runStatement(sessionId: Int, stmt: String): Int = {
-      withClue(cluster.getLivyLog()) {
-        val requestBody = Map("code" -> stmt)
-        val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
-          .setBody(mapper.writeValueAsString(requestBody))
-          .execute()
-          .get()
+      val requestBody = Map("code" -> stmt)
+      val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
+        .setBody(mapper.writeValueAsString(requestBody))
+        .execute()
+        .get()
 
-        val stmtId: Int = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
-          val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newStmt should contain key ("id")
+      val stmtId: Int = withClue(rep.getResponseBody) {
+        rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
+        val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        newStmt should contain key ("id")
 
-          newStmt("id").asInstanceOf[Int]
-        }
-        stmtId
+        newStmt("id").asInstanceOf[Int]
       }
+      stmtId
     }
 
     def getStatementResult(sessionId: Int, stmtId: Int): String = {
-      withClue(cluster.getLivyLog()) {
-        val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId/statements/$stmtId")
-          .execute()
-          .get()
+      val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId/statements/$stmtId")
+        .execute()
+        .get()
 
-        val stmtResult = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_OK)
-          val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newStmt should contain key ("output")
-          val output = newStmt("output").asInstanceOf[Map[String, Any]]
-          output should contain key ("data")
-          val data = output("data").asInstanceOf[Map[String, Any]]
-          data should contain key ("text/plain")
-          data("text/plain").asInstanceOf[String]
-        }
-
-        stmtResult
+      val stmtResult = withClue(rep.getResponseBody) {
+        rep.getStatusCode should equal(HttpServletResponse.SC_OK)
+        val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        newStmt should contain key ("output")
+        val output = newStmt("output").asInstanceOf[Map[String, Any]]
+        output should contain key ("data")
+        val data = output("data").asInstanceOf[Map[String, Any]]
+        data should contain key ("text/plain")
+        data("text/plain").asInstanceOf[String]
       }
+
+      stmtResult
     }
   }
 

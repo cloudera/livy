@@ -648,6 +648,7 @@
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
+              <project.version>${project.version}</project.version>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -671,6 +672,7 @@
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
+              <project.version>${project.version}</project.version>
             </systemProperties>
             <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
