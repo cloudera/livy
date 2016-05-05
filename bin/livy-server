@@ -33,8 +33,6 @@ else
   fi
 fi
 
-set -e
-
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
 export LIVY_CONF_DIR="${LIVY_CONF_DIR:-"${LIVY_HOME}/conf"}"
 
@@ -45,50 +43,10 @@ if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
   set +a
 fi
 
-LIBDIR="$LIVY_HOME/jars"
-if [ ! -d "$LIBDIR" ]; then
-  LIBDIR="$LIVY_HOME/server/target/jars"
-fi
-if [ ! -d "$LIBDIR" ]; then
-  echo "Could not find Livy jars directory." 1>&2
-  exit 1
-fi
-
-if [ -z "$LIVY_CONF_DIR" ]; then
-  LIVY_CONF_DIR="$LIVY_HOME/conf"
-fi
-
-LIVY_CLASSPATH="$LIBDIR/*:$LIVY_CONF_DIR"
-
-if [ "$LIVY_IDENT_STRING" = "" ]; then
-  export LIVY_IDENT_STRING="$USER"
-fi
-
-# get log directory
-if [ "$LIVY_LOG_DIR" = "" ]; then
-  export LIVY_LOG_DIR="${LIVY_HOME}/logs"
-fi
-mkdir -p "$LIVY_LOG_DIR"
-touch "$LIVY_LOG_DIR"/.livy_test > /dev/null 2>&1
-TEST_LOG_DIR=$?
-if [ "${TEST_LOG_DIR}" = "0" ]; then
-  rm -f "$LIVY_LOG_DIR"/.livy_test
-else
-  chown "$LIVY_IDENT_STRING" "$LIVY_LOG_DIR"
-fi
-
 if [ "$LIVY_PID_DIR" = "" ]; then
   LIVY_PID_DIR=/tmp
 fi
-
-# some variables
-log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
 pid="$LIVY_PID_DIR/livy-$LIVY_IDENT_STRING-server.pid"
-
-# Set default scheduling priority
-if [ "$LIVY_NICENESS" = "" ]; then
-    export LIVY_NICENESS=0
-fi
 
 livy_rotate_log ()
 {
@@ -108,30 +66,68 @@ livy_rotate_log ()
 }
 
 start_livy_server() {
+
+  LIBDIR="$LIVY_HOME/jars"
+  if [ ! -d "$LIBDIR" ]; then
+    LIBDIR="$LIVY_HOME/server/target/jars"
+  fi
+  if [ ! -d "$LIBDIR" ]; then
+    echo "Could not find Livy jars directory." 1>&2
+    exit 1
+  fi
+
+  if [ "$LIVY_IDENT_STRING" = "" ]; then
+    export LIVY_IDENT_STRING="$USER"
+  fi
+
+  # get log directory
+  if [ "$LIVY_LOG_DIR" = "" ]; then
+    export LIVY_LOG_DIR="${LIVY_HOME}/logs"
+  fi
+  mkdir -p "$LIVY_LOG_DIR"
+  touch "$LIVY_LOG_DIR"/.livy_test > /dev/null 2>&1
+  TEST_LOG_DIR=$?
+  if [ "${TEST_LOG_DIR}" = "0" ]; then
+    rm -f "$LIVY_LOG_DIR"/.livy_test
+  else
+    echo "$LIVY_IDENT_STRING don't have permission to write log directory: $LIVY_LOG_DIR"
+    exit 1
+  fi
+  log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
+
+  # Set default scheduling priority
+  if [ "$LIVY_NICENESS" = "" ]; then
+      export LIVY_NICENESS=0
+  fi
+
   mkdir -p "$LIVY_PID_DIR"
 
   if [ -f "$pid" ]; then
     TARGET_ID="$(cat "$pid")"
     if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
-      echo "$command running as process $TARGET_ID.  Stop it first."
+      echo "livy_server running as process $TARGET_ID.  Stop it first."
       exit 1
     fi
   fi
 
-
   livy_rotate_log "$log"
+
   CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
-  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $CLASSPATH com.cloudera.livy.server.Main"
-  echo "starting $command, logging to $log"
-  nohup nice -n "$LIVY_NICENESS" $command >> "$log" 2>&1 < /dev/null &
-  newpid="$!"
-  echo "$newpid" > "$pid"
-  sleep 2
-  # Check if the process has died; in that case we'll tail the log so the user can see
-  if [[ ! $(ps -p "$newpid" -o comm=) =~ "java" ]]; then
-    echo "failed to launch $command:"
-    tail -2 "$log" | sed 's/^/  /'
-    echo "full log in $log"
+  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $CLASSPATH com.cloudera.livy.server.LivyServer"
+  if [ -z "$old_livy_launch" ]; then
+    echo "starting $command, logging to $log"
+    nohup nice -n "$LIVY_NICENESS" $command >> "$log" 2>&1 < /dev/null &
+    newpid="$!"
+    echo "$newpid" > "$pid"
+    sleep 2
+    # Check if the process has died; in that case we'll tail the log so the user can see
+    if [[ ! $(ps -p "$newpid" -o comm=) =~ "java" ]]; then
+      echo "failed to launch $command:"
+      tail -2 "$log" | sed 's/^/  /'
+      echo "full log in $log"
+    fi
+  else
+    exec $command
   fi
 }
 
@@ -142,19 +138,23 @@ case $option in
   (start)
     start_livy_server
     ;;
-
+  ("")
+    # make it compatible with previous version of livy-server
+    old_livy_launch=1
+    start_livy_server
+    ;;
   (stop)
 
     if [ -f $pid ]; then
       TARGET_ID="$(cat "$pid")"
       if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
-        echo "stopping $command"
+        echo "stopping livy_server"
         kill "$TARGET_ID" && rm -f "$pid"
       else
-        echo "no $command to stop"
+        echo "no livy_server to stop"
       fi
     else
-      echo "no $command to stop"
+      echo "no livy_server to stop"
     fi
     ;;
 
