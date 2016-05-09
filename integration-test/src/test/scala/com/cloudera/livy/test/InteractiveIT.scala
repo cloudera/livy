@@ -19,21 +19,18 @@
 package com.cloudera.livy.test
 
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.regex.Pattern
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import org.scalatest.BeforeAndAfter
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
-
-private case class TestStatement(
-  stmt: String,
-  expectedResult: Option[String],
-  var stmtId: Int = -1)
+import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, StatementError}
 
 class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
-
   private var sessionId: Int = -1
 
   after {
@@ -44,23 +41,24 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   test("basic interactive session") {
     sessionId = livyClient.startSession(Spark())
 
-    val testStmts = List(
-      new TestStatement("1+1", Some("res0: Int = 2")),
-      new TestStatement("val sqlContext = new org.apache.spark.sql.SQLContext(sc)",
-        Some("sqlContext: org.apache.spark.sql.SQLContext = " +
-          "org.apache.spark.sql.SQLContext")))
-    runAndValidateStatements(testStmts)
+    matchResult("1+1", "res0: Int = 2")
+    matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
+      startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
+
+    matchError("abcde", evalue = ".*?:[0-9]+: error: not found: value abcde.*")
+    matchError("throw new IllegalStateException()",
+      evalue = ".*java\\.lang\\.IllegalStateException.*")
   }
 
   pytest("pyspark interactive session") {
     sessionId = livyClient.startSession(PySpark())
 
-    val testStmts = List(
-      new TestStatement("1+1", Some("2")),
-      new TestStatement(
-        "sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)",
-        Some("9900")))
-    runAndValidateStatements(testStmts)
+    matchResult("1+1", "2")
+    matchResult("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)",
+      "9900")
+
+    matchError("abcde", ename = "NameError", evalue = "name 'abcde' is not defined")
+    matchError("raise KeyError, 'foo'", ename = "KeyError", evalue = "'foo'")
   }
 
   rtest("R interactive session") {
@@ -71,35 +69,79 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     val curr = new AtomicInteger()
     def count: Int = curr.incrementAndGet()
 
-    val testStmts = List(
-      new TestStatement("1+1", Some(s"[$count] 2")),
-      new TestStatement("sqlContext <- sparkRSQL.init(sc)", None),
-      new TestStatement(
-        """localDF <- data.frame(name=c("John", "Smith", "Sarah"), age=c(19, 23, 18))""", None),
-      new TestStatement("df <- createDataFrame(sqlContext, localDF)", None),
-      new TestStatement("printSchema(df)", Some(
+    matchResult("1+1", startsWith(s"[$count] 2"))
+    matchResult("sqlContext <- sparkRSQL.init(sc)", null)
+    matchResult("""localDF <- data.frame(name=c("John", "Smith", "Sarah"), age=c(19, 23, 18))""",
+      null)
+    matchResult("df <- createDataFrame(sqlContext, localDF)", null)
+    matchResult("printSchema(df)", literal(
       """|root
          | |-- name: string (nullable = true)
          | |-- age: double (nullable = true)""".stripMargin))
-    )
-    runAndValidateStatements(testStmts)
   }
 
-  private def runAndValidateStatements(statements: Seq[TestStatement]) = {
+  test("application kills session") {
+    sessionId = livyClient.startSession(Spark())
     waitTillSessionIdle(sessionId)
-    statements.foreach(runAndValidateStatement)
-  }
+    livyClient.runStatement(sessionId, "System.exit(0)")
 
-  private def runAndValidateStatement(testStmt: TestStatement) = {
-    testStmt.stmtId = livyClient.runStatement(sessionId, testStmt.stmt)
-
-    waitTillSessionIdle(sessionId)
-
-    testStmt.expectedResult.map { s =>
-      val result = livyClient.getStatementResult(sessionId, testStmt.stmtId)
-      assert(result.contains(s))
+    eventually(timeout(30 seconds), interval(1 second)) {
+      assert(livyClient.getSessionStatus(sessionId) === SessionState.Error().toString)
     }
+  }
 
+  private def matchResult(code: String, expected: String): Unit = {
+    runAndValidateStatement(code) match {
+      case Left(result) =>
+        if (expected != null) {
+          matchStrings(result, expected)
+        }
+
+      case Right(error) =>
+        fail(s"Got error from statement $code: ${error.evalue}")
+    }
+  }
+
+  private def matchError(
+      code: String,
+      ename: String = null,
+      evalue: String = null,
+      stackTrace: String = null): Unit = {
+    runAndValidateStatement(code) match {
+      case Left(result) =>
+        fail(s"Statement `$code` expected to fail, but succeeded.")
+
+      case Right(error) =>
+        val remoteStack = Option(error.stackTrace).getOrElse(Nil).mkString("\n")
+        Seq(
+          error.ename -> ename,
+          error.evalue -> evalue,
+          remoteStack -> stackTrace
+        ).foreach { case (actual, expected) =>
+          if (expected != null) {
+            matchStrings(actual, expected)
+          }
+        }
+    }
+  }
+
+  private def matchStrings(actual: String, expected: String): Unit = {
+    val regex = Pattern.compile(expected, Pattern.DOTALL)
+    // Don't use assert to make the error message easier to read.
+    if (!regex.matcher(actual).matches()) {
+      fail(s"$actual did not match regex $expected")
+    }
+  }
+
+  private def startsWith(result: String): String = Pattern.quote(result) + ".*"
+
+  private def literal(result: String): String = Pattern.quote(result)
+
+  private def runAndValidateStatement(code: String): Either[String, StatementError] = {
+    waitTillSessionIdle(sessionId)
+    val stmtId = livyClient.runStatement(sessionId, code)
+    waitTillSessionIdle(sessionId)
+    livyClient.getStatementResult(sessionId, stmtId)
   }
 
 }
