@@ -83,7 +83,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   test("application kills session") {
     sessionId = livyClient.startSession(Spark())
     waitTillSessionIdle(sessionId)
-    livyClient.runStatement(sessionId, "System.exit(0)")
+    livyClient.runStatement(sessionId, "Thread.sleep(1000); System.exit(0)")
 
     eventually(timeout(30 seconds), interval(1 second)) {
       assert(livyClient.getSessionStatus(sessionId) === SessionState.Error().toString)
