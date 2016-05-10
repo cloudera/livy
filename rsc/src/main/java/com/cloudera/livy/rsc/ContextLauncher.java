@@ -157,8 +157,11 @@ class ContextLauncher {
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
-    if ("sparkr".equals(conf.get(SESSION_KIND))) {
+    String kind = conf.get(SESSION_KIND);
+    if ("sparkr".equals(kind)) {
       merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
+    } else if ("pyspark".equals(kind)) {
+      merge(conf, "spark.submit.pyFiles", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES), ",");
     }
 
     // Disable multiple attempts since the RPC server doesn't yet support multiple

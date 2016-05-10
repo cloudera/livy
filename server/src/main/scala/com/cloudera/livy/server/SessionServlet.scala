@@ -46,7 +46,7 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   private[livy] val sessionManager = new SessionManager[S](livyConf)
 
   private val configBlackList: Set[String] = {
-    val url = getClass.getResource("/spark-blacklist.properties")
+    val url = getClass.getResource("/spark-blacklist.conf")
     if (url != null) Utils.loadProperties(url).keySet else Set()
   }
 

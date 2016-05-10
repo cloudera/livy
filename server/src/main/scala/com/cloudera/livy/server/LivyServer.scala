@@ -50,7 +50,7 @@ class LivyServer extends Logging {
   private var _serverUrl: Option[String] = None
 
   def start(): Unit = {
-    val livyConf = new LivyConf().loadFromFile("livy-defaults.conf")
+    val livyConf = new LivyConf().loadFromFile("livy.conf")
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
 
