@@ -213,7 +213,7 @@ class RealCluster(_config: Map[String, String])
     )
     val livyConfFile = File.createTempFile("livy.", ".properties")
     saveProperties(livyConf, livyConfFile)
-    upload(livyConfFile.getAbsolutePath(), s"$livyHomePath/conf/livy-defaults.conf")
+    upload(livyConfFile.getAbsolutePath(), s"$livyHomePath/conf/livy.conf")
 
     val env = Map(
         "HADOOP_CONF_DIR" -> config.hadoopConf,

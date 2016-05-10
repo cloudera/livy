@@ -5,7 +5,7 @@ Livy is an open source REST interface for interacting with Spark from anywhere. 
 
 * Interactive Scala, Python and R shells
 * Batch submissions in Scala, Java, Python
-* Multi users can share the same server (impersonation support)
+* Multiple users can share the same server (impersonation support)
 * Can be used for submitting jobs from anywhere with REST
 * Does not require any code change to your programs
 
@@ -14,42 +14,21 @@ Livy is an open source REST interface for interacting with Spark from anywhere. 
 .. _Pull requests: https://github.com/cloudera/livy/pulls
 .. _Wiki: https://github.com/cloudera/livy/wiki/Contributing-to-Livy
 
-Quick Start
-===========
-
-Livy is used for powering the Spark snippets of the `Hadoop Notebook`_ of `Hue 3.8`_, which you can see the
-`implementation here`_.
-
-See the API documentation below and some curl examples:
-
-  * `Interactive shells`_
-  * `Batch jobs`_
-  * `Shared RDDs`_
-
-.. _Interactive shells: http://gethue.com/how-to-use-the-livy-spark-rest-job-server-for-interactive-spark/
-.. _Batch jobs: http://gethue.com/how-to-use-the-livy-spark-rest-job-server-api-for-sharing-spark-rdds-and-contexts/
-.. _Shared RDDs: http://gethue.com/how-to-use-the-livy-spark-rest-job-server-api-for-submitting-batch-jar-python-and-streaming-spark-jobs/
-.. _Hadoop Notebook: http://gethue.com/new-notebook-application-for-spark-sql/
-.. _Hue 3.8: http://gethue.com/hue-3-8-with-an-oozie-editor-revamp-better-performances-improved-spark-ui-is-out/
-.. _implementation here: https://github.com/cloudera/hue/blob/master/apps/spark/src/spark/job_server_api.py
-
 
 Prerequisites
 =============
 
-To build/run Livy, you will need:
+To build Livy, you will need:
 
 Debian/Ubuntu:
   * mvn (from ``maven`` package or maven3 tarball)
   * openjdk-7-jdk (or Oracle Java7 jdk)
-  * spark 1.4+ from (from `Apache Spark tarball`_)
   * Python 2.6+
   * R 3.x
 
 Redhat/CentOS:
   * mvn (from ``maven`` package or maven3 tarball)
   * java-1.7.0-openjdk (or Oracle Java7 jdk)
-  * spark 1.4+ (from `Apache Spark tarball`_)
   * Python 2.6+
   * R 3.x
 
@@ -57,13 +36,13 @@ MacOS:
   * Xcode command line tools
   * Oracle's JDK 1.7+
   * Maven (Homebrew)
-  * apache-spark 1.5 (Homebrew)
   * Python 2.6+
   * R 3.x
 
 
-
-.. _Apache Spark Tarball: https://spark.apache.org/downloads.html
+To run Livy, you will also need a Spark installation. You can get Spark releases at
+https://spark.apache.org/downloads.html. Livy requires at least Spark 1.4 and currently
+only supports Scala 2.10 builds of Spark.
 
 
 Building Livy
@@ -74,30 +53,22 @@ Livy is built using `Apache Maven`_. To checkout and build Livy, run:
 .. code:: shell
 
     % git clone git@github.com:cloudera/livy.git
-    % mvn -DskipTests clean package
+    % cd livy
+    % mvn package
 
-By default Livy is built with the Cloudera distribution of Spark (currently
-based off Spark 1.5.0), but it is simple to support other versions, such as
-Spark 1.4.1, by compiling Livy with:
+By default Livy is built against CDH 5.5's distribution of Spark (currently
+based off Spark 1.5.0). You can build Livy against a different version of Spark
+by setting the ``spark.version`` property:
 
 .. code:: shell
 
-    % mvn -DskipTests -Dspark.version=1.4.1 clean package
+    % mvn -Dspark.version=1.6.1 package
+
+The version of Spark used when running Livy does not need to match the version used to build Livy.
+The Livy package itself does not contain a Spark distribution, and will work with any supported
+version of Spark.
 
 .. _Apache Maven: http://maven.apache.org
-
-
-Running Tests
-=============
-
-In order to run the Livy Tests, first follow the instructions in `Building
-Livy`_. Then run:
-
-.. code:: shell
-
-    % export SPARK_HOME=/usr/lib/spark
-    % export HADOOP_CONF_DIR=/etc/hadoop/conf
-    % mvn test
 
 
 Running Livy
@@ -116,40 +87,41 @@ Then start the server with:
 
     % ./bin/livy-server
 
-Or with YARN sessions by running:
+Livy will use the Spark configuration under ``SPARK_HOME`` by default. The Spark configuration can
+be overridden by setting the ``SPARK_CONF_DIR`` environment variable before starting Livy.
 
-.. code:: shell
-
-   % env \
-     LIVY_SERVER_JAVA_OPTS="-Dlivy.server.session.factory=yarn" \
-     CLASSPATH=`hadoop classpath` \
-     $LIVY_HOME/bin/livy-server
+It is strongly recommended that Spark is configured to submit applications in YARN cluster mode.
+That makes sure that user sessions have their resources properly accounted for in the YARN cluster,
+and that the host running the Livy server doesn't become overloaded when multiple user sessions are
+running.
 
 
 Livy Configuration
 ==================
 
-The properties of the server can be modified by copying
-`livy-defaults.conf.template`_ and renaming it ``conf/livy-defaults.conf``. The
-Livy configuration directory can be placed in an alternative directory by defining
-``LIVY_CONF_DIR``.
+Livy uses a few configuration files under configuration the directory, which by default is the
+``conf`` directory under the Livy installation. An alternative configuration directory can be
+provided by setting the ``LIVY_CONF_DIR`` environment variable when starting Livy.
 
-In particular the ``YARN mode`` (default is ``local`` process for development) can be set with:
+The configuration files used by Livy are:
 
-.. code:: shell
+* ``livy.conf``: contains the server configuration. The Livy distribution ships with a default
+  configuration file listing available configuration keys and their default values.
 
-    livy.server.session.factory = yarn
+* ``spark-blacklist.conf``: list Spark configuration options that users are not allowed to override.
+  These options will be restricted to either their default values, or the values set in the Spark
+  configuration used by Livy.
 
-.. _livy-defaults.conf.template: https://github.com/cloudera/livy/blob/master/apps/spark/java/conf/livy-defaults.conf.template
+* ``log4j.properties``: configuration for Livy logging. Defines log levels and where log messages
+  will be written to. The default configuration will print log messages to stderr.
 
 
 Spark Example
 =============
 
-Now to see it in action by interacting with it in Python with the `Requests`_
-library. By default livy runs on port 8998 (which can be changed with the
-``livy_server_port config`` option). We’ll start off with a Spark session that
-takes Scala code:
+Here's a step-by-step example of interacting with Livy in Python with the `Requests`_ library. By
+default livy runs on port 8998 (which can be changed with the ``livy.server.port`` config option).
+We’ll start off with a Spark session that takes Scala code:
 
 .. code:: shell
     % sudo pip install requests
@@ -198,7 +170,7 @@ early and provides a URL that can be polled until it is complete:
       u'state': u'available'}]
 
 That was a pretty simple example. More interesting is using Spark to estimate
-PI. This is from the `Spark Examples`_:
+Pi. This is from the `Spark Examples`_:
 
 .. code:: python
 
@@ -221,7 +193,7 @@ PI. This is from the `Spark Examples`_:
                  u'status': u'ok'},
      u'state': u'available'}
 
-Finally, lets close our session:
+Finally, let's close our session:
 
 .. code:: python
 
@@ -236,7 +208,7 @@ Finally, lets close our session:
 PySpark Example
 ===============
 
-pyspark has the exact same API, just with a different initial command:
+PySpark has the exact same API, just with a different initial request:
 
 .. code:: python
 
@@ -351,37 +323,15 @@ Creates a new interative Scala, Python or R shell in the cluster.
 Request Body
 ^^^^^^^^^^^^
 
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| name           | description                                                                    | type            |
-+================+================================================================================+=================+
-| kind           | The session kind (required)                                                    | `session kind`_ |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| proxyUser      | The user to impersonate that will run this session (e.g. bob)                  | string          |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| jars           | Files to be placed on the java classpath                                       | list of paths   |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| pyFiles        | Files to be placed on the PYTHONPATH                                           | list of paths   |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| files          | Files to be placed in executor working directory                               | list of paths   |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| driverMemory   | Memory for driver (e.g. 1000M, 2G)                                             | string          |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| driverCores    | Number of cores used by driver (YARN mode only)                                | int             |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| executorMemory | Memory for executor (e.g. 1000M, 2G)                                           | string          |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| executorCores  | Number of cores used by executor                                               | int             |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| numExecutors   | Number of executors (YARN mode only)                                           | int             |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| archives       | Archives to be uncompressed in the executor working directory (YARN mode only) | list of paths   |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| queue          | The YARN queue to submit too (YARN mode only)                                  | string          |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| name           | Name of the application                                                        | string          |
-+----------------+--------------------------------------------------------------------------------+-----------------+
-| conf           | Spark configuration property                                                   | Map of key=val  |
-+----------------+--------------------------------------------------------------------------------+-----------------+
++----------------+------------------------------------------------+-----------------+
+| name           | description                                    | type            |
++================+================================================+=================+
+| kind           | The session kind (required)                    | `session kind`_ |
++----------------+------------------------------------------------+-----------------+
+| proxyUser      | User to impersonate when starting the session  | string          |
++----------------+------------------------------------------------+-----------------+
+| conf           | Spark configuration properties                 | Map of key=val  |
++----------------+------------------------------------------------+-----------------+
 
 
 Response Body
@@ -415,28 +365,28 @@ Get the log lines from this session.
 Request Parameters
 ^^^^^^^^^^^^^^^^^^
 
-+------+-----------------------------+------+
-| name | description                 | type |
-+======+=============================+======+
-| from | offset                      | int  |
-+------+-----------------------------+------+
-| size | amount of batches to return | int  |
-+------+-----------------------------+------+
++------+-----------------------------------+------+
+| name | description                       | type |
++======+===================================+======+
+| from | offset                            | int  |
++------+-----------------------------------+------+
+| size | max number of log lines to return | int  |
++------+-----------------------------------+------+
 
 Response Body
 ^^^^^^^^^^^^^
 
-+------+-----------------------+-----------------+
-| name | description           | type            |
-+======+=======================+=================+
-| id   | The session id        | int             |
-+------+-----------------------+-----------------+
-| from | offset                | int             |
-+------+-----------------------+-----------------+
-| size | total amount of lines | int             |
-+------+-----------------------+-----------------+
-| log  | The log lines         | list of strings |
-+------+-----------------------+-----------------+
++------+--------------------------+-----------------+
+| name | description              | type            |
++======+==========================+=================+
+| id   | The session id           | int             |
++------+--------------------------+-----------------+
+| from | offset from start of log | int             |
++------+--------------------------+-----------------+
+| size | number of log lines      | int             |
++------+--------------------------+-----------------+
+| log  | The log lines            | list of strings |
++------+--------------------------+-----------------+
 
 
 GET /sessions/{sessionId}/statements
@@ -498,37 +448,15 @@ Request Body
 +----------------+---------------------------------------------------+-----------------+
 | name           | description                                       | type            |
 +================+===================================================+=================+
-| proxyUser      | The user to impersonate that will execute the job | string          |
+| file           | The file containing the application to execute    | path (required) |
 +----------------+---------------------------------------------------+-----------------+
-| file           | Archive holding the file                          | path (required) |
-+----------------+---------------------------------------------------+-----------------+
-| args           | Command line arguments                            | list of strings |
+| proxyUser      | TUser to impersonate when runing the job          | string          |
 +----------------+---------------------------------------------------+-----------------+
 | className      | Application's java/spark main class               | string          |
 +----------------+---------------------------------------------------+-----------------+
-| jars           | Files to be placed on the java classpath          | list of paths   |
+| args           | Command line arguments for the application        | list of strings |
 +----------------+---------------------------------------------------+-----------------+
-| pyFiles        | Files to be placed on the PYTHONPATH              | list of paths   |
-+----------------+---------------------------------------------------+-----------------+
-| files          | Files to be placed in executor working directory  | list of paths   |
-+----------------+---------------------------------------------------+-----------------+
-| driverMemory   | Memory for driver (e.g. 1000M, 2G)                | string          |
-+----------------+---------------------------------------------------+-----------------+
-| driverCores    | Number of cores used by driver                    | int             |
-+----------------+---------------------------------------------------+-----------------+
-| executorMemory | Memory for executor (e.g. 1000M, 2G)              | string          |
-+----------------+---------------------------------------------------+-----------------+
-| executorCores  | Number of cores used by executor                  | int             |
-+----------------+---------------------------------------------------+-----------------+
-| numExecutors   | Number of executor                                | int             |
-+----------------+---------------------------------------------------+-----------------+
-| archives       | Archives to be uncompressed (YARN mode only)      | list of paths   |
-+----------------+---------------------------------------------------+-----------------+
-| queue          | The YARN queue to submit too (YARN mode only)     | string          |
-+----------------+---------------------------------------------------+-----------------+
-| name           | Name of the application                           | string          |
-+----------------+---------------------------------------------------+-----------------+
-| conf           | Spark configuration property                      | Map of key=val  |
+| conf           | Spark configuration properties                    | Map of key=val  |
 +----------------+---------------------------------------------------+-----------------+
 
 
@@ -544,13 +472,13 @@ GET /batches/{batchId}
 Request Parameters
 ^^^^^^^^^^^^^^^^^^
 
-+------+-----------------------------+------+
-| name | description                 | type |
-+======+=============================+======+
-| from | offset                      | int  |
-+------+-----------------------------+------+
-| size | amount of batches to return | int  |
-+------+-----------------------------+------+
++------+---------------------------------+------+
+| name | description                     | type |
++======+=================================+======+
+| from | offset                          | int  |
++------+---------------------------------+------+
+| size | max number of batches to return | int  |
++------+---------------------------------+------+
 
 Response Body
 ^^^^^^^^^^^^^
@@ -580,28 +508,28 @@ Get the log lines from this batch.
 Request Parameters
 ^^^^^^^^^^^^^^^^^^
 
-+------+-----------------------------+------+
-| name | description                 | type |
-+======+=============================+======+
-| from | offset                      | int  |
-+------+-----------------------------+------+
-| size | amount of batches to return | int  |
-+------+-----------------------------+------+
++------+-----------------------------------+------+
+| name | description                       | type |
++======+===================================+======+
+| from | offset                            | int  |
++------+-----------------------------------+------+
+| size | max number of log lines to return | int  |
++------+-----------------------------------+------+
 
 Response Body
 ^^^^^^^^^^^^^
 
-+------+-----------------------+-----------------+
-| name | description           | type            |
-+======+=======================+=================+
-| id   | The batch id          | int             |
-+------+-----------------------+-----------------+
-| from | offset                | int             |
-+------+-----------------------+-----------------+
-| size | total amount of lines | int             |
-+------+-----------------------+-----------------+
-| log  | The log lines         | list of strings |
-+------+-----------------------+-----------------+
++------+--------------------------+-----------------+
+| name | description              | type            |
++======+==========================+=================+
+| id   | The batch id             | int             |
++------+--------------------------+-----------------+
+| from | offset from start of log | int             |
++------+--------------------------+-----------------+
+| size | number of log lines      | int             |
++------+--------------------------+-----------------+
+| log  | The log lines            | list of strings |
++------+--------------------------+-----------------+
 
 
 REST Objects
@@ -629,7 +557,7 @@ Session State
 ^^^^^^^^^^^^^
 
 +-------------+----------------------------------+
-| name        | description                      |
+| value       | description                      |
 +=============+==================================+
 | not_started | session has not been started     |
 +-------------+----------------------------------+
@@ -648,7 +576,7 @@ Session Kind
 ^^^^^^^^^^^^
 
 +---------+----------------------------------+
-| name    | description                      |
+| value   | description                      |
 +=========+==================================+
 | spark   | interactive scala/spark session  |
 +---------+----------------------------------+
@@ -676,11 +604,11 @@ Statement State
 ^^^^^^^^^^^^^^^
 
 +-----------+----------------------------------+
-| name      | description                      |
+| value     | description                      |
 +===========+==================================+
 | running   | Statement is currently executing |
 +-----------+----------------------------------+
-| available | Statement has a ready response   |
+| available | Statement has a response ready   |
 +-----------+----------------------------------+
 | error     | Statement failed                 |
 +-----------+----------------------------------+
@@ -705,17 +633,15 @@ Statement Output
 Batch
 -----
 
-+----------------+--------------------------------------------------+----------------------------+
-| name           | description                                      | type                       |
-+================+==================================================+============================+
-| id             | The session id                                   | int                        |
-+----------------+--------------------------------------------------+----------------------------+
-| kind           | session kind (spark, pyspark, or sparkr)         | `session kind`_ (required) |
-+----------------+--------------------------------------------------+----------------------------+
-| log            | The log lines                                    | list of strings            |
-+----------------+--------------------------------------------------+----------------------------+
-| state          | The session state                                | string                     |
-+----------------+--------------------------------------------------+----------------------------+
++----------------+------------------+----------------------------+
+| name           | description      | type                       |
++================+==================+============================+
+| id             | The session id   | int                        |
++----------------+------------------+----------------------------+
+| log            | The log lines    | list of strings            |
++----------------+------------------+----------------------------+
+| state          | The batch state  | string                     |
++----------------+------------------+----------------------------+
 
 
 License

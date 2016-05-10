@@ -32,8 +32,11 @@ if [ ! -d "$LIBDIR" ]; then
   exit 1
 fi
 
+if [ -z "$LIVY_CONF_DIR" ]; then
+  LIVY_CONF_DIR="$LIVY_HOME/conf"
+fi
 
-LIVY_CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf"
+LIVY_CLASSPATH="$LIBDIR/*:$LIVY_CONF_DIR"
 
 if [ -n "$SPARK_CONF_DIR" ]; then
   LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_CONF_DIR"

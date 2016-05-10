@@ -36,7 +36,6 @@ import com.cloudera.livy.sessions.{PySpark, SessionState}
 class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 
   private val livyConf = new LivyConf()
-  livyConf.set(InteractiveSession.LivyReplDriverClassPath, sys.props("java.class.path"))
   livyConf.set(InteractiveSession.LivyReplJars, "")
 
   implicit val formats = DefaultFormats
@@ -49,6 +48,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
     req.conf = Map(
+      SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
     new InteractiveSession(0, null, None, livyConf, req)

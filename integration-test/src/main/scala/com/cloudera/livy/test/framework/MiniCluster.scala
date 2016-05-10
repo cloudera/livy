@@ -142,11 +142,11 @@ object MiniLivyMain extends MiniClusterBase {
     val server = new LivyServer()
     server.start()
 
-    // Write a livy-defaults.conf file to the conf directory with the location of the Livy
+    // Write a livy.conf file to the conf directory with the location of the Livy
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.
     val clientConf = Map("livy.server.serverUrl" -> server.serverUrl())
-    saveProperties(clientConf, new File(configPath + "/livy-defaults.conf"))
+    saveProperties(clientConf, new File(configPath + "/livy.conf"))
   }
 
 }
@@ -243,7 +243,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
   def runLivy(): Unit = {
     assert(!livy.isDefined)
-    val confFile = new File(configDir, "livy-defaults.conf")
+    val confFile = new File(configDir, "livy.conf")
     val localLivy = start(MiniLivyMain.getClass, confFile)
 
     val props = loadProperties(confFile)

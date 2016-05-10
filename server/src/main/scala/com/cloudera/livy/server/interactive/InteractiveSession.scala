@@ -43,7 +43,6 @@ import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
 
 object InteractiveSession {
-  val LivyReplDriverClassPath = "livy.repl.driverClassPath"
   val LivyReplJars = "livy.repl.jars"
   val SparkSubmitPyFiles = "spark.submit.pyFiles"
   val SparkYarnIsPython = "spark.yarn.isPython"
@@ -83,23 +82,13 @@ class InteractiveSession(
         builder.setConf(SparkYarnIsPython, "true")
         builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
       case SparkR() =>
-        val sparkRFile = if (!LivyConf.TEST_MODE) findSparkRArchives() else Nil
-        builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
+        val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
+        sparkRArchive.foreach { archive =>
+          builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+        }
       case _ =>
     }
     builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
-
-    sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { opts =>
-      val userOpts = request.conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS)
-      val newOpts = userOpts.toSeq ++ Seq(opts)
-      builder.setConf(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, newOpts.mkString(" "))
-    }
-
-    Option(livyConf.get(LivyReplDriverClassPath)).foreach { cp =>
-      val userCp = request.conf.get(SparkLauncher.DRIVER_EXTRA_CLASSPATH)
-      val newCp = Seq(cp) ++ userCp.toSeq
-      builder.setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, newCp.mkString(File.pathSeparator))
-    }
 
     val allJars = livyJars(livyConf) ++ request.jars
 
@@ -266,23 +255,19 @@ class InteractiveSession(
     }
   }
 
-  private def findSparkRArchives(): Seq[String] = {
-    sys.env.get("SPARKR_ARCHIVES_PATH")
-      .map(_.split(",").toSeq)
-      .getOrElse {
-        sys.env.get("SPARK_HOME").map { case sparkHome =>
-          val rLibPath = Seq(sparkHome, "R", "lib").mkString(File.separator)
-          val rArchivesFile = new File(rLibPath, "sparkr.zip")
-          require(rArchivesFile.exists(),
-            "sparkr.zip not found; cannot run sparkr application.")
-          Seq(rArchivesFile.getAbsolutePath)
-        }.getOrElse(Seq())
+  private def findSparkRArchive(): Option[String] = {
+    Option(livyConf.get(RSCConf.Entry.SPARKR_PACKAGE.key())).orElse {
+      sys.env.get("SPARK_HOME").map { case sparkHome =>
+        val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
+        val rArchivesFile = new File(path)
+        require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
+        rArchivesFile.getAbsolutePath()
       }
+    }
   }
 
-
   private def findPySparkArchives(): Seq[String] = {
-    sys.env.get("PYSPARK_ARCHIVES_PATH")
+    Option(livyConf.get(RSCConf.Entry.PYSPARK_ARCHIVES))
       .map(_.split(",").toSeq)
       .getOrElse {
         sys.env.get("SPARK_HOME") .map { case sparkHome =>
@@ -302,7 +287,6 @@ class InteractiveSession(
         }.getOrElse(Seq())
       }
   }
-
 
   private def transition(state: SessionState) = synchronized {
     _state = state
