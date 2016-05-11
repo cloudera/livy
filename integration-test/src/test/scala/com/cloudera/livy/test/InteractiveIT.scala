@@ -83,10 +83,23 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   test("application kills session") {
     sessionId = livyClient.startSession(Spark())
     waitTillSessionIdle(sessionId)
-    livyClient.runStatement(sessionId, "Thread.sleep(1000); System.exit(0)")
+    livyClient.runStatement(sessionId, "System.exit(0)")
 
+    val expected = Set(SessionState.Idle().toString, SessionState.Error().toString)
     eventually(timeout(30 seconds), interval(1 second)) {
-      assert(livyClient.getSessionStatus(sessionId) === SessionState.Error().toString)
+      val state = livyClient.getSessionStatus(sessionId)
+      assert(expected.contains(state))
+    }
+
+    // After the statement has run, it shouldn't be possible to run more commands. Once LIVY-139
+    // is fixed, this test should be changed to make sure the session state automatically turns
+    // to "error" or "dead", depending on how it's implemented.
+    try {
+      livyClient.runStatement(sessionId, "1+1")
+      val state = livyClient.getSessionStatus(sessionId)
+      fail(s"Should have failed to run statement; session state is $state")
+    } catch {
+      case e: Exception =>
     }
   }
 
