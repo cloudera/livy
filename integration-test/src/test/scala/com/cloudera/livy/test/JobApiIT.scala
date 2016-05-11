@@ -156,6 +156,21 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     }
   }
 
+  test("ensure failing jobs do not affect session state") {
+    assume(client2 != null, "Client not active.")
+
+    try {
+      waitFor(client2.submit(new Failure()))
+      fail("Job should have failued.")
+    } catch {
+      case e: Exception =>
+        assert(e.getMessage().contains(classOf[Failure.JobFailureException].getName()))
+    }
+
+    val result = waitFor(client2.submit(new Echo("foo")))
+    assert(result === "foo")
+  }
+
   test("destroy the session") {
     assume(client2 != null, "Client not active.")
     client2.stop(true)

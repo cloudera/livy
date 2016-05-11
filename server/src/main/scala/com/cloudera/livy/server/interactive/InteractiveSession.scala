@@ -29,6 +29,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
+import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
@@ -225,24 +226,32 @@ class InteractiveSession(
 
   @tailrec
   private def waitForStatement(id: String): JValue = {
-    val response = client.getReplJobResult(id).get()
-    if (response != null) {
-      val result = parse(response)
-      // If the response errored out, it's possible it took down the interpreter. Check if
-      // it's still running.
-      result \ "status" match {
-        case JString("error") =>
-          val state = client.getReplState().get() match {
-            case "error" => SessionState.Error()
-            case _ => SessionState.Idle()
-          }
-          transition(state)
-        case _ => transition(SessionState.Idle())
-      }
-      result
-    } else {
-      Thread.sleep(1000)
-      waitForStatement(id)
+    Try(client.getReplJobResult(id).get()) match {
+      case Success(null) =>
+        Thread.sleep(1000)
+        waitForStatement(id)
+
+      case Success(response) =>
+        val result = parse(response)
+        // If the response errored out, it's possible it took down the interpreter. Check if
+        // it's still running.
+        result \ "status" match {
+          case JString("error") =>
+            val state = client.getReplState().get() match {
+              case "error" => SessionState.Error()
+              case _ => SessionState.Idle()
+            }
+            transition(state)
+          case _ => transition(SessionState.Idle())
+        }
+        result
+
+
+      case Failure(err) =>
+        // If any other error occurs, it probably means the session died. Transition to
+        // the error state.
+        transition(SessionState.Error())
+        throw err
     }
   }
 

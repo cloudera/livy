@@ -23,7 +23,9 @@ import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util._
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
@@ -33,7 +35,18 @@ import org.scalatest.concurrent.Eventually._
 import com.cloudera.livy.server.interactive.CreateInteractiveRequest
 import com.cloudera.livy.sessions._
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class StatementError(ename: String, evalue: String, stackTrace: Seq[String])
+
+object BaseIntegrationTestSuite {
+  // Duplicated from repl.Session. Should really be in a more shared location.
+  val OK = "ok"
+  val ERROR = "error"
+}
+
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
+  import BaseIntegrationTestSuite._
+
   var cluster: Cluster = _
   var httpClient: AsyncHttpClient = _
   var livyClient: LivyRestClient = _
@@ -145,23 +158,28 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       stmtId
     }
 
-    def getStatementResult(sessionId: Int, stmtId: Int): String = {
+    def getStatementResult(sessionId: Int, stmtId: Int): Either[String, StatementError] = {
       val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId/statements/$stmtId")
         .execute()
         .get()
 
-      val stmtResult = withClue(rep.getResponseBody) {
-        rep.getStatusCode should equal(HttpServletResponse.SC_OK)
-        val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-        newStmt should contain key ("output")
-        val output = newStmt("output").asInstanceOf[Map[String, Any]]
-        output should contain key ("data")
-        val data = output("data").asInstanceOf[Map[String, Any]]
-        data should contain key ("text/plain")
-        data("text/plain").asInstanceOf[String]
-      }
+      rep.getStatusCode should equal(HttpServletResponse.SC_OK)
+      val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+      newStmt should contain key ("output")
+      val output = newStmt("output").asInstanceOf[Map[String, Any]]
+      output("status") match {
+        case OK =>
+          output should contain key ("data")
+          val data = output("data").asInstanceOf[Map[String, Any]]
+          data should contain key ("text/plain")
+          Left(data("text/plain").asInstanceOf[String])
 
-      stmtResult
+        case ERROR =>
+          Right(mapper.convertValue(output, classOf[StatementError]))
+
+        case status =>
+          fail(s"Unknown statement status: $status")
+      }
     }
   }
 
