@@ -288,7 +288,7 @@ public class TestSparkClient {
       @Override
       void call(LivyClient client) throws Exception {
         ContextInfo ctx = ((RSCClient) client).getContextInfo();
-        URI uri = new URI(String.format("local://%s:%s@%s:%d", ctx.clientId, ctx.secret,
+        URI uri = new URI(String.format("rsc://%s:%s@%s:%d", ctx.clientId, ctx.secret,
           ctx.remoteAddress, ctx.remotePort));
 
         // Close the old client to make sure the driver doesn't go away when it disconnects.
@@ -384,7 +384,7 @@ public class TestSparkClient {
     LivyClient client = null;
     try {
       test.config(conf);
-      client = new LivyClientBuilder(false).setURI(new URI("local:spark"))
+      client = new LivyClientBuilder(false).setURI(new URI("rsc:/"))
         .setAll(conf)
         .build();
 

@@ -38,7 +38,7 @@ public final class RSCClientFactory implements LivyClientFactory {
   private RpcServer server = null;
 
   /**
-   * Creates a local Livy client if the URI has the "local" scheme.
+   * Creates a local Livy client if the URI has the "rsc" scheme.
    * <p>
    * If the URI contains user information, host and port, the library will try to connect to an
    * existing RSC instance with the provided information, and most of the provided configuration
@@ -48,7 +48,7 @@ public final class RSCClientFactory implements LivyClientFactory {
    */
   @Override
   public LivyClient createClient(URI uri, Properties config) {
-    if (!"local".equals(uri.getScheme())) {
+    if (!"rsc".equals(uri.getScheme())) {
       return null;
     }
 

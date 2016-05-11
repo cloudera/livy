@@ -74,7 +74,7 @@ class InteractiveSession(
       .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
-      .setURI(new URI("local:spark"))
+      .setURI(new URI("rsc:/"))
 
     kind match {
       case PySpark() =>
