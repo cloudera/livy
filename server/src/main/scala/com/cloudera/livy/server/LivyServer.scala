@@ -115,6 +115,13 @@ class LivyServer extends Logging {
 
     server.start()
 
+    Runtime.getRuntime().addShutdownHook(new Thread("Livy Server Shutdown") {
+      override def run(): Unit = {
+        info("Shutting down Livy server.")
+        server.stop()
+      }
+    })
+
     _serverUrl = Some(s"http://${server.host}:${server.port}")
     sys.props("livy.server.serverUrl") = _serverUrl.get
   }
