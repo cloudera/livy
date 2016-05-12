@@ -22,6 +22,8 @@ import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
 import java.nio.file.Files
 
+import org.apache.hadoop.conf.Configuration
+
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.client.common.ClientConf.ConfEntry
 
@@ -56,6 +58,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   import LivyConf._
 
   private lazy val _superusers = Option(get(SUPERUSERS)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
+
+  lazy val hadoopConf = new Configuration()
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.

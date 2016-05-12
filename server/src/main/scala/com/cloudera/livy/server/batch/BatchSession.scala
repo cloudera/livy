@@ -41,9 +41,9 @@ class BatchSession(
     builder.conf(request.conf)
     proxyUser.foreach(builder.proxyUser)
     request.className.foreach(builder.className)
-    request.jars.foreach(builder.jar)
-    request.pyFiles.foreach(builder.pyFile)
-    request.files.foreach(builder.file)
+    resolveURIs(request.jars).foreach(builder.jar)
+    resolveURIs(request.pyFiles).foreach(builder.pyFile)
+    resolveURIs(request.files).foreach(builder.file)
     request.driverMemory.foreach(builder.driverMemory)
     request.driverCores.foreach(builder.driverCores)
     request.executorMemory.foreach(builder.executorMemory)
@@ -55,7 +55,8 @@ class BatchSession(
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 
-    builder.start(Some(request.file), request.args)
+    val file = resolveURIs(Seq(request.file))(0)
+    builder.start(Some(file), request.args)
   }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global

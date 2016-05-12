@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.net.{URI, URL}
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
@@ -28,7 +28,7 @@ import scala.concurrent.duration._
 
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
-import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
+import org.scalatra.servlet.FileUploadSupport
 
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages._

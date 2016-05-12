@@ -18,15 +18,19 @@
 
 package com.cloudera.livy.test
 
-import java.io.File
+import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
+import java.util.UUID
 import java.util.concurrent.{Future => JFuture, TimeUnit}
+import java.util.jar.JarOutputStream
+import java.util.zip.ZipEntry
 import javax.servlet.http.HttpServletResponse
 
 import scala.util.Try
 
+import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
 import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
@@ -95,6 +99,19 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     waitFor(client.uploadFile(file.toFile()))
 
     val result = waitFor(client.submit(new FileReader(file.toFile().getName(), false)))
+    assert(result === "hello")
+  }
+
+  test("add file from HDFS") {
+    assume(client != null, "Client not active.")
+    val file = Files.createTempFile("filetest2", ".txt")
+    Files.write(file, "hello".getBytes(UTF_8))
+
+    val uri = new URI(uploadToHdfs(file.toFile()))
+    waitFor(client.addFile(uri))
+
+    val task = new FileReader(new File(uri.getPath()).getName(), false)
+    val result = waitFor(client.submit(task))
     assert(result === "hello")
   }
 

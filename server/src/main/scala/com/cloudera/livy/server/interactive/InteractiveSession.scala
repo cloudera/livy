@@ -79,8 +79,9 @@ class InteractiveSession(
     kind match {
       case PySpark() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
+        val allPyFiles = pySparkFiles ++ resolveURIs(request.pyFiles)
         builder.setConf(SparkYarnIsPython, "true")
-        builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
+        builder.setConf(SparkSubmitPyFiles, allPyFiles.mkString(","))
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
@@ -90,15 +91,18 @@ class InteractiveSession(
     }
     builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
-    val allJars = livyJars(livyConf) ++ request.jars
+    val allJars = livyJars(livyConf) ++ resolveURIs(request.jars)
 
-    def listToConf(lst: List[String]): Option[String] = {
+    def listToConf(lst: Seq[String]): Option[String] = {
       if (lst.size > 0) Some(lst.mkString(",")) else None
     }
 
+    val archives = resolveURIs(request.archives)
+    val files = resolveURIs(request.files)
+
     val userOpts: Map[Option[String], String] = Map(
-      listToConf(request.archives) -> "spark.yarn.dist.archives",
-      listToConf(request.files) -> "spark.files",
+      listToConf(archives) -> "spark.yarn.dist.archives",
+      listToConf(files) -> "spark.files",
       listToConf(allJars) -> "spark.jars",
       request.driverCores.map(_.toString) -> "spark.driver.cores",
       request.driverMemory.map(_.toString + "b") -> SparkLauncher.DRIVER_MEMORY,
@@ -192,12 +196,12 @@ class InteractiveSession(
 
   def addFile(uri: URI): Unit = {
     recordActivity()
-    client.addFile(uri).get()
+    client.addFile(resolveURI(uri)).get()
   }
 
   def addJar(uri: URI): Unit = {
     recordActivity()
-    client.addJar(uri).get()
+    client.addJar(resolveURI(uri)).get()
   }
 
   def jobStatus(id: Long): Any = {

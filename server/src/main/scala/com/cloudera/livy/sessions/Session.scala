@@ -19,14 +19,13 @@
 package com.cloudera.livy.sessions
 
 import java.io.InputStream
-import java.net.URI
+import java.net.{URI, URISyntaxException}
 import java.security.PrivilegedExceptionAction
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
@@ -66,7 +65,7 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
       if (stagingDir != null) {
         debug(s"Deleting session $id staging directory $stagingDir")
         doAsOwner {
-          val fs = FileSystem.newInstance(new Configuration())
+          val fs = FileSystem.newInstance(livyConf.hadoopConf)
           try {
             fs.delete(stagingDir, true)
           } finally {
@@ -107,7 +106,7 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
   }
 
   protected def copyResourceToHDFS(dataStream: InputStream, name: String): URI = doAsOwner {
-    val fs = FileSystem.newInstance(new Configuration())
+    val fs = FileSystem.newInstance(livyConf.hadoopConf)
 
     try {
       val filePath = new Path(getStagingDir(fs), name)
@@ -126,6 +125,34 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
       filePath.toUri
     } finally {
       fs.close()
+    }
+  }
+
+  /**
+   * Prepends the value of the "fs.defaultFS" configuration to any URIs that do not have a
+   * scheme. URIs are required to at least be absolute paths.
+   *
+   * @throws IllegalArgumentException If an invalid URI is found in the given list.
+   */
+  protected def resolveURIs(uris: Seq[String]): Seq[String] = {
+    val defaultFS = livyConf.hadoopConf.get("fs.defaultFS").stripSuffix("/")
+    uris.filter(_.nonEmpty).map { _uri =>
+      val uri = try {
+        new URI(_uri)
+      } catch {
+        case e: URISyntaxException => throw new IllegalArgumentException(e)
+      }
+      resolveURI(uri).toString()
+    }
+  }
+
+  protected def resolveURI(uri: URI): URI = {
+    val defaultFS = livyConf.hadoopConf.get("fs.defaultFS").stripSuffix("/")
+    if (uri.getScheme() == null) {
+      require(uri.getPath().startsWith("/"), s"Path '${uri.getPath()}' is not absolute.")
+      new URI(defaultFS + uri.getPath())
+    } else {
+      uri
     }
   }
 
