@@ -160,10 +160,6 @@ class HttpClient implements LivyClient {
   }
 
   private Future<?> addResource(final String command, final URI resource) {
-    if (resource.getScheme() == null || resource.getScheme() == "file") {
-      throw new IllegalArgumentException("Local resources are not yet supported: " + resource);
-    }
-
     Callable<Void> task = new Callable<Void>() {
       @Override
       public Void call() throws Exception {

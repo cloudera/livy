@@ -21,6 +21,7 @@ package com.cloudera.livy.test.jobs;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -53,7 +54,10 @@ public class FileReader implements Job<String> {
       InputStream in;
       if (isResource) {
         ClassLoader ccl = Thread.currentThread().getContextClassLoader();
-        in = ccl.getResourceAsStream("test.resource");
+        in = ccl.getResourceAsStream(fileName);
+        if (in == null) {
+          throw new IOException("Resource not found: " + fileName);
+        }
       } else {
         in = new FileInputStream(SparkFiles.get(fileName));
       }

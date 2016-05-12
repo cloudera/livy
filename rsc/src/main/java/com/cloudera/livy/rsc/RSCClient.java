@@ -219,8 +219,10 @@ public class RSCClient implements LivyClient {
 
         eventLoopGroup.shutdownGracefully();
       }
-      LOG.debug("Disconnected from context {}, shutdown = {}.", contextInfo.clientId,
-        shutdownContext);
+      if (contextInfo != null) {
+        LOG.debug("Disconnected from context {}, shutdown = {}.", contextInfo.clientId,
+          shutdownContext);
+      }
     }
   }
 

@@ -19,6 +19,7 @@
 package com.cloudera.livy.test.framework
 
 import java.io.File
+import java.util.UUID
 import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
@@ -29,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
+import org.apache.hadoop.fs.Path
 import org.scalatest._
 import org.scalatest.concurrent.Eventually._
 
@@ -67,6 +69,14 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
       val curState = livyClient.getSessionStatus(sessionId)
       assert(curState === SessionState.Idle().toString)
     }
+  }
+
+  /** Uploads a file to HDFS and returns just its path. */
+  protected def uploadToHdfs(file: File): String = {
+    val hdfsPath = new Path(cluster.hdfsScratchDir(),
+      UUID.randomUUID().toString() + "-" + file.getName())
+    cluster.fs.copyFromLocalFile(new Path(file.toURI()), hdfsPath)
+    hdfsPath.toUri().getPath()
   }
 
   /** Wrapper around test() to be used by pyspark tests. */

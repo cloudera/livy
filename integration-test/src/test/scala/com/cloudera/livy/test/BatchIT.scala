@@ -37,13 +37,10 @@ import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 
 class BatchIT extends BaseIntegrationTestSuite {
 
-  private var testLibPath: Path = _
+  private var testLibPath: String = _
 
   test("upload test lib") {
-    val hdfsPath = new Path(cluster.hdfsScratchDir(),
-      "testlib-" + UUID.randomUUID().toString() + ".jar")
-    cluster.fs.copyFromLocalFile(new Path(new File(testLib).toURI()), hdfsPath)
-    testLibPath = cluster.fs.makeQualified(hdfsPath)
+    testLibPath = uploadToHdfs(new File(testLib))
   }
 
   test("submit spark app") {
@@ -68,7 +65,7 @@ class BatchIT extends BaseIntegrationTestSuite {
   pytest("submit a pyspark application") {
     val hdfsPath = uploadResource("pytest.py")
     val output = newOutputPath()
-    val result = runScript(hdfsPath.toString, args = List(output))
+    val result = runScript(hdfsPath, args = List(output))
     assert(result.state === SessionState.Success().toString)
     assert(cluster.fs.isDirectory(new Path(output)))
   }
@@ -77,7 +74,7 @@ class BatchIT extends BaseIntegrationTestSuite {
   // TODO comment in Spark's ApplicationMaster.scala.
   ignore("submit a SparkR application") {
     val hdfsPath = uploadResource("rtest.R")
-    val result = runScript(hdfsPath.toString)
+    val result = runScript(hdfsPath)
     assert(result.state === SessionState.Success().toString)
   }
 
@@ -85,7 +82,7 @@ class BatchIT extends BaseIntegrationTestSuite {
     cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()
   }
 
-  private def uploadResource(name: String): Path = {
+  private def uploadResource(name: String): String = {
     val hdfsPath = new Path(cluster.hdfsScratchDir(), UUID.randomUUID().toString() + "-" + name)
     val in = getClass.getResourceAsStream("/" + name)
     val out = cluster.fs.create(hdfsPath)
@@ -95,7 +92,7 @@ class BatchIT extends BaseIntegrationTestSuite {
       in.close()
       out.close()
     }
-    cluster.fs.makeQualified(hdfsPath)
+    hdfsPath.toUri().getPath()
   }
 
   private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
@@ -107,7 +104,7 @@ class BatchIT extends BaseIntegrationTestSuite {
 
   private def runSpark(klass: Class[_], args: List[String] = Nil): SessionInfo = {
     val request = new CreateBatchRequest()
-    request.file = testLibPath.toString()
+    request.file = testLibPath
     request.className = Some(klass.getName())
     request.args = args
     runBatch(request)
