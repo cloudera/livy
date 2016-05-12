@@ -24,13 +24,11 @@ usage="Usage: livy-server (start|stop)"
 # Find the java binary
 if [ -n "${JAVA_HOME}" ]; then
   RUNNER="${JAVA_HOME}/bin/java"
+elif [ `command -v java` ]; then
+  RUNNER="java"
 else
-  if [ `command -v java` ]; then
-    RUNNER="java"
-  else
-    echo "JAVA_HOME is not set" >&2
-    exit 1
-  fi
+  echo "JAVA_HOME is not set" >&2
+  exit 1
 fi
 
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
@@ -43,26 +41,40 @@ if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
   set +a
 fi
 
-if [ "$LIVY_PID_DIR" = "" ]; then
+if [ -z "$LIVY_IDENT_STRING" ]; then
+  export LIVY_IDENT_STRING="$USER"
+fi
+
+if [ -z "$LIVY_PID_DIR" ]; then
   LIVY_PID_DIR=/tmp
 fi
 pid="$LIVY_PID_DIR/livy-$LIVY_IDENT_STRING-server.pid"
 
-livy_rotate_log ()
-{
-    log=$1;
-    num=5;
-    if [ -n "$2" ]; then
-	num=$2
-    fi
-    if [ -f "$log" ]; then # rotate logs
+livy_rotate_log () {
+  log=$1
+  num=${2:-5}
+  if [ -f "$log" ]; then # rotate logs
 	while [ $num -gt 1 ]; do
-	    prev=`expr $num - 1`
-	    [ -f "$log.$prev" ] && mv "$log.$prev" "$log.$num"
-	    num=$prev
+	  prev=`expr $num - 1`
+	  [ -f "$log.$prev" ] && mv "$log.$prev" "$log.$num"
+	  num=$prev
 	done
-	mv "$log" "$log.$num";
-    fi
+    mv "$log" "$log.$num"
+  fi
+}
+
+create_dir() {
+  dir_name=$1
+  dir_variable=$2
+  mkdir -p $dir_name
+  touch $dir_name/.test > /dev/null 2>&1
+  TEST_DIR=$?
+  if [ "${TEST_DIR}" = "0" ]; then
+    rm -f "$dir_name"/.test
+  else
+    echo "$LIVY_IDENT_STRING doesn't have permission to write to directory: $dir_name which is $dir_variable"
+    exit 1
+  fi
 }
 
 start_livy_server() {
@@ -76,45 +88,32 @@ start_livy_server() {
     exit 1
   fi
 
-  if [ "$LIVY_IDENT_STRING" = "" ]; then
-    export LIVY_IDENT_STRING="$USER"
-  fi
-
-  # get log directory
-  if [ "$LIVY_LOG_DIR" = "" ]; then
-    export LIVY_LOG_DIR="${LIVY_HOME}/logs"
-  fi
-  mkdir -p "$LIVY_LOG_DIR"
-  touch "$LIVY_LOG_DIR"/.livy_test > /dev/null 2>&1
-  TEST_LOG_DIR=$?
-  if [ "${TEST_LOG_DIR}" = "0" ]; then
-    rm -f "$LIVY_LOG_DIR"/.livy_test
-  else
-    echo "$LIVY_IDENT_STRING don't have permission to write log directory: $LIVY_LOG_DIR"
-    exit 1
-  fi
-  log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
-
-  # Set default scheduling priority
-  if [ "$LIVY_NICENESS" = "" ]; then
-      export LIVY_NICENESS=0
-  fi
-
-  mkdir -p "$LIVY_PID_DIR"
-
-  if [ -f "$pid" ]; then
-    TARGET_ID="$(cat "$pid")"
-    if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
-      echo "livy_server running as process $TARGET_ID.  Stop it first."
-      exit 1
-    fi
-  fi
-
-  livy_rotate_log "$log"
-
   CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
   command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $CLASSPATH com.cloudera.livy.server.LivyServer"
-  if [ -z "$old_livy_launch" ]; then
+
+  if ! [ -z "$old_livy_launch" ]; then
+    exec $command
+  else
+    # get log directory
+    if [ -z "$LIVY_LOG_DIR" ]; then
+      export LIVY_LOG_DIR="${LIVY_HOME}/logs"
+    fi
+    create_dir $LIVY_LOG_DIR "LIVY_LOG_DIR"
+    create_dir $LIVY_PID_DIR "LIVY_PID_DIR"
+    log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
+    # Set default scheduling priority
+    if [ -z "$LIVY_NICENESS" ]; then
+      export LIVY_NICENESS=0
+    fi
+    if [ -f "$pid" ]; then
+      TARGET_ID="$(cat "$pid")"
+      if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
+        echo "livy_server running as process $TARGET_ID.  Stop it first."
+        exit 1
+      fi
+    fi
+
+    livy_rotate_log "$log"
     echo "starting $command, logging to $log"
     nohup nice -n "$LIVY_NICENESS" $command >> "$log" 2>&1 < /dev/null &
     newpid="$!"
@@ -126,8 +125,6 @@ start_livy_server() {
       tail -2 "$log" | sed 's/^/  /'
       echo "full log in $log"
     fi
-  else
-    exec $command
   fi
 }
 

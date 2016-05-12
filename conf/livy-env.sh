@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 #
 # Licensed to Cloudera, Inc. under one
 # or more contributor license agreements.  See the NOTICE file
@@ -18,8 +17,7 @@
 # limitations under the License.
 #
 # LIVY ENVIRONMENT VARIABLE
-
-
+#
 # - SPARK_HOME      Spark which you would like to use in livy
 # - LIVY_LOG_DIR    Where log files are stored.  (Default: ${LIVY_HOME}/logs)
 # - LIVY_PID_DIR    Where the pid file is stored. (Default: /tmp)
