@@ -41,12 +41,41 @@ object LivyConf {
 
   val SESSION_FACTORY = Entry("livy.server.session.factory", "process")
   val SPARK_HOME = Entry("livy.server.spark-home", null)
-  val SPARK_SUBMIT_KEY = Entry("livy.server.spark-submit", null)
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val SUPERUSERS = Entry("livy.superusers", null)
   val SPARKR_PACKAGE = Entry("livy.repl.sparkr.package", null)
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
+  val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
+
+  val SPARK_JARS = "spark.jars"
+  val SPARK_FILES = "spark.files"
+  val SPARK_ARCHIVES = "spark.yarn.dist.archives"
+  val SPARK_PY_FILES = "spark.submit.pyFiles"
+
+  /**
+   * These are Spark configurations that contain lists of files that the user can add to
+   * their jobs in one way or another. Livy needs to pre-process these to make sure the
+   * user can read them (in case they reference local files), and to provide correct URIs
+   * to Spark based on the Livy config.
+   *
+   * The configuration allows adding new configurations in case we either forget something in
+   * the hardcoded list, or new versions of Spark add new configs.
+   */
+  val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
+
+  private val HARDCODED_SPARK_FILE_LISTS = Seq(
+    SPARK_JARS,
+    SPARK_FILES,
+    SPARK_ARCHIVES,
+    SPARK_PY_FILES,
+    "spark.yarn.archive",
+    "spark.yarn.dist.files",
+    "spark.yarn.dist.jars",
+    "spark.yarn.jar",
+    "spark.yarn.jars"
+  )
+
 }
 
 /**
@@ -57,9 +86,15 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   import LivyConf._
 
-  private lazy val _superusers = Option(get(SUPERUSERS)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
+  private lazy val _superusers = configToSeq(SUPERUSERS)
 
   lazy val hadoopConf = new Configuration()
+  lazy val localFsWhitelist = configToSeq(LOCAL_FS_WHITELIST).map { path =>
+    // Make sure the path ends with a single separator.
+    path.stripSuffix("/") + "/"
+  }
+
+  lazy val sparkFileLists = HARDCODED_SPARK_FILE_LISTS ++ configToSeq(SPARK_FILE_LISTS)
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
@@ -83,9 +118,7 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {
-    Option(get(SPARK_SUBMIT_KEY))
-      .orElse { sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" } }
-      .getOrElse("spark-submit")
+    sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
   }
 
   /** Return the list of superusers. */
@@ -108,6 +141,10 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
         set(k, v)
       }
     }
+  }
+
+  private def configToSeq(entry: LivyConf.Entry): Seq[String] = {
+    Option(get(entry)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
   }
 
 }

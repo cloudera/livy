@@ -44,7 +44,6 @@ import com.cloudera.livy.sessions._
 
 object InteractiveSession {
   val LivyReplJars = "livy.repl.jars"
-  val SparkSubmitPyFiles = "spark.submit.pyFiles"
   val SparkYarnIsPython = "spark.yarn.isPython"
 }
 
@@ -68,20 +67,29 @@ class InteractiveSession(
   val kind = request.kind
 
   private val client = {
+    val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
+      request.pyFiles)
+
     info(s"Creating LivyClient for sessionId: $id")
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
-      .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
+      .setAll(conf.asJava)
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
       .setURI(new URI("rsc:/"))
 
+    def mergeConfList(list: Seq[String], key: String): Unit = {
+      if (list.nonEmpty) {
+        val newList = (list ++ conf.get(key)).mkString(",")
+        builder.setConf(key, newList)
+      }
+    }
+
     kind match {
       case PySpark() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
-        val allPyFiles = pySparkFiles ++ resolveURIs(request.pyFiles)
+        mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
         builder.setConf(SparkYarnIsPython, "true")
-        builder.setConf(SparkSubmitPyFiles, allPyFiles.mkString(","))
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
@@ -91,28 +99,18 @@ class InteractiveSession(
     }
     builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
-    val allJars = livyJars(livyConf) ++ resolveURIs(request.jars)
+    mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
 
-    def listToConf(lst: Seq[String]): Option[String] = {
-      if (lst.size > 0) Some(lst.mkString(",")) else None
-    }
-
-    val archives = resolveURIs(request.archives)
-    val files = resolveURIs(request.files)
-
-    val userOpts: Map[Option[String], String] = Map(
-      listToConf(archives) -> "spark.yarn.dist.archives",
-      listToConf(files) -> "spark.files",
-      listToConf(allJars) -> "spark.jars",
-      request.driverCores.map(_.toString) -> "spark.driver.cores",
-      request.driverMemory.map(_.toString + "b") -> SparkLauncher.DRIVER_MEMORY,
-      request.executorCores.map(_.toString) -> SparkLauncher.EXECUTOR_CORES,
-      request.executorMemory.map(_.toString) -> SparkLauncher.EXECUTOR_MEMORY,
-      request.numExecutors.map(_.toString) -> "spark.dynamicAllocation.maxExecutors"
+    val userOpts: Map[String, Option[String]] = Map(
+      "spark.driver.cores" -> request.driverCores.map(_.toString),
+      SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString + "b"),
+      SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
+      SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
+      "spark.dynamicAllocation.maxExecutors" -> request.numExecutors.map(_.toString)
     )
 
-    userOpts.foreach { case (opt, configKey) =>
-      opt.foreach { value => builder.setConf(configKey, value) }
+    userOpts.foreach { case (key, opt) =>
+      opt.foreach { value => builder.setConf(key, value) }
     }
 
     builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)

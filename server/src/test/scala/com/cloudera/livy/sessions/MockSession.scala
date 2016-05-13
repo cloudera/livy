@@ -18,26 +18,31 @@
 
 package com.cloudera.livy.sessions
 
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.language.postfixOps
-
-import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.concurrent.Eventually._
+import java.net.URI
 
 import com.cloudera.livy.LivyConf
 
-class SessionManagerSpec extends FlatSpec with Matchers {
+class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
+  override val proxyUser = None
 
-  it should "garbage collect old sessions" in {
-    val livyConf = new LivyConf()
-    livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")
-    val manager = new SessionManager[MockSession](livyConf)
-    val session = manager.register(new MockSession(manager.nextId(), null, livyConf))
-    manager.get(session.id).isDefined should be(true)
-    eventually(timeout(5 seconds), interval(100 millis)) {
-      Await.result(manager.collectGarbage(), Duration.Inf)
-      manager.get(session.id) should be(None)
-    }
+  override protected def stopSession(): Unit = ()
+
+  override def logLines(): IndexedSeq[String] = IndexedSeq()
+
+  override def state: SessionState = SessionState.Idle()
+
+  override val timeout: Long = 0L
+
+  override def resolveURIs(uris: Seq[String]): Seq[String] = super.resolveURIs(uris)
+
+  override def resolveURI(uri: URI): URI = super.resolveURI(uri)
+
+  override def prepareConf(conf: Map[String, String],
+      jars: Seq[String],
+      files: Seq[String],
+      archives: Seq[String],
+      pyFiles: Seq[String]): Map[String, String] = {
+    super.prepareConf(conf, jars, files, archives, pyFiles)
   }
+
 }

@@ -32,16 +32,10 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
   private[this] var _deployMode: Option[String] = None
   private[this] var _className: Option[String] = None
   private[this] var _name: Option[String] = Some("Livy")
-  private[this] var _jars: ArrayBuffer[String] = ArrayBuffer()
-  private[this] var _pyFiles: ArrayBuffer[String] = ArrayBuffer()
-  private[this] var _files: ArrayBuffer[String] = ArrayBuffer()
   private[this] val _conf = mutable.HashMap[String, String]()
   private[this] var _driverClassPath: ArrayBuffer[String] = ArrayBuffer()
   private[this] var _proxyUser: Option[String] = None
-
   private[this] var _queue: Option[String] = None
-  private[this] var _archives: ArrayBuffer[String] = ArrayBuffer()
-
   private[this] var _env: ArrayBuffer[(String, String)] = ArrayBuffer()
   private[this] var _redirectOutput: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectError: Option[ProcessBuilder.Redirect] = None
@@ -69,36 +63,6 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
 
   def name(name: String): SparkProcessBuilder = {
     _name = Some(name)
-    this
-  }
-
-  def jar(jar: String): SparkProcessBuilder = {
-    this._jars += jar
-    this
-  }
-
-  def jars(jars: Traversable[String]): SparkProcessBuilder = {
-    this._jars ++= jars
-    this
-  }
-
-  def pyFile(pyFile: String): SparkProcessBuilder = {
-    this._pyFiles += pyFile
-    this
-  }
-
-  def pyFiles(pyFiles: Traversable[String]): SparkProcessBuilder = {
-    this._pyFiles ++= pyFiles
-    this
-  }
-
-  def file(file: String): SparkProcessBuilder = {
-    this._files += file
-    this
-  }
-
-  def files(files: Traversable[String]): SparkProcessBuilder = {
-    this._files ++= files
     this
   }
 
@@ -172,16 +136,6 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     this
   }
 
-  def archive(archive: String): SparkProcessBuilder = {
-    _archives += archive
-    this
-  }
-
-  def archives(archives: Traversable[String]): SparkProcessBuilder = {
-    archives.foreach(archive)
-    this
-  }
-
   def env(key: String, value: String): SparkProcessBuilder = {
     _env += ((key, value))
     this
@@ -222,9 +176,6 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     addOpt("--master", _master)
     addOpt("--deploy-mode", _deployMode)
     addOpt("--name", _name)
-    addList("--jars", _jars)
-    addList("--py-files", _pyFiles)
-    addList("--files", _files)
     addOpt("--class", _className)
     _conf.foreach { case (key, value) =>
       arguments += "--conf"
@@ -237,7 +188,6 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     }
 
     addOpt("--queue", _queue)
-    addList("--archives", _archives)
 
     arguments += file.getOrElse("spark-internal")
     arguments ++= args

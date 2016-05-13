@@ -25,7 +25,7 @@ import javax.servlet.http.HttpServletResponse._
 
 import scala.concurrent.duration.Duration
 
-import com.cloudera.livy.{LivyConf, Utils}
+import com.cloudera.livy.Utils
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.sessions.SessionState
 
@@ -46,7 +46,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
     script
   }
 
-  override def createServlet(): BatchSessionServlet = new BatchSessionServlet(new LivyConf())
+  override def createServlet(): BatchSessionServlet = new BatchSessionServlet(createConf())
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {
