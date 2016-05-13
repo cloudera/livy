@@ -74,7 +74,7 @@ create_dir() {
   if [ "${TEST_DIR}" = "0" ]; then
     rm -f "$dir_name"/.test
   else
-    echo "$LIVY_IDENT_STRING doesn't have permission to write to directory: $dir_name which is $dir_variable"
+    echo "$USER doesn't have permission to write to directory: $dir_name which is $dir_variable"
     exit 1
   fi
 }
@@ -102,7 +102,7 @@ start_livy_server() {
     LIVY_CLASSPATH="$LIVY_CLASSPATH:$YARN_CONF_DIR"
   fi
 
-  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH com.cloudera.livy.server.LivyServer"
+  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH:$CLASSPATH com.cloudera.livy.server.LivyServer"
 
   if ! [ -z "$old_livy_launch" ]; then
     exec $command
