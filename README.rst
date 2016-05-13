@@ -56,9 +56,8 @@ Livy is built using `Apache Maven`_. To checkout and build Livy, run:
     % cd livy
     % mvn package
 
-By default Livy is built against CDH 5.5's distribution of Spark (currently
-based off Spark 1.5.0). You can build Livy against a different version of Spark
-by setting the ``spark.version`` property:
+By default Livy is built against CDH 5.5's distribution of Spark (based off Spark 1.5.0). You can
+build Livy against a different version of Spark by setting the ``spark.version`` property:
 
 .. code:: shell
 
@@ -114,6 +113,32 @@ The configuration files used by Livy are:
 
 * ``log4j.properties``: configuration for Livy logging. Defines log levels and where log messages
   will be written to. The default configuration will print log messages to stderr.
+
+
+Upgrade from Livy 0.1
+=====================
+
+A few things changed between since Livy 0.1 that require manual intervention when upgrading.
+
+- Sessions that were active when the Livy 0.1 server was stopped may need to be killed
+  manually. Use the tools from your cluster manager to achieve that (for example, the
+  ``yarn`` command line tool).
+
+- The configuration file has been renamed from ``livy-defaults.conf`` to ``livy.conf``.
+
+- A few configuration values do not have any effect anymore. Notably:
+
+  * ``livy.server.session.factory``: this config option has been replaced by the Spark
+    configuration under ``SPARK_HOME``. If you wish to use a different Spark configuration
+    for Livy, you can set ``SPARK_CONF_DIR`` in Livy's environment. To define the default
+    file system root for sessions, set ``HADOOP_CONF_DIR`` to point at the Hadoop configuration
+    to use. The default Hadoop file system will be used.
+
+  * ``livy.yarn.jar``: this config has been replaced by separate configs listing specific
+    archives for different Livy features. Refer to the default ``livy.conf`` file shipped
+    with Livy for instructions.
+
+  * ``livy.server.spark-submit``: replaced by the ``SPARK_HOME`` environment variable.
 
 
 Spark Example
