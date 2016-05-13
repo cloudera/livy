@@ -32,7 +32,9 @@ else
 fi
 
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
-export LIVY_CONF_DIR="${LIVY_CONF_DIR:-"${LIVY_HOME}/conf"}"
+if [ -z "$LIVY_CONF_DIR" ]; then
+  LIVY_CONF_DIR="$LIVY_HOME/conf"
+fi
 
 if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
   # Promote all variable declarations to environment (exported) variables
@@ -88,8 +90,19 @@ start_livy_server() {
     exit 1
   fi
 
-  CLASSPATH="$LIBDIR/*:$LIVY_HOME/conf:$CLASSPATH"
-  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $CLASSPATH com.cloudera.livy.server.LivyServer"
+  LIVY_CLASSPATH="$LIBDIR/*:$LIVY_CONF_DIR"
+
+  if [ -n "$SPARK_CONF_DIR" ]; then
+    LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_CONF_DIR"
+  fi
+  if [ -n "$HADOOP_CONF_DIR" ]; then
+    LIVY_CLASSPATH="$LIVY_CLASSPATH:$HADOOP_CONF_DIR"
+  fi
+  if [ -n "$YARN_CONF_DIR" ]; then
+    LIVY_CLASSPATH="$LIVY_CLASSPATH:$YARN_CONF_DIR"
+  fi
+
+  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH com.cloudera.livy.server.LivyServer"
 
   if ! [ -z "$old_livy_launch" ]; then
     exec $command
