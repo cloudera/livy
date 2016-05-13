@@ -54,6 +54,7 @@ abstract class BaseSessionServletSpec[S <: Session]
     new LivyConf()
       .set(LivyConf.IMPERSONATION_ENABLED, true)
       .set(LivyConf.SUPERUSERS, ADMIN)
+      .set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
   }
 
   override def afterAll(): Unit = {
