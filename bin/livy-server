@@ -32,9 +32,7 @@ else
 fi
 
 export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
-if [ -z "$LIVY_CONF_DIR" ]; then
-  LIVY_CONF_DIR="$LIVY_HOME/conf"
-fi
+LIVY_CONF_DIR=${LIVY_CONF_DIR:-"$LIVY_HOME/conf"}
 
 if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
   # Promote all variable declarations to environment (exported) variables
@@ -43,13 +41,8 @@ if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
   set +a
 fi
 
-if [ -z "$LIVY_IDENT_STRING" ]; then
-  export LIVY_IDENT_STRING="$USER"
-fi
-
-if [ -z "$LIVY_PID_DIR" ]; then
-  LIVY_PID_DIR=/tmp
-fi
+LIVY_IDENT_STRING=${LIVY_IDENT_STRING:-"$USER"}
+LIVY_PID_DIR=${LIVY_PID_DIR:-"/tmp"}
 pid="$LIVY_PID_DIR/livy-$LIVY_IDENT_STRING-server.pid"
 
 livy_rotate_log () {
@@ -104,20 +97,16 @@ start_livy_server() {
 
   command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH:$CLASSPATH com.cloudera.livy.server.LivyServer"
 
-  if ! [ -z "$old_livy_launch" ]; then
+  if [ $1 = "old" ]; then
     exec $command
   else
     # get log directory
-    if [ -z "$LIVY_LOG_DIR" ]; then
-      export LIVY_LOG_DIR="${LIVY_HOME}/logs"
-    fi
+    LIVY_LOG_DIR=${LIVY_LOG_DIR:-${LIVY_HOME}/logs}
     create_dir $LIVY_LOG_DIR "LIVY_LOG_DIR"
     create_dir $LIVY_PID_DIR "LIVY_PID_DIR"
     log="$LIVY_LOG_DIR/livy-$LIVY_IDENT_STRING-server.out"
     # Set default scheduling priority
-    if [ -z "$LIVY_NICENESS" ]; then
-      export LIVY_NICENESS=0
-    fi
+    LIVY_NICENESS=${LIVY_NICENESS:-0}
     if [ -f "$pid" ]; then
       TARGET_ID="$(cat "$pid")"
       if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
@@ -137,6 +126,7 @@ start_livy_server() {
       echo "failed to launch $command:"
       tail -2 "$log" | sed 's/^/  /'
       echo "full log in $log"
+      rm -rf "$pid"
     fi
   fi
 }
@@ -146,13 +136,14 @@ option=$1
 case $option in
 
   (start)
-    start_livy_server
+    start_livy_server "new"
     ;;
+
   ("")
     # make it compatible with previous version of livy-server
-    old_livy_launch=1
-    start_livy_server
+    start_livy_server "old"
     ;;
+
   (stop)
 
     if [ -f $pid ]; then
