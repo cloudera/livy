@@ -40,7 +40,6 @@ class LivyServer extends Logging {
   private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
   private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
   private val SERVER_PORT = LivyConf.Entry("livy.server.port", 8998)
-  private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
   private val KERBEROS_PRINCIPAL = LivyConf.Entry("livy.server.auth.kerberos.principal", null)
   private val KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
   private val KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
@@ -83,7 +82,7 @@ class LivyServer extends Logging {
 
       })
 
-    livyConf.get(AUTH_TYPE) match {
+    livyConf.get(LivyConf.AUTH_TYPE) match {
       case authType @ KerberosAuthenticationHandler.TYPE =>
         val principal = SecurityUtil.getServerPrincipal(livyConf.get(KERBEROS_PRINCIPAL),
           server.host)

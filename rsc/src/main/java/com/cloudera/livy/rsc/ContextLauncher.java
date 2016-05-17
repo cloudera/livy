@@ -44,6 +44,9 @@ import static java.nio.file.attribute.PosixFilePermission.*;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.Promise;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.security.authentication.server.KerberosAuthenticationHandler;
 import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -183,6 +186,34 @@ class ContextLauncher {
 
     final File confFile = writeConfToFile(conf);
 
+    // run kinit before launching driver if it is in secure mode
+    if (conf.get(RSCConf.Entry.AUTH_TYPE) != null
+            && conf.get(RSCConf.Entry.AUTH_TYPE).equals(KerberosAuthenticationHandler.TYPE)) {
+      String principal = conf.get(RSCConf.Entry.KERBEROS_PRINCIPLE);
+      String keytab = conf.get(RSCConf.Entry.KERBEROS_KEYTAB);
+      if (principal == null || keytab == null) {
+        throw new RuntimeException("either principal or keytab is null, " +
+                "can not run it in secure mode");
+      }
+      List<String> arguments = new ArrayList<String>();
+      arguments.add("kinit");
+      arguments.add(principal);
+      arguments.add("-k");
+      arguments.add("-t");
+      arguments.add(keytab);
+      ProcessBuilder procBuilder = new ProcessBuilder(arguments);
+      LOG.info("Run command:" + StringUtils.join(arguments, " "));
+      Process proc = procBuilder.start();
+      try {
+        int returnVal = proc.waitFor();
+        if (returnVal != 0) {
+          throw new IOException("Fail to run kinit command, " +
+                  StringUtils.join(IOUtils.readLines(proc.getErrorStream()), "\n"));
+        }
+      } catch (InterruptedException e) {
+        throw new IOException(e);
+      }
+    }
     if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");

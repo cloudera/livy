@@ -114,6 +114,18 @@ class InteractiveSession(
     }
 
     builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
+    if (livyConf.get(LivyConf.AUTH_TYPE) != null) {
+      builder.setConf(RSCConf.Entry.AUTH_TYPE.key(),
+        livyConf.get(LivyConf.AUTH_TYPE))
+    }
+    if (livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_PRINCIPAL) != null) {
+      builder.setConf(RSCConf.Entry.KERBEROS_PRINCIPLE.key(),
+        livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_PRINCIPAL))
+    }
+    if (livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_KEYTAB) != null) {
+      builder.setConf(RSCConf.Entry.KERBEROS_KEYTAB.key(),
+        livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_KEYTAB))
+    }
     builder.build()
   }.asInstanceOf[RSCClient]
 

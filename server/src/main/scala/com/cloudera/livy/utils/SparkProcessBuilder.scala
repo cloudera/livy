@@ -18,9 +18,15 @@
 
 package com.cloudera.livy.utils
 
+import java.io.IOException
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+
+import org.apache.commons.io.IOUtils
+import org.apache.commons.lang.StringUtils
+import org.apache.hadoop.security.authentication.server.KerberosAuthenticationHandler
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.util.LineBufferedProcess
@@ -157,6 +163,38 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
   }
 
   def start(file: Option[String], args: Traversable[String]): LineBufferedProcess = {
+    // run kinit before launching driver if it is in secure mode
+    if (livyConf.get(LivyConf.AUTH_TYPE) != null
+      && (livyConf.get(LivyConf.AUTH_TYPE) == KerberosAuthenticationHandler.TYPE)) {
+      val principal = livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_PRINCIPAL)
+      val keytab = livyConf.get(LivyConf.LIVY_SERVER_KERBEROS_KEYTAB)
+      if (principal == null || keytab == null) {
+        throw new RuntimeException("either principal or keytab is null, "
+          + "can not run it in secure mode")
+      }
+      val arguments = ArrayBuffer.empty[String]
+      arguments += "kinit"
+      arguments += principal
+      arguments += "-k"
+      arguments += "-t"
+      arguments += keytab
+      val procBuilder = new ProcessBuilder(arguments.asJava)
+      info("Runing command:" + arguments.mkString(" "))
+      val proc: Process = procBuilder.start
+      try {
+        val returnVal: Int = proc.waitFor
+        if (returnVal != 0) {
+          throw new IOException("Fail to run kinit command, "
+            + StringUtils.join(IOUtils.readLines(proc.getErrorStream), "\n"))
+        }
+      }
+      catch {
+        case e: InterruptedException => {
+          throw new IOException(e)
+        }
+      }
+    }
+
     var arguments = ArrayBuffer(_executable)
 
     def addOpt(option: String, value: Option[String]): Unit = {
