@@ -34,9 +34,12 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.util.concurrent.ScheduledFuture;
 import org.apache.commons.io.FileUtils;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaFutureAction;
@@ -83,6 +86,8 @@ public class RSCDriver extends BaseProtocol {
   protected final SparkConf conf;
   protected final RSCConf livyConf;
 
+  private final AtomicReference<ScheduledFuture<?>> idleTimeout;
+
   public RSCDriver(SparkConf conf, RSCConf livyConf) throws Exception {
     Set<PosixFilePermission> perms = PosixFilePermissions.fromString("rwx------");
     this.localTmpDir = Files.createTempDirectory("rsc-tmp",
@@ -99,6 +104,7 @@ public class RSCDriver extends BaseProtocol {
 
     this.activeJobs = new ConcurrentHashMap<>();
     this.bypassJobs = new ConcurrentLinkedDeque<>();
+    this.idleTimeout = new AtomicReference<>();
   }
 
   private synchronized void shutdown() {
@@ -156,15 +162,8 @@ public class RSCDriver extends BaseProtocol {
     this.server = new RpcServer(livyConf);
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
-      public RpcDispatcher onNewClient(final Rpc client) {
-        clients.add(client);
-        Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
-          @Override
-          public void onSuccess(Void unused) {
-            clients.remove(client);
-          }
-        });
-        LOG.debug("Registered new connection from {}.", client.getChannel());
+      public RpcDispatcher onNewClient(Rpc client) {
+        registerClient(client);
         return RSCDriver.this;
       }
     });
@@ -173,11 +172,66 @@ public class RSCDriver extends BaseProtocol {
     Rpc callbackRpc = Rpc.createClient(livyConf, server.getEventLoopGroup(),
       launcherAddress, launcherPort, clientId, secret, this).get();
     try {
-      // There's no timeout here because we expect the launching side to kill the underlying
-      // application if it takes too long to connect back and send its address.
-      callbackRpc.call(new RemoteDriverAddress(server.getAddress(), server.getPort())).get();
+      callbackRpc.call(new RemoteDriverAddress(server.getAddress(), server.getPort())).get(
+        livyConf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
+    } catch (TimeoutException te) {
+      LOG.warn("Timed out sending address to Livy server, shutting down.");
+      throw te;
     } finally {
       callbackRpc.close();
+    }
+
+    // At this point we install the idle timeout handler, in case the Livy server fails to connect
+    // back.
+    setupIdleTimeout();
+  }
+
+  private void registerClient(final Rpc client) {
+    clients.add(client);
+    stopIdleTimeout();
+
+    Utils.addListener(client.getChannel().closeFuture(), new FutureListener<Void>() {
+      @Override
+      public void onSuccess(Void unused) {
+        clients.remove(client);
+        setupIdleTimeout();
+      }
+    });
+    LOG.debug("Registered new connection from {}.", client.getChannel());
+  }
+
+  private void setupIdleTimeout() {
+    if (clients.size() > 0) {
+      return;
+    }
+
+    Runnable timeoutTask = new Runnable() {
+      @Override
+      public void run() {
+        LOG.warn("Shutting down RSC due to idle timeout ({}).", livyConf.get(SERVER_IDLE_TIMEOUT));
+        shutdown();
+      }
+    };
+    ScheduledFuture<?> timeout = server.getEventLoopGroup().schedule(timeoutTask,
+      livyConf.getTimeAsMs(SERVER_IDLE_TIMEOUT), TimeUnit.MILLISECONDS);
+
+    // If there's already an idle task registered, then cancel the new one.
+    if (!this.idleTimeout.compareAndSet(null, timeout)) {
+      LOG.debug("Timeout task already registered.");
+      timeout.cancel(false);
+    }
+
+    // If a new client connected while the idle task was being set up, then stop the task.
+    if (clients.size() > 0) {
+      stopIdleTimeout();
+    }
+  }
+
+  private void stopIdleTimeout() {
+    ScheduledFuture<?> idleTimeout = this.idleTimeout.getAndSet(null);
+    if (idleTimeout != null) {
+      LOG.debug("Cancelling idle timeout since new client connected.");
+      idleTimeout.cancel(false);
     }
   }
 

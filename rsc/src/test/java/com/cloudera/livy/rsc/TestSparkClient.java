@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 
@@ -59,6 +60,7 @@ import com.cloudera.livy.test.jobs.Failure;
 import com.cloudera.livy.test.jobs.FileReader;
 import com.cloudera.livy.test.jobs.GetCurrentUser;
 import com.cloudera.livy.test.jobs.SQLGetTweets;
+import com.cloudera.livy.test.jobs.Sleeper;
 import com.cloudera.livy.test.jobs.SmallCount;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
@@ -287,12 +289,7 @@ public class TestSparkClient {
     runTest(false, new TestFunction() {
       @Override
       void call(LivyClient client) throws Exception {
-        ContextInfo ctx = ((RSCClient) client).getContextInfo();
-        URI uri = new URI(String.format("rsc://%s:%s@%s:%d", ctx.clientId, ctx.secret,
-          ctx.remoteAddress, ctx.remotePort));
-
-        // Close the old client to make sure the driver doesn't go away when it disconnects.
-        client.stop(false);
+        URI uri = disconnectClient(client);
 
         // If this tries to create a new context, it will fail because it's missing the
         // needed configuration from createConf().
@@ -306,11 +303,44 @@ public class TestSparkClient {
           assertEquals("hello", result);
         } finally {
           newClient.stop(true);
-
-          // Make sure the underlying ContextLauncher is cleaned up properly, since we did
-          // a "stop(false)" above.
-          // ((RSCClient) client).getContextInfo().dispose(true);
         }
+      }
+    });
+  }
+
+  @Test
+  public void testServerIdleTimeout() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      void call(LivyClient client) throws Exception {
+        // Close the old client and wait a couple of seconds for the timeout to trigger.
+        URI uri = disconnectClient(client);
+        TimeUnit.SECONDS.sleep(2);
+
+        // Try to connect back with a new client, it should fail. Since there's no API to monitor
+        // the connection state, we try to enqueue a long-running job and make sure that it fails,
+        // in case the connection actually goes through.
+        try {
+          LivyClient newClient = new LivyClientBuilder()
+            .setURI(uri)
+            .build();
+
+          try {
+            newClient.submit(new Sleeper(TimeUnit.SECONDS.toMillis(TIMEOUT)))
+              .get(TIMEOUT, TimeUnit.SECONDS);
+          } catch (TimeoutException te) {
+            // Shouldn't have gotten here, but catch this so that we stop the client.
+            newClient.stop(true);
+          }
+          fail("Should have failed to contact RSC after idle timeout.");
+        } catch (Exception e) {
+          // Expected.
+        }
+      }
+
+      @Override
+      void config(Properties conf) {
+        conf.setProperty(SERVER_IDLE_TIMEOUT.key(), "1s");
       }
     });
   }
@@ -377,6 +407,16 @@ public class TestSparkClient {
     JobHandle.Listener<T> listener =
       (JobHandle.Listener<T>) mock(JobHandle.Listener.class);
     return listener;
+  }
+
+  private URI disconnectClient(LivyClient client) throws Exception {
+    ContextInfo ctx = ((RSCClient) client).getContextInfo();
+    URI uri = new URI(String.format("rsc://%s:%s@%s:%d", ctx.clientId, ctx.secret,
+      ctx.remoteAddress, ctx.remotePort));
+
+    // Close the old client and wait a couple of seconds for the timeout to trigger.
+    client.stop(false);
+    return uri;
   }
 
   private void runTest(boolean local, TestFunction test) throws Exception {
