@@ -90,6 +90,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   /** Wrapper around test() to be used by SparkR tests. */
   protected def rtest(desc: String)(testFn: => Unit): Unit = {
     test(desc) {
+      assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
       assume(cluster.isRealSpark(), "SparkR tests require a real Spark installation.")
       assume(cluster.hasSparkR(), "Spark under test does not support R.")
       testFn
