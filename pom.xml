@@ -69,6 +69,9 @@
     <execution.root>${user.dir}</execution.root>
     <spark.home>${execution.root}/dev/spark</spark.home>
 
+    <!-- Set this to "true" to skip R tests. -->
+    <skipRTests>false</skipRTests>
+
     <!--
       Properties for the copyright header style checks. Modules that use the ASF header
       should override the "copyright.header" property.
@@ -649,6 +652,7 @@
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
               <project.version>${project.version}</project.version>
+              <skipRTests>${skipRTests}</skipRTests>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -673,6 +677,7 @@
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
               <project.version>${project.version}</project.version>
+              <skipRTests>${skipRTests}</skipRTests>
             </systemProperties>
             <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>

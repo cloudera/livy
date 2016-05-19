@@ -24,8 +24,14 @@ import scala.concurrent.duration.Duration
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 import org.json4s.JsonAST.JValue
+import org.scalatest._
 
 class SparkRSessionSpec extends BaseSessionSpec {
+
+  override protected def withFixture(test: NoArgTest) = {
+    assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
+    test()
+  }
 
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 

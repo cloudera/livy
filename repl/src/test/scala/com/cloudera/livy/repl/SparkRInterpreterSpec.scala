@@ -21,10 +21,16 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
+import org.scalatest._
 
 class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
+
+  override protected def withFixture(test: NoArgTest): Outcome = {
+    assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
+    test()
+  }
 
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
