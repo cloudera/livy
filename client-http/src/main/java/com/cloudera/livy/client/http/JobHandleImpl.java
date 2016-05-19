@@ -153,8 +153,7 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
           pollTask = executor.schedule(new JobPollTask(initialPollInterval),
             initialPollInterval, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
-          setResult(null, e);
-          changeState(State.FAILED);
+          setResult(null, e, State.FAILED);
         }
       }
     };
@@ -168,8 +167,7 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
         try {
           conn.post(null, Void.class, "/%d/jobs/%d/cancel", sessionId, id);
         } catch (Exception e) {
-          setResult(null, e);
-          changeState(State.FAILED);
+          setResult(null, e, State.FAILED);
         }
       }
     });
@@ -205,13 +203,14 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
     return result;
   }
 
-  private void setResult(T result, Throwable error) {
+  private void setResult(T result, Throwable error, State newState) {
     if (!isDone) {
       synchronized (lock) {
         if (!isDone) {
           this.result = result;
           this.error = error;
           this.isDone = true;
+          changeState(newState);
         }
         lock.notifyAll();
       }
@@ -257,9 +256,8 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
             // Nothing to do.
         }
         if (finished) {
-          setResult(result, error);
-        }
-        if (status.state != state) {
+          setResult(result, error, status.state);
+        } else if (status.state != state) {
           changeState(status.state);
         }
         if (!finished) {
@@ -267,8 +265,7 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
           pollTask = executor.schedule(this, currentInterval, TimeUnit.MILLISECONDS);
         }
       } catch (Exception e) {
-        setResult(null, e);
-        changeState(State.FAILED);
+        setResult(null, e, State.FAILED);
       }
     }
 
