@@ -51,20 +51,20 @@ only supports Scala 2.10 builds of Spark.
 Building Livy
 =============
 
-Livy is built using `Apache Maven`_. To checkout and build Livy, run:
+Livy is built using `Apache Maven`_. To check out and build Livy, run:
 
 .. code:: shell
 
-    % git clone git@github.com:cloudera/livy.git
-    % cd livy
-    % mvn package
+    git clone git@github.com:cloudera/livy.git
+    cd livy
+    mvn package
 
-By default Livy is built against CDH 5.5's distribution of Spark (based off Spark 1.5.0). You can
+By default Livy is built against the CDH 5.5 distribution of Spark (based off Spark 1.5.0). You can
 build Livy against a different version of Spark by setting the ``spark.version`` property:
 
 .. code:: shell
 
-    % mvn -Dspark.version=1.6.1 package
+    mvn -Dspark.version=1.6.0 package
 
 The version of Spark used when running Livy does not need to match the version used to build Livy.
 The Livy package itself does not contain a Spark distribution, and will work with any supported
@@ -80,19 +80,19 @@ In order to run Livy with local sessions, first export these variables:
 
 .. code:: shell
 
-   % export SPARK_HOME=/usr/lib/spark
-   % export HADOOP_CONF_DIR=/etc/hadoop/conf
+   export SPARK_HOME=/usr/lib/spark
+   export HADOOP_CONF_DIR=/etc/hadoop/conf
 
 Then start the server with:
 
 .. code:: shell
 
-    % ./bin/livy-server
+    ./bin/livy-server
 
-Livy will use the Spark configuration under ``SPARK_HOME`` by default. The Spark configuration can
-be overridden by setting the ``SPARK_CONF_DIR`` environment variable before starting Livy.
+Livy uses the Spark configuration under ``SPARK_HOME`` by default. You can override the Spark configuration 
+by setting the ``SPARK_CONF_DIR`` environment variable before starting Livy.
 
-It is strongly recommended that Spark is configured to submit applications in YARN cluster mode.
+It is strongly recommended to configure Spark to submit applications in YARN cluster mode.
 That makes sure that user sessions have their resources properly accounted for in the YARN cluster,
 and that the host running the Livy server doesn't become overloaded when multiple user sessions are
 running.
@@ -148,49 +148,50 @@ Spark Example
 =============
 
 Here's a step-by-step example of interacting with Livy in Python with the `Requests`_ library. By
-default livy runs on port 8998 (which can be changed with the ``livy.server.port`` config option).
+default Livy runs on port 8998 (which can be changed with the ``livy.server.port`` config option).
 We’ll start off with a Spark session that takes Scala code:
 
 .. code:: shell
-    % sudo pip install requests
+
+    sudo pip install requests
 
 .. code:: python
 
-    >>> import json, pprint, requests, textwrap
-    >>> host = 'http://localhost:8998'
-    >>> data = {'kind': 'spark'}
-    >>> headers = {'Content-Type': 'application/json'}
-    >>> r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
-    >>> r.json()
+    import json, pprint, requests, textwrap
+    host = 'http://localhost:8998'
+    data = {'kind': 'spark'}
+    headers = {'Content-Type': 'application/json'}
+    r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
+    r.json()
     {u'state': u'starting', u'id': 0, u’kind’: u’spark’}
 
 Once the session has completed starting up, it transitions to the idle state:
 
 .. code:: python
 
-    >>> session_url = host + r.headers['location']
-    >>> r = requests.get(session_url, headers=headers)
-    >>> r.json()
+    session_url = host + r.headers['location']
+    r = requests.get(session_url, headers=headers)
+    r.json()
     {u'state': u'idle', u'id': 0, u’kind’: u’spark’}
 
 Now we can execute Scala by passing in a simple JSON command:
 
 .. code:: python
 
-    >>> statements_url = session_url + '/statements'
-    >>> data = {'code': '1 + 1'}
-    >>> r = requests.post(statements_url, data=json.dumps(data), headers=headers)
-    >>> r.json()
+    statements_url = session_url + '/statements'
+    data = {'code': '1 + 1'}
+    r = requests.post(statements_url, data=json.dumps(data), headers=headers)
+    r.json()
     {u'output': None, u'state': u'running', u'id': 0}
 
 If a statement takes longer than a few milliseconds to execute, Livy returns
-early and provides a URL that can be polled until it is complete:
+early and provides a statement URL that can be polled until it is complete:
 
 .. code:: python
 
-    >>> statement_url = host + r.headers['location']
-    >>> r = requests.get(statement_url, headers=headers)
-    >>> pprint.pprint(r.json())
+    statement_url = host + r.headers['location']
+    r = requests.get(statement_url, headers=headers)
+    pprint.pprint(r.json())
     [{u'id': 0,
       u'output': {u'data': {u'text/plain': u'res0: Int = 2'},
                   u'execution_count': 0,
@@ -202,31 +203,32 @@ Pi. This is from the `Spark Examples`_:
 
 .. code:: python
 
-    >>> data = {
-    ...   'code': textwrap.dedent("""\
-    ...      val NUM_SAMPLES = 100000;
-    ...      val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
-    ...        val x = Math.random();
-    ...        val y = Math.random();
-    ...        if (x*x + y*y < 1) 1 else 0
-    ...      }.reduce(_ + _);
-    ...      println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
-    ...      """)
-    ... }
-    >>> r = requests.post(statements_url, data=json.dumps(data), headers=headers)
-    >>> pprint.pprint(r.json())
+    data = {
+    'code': textwrap.dedent("""\
+    val NUM_SAMPLES = 100000;
+    val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
+    val x = Math.random();
+    val y = Math.random();
+    if (x*x + y*y < 1) 1 else 0
+    }.reduce(_ + _);
+    println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
+    """)
+    }
+    
+    r = requests.post(statements_url, data=json.dumps(data), headers=headers)
+    pprint.pprint(r.json())
     {u'id': 1,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.14004\nNUM_SAMPLES: Int = 100000\ncount: Int = 78501'},
                  u'execution_count': 1,
                  u'status': u'ok'},
      u'state': u'available'}
 
-Finally, let's close our session:
+Finally, close the session:
 
 .. code:: python
 
-    >>> session_url = 'http://localhost:8998/sessions/0'
-    >>> requests.delete(session_url, headers=headers)
+    session_url = 'http://localhost:8998/sessions/0'
+    requests.delete(session_url, headers=headers)
     <Response [204]>
 
 .. _Requests: http://docs.python-requests.org/en/latest/
@@ -236,34 +238,30 @@ Finally, let's close our session:
 PySpark Example
 ===============
 
-PySpark has the exact same API, just with a different initial request:
+PySpark has the same API, just with a different initial request:
 
 .. code:: python
 
-    >>> data = {'kind': 'pyspark'}
-    >>> r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
-    >>> r.json()
+    data = {'kind': 'pyspark'}
+    r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
+    r.json()
     {u'id': 1, u'state': u'idle'}
 
-The PI example from before then can be run as:
+The Pi example from before then can be run as:
 
 .. code:: python
 
-    >>> data = {
-    ...   'code': textwrap.dedent("""\
-    ...     import random
-    ...     NUM_SAMPLES = 100000
-    ...     def sample(p):
-    ...       x, y = random.random(), random.random()
-    ...       return 1 if x*x + y*y < 1 else 0
-    ...
-    ...     count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample) \
-    ...               .reduce(lambda a, b: a + b)
-    ...     print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)
-    ...     """)
-    ... }
-    >>> r = requests.post(statements_url, data=json.dumps(data), headers=headers)
-    >>> pprint.pprint(r.json())
+    data = {'code': textwrap.dedent("""
+    import random
+    NUM_SAMPLES = 100000
+    def sample(p):
+      x, y = random.random(), random.random()
+      return 1 if x*x + y*y < 1 else 0
+    count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample).reduce(lambda a, b: a + b)
+    print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)""")}
+
+    r = requests.post(statements_url, data=json.dumps(data), headers=headers)
+    pprint.pprint(r.json())
     {u'id': 12,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.136000'},
                  u'execution_count': 12,
@@ -274,41 +272,42 @@ The PI example from before then can be run as:
 SparkR Example
 ==============
 
-SparkR also has the same API:
+SparkR has the same API:
 
 .. code:: python
 
-    >>> data = {'kind': 'sparkR'}
-    >>> r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
-    >>> r.json()
+    data = {'kind': 'sparkr'}
+    r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
+    r.json()
     {u'id': 1, u'state': u'idle'}
 
-The PI example from before then can be run as:
+The Pi example from before then can be run as:
 
 .. code:: python
 
-    >>> data = {
-    ...   'code': textwrap.dedent("""\
-    ...      n <- 100000
-    ...      piFunc <- function(elem) {
-    ...        rands <- runif(n = 2, min = -1, max = 1)
-    ...        val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
-    ...        val
-    ...      }
-    ...      piFuncVec <- function(elems) {
-    ...        message(length(elems))
-    ...        rands1 <- runif(n = length(elems), min = -1, max = 1)
-    ...        rands2 <- runif(n = length(elems), min = -1, max = 1)
-    ...        val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
-    ...        sum(val)
-    ...      }
-    ...      rdd <- parallelize(sc, 1:n, slices)
-    ...      count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
-    ...      cat("Pi is roughly", 4.0 * count / n, "\n")
-    ...     """)
-    ... }
-    >>> r = requests.post(statements_url, data=json.dumps(data), headers=headers)
-    >>> pprint.pprint(r.json())
+    data = {
+    'code': textwrap.dedent("""\
+    n <- 100000
+    piFunc <- function(elem) {
+    rands <- runif(n = 2, min = -1, max = 1)
+    val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
+    val
+    }
+    piFuncVec <- function(elems) {
+    message(length(elems))
+    rands1 <- runif(n = length(elems), min = -1, max = 1)
+    rands2 <- runif(n = length(elems), min = -1, max = 1)
+    val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
+    sum(val)
+    }
+    rdd <- parallelize(sc, 1:n, slices)
+    count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
+    cat("Pi is roughly", 4.0 * count / n, "\n")
+    """)
+    }
+    
+    r = requests.post(statements_url, data=json.dumps(data), headers=headers)
+    pprint.pprint(r.json())
     {u'id': 12,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.136000'},
                  u'execution_count': 12,
@@ -321,7 +320,7 @@ Community
 
  * User group: http://groups.google.com/a/cloudera.org/group/livy-user
  * Dev group: http://groups.google.com/a/cloudera.org/group/livy-dev
- * Jira: https://issues.cloudera.org/browse/LIVY
+ * JIRA: https://issues.cloudera.org/browse/LIVY
  * Pull requests: https://github.com/cloudera/livy/pulls
 
 
@@ -339,14 +338,14 @@ Response Body
 +----------+-----------------+------+
 | name     | description     | type |
 +==========+=================+======+
-| sessions | `session`_ list | list |
+| sessions | `Session`_ list | list |
 +----------+-----------------+------+
 
 
 POST /sessions
 --------------
 
-Creates a new interative Scala, Python or R shell in the cluster.
+Creates a new interative Scala, Python, or R shell in the cluster.
 
 Request Body
 ^^^^^^^^^^^^
@@ -371,7 +370,7 @@ The created `Session`_.
 GET /sessions/{sessionId}
 -------------------------
 
-Return the session information
+Returns the session information.
 
 Response
 ^^^^^^^^
@@ -382,13 +381,13 @@ The `Session`_.
 DELETE /sessions/{sessionId}
 ----------------------------
 
-Kill the `Session`_ job.
+Kills the `Session`_ job.
 
 
 GET /sessions/{sessionId}/logs
 ------------------------------
 
-Get the log lines from this session.
+Gets the log lines from this session.
 
 Request Parameters
 ^^^^^^^^^^^^^^^^^^
@@ -396,9 +395,9 @@ Request Parameters
 +------+-----------------------------------+------+
 | name | description                       | type |
 +======+===================================+======+
-| from | offset                            | int  |
+| from | Offset                            | int  |
 +------+-----------------------------------+------+
-| size | max number of log lines to return | int  |
+| size | Max number of log lines to return | int  |
 +------+-----------------------------------+------+
 
 Response Body
@@ -409,9 +408,9 @@ Response Body
 +======+==========================+=================+
 | id   | The session id           | int             |
 +------+--------------------------+-----------------+
-| from | offset from start of log | int             |
+| from | Offset from start of log | int             |
 +------+--------------------------+-----------------+
-| size | number of log lines      | int             |
+| size | Number of log lines      | int             |
 +------+--------------------------+-----------------+
 | log  | The log lines            | list of strings |
 +------+--------------------------+-----------------+
@@ -420,7 +419,7 @@ Response Body
 GET /sessions/{sessionId}/statements
 ------------------------------------
 
-Return all the statements in a session.
+Returns all the statements in a session.
 
 Response Body
 ^^^^^^^^^^^^^
@@ -435,7 +434,7 @@ Response Body
 POST /sessions/{sessionId}/statements
 -------------------------------------
 
-Execute a statement in a session.
+Runs a statement in a session.
 
 Request Body
 ^^^^^^^^^^^^
@@ -455,7 +454,7 @@ The `statement`_ object.
 GET /batches
 ------------
 
-Return all the active batch jobs.
+Returns all the active batch jobs.
 
 Response Body
 ^^^^^^^^^^^^^
@@ -473,19 +472,19 @@ POST /batches
 Request Body
 ^^^^^^^^^^^^
 
-+----------------+---------------------------------------------------+-----------------+
-| name           | description                                       | type            |
-+================+===================================================+=================+
-| file           | The file containing the application to execute    | path (required) |
-+----------------+---------------------------------------------------+-----------------+
-| proxyUser      | TUser to impersonate when runing the job          | string          |
-+----------------+---------------------------------------------------+-----------------+
-| className      | Application's java/spark main class               | string          |
-+----------------+---------------------------------------------------+-----------------+
-| args           | Command line arguments for the application        | list of strings |
-+----------------+---------------------------------------------------+-----------------+
-| conf           | Spark configuration properties                    | Map of key=val  |
-+----------------+---------------------------------------------------+-----------------+
++-------------+---------------------------------------------------+-----------------+
+| name        | description                                       | type            |
++=============+===================================================+=================+
+| file        | File containing the application to execute        | path (required) |
++-------------+---------------------------------------------------+-----------------+
+| proxyUser   | User to impersonate when running the job          | string          |
++-------------+---------------------------------------------------+-----------------+
+| className   | Application Java/Spark main class                 | string          |
++-------------+---------------------------------------------------+-----------------+
+| args        | Command line arguments for the application        | list of strings |
++-------------+---------------------------------------------------+-----------------+
+| conf        | Spark configuration properties                    | Map of key=val  |
++-------------+---------------------------------------------------+-----------------+
 
 
 Response Body
@@ -503,9 +502,9 @@ Request Parameters
 +------+---------------------------------+------+
 | name | description                     | type |
 +======+=================================+======+
-| from | offset                          | int  |
+| from | Offset                          | int  |
 +------+---------------------------------+------+
-| size | max number of batches to return | int  |
+| size | Max number of batches to return | int  |
 +------+---------------------------------+------+
 
 Response Body
@@ -525,13 +524,13 @@ Response Body
 DELETE /batches/{batchId}
 -------------------------
 
-Kill the `Batch`_ job.
+Kills the `Batch`_ job.
 
 
 GET /batches/{batchId}/log
 ---------------------------
 
-Get the log lines from this batch.
+Gets the log lines from this batch.
 
 Request Parameters
 ^^^^^^^^^^^^^^^^^^
@@ -539,9 +538,9 @@ Request Parameters
 +------+-----------------------------------+------+
 | name | description                       | type |
 +======+===================================+======+
-| from | offset                            | int  |
+| from | Offset                            | int  |
 +------+-----------------------------------+------+
-| size | max number of log lines to return | int  |
+| size | Max number of log lines to return | int  |
 +------+-----------------------------------+------+
 
 Response Body
@@ -552,9 +551,9 @@ Response Body
 +======+==========================+=================+
 | id   | The batch id             | int             |
 +------+--------------------------+-----------------+
-| from | offset from start of log | int             |
+| from | Offset from start of log | int             |
 +------+--------------------------+-----------------+
-| size | number of log lines      | int             |
+| size | Number of log lines      | int             |
 +------+--------------------------+-----------------+
 | log  | The log lines            | list of strings |
 +------+--------------------------+-----------------+
@@ -566,19 +565,19 @@ REST Objects
 Session
 -------
 
-Sessions represent an interactive shell.
+A session represents an interactive shell.
 
-+----------------+--------------------------------------------------+----------------------------+
-| name           | description                                      | type                       |
-+================+==================================================+============================+
-| id             | The session id                                   | int                        |
-+----------------+--------------------------------------------------+----------------------------+
-| kind           | session kind (spark, pyspark, or sparkr)         | `session kind`_ (required) |
-+----------------+--------------------------------------------------+----------------------------+
-| log            | The log lines                                    | list of strings            |
-+----------------+--------------------------------------------------+----------------------------+
-| state          | The session state                                | string                     |
-+----------------+--------------------------------------------------+----------------------------+
++----------------+------------------------------------------+----------------------------+
+| name           | description                              | type                       |
++================+==========================================+============================+
+| id             | The session id                           | int                        |
++----------------+------------------------------------------+----------------------------+
+| kind           | Session kind (spark, pyspark, or sparkr) | `session kind`_ (required) |
++----------------+------------------------------------------+----------------------------+
+| log            | The log lines                            | list of strings            |
++----------------+------------------------------------------+----------------------------+
+| state          | The session state                        | string                     |
++----------------+------------------------------------------+----------------------------+
 
 
 Session State
@@ -587,17 +586,17 @@ Session State
 +-------------+----------------------------------+
 | value       | description                      |
 +=============+==================================+
-| not_started | session has not been started     |
+| not_started | Session has not been started     |
 +-------------+----------------------------------+
-| starting    | session is starting              |
+| starting    | Session is starting              |
 +-------------+----------------------------------+
-| idle        | session is waiting for input     |
+| idle        | Session is waiting for input     |
 +-------------+----------------------------------+
-| busy        | session is executing a statement |
+| busy        | Session is executing a statement |
 +-------------+----------------------------------+
-| error       | session errored out              |
+| error       | Session errored out              |
 +-------------+----------------------------------+
-| dead        | session has exited               |
+| dead        | Session has exited               |
 +-------------+----------------------------------+
 
 Session Kind
@@ -606,26 +605,26 @@ Session Kind
 +---------+----------------------------------+
 | value   | description                      |
 +=========+==================================+
-| spark   | interactive scala/spark session  |
+| spark   | Interactive Scala Spark session  |
 +---------+----------------------------------+
-| pyspark | interactive python/spark session |
+| pyspark | Interactive Python Spark session |
 +---------+----------------------------------+
-| sparkr  | interactive R/spark session      |
+| sparkr  | Interactive R Spark session      |
 +---------+----------------------------------+
 
 Statement
 ---------
 
-Statements represent the result of an execution statement.
+A statement represents the result of an execution statement.
 
 +--------+----------------------+---------------------+
 | name   | description          | type                |
 +========+======================+=====================+
 | id     | The statement id     | integer             |
 +--------+----------------------+---------------------+
-| state  | The execution state  | `statement state`_  |
+| state  | The execution state  | statement state     |
 +--------+----------------------+---------------------+
-| output | The execution output | `statement output`_ |
+| output | The execution output | statement output    |
 +--------+----------------------+---------------------+
 
 Statement State
@@ -634,7 +633,7 @@ Statement State
 +-----------+----------------------------------+
 | value     | description                      |
 +===========+==================================+
-| running   | Statement is currently executing |
+| running   | Statement is currently running   |
 +-----------+----------------------------------+
 | available | Statement has a response ready   |
 +-----------+----------------------------------+
@@ -647,15 +646,15 @@ Statement Output
 +-----------------+-------------------+----------------------------------+
 | name            | description       | type                             |
 +=================+===================+==================================+
-| status          | execution status  | string                           |
+| status          | Execution status  | string                           |
 +-----------------+-------------------+----------------------------------+
-| execution_count | a monotomically   | integer                          |
+| execution_count | A monotomically   | integer                          |
 |                 | increasing number |                                  |
 +-----------------+-------------------+----------------------------------+
-| data            | statement output  | an object mapping a mime type to |
+| data            | Statement output  | An object mapping a mime type to |
 |                 |                   | the result. If the mime type is  |
 |                 |                   | ``application/json``, the value  |
-|                 |                   | will be a JSON value             |
+|                 |                   | is a JSON value.                 |
 +-----------------+-------------------+----------------------------------+
 
 Batch
