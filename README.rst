@@ -209,14 +209,14 @@ Pi. This is from the `Spark Examples`_:
 
     data = {
       'code': textwrap.dedent("""\
-      val NUM_SAMPLES = 100000;
-      val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
-      val x = Math.random();
-      val y = Math.random();
-      if (x*x + y*y < 1) 1 else 0
-      }.reduce(_ + _);
-      println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
-      """)
+        val NUM_SAMPLES = 100000;
+        val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
+          val x = Math.random();
+          val y = Math.random();
+          if (x*x + y*y < 1) 1 else 0
+        }.reduce(_ + _);
+        println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
+        """)
     }
     
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
@@ -260,15 +260,15 @@ The Pi example from before then can be run as:
 
     data = {
       'code': textwrap.dedent("""
-      import random
-      NUM_SAMPLES = 100000
-      def sample(p):
-        x, y = random.random(), random.random()
-        return 1 if x*x + y*y < 1 else 0
+        import random
+        NUM_SAMPLES = 100000
+        def sample(p):
+          x, y = random.random(), random.random()
+          return 1 if x*x + y*y < 1 else 0
         
-      count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample).reduce(lambda a, b: a + b)
-      print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)
-      """)
+        count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample).reduce(lambda a, b: a + b)
+        print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)
+        """)
     }
 
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
@@ -300,23 +300,23 @@ The Pi example from before then can be run as:
 
     data = {
       'code': textwrap.dedent("""\
-      n <- 100000
-      piFunc <- function(elem) {
-        rands <- runif(n = 2, min = -1, max = 1)
-        val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
-        val
-      }
-      piFuncVec <- function(elems) {
-        message(length(elems))
-        rands1 <- runif(n = length(elems), min = -1, max = 1)
-        rands2 <- runif(n = length(elems), min = -1, max = 1)
-        val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
-        sum(val)
-      }
-      rdd <- parallelize(sc, 1:n, slices)
-      count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
-      cat("Pi is roughly", 4.0 * count / n, "\n")
-      """)
+        n <- 100000
+        piFunc <- function(elem) {
+          rands <- runif(n = 2, min = -1, max = 1)
+          val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
+          val
+        }
+        piFuncVec <- function(elems) {
+          message(length(elems))
+          rands1 <- runif(n = length(elems), min = -1, max = 1)
+          rands2 <- runif(n = length(elems), min = -1, max = 1)
+          val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
+          sum(val)
+        }
+        rdd <- parallelize(sc, 1:n, slices)
+        count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
+        cat("Pi is roughly", 4.0 * count / n, "\n")
+        """)
     }
     
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
