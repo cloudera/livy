@@ -44,7 +44,6 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
 
   private implicit def formats = DefaultFormats
 
-  private val originalClassLoader = Thread.currentThread().getContextClassLoader
   private val outputStream = new ByteArrayOutputStream()
   private var sparkIMain: SparkIMain = _
   private var sparkContext: SparkContext = _
@@ -55,7 +54,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()
-    settings.embeddedDefaults(originalClassLoader)
+    settings.embeddedDefaults(Thread.currentThread().getContextClassLoader())
     settings.usejavacp.value = true
 
     sparkIMain = new SparkIMain(settings, new JPrintWriter(outputStream, true))
@@ -76,23 +75,25 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
           outputDir.invoke(sparkIMain).asInstanceOf[File].getAbsolutePath())
     }
 
-    // Call sparkIMain.setContextClassLoader() to make sure SparkContext and repl are using the
-    // same ClassLoader. Otherwise if someone defined a new class in interactive shell,
-    // SparkContext cannot see them and will result in job stage failure.
-    val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
-    setContextClassLoaderMethod.setAccessible(true)
-    setContextClassLoaderMethod.invoke(sparkIMain)
+    restoreContextClassLoader {
+      // Call sparkIMain.setContextClassLoader() to make sure SparkContext and repl are using the
+      // same ClassLoader. Otherwise if someone defined a new class in interactive shell,
+      // SparkContext cannot see them and will result in job stage failure.
+      val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
+      setContextClassLoaderMethod.setAccessible(true)
+      setContextClassLoaderMethod.invoke(sparkIMain)
 
-    sparkContext = SparkContext.getOrCreate(conf)
+      sparkContext = SparkContext.getOrCreate(conf)
 
-    sparkIMain.beQuietDuring {
-      sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
+      sparkIMain.beQuietDuring {
+        sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
+      }
     }
 
     sparkContext
   }
 
-  override def execute(code: String): Interpreter.ExecuteResponse = {
+  override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
     require(sparkIMain != null && sparkContext != null)
 
     executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
@@ -109,9 +110,6 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
       sparkIMain.close()
       sparkIMain = null
     }
-
-    // SparkIMain.interpret will change current thread's contextClassLoader. Restore the original.
-    Thread.currentThread().setContextClassLoader(originalClassLoader)
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {
@@ -272,6 +270,15 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
             case Results.Error => Interpreter.ExecuteError("Error", readStdout())
           }
         }
+    }
+  }
+
+  private def restoreContextClassLoader[T](fn: => T): T = {
+    val currentClassLoader = Thread.currentThread().getContextClassLoader()
+    try {
+      fn
+    } finally {
+      Thread.currentThread().setContextClassLoader(currentClassLoader)
     }
   }
 
