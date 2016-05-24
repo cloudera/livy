@@ -64,7 +64,7 @@ build Livy against a different version of Spark by setting the ``spark.version``
 
 .. code:: shell
 
-    mvn -Dspark.version=1.6.0 package
+    mvn -Dspark.version=1.6.1 package
 
 The version of Spark used when running Livy does not need to match the version used to build Livy.
 The Livy package itself does not contain a Spark distribution, and will work with any supported
@@ -89,7 +89,7 @@ Then start the server with:
 
     ./bin/livy-server
 
-Livy uses the Spark configuration under ``SPARK_HOME`` by default. You can override the Spark configuration 
+Livy uses the Spark configuration under ``SPARK_HOME`` by default. You can override the Spark configuration
 by setting the ``SPARK_CONF_DIR`` environment variable before starting Livy.
 
 It is strongly recommended to configure Spark to submit applications in YARN cluster mode.
@@ -163,7 +163,8 @@ We’ll start off with a Spark session that takes Scala code:
     headers = {'Content-Type': 'application/json'}
     r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
     r.json()
-    {u'state': u'starting', u'id': 0, u’kind’: u’spark’}
+
+    {u'state': u'starting', u'id': 0, u'kind': u'spark'}
 
 Once the session has completed starting up, it transitions to the idle state:
 
@@ -172,7 +173,8 @@ Once the session has completed starting up, it transitions to the idle state:
     session_url = host + r.headers['location']
     r = requests.get(session_url, headers=headers)
     r.json()
-    {u'state': u'idle', u'id': 0, u’kind’: u’spark’}
+
+    {u'state': u'idle', u'id': 0, u'kind': u'spark'}
 
 Now we can execute Scala by passing in a simple JSON command:
 
@@ -182,6 +184,7 @@ Now we can execute Scala by passing in a simple JSON command:
     data = {'code': '1 + 1'}
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
     r.json()
+
     {u'output': None, u'state': u'running', u'id': 0}
 
 If a statement takes longer than a few milliseconds to execute, Livy returns
@@ -192,11 +195,12 @@ early and provides a statement URL that can be polled until it is complete:
     statement_url = host + r.headers['location']
     r = requests.get(statement_url, headers=headers)
     pprint.pprint(r.json())
-    [{u'id': 0,
+
+    {u'id': 0,
       u'output': {u'data': {u'text/plain': u'res0: Int = 2'},
                   u'execution_count': 0,
                   u'status': u'ok'},
-      u'state': u'available'}]
+      u'state': u'available'}
 
 That was a pretty simple example. More interesting is using Spark to estimate
 Pi. This is from the `Spark Examples`_:
@@ -204,19 +208,20 @@ Pi. This is from the `Spark Examples`_:
 .. code:: python
 
     data = {
-    'code': textwrap.dedent("""\
-    val NUM_SAMPLES = 100000;
-    val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
-    val x = Math.random();
-    val y = Math.random();
-    if (x*x + y*y < 1) 1 else 0
-    }.reduce(_ + _);
-    println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
-    """)
+      'code': textwrap.dedent("""\
+        val NUM_SAMPLES = 100000;
+        val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
+          val x = Math.random();
+          val y = Math.random();
+          if (x*x + y*y < 1) 1 else 0
+        }.reduce(_ + _);
+        println(\"Pi is roughly \" + 4.0 * count / NUM_SAMPLES)
+        """)
     }
-    
+
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
     pprint.pprint(r.json())
+
     {u'id': 1,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.14004\nNUM_SAMPLES: Int = 100000\ncount: Int = 78501'},
                  u'execution_count': 1,
@@ -229,6 +234,7 @@ Finally, close the session:
 
     session_url = 'http://localhost:8998/sessions/0'
     requests.delete(session_url, headers=headers)
+
     <Response [204]>
 
 .. _Requests: http://docs.python-requests.org/en/latest/
@@ -245,28 +251,34 @@ PySpark has the same API, just with a different initial request:
     data = {'kind': 'pyspark'}
     r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
     r.json()
+
     {u'id': 1, u'state': u'idle'}
 
 The Pi example from before then can be run as:
 
 .. code:: python
 
-    data = {'code': textwrap.dedent("""
-    import random
-    NUM_SAMPLES = 100000
-    def sample(p):
-      x, y = random.random(), random.random()
-      return 1 if x*x + y*y < 1 else 0
-    count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample).reduce(lambda a, b: a + b)
-    print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)""")}
+    data = {
+      'code': textwrap.dedent("""
+        import random
+        NUM_SAMPLES = 100000
+        def sample(p):
+          x, y = random.random(), random.random()
+          return 1 if x*x + y*y < 1 else 0
+
+        count = sc.parallelize(xrange(0, NUM_SAMPLES)).map(sample).reduce(lambda a, b: a + b)
+        print "Pi is roughly %f" % (4.0 * count / NUM_SAMPLES)
+        """)
+    }
 
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
     pprint.pprint(r.json())
+
     {u'id': 12,
-     u'output': {u'data': {u'text/plain': u'Pi is roughly 3.136000'},
-                 u'execution_count': 12,
-                 u'status': u'ok'},
-     u'state': u'running'}
+    u'output': {u'data': {u'text/plain': u'Pi is roughly 3.136000'},
+                u'execution_count': 12,
+                u'status': u'ok'},
+    u'state': u'running'}
 
 
 SparkR Example
@@ -279,6 +291,7 @@ SparkR has the same API:
     data = {'kind': 'sparkr'}
     r = requests.post(host + '/sessions', data=json.dumps(data), headers=headers)
     r.json()
+
     {u'id': 1, u'state': u'idle'}
 
 The Pi example from before then can be run as:
@@ -286,28 +299,29 @@ The Pi example from before then can be run as:
 .. code:: python
 
     data = {
-    'code': textwrap.dedent("""\
-    n <- 100000
-    piFunc <- function(elem) {
-    rands <- runif(n = 2, min = -1, max = 1)
-    val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
-    val
+      'code': textwrap.dedent("""\
+        n <- 100000
+        piFunc <- function(elem) {
+          rands <- runif(n = 2, min = -1, max = 1)
+          val <- ifelse((rands[1]^2 + rands[2]^2) < 1, 1.0, 0.0)
+          val
+        }
+        piFuncVec <- function(elems) {
+          message(length(elems))
+          rands1 <- runif(n = length(elems), min = -1, max = 1)
+          rands2 <- runif(n = length(elems), min = -1, max = 1)
+          val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
+          sum(val)
+        }
+        rdd <- parallelize(sc, 1:n, slices)
+        count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
+        cat("Pi is roughly", 4.0 * count / n, "\n")
+        """)
     }
-    piFuncVec <- function(elems) {
-    message(length(elems))
-    rands1 <- runif(n = length(elems), min = -1, max = 1)
-    rands2 <- runif(n = length(elems), min = -1, max = 1)
-    val <- ifelse((rands1^2 + rands2^2) < 1, 1.0, 0.0)
-    sum(val)
-    }
-    rdd <- parallelize(sc, 1:n, slices)
-    count <- reduce(lapplyPartition(rdd, piFuncVec), sum)
-    cat("Pi is roughly", 4.0 * count / n, "\n")
-    """)
-    }
-    
+
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
     pprint.pprint(r.json())
+
     {u'id': 12,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.136000'},
                  u'execution_count': 12,
