@@ -72,7 +72,7 @@ object SparkRInterpreter {
     var sparkRBackendPort = 0
     val initialized = new Semaphore(0)
     // Launch a SparkR backend server for the R process to connect to
-    val sparkRBackendThread = new Thread("SparkR backend") {
+    val backendThread = new Thread("SparkR backend") {
       override def run(): Unit = {
         sparkRBackendPort = sparkRBackendClass.getMethod("init").invoke(backendInstance)
           .asInstanceOf[Int]
@@ -82,8 +82,8 @@ object SparkRInterpreter {
       }
     }
 
-    sparkRBackendThread.setDaemon(true)
-    sparkRBackendThread.start()
+    backendThread.setDaemon(true)
+    backendThread.start()
     try {
       // Wait for RBackend initialization to finish
       initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
@@ -111,18 +111,18 @@ object SparkRInterpreter {
 
       builder.redirectError(Redirect.PIPE)
       val process = builder.start()
-      new SparkRInterpreter(process)
+      new SparkRInterpreter(process, backendInstance, backendThread)
     } catch {
       case e: Exception =>
-        if (sparkRBackendThread != null) {
-          sparkRBackendThread.interrupt()
+        if (backendThread != null) {
+          backendThread.interrupt()
         }
         throw e
     }
   }
 }
 
-class SparkRInterpreter(process: Process)
+class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: Thread)
   extends ProcessInterpreter(process)
 {
   import SparkRInterpreter._
@@ -199,6 +199,19 @@ class SparkRInterpreter(process: Process)
     stdin.flush()
 
     while (stdout.readLine() != null) {}
+  }
+
+  override def close(): Unit = {
+    try {
+      val closeMethod = backendInstance.getClass().getMethod("close")
+      closeMethod.setAccessible(true)
+      closeMethod.invoke(backendInstance)
+
+      backendThread.interrupt()
+      backendThread.join()
+    } finally {
+      super.close()
+    }
   }
 
   @tailrec
