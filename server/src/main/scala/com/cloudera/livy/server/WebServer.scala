@@ -101,6 +101,11 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
     port = connector.getLocalPort
 
     info("Starting server on %s://%s:%d" format (protocol, host, port))
+
+  }
+
+  def runKinit():Unit = {
+
   }
 
   def join(): Unit = {
