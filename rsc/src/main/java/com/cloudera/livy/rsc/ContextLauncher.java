@@ -127,9 +127,13 @@ class ContextLauncher {
     factory.getServer().unregisterClient(clientId);
     try {
       if (forceKill) {
-        child.kill();
+        if (child != null) {
+          child.kill();
+        }
       } else {
-        child.detach();
+        if (child != null) {
+          child.detach();
+        }
       }
     } finally {
       factory.unref();

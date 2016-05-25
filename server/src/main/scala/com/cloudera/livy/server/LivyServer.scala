@@ -19,12 +19,16 @@
 package com.cloudera.livy.server
 
 import java.io.{File, IOException}
-import java.net.InetAddress
 import java.util.EnumSet
+import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit}
 import javax.servlet._
 
+import scala.collection.mutable.ArrayBuffer
+
+import org.apache.commons.io.IOUtils
+import org.apache.commons.lang.StringUtils
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.security.authentication.server._
-import org.apache.hadoop.security.SecurityUtil
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
@@ -35,16 +39,24 @@ import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
 
+
 class LivyServer extends Logging {
 
   private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
   private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
   private val SERVER_PORT = LivyConf.Entry("livy.server.port", 8998)
-  private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
-  private val KERBEROS_PRINCIPAL = LivyConf.Entry("livy.server.auth.kerberos.principal", null)
-  private val KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
-  private val KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
+  private val AUTH_KERBEROS_PRINCIPAL = LivyConf.Entry("livy.server.auth.kerberos.principal", null)
+  private val AUTH_KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
+  private val AUTH_KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
     "DEFAULT")
+  private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
+
+  private val LAUNCH_KERBEROS_PRINCIPAL =
+    LivyConf.Entry("livy.server.launch.kerberos.principal", null)
+  private val LAUNCH_KERBEROS_KEYTAB =
+    LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
+  private val LAUNCH_KERBEROS_REFRESH_INTERVAL =
+    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", 3600)
 
   private var server: WebServer = _
   private var _serverUrl: Option[String] = None
@@ -85,20 +97,20 @@ class LivyServer extends Logging {
 
     livyConf.get(AUTH_TYPE) match {
       case authType @ KerberosAuthenticationHandler.TYPE =>
-        val principal = SecurityUtil.getServerPrincipal(livyConf.get(KERBEROS_PRINCIPAL),
+        val principal = SecurityUtil.getServerPrincipal(livyConf.get(AUTH_KERBEROS_PRINCIPAL),
           server.host)
-        val keytab = livyConf.get(KERBEROS_KEYTAB)
+        val keytab = livyConf.get(AUTH_KERBEROS_KEYTAB)
         require(principal != null,
-          s"Kerberos auth requires ${KERBEROS_PRINCIPAL.key} to be provided.")
+          s"Kerberos auth requires ${AUTH_KERBEROS_PRINCIPAL.key} to be provided.")
         require(keytab != null,
-          s"Kerberos auth requires ${KERBEROS_KEYTAB.key} to be provided.")
+          s"Kerberos auth requires ${AUTH_KERBEROS_KEYTAB.key} to be provided.")
 
         val holder = new FilterHolder(new AuthenticationFilter())
         holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
         holder.setInitParameter(KerberosAuthenticationHandler.PRINCIPAL, principal)
         holder.setInitParameter(KerberosAuthenticationHandler.KEYTAB, keytab)
         holder.setInitParameter(KerberosAuthenticationHandler.NAME_RULES,
-          livyConf.get(KERBEROS_NAME_RULES))
+          livyConf.get(AUTH_KERBEROS_NAME_RULES))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
         if (!livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
@@ -106,6 +118,10 @@ class LivyServer extends Logging {
           livyConf.set(LivyConf.IMPERSONATION_ENABLED, true)
         }
 
+        // run kinit periodically
+        val executor = new ScheduledThreadPoolExecutor(1)
+        executor.scheduleAtFixedRate(runKinit(livyConf),
+          0, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
       case null =>
         // Nothing to do.
 
@@ -124,6 +140,29 @@ class LivyServer extends Logging {
 
     _serverUrl = Some(s"http://${server.host}:${server.port}")
     sys.props("livy.server.serverUrl") = _serverUrl.get
+  }
+
+  def runKinit(livyConf: LivyConf): Runnable = new Runnable {
+    override def run(): Unit = {
+      UserGroupInformation.getCurrentUser.reloginFromTicketCache()
+      val keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
+      val principal = livyConf.get(LAUNCH_KERBEROS_PRINCIPAL)
+      require(principal != null,
+        s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
+      require(keytab != null,
+        s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
+      val commands = ArrayBuffer.empty[String]
+      commands += "kinit"
+      commands += "-kt"
+      commands += keytab
+      commands += principal
+      val proc = new ProcessBuilder(commands: _*).start()
+      proc.waitFor() match {
+        case 0 => info("Run kinit command")
+        case _ => warn("Fail to run kinit command," +
+          StringUtils.join(IOUtils.readLines(proc.getErrorStream), "\n"))
+      }
+    }
   }
 
   def join(): Unit = server.join()
