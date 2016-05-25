@@ -48,11 +48,6 @@ object LivyConf {
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
 
-  val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
-  val LIVY_SERVER_KERBEROS_PRINCIPAL = Entry("livy.server.kerberos.principal", null)
-  val LIVY_SERVER_KERBEROS_KEYTAB = Entry("livy.server.kerberos.keytab", null)
-
-
   val SPARK_JARS = "spark.jars"
   val SPARK_FILES = "spark.files"
   val SPARK_ARCHIVES = "spark.yarn.dist.archives"

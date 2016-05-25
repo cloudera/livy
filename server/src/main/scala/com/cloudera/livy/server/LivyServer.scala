@@ -49,11 +49,13 @@ class LivyServer extends Logging {
   private val AUTH_KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
   private val AUTH_KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
     "DEFAULT")
-  private val LAUNCHER_KERBEROS_PRINCIPAL =
+  private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
+
+  private val LAUNCH_KERBEROS_PRINCIPAL =
     LivyConf.Entry("livy.server.launch.kerberos.principal", null)
-  private val LAUNCHER_KERBEROS_KEYTAB =
+  private val LAUNCH_KERBEROS_KEYTAB =
     LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
-  private val KERBEROS_REFRESH_INTERVAL =
+  private val LAUNCH_KERBEROS_REFRESH_INTERVAL =
     LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", 3600)
 
   private var server: WebServer = _
@@ -93,7 +95,7 @@ class LivyServer extends Logging {
 
       })
 
-    livyConf.get(LivyConf.AUTH_TYPE) match {
+    livyConf.get(AUTH_TYPE) match {
       case authType @ KerberosAuthenticationHandler.TYPE =>
         val principal = SecurityUtil.getServerPrincipal(livyConf.get(AUTH_KERBEROS_PRINCIPAL),
           server.host)
@@ -119,7 +121,7 @@ class LivyServer extends Logging {
         // run kinit periodically
         val executor = new ScheduledThreadPoolExecutor(1)
         executor.scheduleAtFixedRate(runKinit(livyConf),
-          0, livyConf.getInt(KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
+          0, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
       case null =>
         // Nothing to do.
 
@@ -143,12 +145,12 @@ class LivyServer extends Logging {
   def runKinit(livyConf: LivyConf): Runnable = new Runnable {
     override def run(): Unit = {
       UserGroupInformation.getCurrentUser.reloginFromTicketCache()
-      val keytab = livyConf.get(LAUNCHER_KERBEROS_KEYTAB)
-      val principal = livyConf.get(LAUNCHER_KERBEROS_PRINCIPAL)
+      val keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
+      val principal = livyConf.get(LAUNCH_KERBEROS_PRINCIPAL)
       require(principal != null,
-        s"Kerberos requires ${LAUNCHER_KERBEROS_KEYTAB.key} to be provided.")
+        s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
       require(keytab != null,
-        s"Kerberos requires ${LAUNCHER_KERBEROS_PRINCIPAL.key} to be provided.")
+        s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
       val commands = ArrayBuffer.empty[String]
       commands += "kinit"
       commands += "-kt"

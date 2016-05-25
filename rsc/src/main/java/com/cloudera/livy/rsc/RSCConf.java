@@ -68,10 +68,6 @@ public class RSCConf extends ClientConf<RSCConf> {
     RPC_MAX_THREADS("rpc.threads", 8),
     RPC_SECRET_RANDOM_BITS("secret.bits", 256),
 
-    AUTH_TYPE("auth.type", null),
-    KERBEROS_PRINCIPLE("kerberos.principal", null),
-    KERBEROS_KEYTAB("kerberos.principal", null),
-
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
     SASL_QOP("rpc.sasl.qop", null);
 
