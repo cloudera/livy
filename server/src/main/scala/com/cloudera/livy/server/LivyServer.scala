@@ -50,11 +50,11 @@ class LivyServer extends Logging {
   private val AUTH_KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
     "DEFAULT")
   private val LAUNCHER_KERBEROS_PRINCIPAL =
-    LivyConf.Entry("livy.server.launcher.kerberos.principal", null)
+    LivyConf.Entry("livy.server.launch.kerberos.principal", null)
   private val LAUNCHER_KERBEROS_KEYTAB =
-    LivyConf.Entry("livy.server.launcher.kerberos.keytab", null)
+    LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
   private val KERBEROS_REFRESH_INTERVAL =
-    LivyConf.Entry("livy.server.launcher.kerberos.refresh_interval", 3600)
+    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", 3600)
 
   private var server: WebServer = _
   private var _serverUrl: Option[String] = None
