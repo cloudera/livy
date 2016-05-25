@@ -19,15 +19,16 @@
 package com.cloudera.livy.server
 
 import java.io.{File, IOException}
-import java.net.InetAddress
 import java.util.EnumSet
-import java.util.concurrent.{TimeUnit, ScheduledThreadPoolExecutor}
+import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit}
 import javax.servlet._
+
+import scala.collection.mutable.ArrayBuffer
 
 import org.apache.commons.io.IOUtils
 import org.apache.commons.lang.StringUtils
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.security.authentication.server._
-import org.apache.hadoop.security.{UserGroupInformation, SecurityUtil}
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
@@ -38,7 +39,6 @@ import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
 
-import scala.collection.mutable.ArrayBuffer
 
 class LivyServer extends Logging {
 
