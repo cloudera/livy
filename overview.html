@@ -8,7 +8,7 @@
     <meta name="author" content="Cloudera">
    
 
-    <title>Livy for Apache Spark</title>
+    <title>Livy for Apache Spark Overview</title>
 
     <!-- Bootstrap core CSS -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
@@ -42,8 +42,8 @@
           </div>
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-              <li class="active"><a href="index.html">Home</a></li>
-              <li><a href="overview.html">Overview</a></li>
+              <li><a href="index.html">Home</a></li>
+              <li class="active"><a href="overview.html">Overview</a></li>
               <li><a href="https://github.com/cloudera/livy#rest-api">API Docs</a></li>
               <li><a href="https://github.com/cloudera/livy">Repository</a></li>
               <li><a href="https://github.com/cloudera/livy/wiki/Contributing-to-Livy">Contributions</a></li>
@@ -52,42 +52,30 @@
           </div><!--/.nav-collapse -->
         </div><!--/.container-fluid -->
       </nav>
-
-        
-        <div class="jumbotron">
-        <img src="img/livy-logo.png"><p>
-              
-        <p class="lead">An Open Source REST Service for Apache Spark (Apache License)<br>
-        </p>
-
-       <a href="https://github.com/cloudera/livy#quick-start" type="button" class="btn btn-success">Get Started</a>
+  <div class="row">
+        <div class="col-lg-12">
+  <h2>Overview</h2>
+         <p>Livy (currently an alpha release) is a  service that enables easy interaction with an Apache Spark cluster over a REST interface. It enables easy submission of Spark jobs or snippets of Spark code, synchronous or asynchronous result retrieval, as well as SparkContext management, all via a simple REST interface or a RPC client library. Livy also simplifies the interaction between Spark from application servers, thus enabling the use of Spark for interactive web/mobile applications. Additional features include:</p>
+         <ul>
+           <li>Have long running SparkContexts that can be used for multiple Spark jobs, by multiple clients</li>
+             <li>Share cached RDDs or Dataframes across multiple jobs and clients</li>
+             <li>Multiple SparkContexts can be managed simultaneously, and they run on the cluster (YARN/Mesos) instead of the Livy Server for good fault tolerance and concurrency</li>
+             <li>Jobs can be submitted as precompiled jars, snippets of code, or via Java/Scala client API</li>
+             <li>Ensure security via secure authenticated communication</li>
+             <li>Apache License, 100% open source<br>
+               <br>
+             </li>
+  
+         </ul>
+         <div align="center">
+           <h4><img src="img/livy-architecture.png" width="800" height="425"><br>
+           <br>
+          Livy Architecture </h4>
+         </div>
+    </div>
 </div>
-    
-
-
-     
-      
-      <div class="row">
-        <div class="col-lg-4">
-          <h3>Submit Jobs from Anywhere</h3>
-          <p>Livy (alpha) enables programmatic, fault-tolerant, multi-tenant submission of Spark jobs from web/mobile apps (no Spark client needed). So, multiple users  can   interact with your Spark cluster concurrently and reliably.</p>
-        </div>
-        <div class="col-lg-4">
-          <h3>Use Interactive Scala or Python</h3>
-          <p>Livy speaks either Scala or Python, so clients can communicate with your Spark cluster via either language remotely. Also, batch job submissions can be done in Scala, Java, or Python.</p>
-         
-       </div>
-        <div class="col-lg-4">
-          <h3>No Code Changes Needed</h3>
-          <p>Don't worry, no changes to existing programs are needed to use Livy. Just build Livy with Maven, deploy the configuration file to your Spark cluster, and you're off! See the &quot;Quick Start&quot; section in docs to get started. </p>
-        </div>
-        </div>
-    
-         
-         <footer class="footer">
-         <p class="pull-right">&nbsp;</p>
-        <p class="small">&nbsp; </p>
-        <p class="small">&nbsp;</p>
+  <footer class="footer">
+    <p class="pull-right">&nbsp;</p>
         <p class="small">Copyright &copy; 2016 Cloudera. All rights reserved.</p>
       </footer>
       
@@ -101,3 +89,4 @@
 
   </body>
 </html>
+
