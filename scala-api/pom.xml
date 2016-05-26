@@ -31,13 +31,13 @@
             <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-rsc</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-test-lib</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
@@ -66,16 +66,10 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-all</artifactId>
-            <version>1.9.5</version>
-        </dependency>
-        <dependency>
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
             <version>1.0.5</version>
         </dependency>
-
     </dependencies>
 
     <build>
@@ -88,3 +82,4 @@
     </build>
 
 </project>
+

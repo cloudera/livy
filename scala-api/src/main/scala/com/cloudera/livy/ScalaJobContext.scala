@@ -14,43 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.cloudera.livy
-
-import java.io.File
-import java.net.URI
 
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.streaming.StreamingContext
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+trait ScalaJobContext {
 
-package object client {
+  def sc: SparkContext
 
-  implicit class ScalaWrapper(livyJavaClient: LivyClient) {
-    def asScalaClient = new LivyScalaClient(livyJavaClient)
-  }
+  def sqlctx: SQLContext
 
-  def convertJobContext(context: JobContext): ScalaJobContext = {
-    new ScalaJobContext {
-      override def hivectx = context.hivectx()
+  def hivectx: HiveContext
 
-      override def getLocalTmpDir = context.getLocalTmpDir
+  def streamingctx: StreamingContext
 
-      override def createStreamingContext(batchDuration: Long) = context.createStreamingContext(batchDuration)
+  def createStreamingContext(batchDuration: Long)
 
-      override def streamingctx: StreamingContext = context.streamingctx().ssc
+  def stopStreamingContext
 
-      override def stopStreamingContext: Unit = context.stopStreamingCtx()
+  def getLocalTmpDir
 
-      override def sc: SparkContext = context.sc().sc
-
-      override def sqlctx: SQLContext = context.sqlctx()
-    }
-  }
 }
-
-
