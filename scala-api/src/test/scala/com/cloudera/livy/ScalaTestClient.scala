@@ -61,6 +61,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       case e: Exception => throw e
 
     } finally {
+      client.shutdown()
       if (client != null) {
         client.stop(true)
       }
@@ -87,6 +88,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       case e: Exception => throw e
 
     } finally {
+      client.shutdown()
       if (client != null) {
         client.stop(true)
       }
@@ -115,6 +117,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       case e => {}
 
     } finally {
+      client.shutdown()
       if (client != null) {
         client.stop(true)
       }
@@ -134,6 +137,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
     } catch {
       case e: Exception => throw e
     } finally {
+      client.shutdown()
       if (client != null) {
         client.stop(true)
       }
@@ -162,6 +166,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       case e: Exception => throw e
 
     } finally {
+      client.shutdown()
       if (client != null) {
         client.stop(true)
       }
@@ -187,6 +192,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
 
       assert(output === "test file")
     } finally {
+      client.shutdown()
       if (file != null) {
         file.delete()
       }
@@ -208,13 +214,14 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
 
       val future = client.addJar(new URI("file:" + jar.getAbsolutePath()))
       val result = Await.result(future, 5 second)
-
       val output = client.submit(
         context => ScalaTestClient.fileOperation(true, "test.resource", context)
       ).get(timeout, TimeUnit.SECONDS)
 
       assert(output === "test resource")
+
     } finally {
+      client.shutdown()
       if (jar != null) {
         jar.delete()
       }
