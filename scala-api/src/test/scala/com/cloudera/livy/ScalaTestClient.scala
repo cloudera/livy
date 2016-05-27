@@ -21,7 +21,6 @@ import java.io._
 import java.net.URI
 import java.nio.charset.StandardCharsets._
 import java.util._
-import java.util.concurrent.TimeUnit
 import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
@@ -36,6 +35,9 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.Success
+import scala.util.Failure
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScalaTestClient extends FunSuite with ScalaFutures {
 
@@ -45,21 +47,17 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   private var client: LivyScalaClient = _
 
   test("test Job Submission") {
-
     configureClient(true)
     try {
       ping()
       val listener: JobHandle.Listener[String] = newListener()
-      val jobHandle = client.submit(context => {
+      val sFuture = client.submit(context => {
         "hello"
       })
-      jobHandle.addListener(listener)
-      assert(jobHandle.get(timeout, TimeUnit.SECONDS) === "hello")
-      verify(listener).onJobStarted(jobHandle)
-      verify(listener).onJobSucceeded(jobHandle, jobHandle.get())
+      val result = Await.result(sFuture, 5 second)
+      assert(result === "hello")
     } catch {
       case e: Exception => throw e
-
     } finally {
       client.shutdown()
       if (client != null) {
@@ -69,11 +67,10 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test Simple Spark Job") {
-
     configureClient(true)
     try {
       ping()
-      val jobHandle = client.submit(context => {
+      val sFuture = client.submit(context => {
       val r = new Random
       val count = 5
       val partitions = Math.min(r.nextInt(10) + 1, count);
@@ -83,10 +80,10 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       }
       context.sc.parallelize(buffer, partitions).count();
     })
-      assert(jobHandle.get(timeout, TimeUnit.SECONDS) === 5)
+      val result = Await.result(sFuture, 5 second)
+      assert(result === 5)
     } catch {
       case e: Exception => throw e
-
     } finally {
       client.shutdown()
       if (client != null) {
@@ -96,26 +93,23 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test Job Failure") {
-
     configureClient(true)
     try {
       ping()
-      val listener: JobHandle.Listener[Nothing] = newListener()
-      val jobHandle = client.submit(context => {
+      val sFuture = client.submit(context => {
         throw new CustomTestFailureException()
       })
-      jobHandle.addListener(listener)
-      try {
-        jobHandle.get(timeout, TimeUnit.SECONDS)
-        fail("Should have thrown an exception")
-      } catch {
-        case ex => assert(ex.getCause.getMessage().contains("CustomTestFailureException") == false)
+      sFuture onComplete {
+        case Success(t) => {
+          println("Should have thrown an exception")
+          fail()
+        }
+        case Failure(e) => {
+          assert(e.getMessage.contains("CustomTestFailureException"))
+        }
       }
-      verify(listener).onJobStarted(jobHandle)
-      verify(listener).onJobSucceeded(jobHandle, jobHandle.get())
     } catch {
-      case e => {}
-
+      case e: Exception => throw e
     } finally {
       client.shutdown()
       if (client != null) {
@@ -125,18 +119,18 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test Sync Rpc") {
-
     configureClient(true)
     try {
       ping()
       val future = client.run(context => {
         "Hello"
       })
-      val result = Await.result(future, 5 second)
+      val result = Await.result(future, 15 second)
       assert(result === "Hello")
     } catch {
       case e: Exception => throw e
     } finally {
+      Thread.sleep(5000)
       client.shutdown()
       if (client != null) {
         client.stop(true)
@@ -145,11 +139,10 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test Remote client") {
-
     configureClient(false)
     try {
       ping()
-      val jobHandle = client.submit(context => {
+      val sFuture = client.submit(context => {
         val r = new Random
         val count = 5
         val partitions = Math.min(r.nextInt(10) + 1, count);
@@ -159,12 +152,9 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
         }
         context.sc.parallelize(buffer, partitions).count();
       })
-      Thread.sleep(2000)
-      assert(jobHandle.get(timeout, TimeUnit.SECONDS) === 5)
-
+      val result = Await.result(sFuture, 5 second)
     } catch {
       case e: Exception => throw e
-
     } finally {
       client.shutdown()
       if (client != null) {
@@ -174,7 +164,6 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test add file") {
-
     configureClient(true)
     var file: File = null
     try {
@@ -185,11 +174,10 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       fileStream.close
       val future = client.addFile(new URI("file:" + file.getAbsolutePath()))
       val result = Await.result(future, 5 second)
-
-      val output = client.submit(
+      val sFuture = client.submit(
         context => ScalaTestClient.fileOperation(false, file.getName, context)
-      ).get(timeout, TimeUnit.SECONDS)
-
+      )
+      val output = Await.result(sFuture, 5 second)
       assert(output === "test file")
     } finally {
       client.shutdown()
@@ -200,7 +188,6 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   test("test add jar") {
-
     configureClient(true)
     var jar: File = null
     try {
@@ -214,12 +201,11 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
 
       val future = client.addJar(new URI("file:" + jar.getAbsolutePath()))
       val result = Await.result(future, 5 second)
-      val output = client.submit(
+      val sFuture = client.submit(
         context => ScalaTestClient.fileOperation(true, "test.resource", context)
-      ).get(timeout, TimeUnit.SECONDS)
-
+      )
+      val output = Await.result(sFuture, 5 second)
       assert(output === "test resource")
-
     } finally {
       client.shutdown()
       if (jar != null) {
@@ -227,7 +213,6 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       }
     }
   }
-
 
   private def newListener[T](): JobHandle.Listener[T] = {
     var listener = mock(classOf[JobHandle.Listener[T]])
@@ -241,9 +226,11 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
   }
 
   private def ping() = {
-    assert(client.submit(context => {
+    val future = client.submit(context => {
       null
-    }).get(timeout, TimeUnit.SECONDS) == null)
+    })
+    val result = Await.result(future, 5 second)
+    assert(result == null)
   }
 }
 

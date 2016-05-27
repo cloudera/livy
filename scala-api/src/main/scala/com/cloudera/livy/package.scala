@@ -17,15 +17,11 @@
 
 package com.cloudera.livy
 
-import java.io.File
-import java.net.URI
-
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.streaming.StreamingContext
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Promise
 import scala.concurrent.Future
 
 package object client {
@@ -34,7 +30,7 @@ package object client {
     def asScalaClient = new LivyScalaClient(livyJavaClient)
   }
 
-  def convertJobContext(context: JobContext): ScalaJobContext = {
+  def asScalaJobContext(context: JobContext): ScalaJobContext = {
     new ScalaJobContext {
       override def hivectx = context.hivectx()
 
@@ -50,6 +46,22 @@ package object client {
 
       override def sqlctx: SQLContext = context.sqlctx()
     }
+  }
+
+  def asScalaFuture[T](jobHandle: JobHandle[T]): Future[T] = {
+    val promise = Promise[T]
+    jobHandle.addListener(new JobHandle.Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = ???
+
+      override def onJobCancelled(job: JobHandle[T]): Unit = ???
+
+      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = promise.trySuccess(job.get())
+
+      override def onJobStarted(job: JobHandle[T]): Unit = ???
+
+      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = promise.tryFailure(cause)
+    })
+    promise.future
   }
 }
 

@@ -27,55 +27,48 @@ import scala.util.Try
 
 class LivyScalaClient(livyJavaClient: LivyClient) {
 
-  private val threadPoolSize = 5
-  private val initialDelay = 2
-  private val longDelay = 2
+  private val threadPoolSize = 2
+  private val initialDelay = 1
+  private val longDelay = 1
   private val executor = new ScheduledThreadPoolExecutor(threadPoolSize)
 
-  def submit[T](block: ScalaJobContext => T): JobHandle[T] = {
+  def submit[T](block: ScalaJobContext => T): Future[T] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
-      override def call(jobContext: JobContext): T = block(client.wrapJobContext(jobContext))
+      override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
     }
-    livyJavaClient.submit(job)
+    client.asScalaFuture(livyJavaClient.submit(job))
   }
 
   def run[T](block: ScalaJobContext => T): Future[_] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
-      override def call(jobContext: JobContext): T = block(client.wrapJobContext(jobContext))
+      override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
     }
-    Future {
-      doPoll(livyJavaClient.run(job))
-    }
+    doPoll(livyJavaClient.run(job))
   }
 
   def stop(shutdownContext: Boolean) = livyJavaClient.stop(shutdownContext)
 
-  def uploadJar(jar: File): Future[_] = Future {
-    doPoll(livyJavaClient.uploadJar(jar))
-  }
+  def uploadJar(jar: File): Future[_] = doPoll(livyJavaClient.uploadJar(jar))
 
-  def addJar(uRI: URI): Future[_] = Future {
-    doPoll(livyJavaClient.addJar(uRI))
-  }
+  def addJar(uRI: URI): Future[_] = doPoll(livyJavaClient.addJar(uRI))
 
-  def uploadFile(file: File): Future[_] = Future {
-    doPoll(livyJavaClient.uploadFile(file))
-  }
+  def uploadFile(file: File): Future[_] = doPoll(livyJavaClient.uploadFile(file))
 
-  def addFile(uRI: URI): Future[_] = Future{
-    doPoll(livyJavaClient.addFile(uRI))
-  }
+  def addFile(uRI: URI): Future[_] = doPoll(livyJavaClient.addFile(uRI))
 
-  private def doPoll[T](jFuture: JFuture[T]) = {
+  private def doPoll[T](jFuture: JFuture[T]) = Future {
     val promise = Promise[T]
     val runnable = new Runnable {
-       def run() = promise.complete(Try{jFuture.get()})
+      def run() = promise.complete(Try {
+        jFuture.get()
+      })
     }
-    executor.scheduleWithFixedDelay(runnable , initialDelay, longDelay, TimeUnit.SECONDS)
+    executor.scheduleWithFixedDelay(runnable, initialDelay, longDelay, TimeUnit.SECONDS)
+    promise.future
   }
 
-   def shutdown() = executor.shutdown()
+  def shutdown() = executor.shutdown()
 }
 
