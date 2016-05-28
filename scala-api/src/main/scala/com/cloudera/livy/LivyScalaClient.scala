@@ -32,12 +32,12 @@ class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
     this(livyJavaClient, 2)
   }
 
-  def submit[T](block: ScalaJobContext => T): Future[T] = {
+  def submit[T](block: ScalaJobContext => T): ScalaJobHandle[T] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
       override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
     }
-    client.asScalaFuture(livyJavaClient.submit(job))
+    new ScalaJobHandle(livyJavaClient.submit(job))
   }
 
   def run[T](block: ScalaJobContext => T): Future[_] = {

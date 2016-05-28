@@ -50,11 +50,10 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
     configureClient(true)
     try {
       ping()
-      val listener: JobHandle.Listener[String] = newListener()
-      val sFuture = client.submit(context => {
+      val jobHandle = client.submit(context => {
         "hello"
       })
-      val result = Await.result(sFuture, 5 second)
+      val result = Await.result(jobHandle, 10 second)
       assert(result === "hello")
     } catch {
       case e: Exception => throw e
@@ -80,7 +79,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       }
       context.sc.parallelize(buffer, partitions).count();
     })
-      val result = Await.result(sFuture, 5 second)
+      val result = Await.result(sFuture, 10 second)
       assert(result === 5)
     } catch {
       case e: Exception => throw e
@@ -125,8 +124,17 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       val future = client.run(context => {
         "Hello"
       })
-      val result = Await.result(future, 15 second)
-      assert(result === "Hello")
+      future onComplete {
+        case Success(t) => {
+          println("Hey " + t)
+          //fail()
+        }
+        case Failure(e) => {
+          println("Common")
+        }
+      }
+      //val result = Await.result(future, 15 second)
+      //assert(result === "Hello")
     } catch {
       case e: Exception => throw e
     } finally {
@@ -152,7 +160,7 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
         }
         context.sc.parallelize(buffer, partitions).count();
       })
-      val result = Await.result(sFuture, 5 second)
+      val result = Await.result(sFuture, 10 second)
     } catch {
       case e: Exception => throw e
     } finally {
@@ -173,11 +181,13 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       fileStream.write("test file".getBytes("UTF-8"))
       fileStream.close
       val future = client.addFile(new URI("file:" + file.getAbsolutePath()))
-      val result = Await.result(future, 5 second)
+      //val result = Await.result(future, 10 second)
+      println("Sleeping")
+      Thread.sleep(10000)
       val sFuture = client.submit(
         context => ScalaTestClient.fileOperation(false, file.getName, context)
       )
-      val output = Await.result(sFuture, 5 second)
+      val output = Await.result(sFuture, 10 second)
       assert(output === "test file")
     } finally {
       client.shutdown()
@@ -200,11 +210,13 @@ class ScalaTestClient extends FunSuite with ScalaFutures {
       jarFile.close()
 
       val future = client.addJar(new URI("file:" + jar.getAbsolutePath()))
-      val result = Await.result(future, 5 second)
+      println("Sleeping")
+      Thread.sleep(10000)
+      //val result = Await.result(future, 5 second)
       val sFuture = client.submit(
         context => ScalaTestClient.fileOperation(true, "test.resource", context)
       )
-      val output = Await.result(sFuture, 5 second)
+      val output = Await.result(sFuture, 10 second)
       assert(output === "test resource")
     } finally {
       client.shutdown()
