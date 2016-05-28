@@ -23,14 +23,14 @@ import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit, Future => JF
 
 import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
 
-class LivyScalaClient(livyJavaClient: LivyClient) {
+class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
 
-  private val threadPoolSize = 2
-  private val initialDelay = 1
-  private val longDelay = 1
   private val executor = new ScheduledThreadPoolExecutor(threadPoolSize)
+
+  def this(livyJavaClient: LivyClient) {
+    this(livyJavaClient, 2)
+  }
 
   def submit[T](block: ScalaJobContext => T): Future[T] = {
     val job = new Job[T] {
@@ -45,28 +45,26 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
       @throws(classOf[Exception])
       override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
     }
-    doPoll(livyJavaClient.run(job))
+    Future {
+      new PollingContainer(executor, livyJavaClient.run(job)).poll()
+    }
   }
 
   def stop(shutdownContext: Boolean) = livyJavaClient.stop(shutdownContext)
 
-  def uploadJar(jar: File): Future[_] = doPoll(livyJavaClient.uploadJar(jar))
+  def uploadJar(jar: File): Future[_] = Future {
+    new PollingContainer(executor, livyJavaClient.uploadJar(jar)).poll()
+  }
 
-  def addJar(uRI: URI): Future[_] = doPoll(livyJavaClient.addJar(uRI))
+  def addJar(uRI: URI): Future[_] = Future {
+    new PollingContainer(executor, livyJavaClient.addJar(uRI)).poll()
+  }
+  def uploadFile(file: File): Future[_] = Future {
+    new PollingContainer(executor, livyJavaClient.uploadFile(file)).poll()
+  }
 
-  def uploadFile(file: File): Future[_] = doPoll(livyJavaClient.uploadFile(file))
-
-  def addFile(uRI: URI): Future[_] = doPoll(livyJavaClient.addFile(uRI))
-
-  private def doPoll[T](jFuture: JFuture[T]) = Future {
-    val promise = Promise[T]
-    val runnable = new Runnable {
-      def run() = promise.complete(Try {
-        jFuture.get()
-      })
-    }
-    executor.scheduleWithFixedDelay(runnable, initialDelay, longDelay, TimeUnit.SECONDS)
-    promise.future
+  def addFile(uRI: URI): Future[_] = Future {
+    new PollingContainer(executor, livyJavaClient.addFile(uRI)).poll()
   }
 
   def shutdown() = executor.shutdown()
