@@ -19,10 +19,9 @@ package com.cloudera.livy
 
 import java.io.File
 import java.net.URI
-import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit, Future => JFuture}
+import java.util.concurrent.{ScheduledThreadPoolExecutor}
 
 import scala.concurrent._
-import scala.concurrent.ExecutionContext.Implicits.global
 
 class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
 
@@ -40,32 +39,26 @@ class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
     new ScalaJobHandle(livyJavaClient.submit(job))
   }
 
-  def run[T](block: ScalaJobContext => T): Future[_] = {
+  def run[T](block: ScalaJobContext => T): Future[T] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
-      override def call(jobContext: JobContext): T = block(new ScalaJobContext(jobContext))
+      override def call(jobContext: JobContext): T = {
+        val scalaJobContext = new ScalaJobContext(jobContext)
+        block(scalaJobContext)
+      }
     }
-    Future {
-      new PollingContainer(executor, livyJavaClient.run(job)).poll()
-    }
+    new PollingContainer(executor, livyJavaClient.run(job)).poll()
   }
 
   def stop(shutdownContext: Boolean) = livyJavaClient.stop(shutdownContext)
 
-  def uploadJar(jar: File): Future[_] = Future {
-    new PollingContainer(executor, livyJavaClient.uploadJar(jar)).poll()
-  }
+  def uploadJar(jar: File): Future[_] = new PollingContainer(executor, livyJavaClient.uploadJar(jar)).poll()
 
-  def addJar(uRI: URI): Future[_] = Future {
-    new PollingContainer(executor, livyJavaClient.addJar(uRI)).poll()
-  }
-  def uploadFile(file: File): Future[_] = Future {
-    new PollingContainer(executor, livyJavaClient.uploadFile(file)).poll()
-  }
+  def addJar(uRI: URI): Future[_] = new PollingContainer(executor, livyJavaClient.addJar(uRI)).poll()
 
-  def addFile(uRI: URI): Future[_] = Future {
-    new PollingContainer(executor, livyJavaClient.addFile(uRI)).poll()
-  }
+  def uploadFile(file: File): Future[_] = new PollingContainer(executor, livyJavaClient.uploadFile(file)).poll()
+
+  def addFile(uRI: URI): Future[_] = new PollingContainer(executor, livyJavaClient.addFile(uRI)).poll()
 
   def shutdown() = executor.shutdown()
 }

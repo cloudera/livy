@@ -17,20 +17,21 @@
 
 package com.cloudera.livy
 
-import java.util.concurrent.{Future, ScheduledExecutorService, ScheduledFuture, TimeUnit}
+import java.util.concurrent.{ScheduledExecutorService, ScheduledFuture, TimeUnit, Future => JFuture}
 
-import scala.concurrent.Promise
+import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
-class PollingContainer[T](executor: ScheduledExecutorService, jFuture: Future[T]) {
+class PollingContainer[T](executor: ScheduledExecutorService, jFuture: JFuture[T]) {
 
   private val initialDelay = 1
   private val longDelay = 1
   private var scheduledFuture: ScheduledFuture[_] = _
   val promise = Promise[T]
 
-  def poll(): Unit = {
+  def poll(): Future[T]  = {
     scheduledFuture = executor.scheduleWithFixedDelay(new Poller(), initialDelay, longDelay, TimeUnit.SECONDS)
+    promise.future
   }
 
   protected class Poller extends Runnable {

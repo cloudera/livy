@@ -110,12 +110,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     try {
       pingJob()
       val future = client.run(helloJob())
-      val result = Await.result(future, 15 second)
+      val result = Await.result(future, 10 second)
       assert(result === "hello")
     } catch {
       case e: Exception => throw e
     } finally {
-      Thread.sleep(5000)
       if (client != null) {
         client.shutdown()
         client.stop(true)
