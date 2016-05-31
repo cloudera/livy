@@ -35,7 +35,7 @@ class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
   def submit[T](block: ScalaJobContext => T): ScalaJobHandle[T] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
-      override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
+      override def call(jobContext: JobContext): T = block(new ScalaJobContext(jobContext))
     }
     new ScalaJobHandle(livyJavaClient.submit(job))
   }
@@ -43,7 +43,7 @@ class LivyScalaClient(livyJavaClient: LivyClient, threadPoolSize: Integer) {
   def run[T](block: ScalaJobContext => T): Future[_] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
-      override def call(jobContext: JobContext): T = block(client.asScalaJobContext(jobContext))
+      override def call(jobContext: JobContext): T = block(new ScalaJobContext(jobContext))
     }
     Future {
       new PollingContainer(executor, livyJavaClient.run(job)).poll()

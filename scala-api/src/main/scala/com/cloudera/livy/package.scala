@@ -21,47 +21,10 @@ import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.StreamingContext
 
-import scala.concurrent.Promise
-import scala.concurrent.Future
-
 package object client {
 
   implicit class ScalaWrapper(livyJavaClient: LivyClient) {
-    def asScalaClient = new LivyScalaClient(livyJavaClient)
-  }
-
-  def asScalaJobContext(context: JobContext): ScalaJobContext = {
-    new ScalaJobContext {
-      override def hivectx = context.hivectx()
-
-      override def getLocalTmpDir = context.getLocalTmpDir
-
-      override def createStreamingContext(batchDuration: Long) = context.createStreamingContext(batchDuration)
-
-      override def streamingctx: StreamingContext = context.streamingctx().ssc
-
-      override def stopStreamingContext: Unit = context.stopStreamingCtx()
-
-      override def sc: SparkContext = context.sc().sc
-
-      override def sqlctx: SQLContext = context.sqlctx()
-    }
-  }
-
-  def asScalaFuture[T](jobHandle: JobHandle[T]): Future[T] = {
-    val promise = Promise[T]
-    jobHandle.addListener(new JobHandle.Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = ???
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = ???
-
-      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = promise.trySuccess(job.get())
-
-      override def onJobStarted(job: JobHandle[T]): Unit = ???
-
-      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = promise.tryFailure(cause)
-    })
-    promise.future
+    def asScalaClient: LivyScalaClient = new LivyScalaClient(livyJavaClient)
   }
 }
 

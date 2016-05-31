@@ -16,25 +16,27 @@
  */
 package com.cloudera.livy
 
+import java.io.File
+
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hive.HiveContext
 import org.apache.spark.streaming.StreamingContext
 
-trait ScalaJobContext {
+class ScalaJobContext(context: JobContext) {
 
-  def sc: SparkContext
+  def sc: SparkContext = context.sc().sc
 
-  def sqlctx: SQLContext
+  def sqlctx: SQLContext =  context.sqlctx()
 
-  def hivectx: HiveContext
+  def hivectx: HiveContext = context.hivectx()
 
-  def streamingctx: StreamingContext
+  def streamingctx: StreamingContext = context.streamingctx().ssc
 
-  def createStreamingContext(batchDuration: Long)
+  def createStreamingContext(batchDuration: Long) = context.createStreamingContext(batchDuration)
 
-  def stopStreamingContext
+  def stopStreamingContext = context.stopStreamingCtx()
 
-  def getLocalTmpDir
+  def getLocalTmpDir: File = context.getLocalTmpDir
 
 }
