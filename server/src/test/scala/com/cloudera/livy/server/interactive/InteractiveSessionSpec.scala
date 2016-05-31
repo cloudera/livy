@@ -47,6 +47,11 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
 
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
+    req.driverMemory = Some("512m")
+    req.driverCores = Some(1)
+    req.executorMemory = Some("512m")
+    req.executorCores = Some(1)
+    req.name = Some("InteractiveSessionSpec")
     req.conf = Map(
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""

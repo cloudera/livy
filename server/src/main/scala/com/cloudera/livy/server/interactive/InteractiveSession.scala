@@ -103,7 +103,7 @@ class InteractiveSession(
 
     val userOpts: Map[String, Option[String]] = Map(
       "spark.driver.cores" -> request.driverCores.map(_.toString),
-      SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString + "b"),
+      SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
       SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
       SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
       "spark.dynamicAllocation.maxExecutors" -> request.numExecutors.map(_.toString)
