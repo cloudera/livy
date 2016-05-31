@@ -122,7 +122,11 @@
 
     <MaxPermGen>512m</MaxPermGen>
     <CodeCacheSize>512m</CodeCacheSize>
+
+    <!-- Where to deploy artifacts. -->
+    <repository.root>http://maven.jenkins.cloudera.com:8081/artifactory</repository.root>
   </properties>
+
   <repositories>
     <repository>
       <id>cdh.repo</id>
@@ -963,5 +967,18 @@
       </plugin>
     </plugins>
   </reporting>
+
+  <distributionManagement>
+    <repository>
+      <id>cdh.releases.repo</id>
+      <url>${repository.root}/cdh-staging-local</url>
+      <name>CDH Releases Repository</name>
+    </repository>
+    <snapshotRepository>
+      <id>cdh.snapshots.repo</id>
+      <url>${repository.root}/cdh-snapshot-local</url>
+      <name>CDH Snapshots Repository</name>
+    </snapshotRepository>
+  </distributionManagement>
 
 </project>
