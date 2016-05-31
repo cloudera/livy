@@ -56,8 +56,8 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     } catch {
       case e: Exception => throw e
     } finally {
-      client.shutdown()
       if (client != null) {
+        client.shutdown()
         client.stop(true)
       }
     }
@@ -73,8 +73,8 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     } catch {
       case e: Exception => throw e
     } finally {
-      client.shutdown()
       if (client != null) {
+        client.shutdown()
         client.stop(true)
       }
     }
@@ -98,8 +98,8 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     } catch {
       case e: Exception => throw e
     } finally {
-      client.shutdown()
       if (client != null) {
+        client.shutdown()
         client.stop(true)
       }
     }
@@ -116,8 +116,8 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       case e: Exception => throw e
     } finally {
       Thread.sleep(5000)
-      client.shutdown()
       if (client != null) {
+        client.shutdown()
         client.stop(true)
       }
     }
@@ -132,8 +132,8 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     } catch {
       case e: Exception => throw e
     } finally {
-      client.shutdown()
       if (client != null) {
+        client.shutdown()
         client.stop(true)
       }
     }
@@ -156,7 +156,10 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       val output = Await.result(sFuture, 10 second)
       assert(output === "test file")
     } finally {
-      client.shutdown()
+      if (client != null) {
+        client.shutdown()
+        client.stop(true)
+      }
       if (file != null) {
         file.delete()
       }
@@ -174,7 +177,6 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       jarFile.write("test resource".getBytes("UTF-8"))
       jarFile.closeEntry()
       jarFile.close()
-
       val future = client.addJar(new URI("file:" + jar.getAbsolutePath()))
       Thread.sleep(5000)
       val sFuture = client.submit(
@@ -183,7 +185,10 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       val output = Await.result(sFuture, 10 second)
       assert(output === "test resource")
     } finally {
-      client.shutdown()
+      if (client != null) {
+        client.shutdown()
+        client.stop(true)
+      }
       if (jar != null) {
         jar.delete()
       }
