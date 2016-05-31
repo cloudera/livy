@@ -23,19 +23,7 @@
         </dependency>
         <dependency>
             <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-server</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-rsc</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-test-lib</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

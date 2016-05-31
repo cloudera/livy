@@ -17,10 +17,6 @@
 
 package com.cloudera.livy
 
-import org.apache.spark.SparkContext
-import org.apache.spark.sql.SQLContext
-import org.apache.spark.streaming.StreamingContext
-
 package object client {
 
   implicit class ScalaWrapper(livyJavaClient: LivyClient) {

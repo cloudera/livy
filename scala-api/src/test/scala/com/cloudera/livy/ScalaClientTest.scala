@@ -151,7 +151,7 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       val future = client.addFile(new URI("file:" + file.getAbsolutePath()))
       Thread.sleep(5000)
       val sFuture = client.submit(
-        context => ScalaTestClient.fileOperation(false, file.getName, context)
+        context => ScalaClientTest.fileOperation(false, file.getName, context)
       )
       val output = Await.result(sFuture, 10 second)
       assert(output === "test file")
