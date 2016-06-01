@@ -1,0 +1,103 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <meta name="description" content="Livy is an open source REST service for Apache Spark">
+    <meta name="author" content="Cloudera">
+   
+
+    <title>Livy, an Open Source REST Service for Apache Spark</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Custom styles for this template -->
+    <link href="css/justified-nav.css" rel="stylesheet">
+
+  
+
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+  </head>
+
+<body>
+<div class="container">
+
+      <!-- Static navbar -->
+      <nav class="navbar navbar-default">
+        <div class="container-fluid">
+          <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+              <span class="sr-only">Toggle navigation</span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+              <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="index.html">Livy</a>
+          </div>
+          <div id="navbar" class="navbar-collapse collapse">
+            <ul class="nav navbar-nav">
+              <li class="active"><a href="index.html">Home</a></li>
+              <li><a href="overview.html">Overview</a></li>
+              <li class="active"><a href="quickstart.html">Quick Start</a></li>
+              <li><a href="https://github.com/cloudera/livy#rest-api">API Docs</a></li>
+              <li><a href="https://github.com/cloudera/livy">Repository</a></li>
+              <li><a href="https://github.com/cloudera/livy/wiki/Contributing-to-Livy">Contributions</a></li>
+            </ul>
+            
+          </div><!--/.nav-collapse -->
+        </div><!--/.container-fluid -->
+      </nav>
+
+
+     
+      
+  <div class="row">
+        <div class="col-lg-12">
+        
+          <h2>1. Install Livy</h2>
+          <p>Download Livy packages from <a href="http://archive.cloudera.com/beta/livy/livy-server-0.2.0.zip">here</a>.</p>
+          <h2>2. Run Livy</h2>
+          <p>To run the Livy server, you will also need an Apache Spark installation. You can get Spark releases at <a href="https://spark.apache.org/downloads.html">https://spark.apache.org/downloads.html</a>. Livy requires at least Spark 1.4 and currently only supports Scala 2.10 builds of Spark. To run Livy with local sessions, first export these variables:</p>
+          <div>
+            <p><code>export SPARK_HOME=/usr/lib/spark <br>
+            </code><code>export HADOOP_CONF_DIR=/etc/hadoop/conf</code></p>
+          </div>
+          <p>Then start the server with:</p>
+          <div>
+            <code>./bin/livy-server</code></div>
+          <p>Livy uses the Spark configuration under <code>SPARK_HOME</code> by default. You can override the Spark configuration by setting the <code>SPARK_CONF_DIR</code> environment variable before starting Livy.</p>
+          <p>It is strongly recommended to configure Spark to submit applications in YARN cluster mode. That makes sure that user sessions have their resources properly accounted for in the YARN cluster, and that the host running the Livy server doesn't become overloaded when multiple user sessions are running.</p>
+          <h2>3. Configure Livy</h2>
+          <p>Livy uses a few configuration files under configuration the directory, which by default is the conf directory under the Livy installation. An alternative configuration directory can be provided by setting the <code>LIVY_CONF_DIR</code> environment variable when starting Livy.</p>
+          <p>The configuration files used by Livy are:</p>
+          <ul>
+            <li><strong>livy.conf</strong>: contains the server configuration. The Livy distribution ships with a default configuration file listing available configuration keys and their default values.</li>
+            <li><strong>spark-blacklist.conf</strong>: list Spark configuration options that users are not allowed to override. These options will be restricted to either their default values, or the values set in the Spark configuration used by Livy.</li>
+            <li><strong>log4j.properties</strong>: configuration for Livy logging. Defines log levels and where log messages will be written to. The default configuration will print log messages to stderr.</li>
+          </ul>
+          <br>
+    </div>
+        </div>
+    
+         
+         <footer class="footer">
+           <p class="small">&nbsp;</p>
+        <p class="small">Copyright &copy; 2016 Cloudera. All rights reserved.</p>
+      </footer>
+      
+    </div>
+
+ 
+
+    
+    <script src="js/bootstrap.js"></script>
+   
+
+  </body>
+</html>
