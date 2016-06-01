@@ -42,7 +42,7 @@
           </div>
           <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav">
-              <li class="active"><a href="index.html">Home</a></li>
+              <li><a href="index.html">Home</a></li>
               <li><a href="overview.html">Overview</a></li>
               <li class="active"><a href="quickstart.html">Quick Start</a></li>
               <li><a href="https://github.com/cloudera/livy#rest-api">API Docs</a></li>
@@ -64,13 +64,12 @@
           <p>Download Livy packages from <a href="http://archive.cloudera.com/beta/livy/livy-server-0.2.0.zip">here</a>.</p>
           <h2>2. Run Livy</h2>
           <p>To run the Livy server, you will also need an Apache Spark installation. You can get Spark releases at <a href="https://spark.apache.org/downloads.html">https://spark.apache.org/downloads.html</a>. Livy requires at least Spark 1.4 and currently only supports Scala 2.10 builds of Spark. To run Livy with local sessions, first export these variables:</p>
-          <div>
+          
             <p><code>export SPARK_HOME=/usr/lib/spark <br>
             </code><code>export HADOOP_CONF_DIR=/etc/hadoop/conf</code></p>
-          </div>
+          
           <p>Then start the server with:</p>
-          <div>
-            <code>./bin/livy-server</code></div>
+          <p><code>./bin/livy-server</code></p>
           <p>Livy uses the Spark configuration under <code>SPARK_HOME</code> by default. You can override the Spark configuration by setting the <code>SPARK_CONF_DIR</code> environment variable before starting Livy.</p>
           <p>It is strongly recommended to configure Spark to submit applications in YARN cluster mode. That makes sure that user sessions have their resources properly accounted for in the YARN cluster, and that the host running the Livy server doesn't become overloaded when multiple user sessions are running.</p>
           <h2>3. Configure Livy</h2>
