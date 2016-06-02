@@ -17,8 +17,6 @@
  */
 package com.cloudera.livy.scalaapi
 
-import java.util.concurrent.ExecutionException
-
 import scala.concurrent.duration.Duration
 import scala.concurrent.{CanAwait, ExecutionContext, Future, TimeoutException}
 import scala.util.Try
@@ -38,7 +36,7 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
       try {
         listener.onJobSucceeded(jobHandle, jobHandle.get())
       } catch {
-        case e: ExecutionException => listener.onJobFailed(jobHandle, e)
+        case e: Exception => listener.onJobFailed(jobHandle, e)
       }
     }
   }

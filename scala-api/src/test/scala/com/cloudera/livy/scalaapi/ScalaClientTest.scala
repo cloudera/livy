@@ -238,11 +238,11 @@ object ScalaClientTest {
   def simpleSparkJob(context: ScalaJobContext): Long = {
     val r = new Random
     val count = 5
-    val partitions = Math.min(r.nextInt(10) + 1, count);
+    val partitions = Math.min(r.nextInt(10) + 1, count)
     val buffer = new ArrayBuffer[Int]()
     for (a <- 1 to count) {
       buffer += r.nextInt()
     }
-    context.sc.parallelize(buffer, partitions).count();
+    context.sc.parallelize(buffer, partitions).count()
   }
 }
