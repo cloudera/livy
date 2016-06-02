@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy
+package com.cloudera.livy.scalaapi
 
 import java.io._
 import java.net.URI
@@ -24,42 +24,43 @@ import java.util._
 import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
-import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.Await
-import scala.concurrent.duration._
-import scala.language.postfixOps
-import scala.util.Success
-import scala.util.Failure
-import scala.concurrent.ExecutionContext.Implicits.global
-
 import org.apache.spark.SparkFiles
 import org.apache.spark.launcher.SparkLauncher
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
+import scala.language.postfixOps
+import scala.util.{Failure, Success}
+import com.cloudera.livy.LivyClientBuilder
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
-class ScalaClientTest extends FunSuite with ScalaFutures {
+class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
-  import com.cloudera.livy.client._
+  import com.cloudera.livy.scalaapi.client._
 
-  private val timeout = 40
+  @transient
   private var client: LivyScalaClient = _
+
+  after {
+    if (client != null) {
+      client.shutdown()
+      client.stop(true)
+    }
+  }
 
   test("test Job Submission") {
     configureClient(true)
     try {
       pingJob()
-      val jobHandle = client.submit(helloJob())
+      val jobHandle = client.submit(ScalaClientTest.helloJob)
       val result = Await.result(jobHandle, 10 second)
       assert(result === "hello")
     } catch {
       case e: Exception => throw e
-    } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
     }
   }
 
@@ -67,16 +68,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     configureClient(true)
     try {
       pingJob()
-      val sFuture = client.submit(simpleSparkJob())
+      val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
       val result = Await.result(sFuture, 10 second)
       assert(result === 5)
     } catch {
       case e: Exception => throw e
-    } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
     }
   }
 
@@ -84,12 +80,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     configureClient(true)
     try {
       pingJob()
-      val sFuture = client.submit(throwExceptionJob())
+      val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
       Thread.sleep(5000)
       sFuture onComplete {
         case Success(t) => {
-          println("Should have thrown an exception")
-          fail()
+          fail("Should have thrown an exception")
         }
         case Failure(e) => {
           assert(e.getMessage.contains("CustomTestFailureException"))
@@ -97,11 +92,6 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       }
     } catch {
       case e: Exception => throw e
-    } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
     }
   }
 
@@ -109,16 +99,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     configureClient(true)
     try {
       pingJob()
-      val future = client.run(helloJob())
+      val future = client.run(ScalaClientTest.helloJob)
       val result = Await.result(future, 10 second)
       assert(result === "hello")
     } catch {
       case e: Exception => throw e
-    } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
     }
   }
 
@@ -126,15 +111,10 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
     configureClient(false)
     try {
       pingJob()
-      val sFuture = client.submit(simpleSparkJob())
+      val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
       val result = Await.result(sFuture, 10 second)
     } catch {
       case e: Exception => throw e
-    } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
     }
   }
 
@@ -155,10 +135,6 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       val output = Await.result(sFuture, 10 second)
       assert(output === "test file")
     } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
       if (file != null) {
         file.delete()
       }
@@ -184,10 +160,6 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
       val output = Await.result(sFuture, 10 second)
       assert(output === "test resource")
     } finally {
-      if (client != null) {
-        client.shutdown()
-        client.stop(true)
-      }
       if (jar != null) {
         jar.delete()
       }
@@ -201,32 +173,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures {
   }
 
   private def pingJob() = {
-    val future = client.submit(context => {
+    val future = client.submit { context =>
       null
-    })
+    }
     val result = Await.result(future, 5 second)
     assert(result == null)
-  }
-
-  private def helloJob(): (ScalaJobContext) => String = {
-    context => "hello"
-  }
-
-  private def throwExceptionJob(): (ScalaJobContext) => CustomTestFailureException = {
-    context => throw new CustomTestFailureException
-  }
-
-  private def simpleSparkJob(): (ScalaJobContext) => Long = {
-    context => {
-      val r = new Random
-      val count = 5
-      val partitions = Math.min(r.nextInt(10) + 1, count);
-      val buffer = new ArrayBuffer[Int]()
-      for (a <- 1 to count) {
-        buffer += r.nextInt()
-      }
-      context.sc.parallelize(buffer, partitions).count();
-    }
   }
 }
 
@@ -278,5 +229,20 @@ object ScalaClientTest {
     })
     val action = rdd.collect().head
     action
+  }
+
+  def helloJob(context: ScalaJobContext): String = "hello"
+
+  def throwExceptionJob(context: ScalaJobContext): CustomTestFailureException = throw new CustomTestFailureException
+
+  def simpleSparkJob(context: ScalaJobContext): Long = {
+    val r = new Random
+    val count = 5
+    val partitions = Math.min(r.nextInt(10) + 1, count);
+    val buffer = new ArrayBuffer[Int]()
+    for (a <- 1 to count) {
+      buffer += r.nextInt()
+    }
+    context.sc.parallelize(buffer, partitions).count();
   }
 }
