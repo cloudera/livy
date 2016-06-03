@@ -27,7 +27,6 @@ import org.eclipse.jetty.server._
 import org.eclipse.jetty.server.handler.{HandlerCollection, RequestLogHandler}
 import org.eclipse.jetty.servlet.{DefaultServlet, ServletContextHandler}
 import org.eclipse.jetty.util.ssl.SslContextFactory
-import org.scalatra.servlet.AsyncSupport
 
 import com.cloudera.livy.{LivyConf, Logging}
 
@@ -71,7 +70,6 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
   context.setContextPath("/")
   context.addServlet(classOf[DefaultServlet], "/")
-  context.setAttribute(AsyncSupport.ExecutionContextKey, ExecutionContext.global)
 
   val handlers = new HandlerCollection
   handlers.addHandler(context)
