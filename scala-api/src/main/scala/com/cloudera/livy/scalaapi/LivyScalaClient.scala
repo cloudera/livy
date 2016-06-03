@@ -79,7 +79,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
     override def run(): Unit = {
       if (jFuture.isDone) {
-        promise.complete(Try(jFuture.get()))
+        promise.complete(Try(getJavaFutureResult(jFuture)))
         scheduledFuture.cancel(false)
       }
     }

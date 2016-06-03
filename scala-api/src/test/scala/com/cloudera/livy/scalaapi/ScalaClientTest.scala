@@ -82,6 +82,7 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   test("test Sync Rpc") {
     configureClient(true)
     val future = client.run(ScalaClientTest.helloJob)
+    Thread.sleep(8000)
     val result = Await.result(future, 10 second)
     assert(result === "hello")
   }

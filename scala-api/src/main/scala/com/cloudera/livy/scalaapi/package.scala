@@ -18,10 +18,23 @@
 
 package com.cloudera.livy
 
+import java.util.concurrent.{ExecutionException, Future => JFuture}
+
 package object scalaapi {
 
   implicit class ScalaWrapper(livyJavaClient: LivyClient) {
     def asScalaClient: LivyScalaClient = new LivyScalaClient(livyJavaClient)
+  }
+
+  def getJavaFutureResult[T](jFuture: JFuture[T]): T = {
+    try {
+      return jFuture.get()
+    } catch {
+      case executionException: ExecutionException => {
+        throw executionException.getCause
+      }
+    }
+    return null.asInstanceOf[T]
   }
 }
 
