@@ -28,16 +28,34 @@ import com.cloudera.livy.JobHandle.{Listener, State}
 
 class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T] {
 
-  private val listener = initiateListener()
-  private var callback: (Try[T]) => Any = null
-  private implicit var executor: ExecutionContext = null
-
   def getState(): State = jobHandle.getState
 
   override def onComplete[U](func: (Try[T]) => U)(implicit executor: ExecutionContext): Unit = {
-    callback = func
-    this.executor = executor
-    jobHandle.addListener(listener)
+    jobHandle.addListener(new Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = {}
+
+      override def onJobCancelled(job: JobHandle[T]): Unit = {}
+
+      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {
+        val onCompleteTask = new Runnable {
+          override def run(): Unit = {
+            func(Try(result))
+          }
+        }
+        executor.execute(onCompleteTask)
+      }
+
+      override def onJobStarted(job: JobHandle[T]): Unit = {}
+
+      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {
+        val onCompleteTask = new Runnable {
+          override def run(): Unit = {
+            func(Try(job.get()))
+          }
+        }
+        executor.execute(onCompleteTask)
+      }
+    })
   }
 
   override def isCompleted: Boolean = jobHandle.isDone
@@ -71,33 +89,5 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
       }
     }
     this
-  }
-
-  private def initiateListener(): Listener[T] = {
-    new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = {}
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = {}
-
-      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {
-        val onCompleteTask = new Runnable {
-          override def run(): Unit = {
-            callback(Try(result))
-          }
-        }
-        executor.execute(onCompleteTask)
-      }
-
-      override def onJobStarted(job: JobHandle[T]): Unit = {}
-
-      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {
-        val onCompleteTask = new Runnable {
-          override def run(): Unit = {
-            callback(Try(job.get()))
-          }
-        }
-        executor.execute(onCompleteTask)
-      }
-    }
   }
 }
