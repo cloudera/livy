@@ -17,39 +17,37 @@
  */
 package com.cloudera.livy.scalaapi
 
-import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures
 
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Failure, Success, Try}
 import com.cloudera.livy.JobHandle
 
-class ScalaJobHandleTest extends FunSuite with BeforeAndAfter with ScalaFutures {
+class ScalaJobHandleTest extends FunSuite with ScalaFutures {
 
   val jobHandle = mock(classOf[JobHandle[String]])
+  val listener = mock(classOf[JobHandle.Listener[String]])
   val scalaJobHandle = new ScalaJobHandle(jobHandle)
+  val timeoutInMilliseconds = 5000
 
   test("get result when job is already complete") {
-    when(jobHandle.isDone).thenReturn(true)
-    when(jobHandle.get()).thenReturn("hello")
+    when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
     val result  = Await.result(scalaJobHandle, 5 seconds)
     assert(result == "hello")
-    verify(jobHandle, times(1)).get()
-    verify(jobHandle, times(1)).isDone
+    verify(jobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
   }
 
-  test("get result when the thread waits for the mentioned duration for job to complete") {
+  test("ready when the thread waits for the mentioned duration for job to complete") {
     when(jobHandle.isDone).thenReturn(false).thenReturn(true)
-    when(jobHandle.get()).thenReturn("hello")
-    val result  = Await.result(scalaJobHandle, 5 seconds)
-    assert(result == "hello")
-    verify(jobHandle, times(1)).get()
+    val result  = Await.ready(scalaJobHandle, 5 seconds)
+    assert(result == scalaJobHandle)
     verify(jobHandle, times(2)).isDone
   }
 
@@ -62,46 +60,17 @@ class ScalaJobHandleTest extends FunSuite with BeforeAndAfter with ScalaFutures 
   }
 
   test("onCompleteSucess with global ExecutionContext") {
+    doNothing().when(jobHandle).addListener(listener)
     when(jobHandle.isDone).thenReturn(true)
     when(jobHandle.get()).thenReturn("hello")
+    doNothing().when(listener).onJobSucceeded(jobHandle, "hello")
     scalaJobHandle.onComplete(onCompleteSuccessCallbackFunc)
-    verify(jobHandle, times(1)).isDone()
-    verify(jobHandle, times(1)).get()
+    verify(jobHandle, times(1)).isDone
+    verify(listener, times(1)).onJobSucceeded(jobHandle, "hello")
   }
 
-  test("onCompleteSucess with user defined ExecutionContext") {
-    implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
-    when(jobHandle.isDone).thenReturn(true)
-    when(jobHandle.get()).thenReturn("hello")
-    scalaJobHandle.onComplete(onCompleteSuccessCallbackFunc)(ec)
-    verify(jobHandle, times(1)).isDone()
-    verify(jobHandle, times(1)).get()
+  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match{
+    case Success(t) => assert(t === "hello")
+    case Failure(e) => fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
   }
-
-  test("onCompleteFailure with global ExecutionContext") {
-    when(jobHandle.isDone).thenReturn(true)
-    when(jobHandle.get()).thenThrow(new CustomTestFailureException)
-    scalaJobHandle.onComplete(onCompleteFailureCallbackFunc)
-    verify(jobHandle, times(1)).isDone()
-    verify(jobHandle, times(2)).get()
-  }
-
-  private def onCompleteSuccessCallbackFunc(func: Try[String]) = func match{
-    case Success(t) => {
-      assert(t === "hello")
-    }
-    case Failure(e) => {
-      fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
-    }
-  }
-
-  private def onCompleteFailureCallbackFunc(func: Try[String]) = func match{
-    case Success(t) => {
-      fail("Should not trigger Success callback onCompleteFailureCallbackFunc")
-    }
-    case Failure(e) => {
-      assert(e.toString.contains("CustomTestFailureException"))
-    }
-  }
-
 }

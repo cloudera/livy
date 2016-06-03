@@ -35,141 +35,103 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
-import com.cloudera.livy.LivyClientBuilder
+
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
 class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
-  import com.cloudera.livy.scalaapi.client._
+  import com.cloudera.livy._
 
-  @transient
   private var client: LivyScalaClient = _
 
   after {
     if (client != null) {
-      client.shutdown()
       client.stop(true)
+      client = null
     }
   }
 
   test("test Job Submission") {
     configureClient(true)
-    try {
-      pingJob()
-      val jobHandle = client.submit(ScalaClientTest.helloJob)
-      val result = Await.result(jobHandle, 10 second)
-      assert(result === "hello")
-    } catch {
-      case e: Exception => throw e
-    }
+    val jobHandle = client.submit(ScalaClientTest.helloJob)
+    val result = Await.result(jobHandle, 10 second)
+    assert(result === "hello")
   }
 
   test("test Simple Spark Job") {
     configureClient(true)
-    try {
-      pingJob()
-      val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-      val result = Await.result(sFuture, 10 second)
-      assert(result === 5)
-    } catch {
-      case e: Exception => throw e
-    }
+    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
+    val result = Await.result(sFuture, 10 second)
+    assert(result === 5)
   }
 
   test("test Job Failure") {
     configureClient(true)
-    try {
-      pingJob()
-      val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
-      Thread.sleep(5000)
-      sFuture onComplete {
-        case Success(t) => {
-          fail("Should have thrown an exception")
-        }
-        case Failure(e) => {
-          assert(e.getMessage.contains("CustomTestFailureException"))
-        }
+    val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
+    Thread.sleep(5000)
+    sFuture onComplete {
+      case Success(t) => {
+        fail("Should have thrown an exception")
       }
-    } catch {
-      case e: Exception => throw e
+      case Failure(e) => {
+        assert(e.getMessage.contains("CustomTestFailureException"))
+      }
     }
   }
 
   test("test Sync Rpc") {
     configureClient(true)
-    try {
-      pingJob()
-      val future = client.run(ScalaClientTest.helloJob)
-      val result = Await.result(future, 10 second)
-      assert(result === "hello")
-    } catch {
-      case e: Exception => throw e
-    }
+    val future = client.run(ScalaClientTest.helloJob)
+    val result = Await.result(future, 10 second)
+    assert(result === "hello")
   }
 
   test("test Remote client") {
     configureClient(false)
-    try {
-      pingJob()
-      val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-      val result = Await.result(sFuture, 10 second)
-    } catch {
-      case e: Exception => throw e
-    }
+    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
+    val result = Await.result(sFuture, 10 second)
+    assert(result === 5)
   }
 
   test("test add file") {
     configureClient(true)
     var file: File = null
-    try {
-      pingJob()
-      file = File.createTempFile("test", ".file")
-      val fileStream = new FileOutputStream(file)
-      fileStream.write("test file".getBytes("UTF-8"))
-      fileStream.close
-      val future = client.addFile(new URI("file:" + file.getAbsolutePath()))
-      Thread.sleep(5000)
-      val sFuture = client.submit(
-        context => ScalaClientTest.fileOperation(false, file.getName, context)
-      )
-      val output = Await.result(sFuture, 10 second)
-      assert(output === "test file")
-    } finally {
-      if (file != null) {
-        file.delete()
-      }
-    }
+    file = File.createTempFile("test", ".file")
+    val fileStream = new FileOutputStream(file)
+    fileStream.write("test file".getBytes("UTF-8"))
+    fileStream.close
+    client.addFile(new URI("file:" + file.getAbsolutePath()))
+    Thread.sleep(5000)
+    val sFuture = client.submit(
+      context => ScalaClientTest.fileOperation(false, file.getName, context)
+    )
+    val output = Await.result(sFuture, 10 second)
+    assert(output === "test file")
   }
 
   test("test add jar") {
     configureClient(true)
     var jar: File = null
-    try {
-      pingJob()
-      jar = File.createTempFile("test", ".resource")
-      var jarFile = new JarOutputStream(new FileOutputStream(jar))
-      jarFile.putNextEntry(new ZipEntry("test.resource"))
-      jarFile.write("test resource".getBytes("UTF-8"))
-      jarFile.closeEntry()
-      jarFile.close()
-      val future = client.addJar(new URI("file:" + jar.getAbsolutePath()))
-      Thread.sleep(5000)
-      val sFuture = client.submit(
-        context => ScalaClientTest.fileOperation(true, "test.resource", context)
-      )
-      val output = Await.result(sFuture, 10 second)
-      assert(output === "test resource")
-    } finally {
-      if (jar != null) {
-        jar.delete()
-      }
-    }
+    jar = File.createTempFile("test", ".resource")
+    val jarFile = new JarOutputStream(new FileOutputStream(jar))
+    jarFile.putNextEntry(new ZipEntry("test.resource"))
+    jarFile.write("test resource".getBytes("UTF-8"))
+    jarFile.closeEntry()
+    jarFile.close()
+    client.addJar(new URI("file:" + jar.getAbsolutePath()))
+    Thread.sleep(5000)
+    val sFuture = client.submit(
+      context => ScalaClientTest.fileOperation(true, "test.resource", context)
+    )
+    val output = Await.result(sFuture, 10 second)
+    assert(output === "test resource")
   }
 
   private def configureClient(local: Boolean) = {
-    var conf = ScalaClientTest.createConf(local)
-    var javaClient = new LivyClientBuilder(false).setURI(new URI("rsc:/")).setAll(conf).build()
+    val conf = ScalaClientTest.createConf(local)
+    val javaClient = new LivyClientBuilder(false).setURI(new URI("rsc:/")).setAll(conf).build()
     client = javaClient.asScalaClient
+    pingJob()
   }
 
   private def pingJob() = {
@@ -221,19 +183,17 @@ object ScalaClientTest {
           read = inputStream.read(buffer)
         }
         val bytes = out.toByteArray
-        val result = new String(bytes, 0, bytes.length, UTF_8)
-        result
+        new String(bytes, 0, bytes.length, UTF_8)
       } finally {
         inputStream.close()
       }
     })
-    val action = rdd.collect().head
-    action
+    rdd.collect().head
   }
 
   def helloJob(context: ScalaJobContext): String = "hello"
 
-  def throwExceptionJob(context: ScalaJobContext): CustomTestFailureException = throw new CustomTestFailureException
+  def throwExceptionJob(context: ScalaJobContext) = throw new CustomTestFailureException
 
   def simpleSparkJob(context: ScalaJobContext): Long = {
     val r = new Random

@@ -20,17 +20,17 @@ package com.cloudera.livy.scalaapi
 
 import java.io.File
 import java.net.URI
-import java.util.concurrent.{ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit, Future => JFuture}
 
-import com.cloudera.livy._
+import java.util.concurrent.{Executors, ScheduledFuture,TimeUnit, Future => JFuture}
 
 import scala.concurrent._
 import scala.util.Try
 
+import com.cloudera.livy._
+
 class LivyScalaClient(livyJavaClient: LivyClient) {
 
-  private val threadPoolSize = 1
-  private val executor = new ScheduledThreadPoolExecutor(threadPoolSize)
+  private val executor = Executors.newSingleThreadScheduledExecutor()
 
   def submit[T](fn: ScalaJobContext => T): ScalaJobHandle[T] = {
     val job = new Job[T] {
@@ -51,7 +51,10 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
     new PollingContainer(livyJavaClient.run(job)).poll()
   }
 
-  def stop(shutdownContext: Boolean) = livyJavaClient.stop(shutdownContext)
+  def stop(shutdownContext: Boolean) =  {
+    executor.shutdown()
+    livyJavaClient.stop(shutdownContext)
+  }
 
   def uploadJar(jar: File): Future[_] = new PollingContainer(livyJavaClient.uploadJar(jar)).poll()
 
@@ -61,9 +64,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
   def addFile(uRI: URI): Future[_] = new PollingContainer(livyJavaClient.addFile(uRI)).poll()
 
-  def shutdown() = executor.shutdown()
-
-  class PollingContainer[T] private[livy] (jFuture: JFuture[T]) extends Runnable {
+  private class PollingContainer[T] private[livy] (jFuture: JFuture[T]) extends Runnable {
 
     private val initialDelay = 1
     private val longDelay = 1

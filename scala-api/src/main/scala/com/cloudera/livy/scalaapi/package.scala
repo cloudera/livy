@@ -16,11 +16,9 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.scalaapi
+package com.cloudera.livy
 
-import com.cloudera.livy.LivyClient
-
-package object client {
+package object scalaapi {
 
   implicit class ScalaWrapper(livyJavaClient: LivyClient) {
     def asScalaClient: LivyScalaClient = new LivyScalaClient(livyJavaClient)

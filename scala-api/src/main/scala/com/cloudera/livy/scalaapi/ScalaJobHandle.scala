@@ -17,6 +17,8 @@
  */
 package com.cloudera.livy.scalaapi
 
+import java.util.concurrent.TimeUnit
+
 import scala.concurrent.duration.Duration
 import scala.concurrent.{CanAwait, ExecutionContext, Future, TimeoutException}
 import scala.util.Try
@@ -26,19 +28,16 @@ import com.cloudera.livy.JobHandle.{Listener, State}
 
 class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T] {
 
-  private var listener: JobHandle.Listener[T]  = null
+  private val listener = initiateListener()
+  private var callback: (Try[T]) => Any = null
+  private implicit var executor: ExecutionContext = null
 
   def getState(): State = jobHandle.getState
 
   override def onComplete[U](func: (Try[T]) => U)(implicit executor: ExecutionContext): Unit = {
-    initiateListener(func, executor)
-    if (isCompleted) {
-      try {
-        listener.onJobSucceeded(jobHandle, jobHandle.get())
-      } catch {
-        case e: Exception => listener.onJobFailed(jobHandle, e)
-      }
-    }
+    callback = func
+    this.executor = executor
+    jobHandle.addListener(listener)
   }
 
   override def isCompleted: Boolean = jobHandle.isDone
@@ -52,10 +51,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
   }
 
   @throws(classOf[Exception])
-  override def result(atMost: Duration)(implicit permit: CanAwait): T = {
-    ready(atMost)(permit)
-    jobHandle.get()
-  }
+  override def result(atMost: Duration)(implicit permit: CanAwait): T =
+    jobHandle.get(atMost.toMillis, TimeUnit.MILLISECONDS)
 
   @throws(classOf[InterruptedException])
   @throws(classOf[TimeoutException])
@@ -63,40 +60,40 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     if (!atMost.isFinite()) {
       value
     } else jobHandle.synchronized {
-      val finishTime = System.currentTimeMillis() + atMost.toMillis
+      val finishTime = System.nanoTime() + atMost.toNanos
       while (!isCompleted) {
-        val time = System.currentTimeMillis()
+        val time = System.nanoTime()
         if (time >= finishTime) {
           throw new TimeoutException
         } else {
-          jobHandle.wait(finishTime - time)
+          jobHandle.wait(((finishTime - time)/1000000))
         }
       }
     }
     this
   }
 
-  private def initiateListener[U](func: (Try[T]) => U, executor: ExecutionContext) = {
-    listener = new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = ???
+  private def initiateListener(): Listener[T] = {
+    new Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = {}
 
-      override def onJobCancelled(job: JobHandle[T]): Unit = ???
+      override def onJobCancelled(job: JobHandle[T]): Unit = {}
 
       override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {
         val onCompleteTask = new Runnable {
           override def run(): Unit = {
-            func(Try(result))
+            callback(Try(result))
           }
         }
         executor.execute(onCompleteTask)
       }
 
-      override def onJobStarted(job: JobHandle[T]): Unit = ???
+      override def onJobStarted(job: JobHandle[T]): Unit = {}
 
       override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {
         val onCompleteTask = new Runnable {
           override def run(): Unit = {
-            func(Try(job.get()))
+            callback(Try(job.get()))
           }
         }
         executor.execute(onCompleteTask)
