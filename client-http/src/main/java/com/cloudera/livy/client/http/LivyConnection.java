@@ -42,7 +42,7 @@ import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.impl.DefaultConnectionReuseStrategy;
+import org.apache.http.impl.NoConnectionReuseStrategy;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -113,7 +113,7 @@ class LivyConnection {
       .evictExpiredConnections()
       .evictIdleConnections(config.getTimeAsMs(CONNECTION_IDLE_TIMEOUT), TimeUnit.MILLISECONDS)
       .setConnectionManager(new BasicHttpClientConnectionManager())
-      .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
+      .setConnectionReuseStrategy(new NoConnectionReuseStrategy())
       .setDefaultRequestConfig(reqConfig)
       .setMaxConnTotal(1)
       .setDefaultCredentialsProvider(credsProvider)
@@ -178,8 +178,6 @@ class LivyConnection {
       Class<V> retType,
       String uri,
       Object... uriParams) throws Exception {
-    req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
-      uriRoot + String.format(uri, uriParams), null, null));
     req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
       uriRoot + String.format(uri, uriParams), null, null));
 

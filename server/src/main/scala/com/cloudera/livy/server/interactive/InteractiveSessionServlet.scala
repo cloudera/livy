@@ -88,19 +88,15 @@ class InteractiveSessionServlet(livyConf: LivyConf)
 
   post("/:id/stop") {
     withSession { session =>
-      val future = session.stop()
-      new AsyncResult() { val is = for { _ <- future } yield NoContent() }
+      Await.ready(session.stop(), Duration.Inf)
+      NoContent()
     }
   }
 
   post("/:id/interrupt") {
     withSession { session =>
-      val future = for {
-        _ <- session.interrupt()
-      } yield Ok(Map("msg" -> "interrupted"))
-
-      // FIXME: this is silently eating exceptions.
-      new AsyncResult() { val is = future }
+      Await.ready(session.interrupt(), Duration.Inf)
+      Ok(Map("msg" -> "interrupted"))
     }
   }
 
@@ -179,9 +175,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     withSession { lsession =>
       fileParams.get("jar") match {
         case Some(file) =>
-          doAsync {
-            lsession.addJar(file.getInputStream, file.name)
-          }
+          lsession.addJar(file.getInputStream, file.name)
         case None =>
           BadRequest("No jar uploaded!")
       }
@@ -192,9 +186,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     withSession { lsession =>
       fileParams.get("file") match {
         case Some(file) =>
-          doAsync {
-            lsession.addFile(file.getInputStream, file.name)
-          }
+          lsession.addFile(file.getInputStream, file.name)
         case None =>
           BadRequest("No file sent!")
       }
@@ -204,32 +196,28 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   jpost[AddResource]("/:id/add-jar") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync {
-        lsession.addJar(uri)
-      }
+      lsession.addJar(uri)
     }
   }
 
   jpost[AddResource]("/:id/add-file") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync {
-        lsession.addFile(uri)
-      }
+      lsession.addFile(uri)
     }
   }
 
   get("/:id/jobs/:jobid") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
-      doAsync { Ok(lsession.jobStatus(jobId)) }
+      Ok(lsession.jobStatus(jobId))
     }
   }
 
   post("/:id/jobs/:jobid/cancel") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
-      doAsync { lsession.cancelJob(jobId) }
+      lsession.cancelJob(jobId)
     }
   }
 

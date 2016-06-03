@@ -146,8 +146,12 @@
                   <shadedPattern>com.cloudera.livy.shaded.jackson</shadedPattern>
                 </relocation>
                 <relocation>
-                  <pattern>org.apache</pattern>
-                  <shadedPattern>com.cloudera.livy.shaded.apache</shadedPattern>
+                  <pattern>org.apache.commons</pattern>
+                  <shadedPattern>com.cloudera.livy.shaded.apache.commons</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.http</pattern>
+                  <shadedPattern>com.cloudera.livy.shaded.apache.http</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>

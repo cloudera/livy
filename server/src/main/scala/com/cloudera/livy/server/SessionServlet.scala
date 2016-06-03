@@ -20,7 +20,8 @@ package com.cloudera.livy.server
 
 import javax.servlet.http.HttpServletRequest
 
-import scala.concurrent.Future
+import scala.concurrent._
+import scala.concurrent.duration._
 
 import org.scalatra._
 
@@ -106,29 +107,24 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   delete("/:id") {
     withSession { session =>
       sessionManager.delete(session.id) match {
-      case Some(future) =>
-        new AsyncResult {
-          val is = future.map { case () => Ok(Map("msg" -> "deleted")) }
-        }
-      case None =>
-        NotFound(s"Session ${session.id} already stopped.")
+        case Some(future) =>
+          Await.ready(future, Duration.Inf)
+          Ok(Map("msg" -> "deleted"))
+
+        case None =>
+          NotFound(s"Session ${session.id} already stopped.")
       }
     }
   }
 
   post("/") {
-    new AsyncResult {
-      val is = Future {
-        val session = sessionManager.register(createSession(request))
-        // Because it may take some time to establish the session, update the last activity
-        // time before returning the session info to the client.
-        session.recordActivity()
-        Created(clientSessionView(session, request),
-          headers = Map("Location" ->
-            (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString)))
-        )
-      }
-    }
+    val session = sessionManager.register(createSession(request))
+    // Because it may take some time to establish the session, update the last activity
+    // time before returning the session info to the client.
+    session.recordActivity()
+    Created(clientSessionView(session, request),
+      headers = Map("Location" ->
+        (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString))))
   }
 
   private def getRequestPathInfo(request: HttpServletRequest): String = {
@@ -144,12 +140,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
     case e =>
       SessionServlet.error("internal error", e)
       InternalServerError(e.toString)
-  }
-
-  protected def doAsync(fn: => Any): AsyncResult = {
-    new AsyncResult {
-      val is = Future { fn }
-    }
   }
 
   /**
