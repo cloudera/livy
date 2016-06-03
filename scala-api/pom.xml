@@ -25,6 +25,7 @@
         <groupId>com.cloudera.livy</groupId>
         <artifactId>livy-main</artifactId>
         <version>0.2.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <groupId>com.cloudera.livy</groupId>

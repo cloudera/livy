@@ -20,8 +20,7 @@ package com.cloudera.livy.scalaapi
 
 import java.io.File
 import java.net.URI
-
-import java.util.concurrent.{Executors, ScheduledFuture,TimeUnit, Future => JFuture}
+import java.util.concurrent.{Executors, Future => JFuture, ScheduledFuture, TimeUnit}
 
 import scala.concurrent._
 import scala.util.Try
@@ -51,7 +50,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
     new PollingContainer(livyJavaClient.run(job)).poll()
   }
 
-  def stop(shutdownContext: Boolean) =  {
+  def stop(shutdownContext: Boolean): Unit = {
     executor.shutdown()
     livyJavaClient.stop(shutdownContext)
   }
@@ -60,7 +59,8 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
   def addJar(uRI: URI): Future[_] = new PollingContainer(livyJavaClient.addJar(uRI)).poll()
 
-  def uploadFile(file: File): Future[_] = new PollingContainer(livyJavaClient.uploadFile(file)).poll()
+  def uploadFile(file: File): Future[_] =
+    new PollingContainer(livyJavaClient.uploadFile(file)).poll()
 
   def addFile(uRI: URI): Future[_] = new PollingContainer(livyJavaClient.addFile(uRI)).poll()
 
@@ -71,12 +71,13 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
     private var scheduledFuture: ScheduledFuture[_] = _
     val promise = Promise[T]
 
-    def poll(): Future[T]  = {
-      scheduledFuture = executor.scheduleWithFixedDelay(this, initialDelay, longDelay, TimeUnit.SECONDS)
+    def poll(): Future[T] = {
+      scheduledFuture =
+        executor.scheduleWithFixedDelay(this, initialDelay, longDelay, TimeUnit.SECONDS)
       promise.future
     }
 
-    override def run(): Unit =  {
+    override def run(): Unit = {
       if (jFuture.isDone) {
         promise.complete(Try(jFuture.get()))
         scheduledFuture.cancel(false)

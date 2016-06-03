@@ -30,15 +30,16 @@ class ScalaJobContext private[livy] (context: JobContext) {
 
   def sc: SparkContext = context.sc().sc
 
-  def sqlctx: SQLContext =  context.sqlctx()
+  def sqlctx: SQLContext = context.sqlctx()
 
   def hivectx: HiveContext = context.hivectx()
 
   def streamingctx: StreamingContext = context.streamingctx().ssc
 
-  def createStreamingContext(batchDuration: Long) = context.createStreamingContext(batchDuration)
+  def createStreamingContext(batchDuration: Long): Unit =
+    context.createStreamingContext(batchDuration)
 
-  def stopStreamingContext() = context.stopStreamingCtx()
+  def stopStreamingContext(): Unit = context.stopStreamingCtx()
 
   def localTmpDir: File = context.getLocalTmpDir
 

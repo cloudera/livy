@@ -22,12 +22,12 @@ import java.util.concurrent.TimeUnit
 import org.mockito.Mockito._
 import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.postfixOps
 import scala.util.{Failure, Success, Try}
+
 import com.cloudera.livy.JobHandle
 
 class ScalaJobHandleTest extends FunSuite with ScalaFutures {
@@ -39,14 +39,14 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures {
 
   test("get result when job is already complete") {
     when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
-    val result  = Await.result(scalaJobHandle, 5 seconds)
+    val result = Await.result(scalaJobHandle, 5 seconds)
     assert(result == "hello")
     verify(jobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
   }
 
   test("ready when the thread waits for the mentioned duration for job to complete") {
     when(jobHandle.isDone).thenReturn(false).thenReturn(true)
-    val result  = Await.ready(scalaJobHandle, 5 seconds)
+    val result = Await.ready(scalaJobHandle, 5 seconds)
     assert(result == scalaJobHandle)
     verify(jobHandle, times(2)).isDone
   }
@@ -54,7 +54,7 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures {
   test("ready with Infinite Duration") {
     when(jobHandle.isDone).thenReturn(true)
     when(jobHandle.get()).thenReturn("hello")
-    val result  = Await.ready(scalaJobHandle, Duration.Undefined)
+    val result = Await.ready(scalaJobHandle, Duration.Undefined)
     assert(result == scalaJobHandle)
     verify(jobHandle, times(1)).get()
   }
@@ -69,7 +69,7 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures {
     verify(listener, times(1)).onJobSucceeded(jobHandle, "hello")
   }
 
-  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match{
+  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match {
     case Success(t) => assert(t === "hello")
     case Failure(e) => fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
   }

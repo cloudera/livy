@@ -19,8 +19,8 @@ package com.cloudera.livy.scalaapi
 
 import java.util.concurrent.TimeUnit
 
-import scala.concurrent.duration.Duration
 import scala.concurrent.{CanAwait, ExecutionContext, Future, TimeoutException}
+import scala.concurrent.duration.Duration
 import scala.util.Try
 
 import com.cloudera.livy.JobHandle
