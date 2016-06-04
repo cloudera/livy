@@ -34,7 +34,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
@@ -86,12 +86,12 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     assert(result === "hello")
   }
 
-  test("test Remote client") {
-    configureClient(false)
-    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-    val result = Await.result(sFuture, 10 second)
-    assert(result === 5)
-  }
+//  test("test Remote client") {
+//    configureClient(false)
+//    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
+//    val result = Await.result(sFuture, 10 second)
+//    assert(result === 5)
+//  }
 
   test("test add file") {
     configureClient(true)
@@ -125,6 +125,20 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     )
     val output = Await.result(sFuture, 10 second)
     assert(output === "test resource")
+  }
+
+  test("Sucessive onComplete callbacks") {
+    configureClient(true)
+    val future = client.run(ScalaClientTest.helloJob)
+    Thread.sleep(5000)
+    for (i <- 0 to 2) {
+      future.onComplete(onCompleteSuccessCallbackFunc)
+    }
+  }
+
+  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match {
+    case Success(t) => assert(t === "hello")
+    case Failure(e) => fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
   }
 
   private def configureClient(local: Boolean) = {

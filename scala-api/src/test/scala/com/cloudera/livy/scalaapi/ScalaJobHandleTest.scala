@@ -24,9 +24,7 @@ import org.scalatest.FunSuite
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
 
 import com.cloudera.livy.JobHandle
 
@@ -57,20 +55,5 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures {
     val result = Await.ready(scalaJobHandle, Duration.Undefined)
     assert(result == scalaJobHandle)
     verify(jobHandle, times(1)).get()
-  }
-
-  test("onCompleteSucess with global ExecutionContext") {
-    doNothing().when(jobHandle).addListener(listener)
-    when(jobHandle.isDone).thenReturn(true)
-    when(jobHandle.get()).thenReturn("hello")
-    doNothing().when(listener).onJobSucceeded(jobHandle, "hello")
-    scalaJobHandle.onComplete(onCompleteSuccessCallbackFunc)
-    verify(jobHandle, times(1)).isDone
-    verify(listener, times(1)).onJobSucceeded(jobHandle, "hello")
-  }
-
-  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match {
-    case Success(t) => assert(t === "hello")
-    case Failure(e) => fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
   }
 }
