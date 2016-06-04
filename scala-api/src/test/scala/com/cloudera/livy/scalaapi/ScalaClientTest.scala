@@ -86,12 +86,12 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     assert(result === "hello")
   }
 
-//  test("test Remote client") {
-//    configureClient(false)
-//    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-//    val result = Await.result(sFuture, 10 second)
-//    assert(result === 5)
-//  }
+  test("test Remote client") {
+    configureClient(false)
+    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
+    val result = Await.result(sFuture, 10 second)
+    assert(result === 5)
+  }
 
   test("test add file") {
     configureClient(true)
