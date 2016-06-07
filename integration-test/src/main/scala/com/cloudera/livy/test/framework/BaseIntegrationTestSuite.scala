@@ -105,9 +105,10 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
 
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
-    def startSession(kind: Kind): Int = {
+    def startSession(kind: Kind, sparkConf: Map[String, String] = Map()): Int = {
       val requestBody = new CreateInteractiveRequest()
       requestBody.kind = kind
+      requestBody.conf = sparkConf
 
       val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
         .setBody(mapper.writeValueAsString(requestBody))
