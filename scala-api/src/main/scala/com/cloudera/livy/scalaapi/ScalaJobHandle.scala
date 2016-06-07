@@ -50,7 +50,7 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
       override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {
         val onCompleteTask = new Runnable {
           override def run(): Unit = {
-            func(Try(job.get()))
+            func(Try(getJavaFutureResult(job)))
           }
         }
         executor.execute(onCompleteTask)
@@ -62,7 +62,7 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
 
   override def value: Option[Try[T]] = {
     if (isCompleted) {
-      Some(Try(jobHandle.get()))
+      Some(Try(getJavaFutureResult(jobHandle)))
     } else {
       None
     }
@@ -70,24 +70,20 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
 
   @throws(classOf[Exception])
   override def result(atMost: Duration)(implicit permit: CanAwait): T =
-    jobHandle.get(atMost.toMillis, TimeUnit.MILLISECONDS)
+    getJavaFutureResultAfterGivenWaitTime(atMost)
 
   @throws(classOf[InterruptedException])
   @throws(classOf[TimeoutException])
   override def ready(atMost: Duration)(implicit permit: CanAwait): ScalaJobHandle.this.type = {
-    if (!atMost.isFinite()) {
-      value
-    } else jobHandle.synchronized {
-      val finishTime = System.nanoTime() + atMost.toNanos
-      while (!isCompleted) {
-        val time = System.nanoTime()
-        if (time >= finishTime) {
-          throw new TimeoutException
-        } else {
-          jobHandle.wait(((finishTime - time)/1000000))
-        }
-      }
-    }
+    getJavaFutureResultAfterGivenWaitTime(atMost)
     this
+  }
+
+  private def getJavaFutureResultAfterGivenWaitTime(atMost: Duration): T = {
+    if (!atMost.isFinite()) {
+      getJavaFutureResult(jobHandle)
+    } else {
+      getJavaFutureResult(jobHandle, atMost)
+    }
   }
 }

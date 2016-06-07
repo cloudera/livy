@@ -18,23 +18,22 @@
 
 package com.cloudera.livy
 
-import java.util.concurrent.{ExecutionException, Future => JFuture}
+import java.util.concurrent.{ExecutionException, TimeUnit, Future => JFuture}
+
+import scala.concurrent.duration.Duration
 
 package object scalaapi {
 
-  implicit class ScalaWrapper(livyJavaClient: LivyClient) {
+  implicit class ScalaWrapper private[livy] (livyJavaClient: LivyClient) {
     def asScalaClient: LivyScalaClient = new LivyScalaClient(livyJavaClient)
   }
 
-  def getJavaFutureResult[T](jFuture: JFuture[T]): T = {
+  def getJavaFutureResult[T](jFuture: JFuture[T], atMost: Duration = Duration.Undefined): T = {
     try {
-      return jFuture.get()
+      if (!atMost.isFinite()) jFuture.get else jFuture.get(atMost.toMillis, TimeUnit.MILLISECONDS)
     } catch {
-      case executionException: ExecutionException => {
-        throw executionException.getCause
-      }
+      case executionException: ExecutionException => throw executionException.getCause
     }
-    return null.asInstanceOf[T]
   }
 }
 
