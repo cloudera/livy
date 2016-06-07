@@ -56,6 +56,48 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
+  def onJobQueued[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
+    jobHandle.addListener(new Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = func()
+
+      override def onJobCancelled(job: JobHandle[T]): Unit = {}
+
+      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
+
+      override def onJobStarted(job: JobHandle[T]): Unit = {}
+
+      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    })
+  }
+
+  def onJobStarted[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
+    jobHandle.addListener(new Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = {}
+
+      override def onJobCancelled(job: JobHandle[T]): Unit = {}
+
+      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
+
+      override def onJobStarted(job: JobHandle[T]): Unit = func()
+
+      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    })
+  }
+
+  def onJobCancelled[U](func: Boolean => Unit)(implicit executor: ExecutionContext): Unit = {
+    jobHandle.addListener(new Listener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = {}
+
+      override def onJobCancelled(job: JobHandle[T]): Unit = func(job.cancel(false))
+
+      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
+
+      override def onJobStarted(job: JobHandle[T]): Unit = {}
+
+      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    })
+  }
+
   override def isCompleted: Boolean = jobHandle.isDone
 
   override def value: Option[Try[T]] = {

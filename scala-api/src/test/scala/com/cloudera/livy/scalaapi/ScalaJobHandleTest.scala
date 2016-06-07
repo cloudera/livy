@@ -19,45 +19,69 @@ package com.cloudera.livy.scalaapi
 
 import java.util.concurrent.TimeUnit
 
+import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
+import scala.util.Success
 
 import com.cloudera.livy.JobHandle
 
+
 class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
-  var jobHandle: JobHandle[String] = null
-  var scalaJobHandle: ScalaJobHandle[String] = null
-  val timeoutInMilliseconds = 5000
+  private var mockJobHandle: JobHandle[String] = null
+  private var scalaJobHandle: ScalaJobHandle[String] = null
+  private val timeoutInMilliseconds = 5000
+  private var listener: JobHandle.Listener[String] = null
 
   before {
-    jobHandle = mock(classOf[JobHandle[String]])
-    scalaJobHandle = new ScalaJobHandle(jobHandle)
+    listener = mock(classOf[JobHandle.Listener[String]])
+    mockJobHandle = mock(classOf[JobHandle[String]])
+    scalaJobHandle = new ScalaJobHandle(mockJobHandle)
   }
 
   test("get result when job is already complete") {
-    when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
+    when(mockJobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
     val result = Await.result(scalaJobHandle, 5 seconds)
     assert(result == "hello")
-    verify(jobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
+    verify(mockJobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
   }
 
   test("ready when the thread waits for the mentioned duration for job to complete") {
-    when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
+    when(mockJobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
     val result = Await.ready(scalaJobHandle, 5 seconds)
     assert(result == scalaJobHandle)
-    verify(jobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
+    verify(mockJobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
   }
 
   test("ready with Infinite Duration") {
-    when(jobHandle.isDone).thenReturn(true)
-    when(jobHandle.get()).thenReturn("hello")
+    when(mockJobHandle.isDone).thenReturn(true)
+    when(mockJobHandle.get()).thenReturn("hello")
     val result = Await.ready(scalaJobHandle, Duration.Undefined)
     assert(result == scalaJobHandle)
-    verify(jobHandle, times(1)).get()
+    verify(mockJobHandle, times(1)).get()
+  }
+
+  test("onComplete") {
+    doNothing().when(mockJobHandle).addListener(listener)
+    scalaJobHandle onComplete {
+      case Success(t) => {}
+    }
+    verify(mockJobHandle).addListener(isA(classOf[JobHandle.Listener[String]]))
+    verify(mockJobHandle, times(1)).addListener(any())
+  }
+
+  test("onJobCancelled") {
+    doNothing().when(mockJobHandle).addListener(listener)
+    scalaJobHandle onJobCancelled {
+      case true => {}
+    }
+    verify(mockJobHandle).addListener(isA(classOf[JobHandle.Listener[String]]))
+    verify(mockJobHandle, times(1)).addListener(any())
   }
 }
