@@ -20,7 +20,7 @@ package com.cloudera.livy.scalaapi
 import java.util.concurrent.TimeUnit
 
 import org.mockito.Mockito._
-import org.scalatest.FunSuite
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -28,12 +28,16 @@ import scala.language.postfixOps
 
 import com.cloudera.livy.JobHandle
 
-class ScalaJobHandleTest extends FunSuite with ScalaFutures {
+class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
-  val jobHandle = mock(classOf[JobHandle[String]])
-  val listener = mock(classOf[JobHandle.Listener[String]])
-  val scalaJobHandle = new ScalaJobHandle(jobHandle)
+  var jobHandle: JobHandle[String] = null
+  var scalaJobHandle: ScalaJobHandle[String] = null
   val timeoutInMilliseconds = 5000
+
+  before {
+    jobHandle = mock(classOf[JobHandle[String]])
+    scalaJobHandle = new ScalaJobHandle(jobHandle)
+  }
 
   test("get result when job is already complete") {
     when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
@@ -43,10 +47,10 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures {
   }
 
   test("ready when the thread waits for the mentioned duration for job to complete") {
-    when(jobHandle.isDone).thenReturn(false).thenReturn(true)
+    when(jobHandle.get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)).thenReturn("hello")
     val result = Await.ready(scalaJobHandle, 5 seconds)
     assert(result == scalaJobHandle)
-    verify(jobHandle, times(2)).isDone
+    verify(jobHandle, times(1)).get(timeoutInMilliseconds, TimeUnit.MILLISECONDS)
   }
 
   test("ready with Infinite Duration") {

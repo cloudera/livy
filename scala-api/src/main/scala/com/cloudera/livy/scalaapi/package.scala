@@ -18,7 +18,7 @@
 
 package com.cloudera.livy
 
-import java.util.concurrent.{ExecutionException, TimeUnit, Future => JFuture}
+import java.util.concurrent.{ExecutionException, Future => JFuture, TimeUnit}
 
 import scala.concurrent.duration.Duration
 
