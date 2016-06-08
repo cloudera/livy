@@ -19,10 +19,12 @@
 package com.cloudera.livy.test.framework
 
 import java.io._
+import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
+import com.ning.http.client.AsyncHttpClient
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hdfs.MiniDFSCluster
@@ -248,6 +250,14 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
     val props = loadProperties(confFile)
     livyUrl = props("livy.server.serverUrl")
+
+    // Wait until Livy server responds.
+    val httpClient = new AsyncHttpClient()
+    eventually(timeout(30 seconds), interval(1 second)) {
+      val res = httpClient.prepareGet(livyUrl).execute().get()
+      assert(res.getStatusCode() == HttpServletResponse.SC_OK)
+    }
+
     livy = Some(localLivy)
   }
 
