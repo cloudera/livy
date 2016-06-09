@@ -48,6 +48,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     val interpreter = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND)) match {
       case PySpark() => PythonInterpreter(conf)
       case Spark() => new SparkInterpreter(conf)
+      case SparkSql() => new SparkSqlInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
 
