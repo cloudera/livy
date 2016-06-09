@@ -50,10 +50,12 @@ def execute_reply_ok(data):
 
 def execute_reply_error(exc_type, exc_value, tb):
     LOG.error('execute_reply', exc_info=True)
+    formatted_tb = filter(lambda t: __file__ not in t,
+                          traceback.format_exception(exc_type, exc_value, tb))
     return execute_reply('error', {
         'ename': unicode(exc_type.__name__),
         'evalue': unicode(exc_value),
-        'traceback': traceback.format_exception(exc_type, exc_value, tb, -1),
+        'traceback': formatted_tb,
     })
 
 

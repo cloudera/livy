@@ -21,7 +21,6 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
-import org.scalatest.Outcome
 
 class PythonInterpreterSpec extends BaseInterpreterSpec {
 
@@ -150,6 +149,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       "name 'x' is not defined",
       List(
         "Traceback (most recent call last):\n",
+        "  File \"<stdin>\", line 1, in <module>\n",
         "NameError: name 'x' is not defined\n"
       )
     ))
@@ -196,6 +196,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       "name 'x' is not defined",
       List(
         "Traceback (most recent call last):\n",
+        "  File \"<stdin>\", line 1, in <module>\n",
         "NameError: name 'x' is not defined\n"
       )
     ))

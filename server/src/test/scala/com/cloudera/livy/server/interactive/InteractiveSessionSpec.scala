@@ -18,8 +18,6 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.util.concurrent.TimeUnit
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -108,6 +106,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
         "evalue" -> "name 'x' is not defined",
         "traceback" -> List(
           "Traceback (most recent call last):\n",
+          "  File \"<stdin>\", line 1, in <module>\n",
           "NameError: name 'x' is not defined\n"
         )
       ))

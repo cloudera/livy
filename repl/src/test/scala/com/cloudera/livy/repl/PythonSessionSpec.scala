@@ -18,9 +18,6 @@
 
 package com.cloudera.livy.repl
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 
@@ -135,6 +132,7 @@ class PythonSessionSpec extends BaseSessionSpec {
       "execution_count" -> 0,
       "traceback" -> List(
         "Traceback (most recent call last):\n",
+        "  File \"<stdin>\", line 1, in <module>\n",
         "NameError: name 'x' is not defined\n"
       ),
       "ename" -> "NameError",
@@ -158,6 +156,8 @@ class PythonSessionSpec extends BaseSessionSpec {
       "execution_count" -> 0,
       "traceback" -> List(
         "Traceback (most recent call last):\n",
+        "  File \"<stdin>\", line 3, in <module>\n",
+        "  File \"<stdin>\", line 2, in foo\n",
         "Exception\n"
       ),
       "ename" -> "Exception",
