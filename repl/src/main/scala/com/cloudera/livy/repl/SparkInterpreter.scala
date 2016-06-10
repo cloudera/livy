@@ -19,10 +19,11 @@
 package com.cloudera.livy.repl
 
 import java.io._
+import java.net.URLClassLoader
+import java.nio.file.Paths
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.{JPrintWriter, Results}
-import scala.tools.nsc.settings.MutableSettings
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.{SparkConf, SparkContext}
@@ -32,6 +33,8 @@ import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.Logging
+
 object SparkInterpreter {
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
 }
@@ -39,7 +42,7 @@ object SparkInterpreter {
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter(conf: SparkConf) extends Interpreter {
+class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
   import SparkInterpreter._
 
   private implicit def formats = DefaultFormats
@@ -82,6 +85,34 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
       val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
       setContextClassLoaderMethod.setAccessible(true)
       setContextClassLoaderMethod.invoke(sparkIMain)
+
+      // With usejavacp=true, the Scala interpreter looks for jars under System Classpath. But it
+      // doesn't look for jars added to MutableURLClassLoader. Thus extra jars are not visible to
+      // the interpreter. SparkContext can use them via JVM ClassLoaders but users cannot import
+      // them using Scala import statement.
+      //
+      // For instance: If we import a package using SparkConf:
+      // "spark.jars.packages": "com.databricks:spark-csv_2.10:1.4.0"
+      // then "import com.databricks.spark.csv._" in the interpreter, it will throw an error.
+      //
+      // Adding them to the interpreter manually to fix this issue.
+      var classLoader = Thread.currentThread().getContextClassLoader
+      while (classLoader != null) {
+        if (classLoader.getClass.getCanonicalName == "org.apache.spark.util.MutableURLClassLoader")
+        {
+          val extraJarPath = classLoader.asInstanceOf[URLClassLoader].getURLs()
+            // Check if the file exists. Otherwise an exception will be thrown.
+            .filter { u => u.getProtocol == "file" && new File(u.getPath).isFile }
+            // Livy rsc and repl are also in the extra jars list. Filter them out.
+            .filterNot { u => Paths.get(u.toURI).getFileName.toString.startsWith("livy-") }
+
+          extraJarPath.foreach { p => debug(s"Adding $p to Scala interpreter's class path...") }
+          sparkIMain.addUrlsToClassPath(extraJarPath: _*)
+          classLoader = null
+        } else {
+          classLoader = classLoader.getParent
+        }
+      }
 
       sparkContext = SparkContext.getOrCreate(conf)
 

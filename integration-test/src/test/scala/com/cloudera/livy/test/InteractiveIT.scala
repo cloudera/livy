@@ -103,6 +103,28 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     }
   }
 
+  test("user jars are properly imported in Scala interactive sessions") {
+    // Include a popular Java library to test importing user jars.
+    sessionId = livyClient.startSession(
+      Spark(),
+      Map("spark.jars.packages" -> "org.codehaus.plexus:plexus-utils:3.0.24"))
+
+    // Check is the library loaded in JVM in the proper class loader.
+    matchResult("Thread.currentThread.getContextClassLoader.loadClass" +
+      """("org.codehaus.plexus.util.FileUtils")""",
+      ".*Class\\[_\\] = class org.codehaus.plexus.util.FileUtils")
+
+    // Check does Scala interpreter see the library.
+    matchResult("import org.codehaus.plexus.util._", "import org.codehaus.plexus.util._")
+
+    // Check does SparkContext see classes defined by Scala interpreter.
+    matchResult("case class Item(i: Int)", "defined class Item")
+    matchResult(
+      "val rdd = sc.parallelize(Array.fill(10){new Item(scala.util.Random.nextInt(1000))})",
+      "rdd.*")
+    matchResult("rdd.count()", ".*= 10")
+  }
+
   private def matchResult(code: String, expected: String): Unit = {
     runAndValidateStatement(code) match {
       case Left(result) =>
