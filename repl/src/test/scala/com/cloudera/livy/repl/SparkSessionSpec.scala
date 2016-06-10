@@ -18,12 +18,9 @@
 
 package com.cloudera.livy.repl
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
-import org.json4s.JsonAST.{JArray, JValue}
+import org.json4s.JsonAST.JValue
 
 class SparkSessionSpec extends BaseSessionSpec {
 
@@ -120,7 +117,11 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if exception is thrown" in withSession { session =>
-    val statement = session.execute("""throw new Exception()""")
+    val statement = session.execute(
+      """def func1() {
+        |throw new Exception()
+        |}
+        |func1()""".stripMargin)
     statement.id should equal (0)
 
     val result = statement.result
@@ -131,7 +132,10 @@ class SparkSessionSpec extends BaseSessionSpec {
     resultMap("execution_count").extract[Int] should equal (0)
     resultMap("ename").extract[String] should equal ("Error")
     resultMap("evalue").extract[String] should include ("java.lang.Exception")
-    resultMap("traceback").extract[List[_]] should equal (List())
+
+    val traceback = resultMap("traceback").extract[Seq[String]]
+    traceback should have length 1
+    traceback(0) should fullyMatch regex """\tat UserCode.func1\(<console>:\d+\)"""
   }
 
   it should "access the spark context" in withSession { session =>
