@@ -41,7 +41,9 @@ class BatchSessionSpec
     try {
       writer.write(
         """
-          |print "hello world"
+          |print("hello world")
+          |import os
+          |print("PYSPARK_PYTHON=" + (os.environ["PYSPARK_PYTHON"] if "PYSPARK_PYTHON" in os.environ else "not set."))
         """.stripMargin)
     } finally {
       writer.close()
@@ -65,6 +67,24 @@ class BatchSessionSpec
       }) should be (true)
 
       batch.logLines() should contain("hello world")
+    }
+
+    it("should pass PYSPARK_PYTHON as enviroment variable.") {
+      val req = new CreateBatchRequest()
+      req.file = script.toString
+      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
+      req.pyspark_python = Some("python2")
+
+      val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+      val batch = new BatchSession(0, null, None, conf, req)
+
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be (true)
+
+      batch.logLines() should contain("PYSPARK_PYTHON=python2")
     }
   }
 }

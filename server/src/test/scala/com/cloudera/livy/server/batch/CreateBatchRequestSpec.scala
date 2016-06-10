@@ -47,6 +47,8 @@ class CreateBatchRequestSpec extends FunSpec {
       assert(req.queue === None)
       assert(req.name === None)
       assert(req.conf === Map())
+      assert(req.pyspark_python === None)
+      assert(req.pyspark_driver_python === None)
     }
 
   }
