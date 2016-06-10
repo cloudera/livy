@@ -43,7 +43,8 @@ class BatchSessionSpec
         """
           |print("hello world")
           |import os
-          |print("PYSPARK_PYTHON=" + (os.environ["PYSPARK_PYTHON"] if "PYSPARK_PYTHON" in os.environ else "not set."))
+          |print("PYSPARK_PYTHON=" +
+          |      (os.environ["PYSPARK_PYTHON"] if "PYSPARK_PYTHON" in os.environ else "not set."))
         """.stripMargin)
     } finally {
       writer.close()

@@ -55,7 +55,7 @@ class BatchSession(
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
     request.pyspark_python.foreach(builder.pysparkPython)
-    request.pyspark_python.foreach(builder.pysparkDriverPython) // Always set Driver also to cancel current setting.
+    request.pyspark_python.foreach(builder.pysparkDriverPython) // Always set to replace current.
     request.pyspark_driver_python.foreach(builder.pysparkDriverPython)
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
