@@ -36,5 +36,6 @@ class CreateBatchRequest {
   var queue: Option[String] = None
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
-
+  var pyspark_python: Option[String] = None
+  var pyspark_driver_python: Option[String] = None
 }
