@@ -172,6 +172,7 @@
     <module>core</module>
     <module>repl</module>
     <module>rsc</module>
+    <module>scala-api</module>
     <module>server</module>
     <module>test-lib</module>
     <module>integration-test</module>
