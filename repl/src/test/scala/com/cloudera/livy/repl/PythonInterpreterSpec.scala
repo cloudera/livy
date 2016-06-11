@@ -149,7 +149,6 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       "name 'x' is not defined",
       List(
         "Traceback (most recent call last):\n",
-        "  File \"<stdin>\", line 1, in <module>\n",
         "NameError: name 'x' is not defined\n"
       )
     ))
@@ -196,7 +195,6 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       "name 'x' is not defined",
       List(
         "Traceback (most recent call last):\n",
-        "  File \"<stdin>\", line 1, in <module>\n",
         "NameError: name 'x' is not defined\n"
       )
     ))

@@ -106,7 +106,6 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
         "evalue" -> "name 'x' is not defined",
         "traceback" -> List(
           "Traceback (most recent call last):\n",
-          "  File \"<stdin>\", line 1, in <module>\n",
           "NameError: name 'x' is not defined\n"
         )
       ))
