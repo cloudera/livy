@@ -87,12 +87,20 @@ class InteractiveSession(
     }
 
     def mergeHiveSiteAndHiveDeps(): Unit = {
-      hiveSiteFile(livyConf) match {
-        case Some(file) =>
+      hiveSiteFile(request.files, livyConf) match {
+        case (_, true) =>
+          info("Enalble HiveContext because hive-site.xml is found in user request.")
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+          builderProperties.put(EnableHiveContext, "true")
+        case (Some(file), false) =>
+          info("Enalble HiveContext because hive-site.xml is found under classpath, "
+            + file.getAbsolutePath)
           mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
           mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
           builderProperties.put(EnableHiveContext, "true")
-        case None =>
+        case (None, false) =>
+          info("Disable HiveContext because no hive-site.xml found under" +
+            " classpath and user request.")
           builderProperties.put(EnableHiveContext, "false")
       }
     }
@@ -288,10 +296,10 @@ class InteractiveSession(
     }
   }
 
-  private def datanucleusJars(livyConf: LivyConf): ArrayBuffer[String] = {
+  private def datanucleusJars(livyConf: LivyConf): Seq[String] = {
     if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
       // datanucleus jars has already been in classpath in integration test
-      ArrayBuffer.empty
+      Seq.empty
     } else {
       val jars = ArrayBuffer.empty[String]
       val sparkHome = livyConf.sparkHome().get
@@ -306,31 +314,34 @@ class InteractiveSession(
         jars ++= libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
           .map(_.getAbsolutePath)
       }
-      require(jars.nonEmpty, "datanucleus jars can not be found")
-      jars
+      warn("datanucleus jars can not be found")
+      jars.toSeq
     }
   }
 
   /**
-   * Look for hive-site.xml
-   * 1. First look for under classpath
-   * 2. If not found under classpath, then look for that under SPARK_CONF_DIR and SPARK_HOME/conf
+   * Look for hive-site.xml (for now just ignore spark.files defined in spark-defaults.conf)
+   * 1. First look for hive-site.xml in user request
+   * 2. Then look for that under classpath
+   * 3. Finally look for that under SPARK_HOME/conf
    * @param livyConf
-   * @return
+   * @return  (hive-site.xml path, whether it is provided by user)
    */
-  private def hiveSiteFile(livyConf: LivyConf): Option[File] = {
-    val hiveSiteURL = getClass.getResource("/hive-site.xml")
-    if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
-      return Some(new File(hiveSiteURL.toURI))
+  private def hiveSiteFile(requestFiles: List[String],
+                           livyConf: LivyConf): (Option[File], Boolean) = {
+    if (requestFiles.exists(_.split("/").last == "hive-site.xml")) {
+      (None, true)
+    } else {
+      val hiveSiteURL = getClass.getResource("/hive-site.xml")
+      if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
+        return (Some(new File(hiveSiteURL.toURI)), false)
+      }
+      val hiveSiteFile = new File(livyConf.sparkHome().get + "/conf/hive-site.xml")
+      if (hiveSiteFile.isFile) {
+        return (Some(hiveSiteFile), false)
+      }
+      (None, false)
     }
-    val hiveSiteFile = sys.env.get("SPARK_CONF_DIR")
-      .map(conf_dir => new File(conf_dir + "/hive-site.xml"))
-      .getOrElse(new File(livyConf.sparkHome().get + "/conf/hive-site.xml"))
-    if (hiveSiteFile.isFile) {
-      return Some(hiveSiteFile)
-    }
-    warn("Can't find hive-site.xml under SPARK_CONF_DIR, SPARK_HOME/conf and livy's CLASSPATH")
-    None
   }
 
   private def findPySparkArchives(): Seq[String] = {
