@@ -34,7 +34,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
@@ -69,23 +69,24 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     configureClient(true)
     val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
     val lock = new Object
+    var hasTestPassed = true
+    var testFailureMessage = ""
     sFuture onComplete {
       case Success(t) => {
-        lock.synchronized {
-          lock.notify()
-        }
-        fail("Should have thrown an exception")
+        hasTestPassed = false
+        testFailureMessage = "Test should have thrown CustomFailureException"
+        ScalaClientTest.notify(lock)
       }
       case Failure(e) => {
-        lock.synchronized {
-          lock.notify()
+        if (!e.getMessage.contains("CustomTestFailureException")) {
+          hasTestPassed = false
+          testFailureMessage = "Test did not throw expected exception - CustomFailureException"
         }
-        assert(e.getMessage.contains("CustomTestFailureException"))
+        ScalaClientTest.notify(lock)
       }
     }
-    lock.synchronized {
-      lock.wait()
-    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail(testFailureMessage)
   }
 
   test("test Sync Rpc") {
@@ -137,17 +138,26 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   }
 
   test("Successive onComplete callbacks") {
+    var hasTestPassed = true
+    var testFailureMessage = ""
     configureClient(true)
     val future = client.run(ScalaClientTest.helloJob)
     Await.ready(future, 5 second)
     for (i <- 0 to 2) {
-      future.onComplete(onCompleteSuccessCallbackFunc)
+      future onComplete {
+        case Success(t) => {
+          if (!t.equals("hello")) {
+            hasTestPassed = false;
+            testFailureMessage = "onComplete has not returned the expected message"
+          }
+        }
+        case Failure(e) => {
+          hasTestPassed = false;
+          testFailureMessage = "onComplete should not have triggered Failure callback"
+        }
+      }
     }
-  }
-
-  private def onCompleteSuccessCallbackFunc(callback: Try[String]) = callback match {
-    case Success(t) => assert(t === "hello")
-    case Failure(e) => fail("Should not trigger Failure callback in onCompleteSuccessCallbackFunc")
+    if (!hasTestPassed) fail(testFailureMessage)
   }
 
   private def configureClient(local: Boolean) = {
@@ -228,4 +238,8 @@ object ScalaClientTest {
     }
     context.sc.parallelize(buffer, partitions).count()
   }
+
+  def notify(lock: Object): Unit = lock.synchronized { lock.notify() }
+
+  def wait(lock: Object): Unit = lock.synchronized { lock.wait() }
 }

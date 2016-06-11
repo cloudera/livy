@@ -29,72 +29,53 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
   def getState(): State = jobHandle.getState
 
   override def onComplete[U](func: (Try[T]) => U)(implicit executor: ExecutionContext): Unit = {
-    jobHandle.addListener(new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = {}
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = {}
-
+    jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
       override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {
-        val onCompleteTask = new Runnable {
-          override def run(): Unit = {
-            func(Try(result))
-          }
+        val onJobSucceededTask = new Runnable {
+          override def run(): Unit = func(Try(result))
         }
-        executor.execute(onCompleteTask)
+        executor.execute(onJobSucceededTask)
       }
 
-      override def onJobStarted(job: JobHandle[T]): Unit = {}
-
       override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {
-        val onCompleteTask = new Runnable {
-          override def run(): Unit = {
-            func(Try(getJavaFutureResult(job)))
-          }
+        val onJobFailedTask = new Runnable {
+          override def run(): Unit = func(Try(getJavaFutureResult(job)))
         }
-        executor.execute(onCompleteTask)
+        executor.execute(onJobFailedTask)
       }
     })
   }
 
   def onJobQueued[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
-    jobHandle.addListener(new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = func()
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = {}
-
-      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
-
-      override def onJobStarted(job: JobHandle[T]): Unit = {}
-
-      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
+      override def onJobQueued(job: JobHandle[T]): Unit = {
+        val onJobQueuedTask = new Runnable {
+          override def run(): Unit = func()
+        }
+        executor.execute(onJobQueuedTask)
+      }
     })
   }
 
   def onJobStarted[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
-    jobHandle.addListener(new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = {}
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = {}
-
-      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
-
-      override def onJobStarted(job: JobHandle[T]): Unit = func()
-
-      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
+      override def onJobStarted(job: JobHandle[T]): Unit = {
+        val onJobStartedTask = new Runnable {
+          override def run(): Unit = func()
+        }
+        executor.execute(onJobStartedTask)
+      }
     })
   }
 
   def onJobCancelled[U](func: Boolean => Unit)(implicit executor: ExecutionContext): Unit = {
-    jobHandle.addListener(new Listener[T] {
-      override def onJobQueued(job: JobHandle[T]): Unit = {}
-
-      override def onJobCancelled(job: JobHandle[T]): Unit = func(job.cancel(false))
-
-      override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
-
-      override def onJobStarted(job: JobHandle[T]): Unit = {}
-
-      override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+    jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
+      override def onJobCancelled(job: JobHandle[T]): Unit = {
+        val onJobCancelledTask = new Runnable {
+          override def run(): Unit = func(job.cancel(false))
+        }
+        executor.execute(onJobCancelledTask)
+      }
     })
   }
 
@@ -127,3 +108,16 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     }
   }
 }
+
+private abstract class AbstractScalaJobHandleListener[T] private[livy] extends Listener[T] {
+  override def onJobQueued(job: JobHandle[T]): Unit = {}
+
+  override def onJobCancelled(job: JobHandle[T]): Unit = {}
+
+  override def onJobSucceeded(job: JobHandle[T], result: T): Unit = {}
+
+  override def onJobStarted(job: JobHandle[T]): Unit = {}
+
+  override def onJobFailed(job: JobHandle[T], cause: Throwable): Unit = {}
+}
+

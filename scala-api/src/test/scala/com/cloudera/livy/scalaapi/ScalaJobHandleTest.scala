@@ -27,10 +27,10 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 import com.cloudera.livy.JobHandle
-
+import com.cloudera.livy.JobHandle.{Listener, State}
 
 class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
@@ -67,21 +67,137 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
     verify(mockJobHandle, times(1)).get()
   }
 
-  test("onComplete") {
+  test("verify addListener call of java jobHandle for onComplete") {
     doNothing().when(mockJobHandle).addListener(listener)
     scalaJobHandle onComplete {
       case Success(t) => {}
     }
-    verify(mockJobHandle).addListener(isA(classOf[JobHandle.Listener[String]]))
+    verify(mockJobHandle).addListener(isA(classOf[Listener[String]]))
     verify(mockJobHandle, times(1)).addListener(any())
   }
 
-  test("onJobCancelled") {
-    doNothing().when(mockJobHandle).addListener(listener)
-    scalaJobHandle onJobCancelled {
-      case true => {}
+  test("onComplete Success") {
+    val jobHandleStub = new AbstractJobHandleStub[String] {
+      override def addListener(l: Listener[String]): Unit = l.onJobSucceeded(this, "hello")
     }
-    verify(mockJobHandle).addListener(isA(classOf[JobHandle.Listener[String]]))
-    verify(mockJobHandle, times(1)).addListener(any())
+    val lock = new Object
+    var hasTestPassed = true
+    var testFailureMessage = ""
+    val testScalaHandle = new ScalaJobHandle(jobHandleStub)
+    testScalaHandle onComplete {
+      case Success(t) => {
+        if (!t.equals("hello")) {
+          hasTestPassed = false;
+          testFailureMessage = "onComplete has not returned the expected message"
+        }
+        ScalaClientTest.notify(lock)
+      }
+      case Failure(e) => {
+        hasTestPassed = false;
+        testFailureMessage = "onComplete should not have triggered Failure callback"
+        ScalaClientTest.notify(lock)
+      }
+    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail(testFailureMessage)
   }
+
+  test("onComplete Failure") {
+    val jobHandleStub = new AbstractJobHandleStub[String] {
+      override def addListener(l: Listener[String]): Unit =
+        l.onJobFailed(this, new CustomTestFailureException)
+
+      override def get(): String = throw new CustomTestFailureException()
+    }
+    val lock = new Object
+    var hasTestPassed = true
+    var testFailureMessage = ""
+    val testScalaHandle = new ScalaJobHandle(jobHandleStub)
+    testScalaHandle onComplete {
+      case Success(t) => {
+        hasTestPassed = false
+        testFailureMessage = "Test should have thrown CustomFailureException"
+        ScalaClientTest.notify(lock)
+      }
+      case Failure(e) => {
+        if (!e.isInstanceOf[CustomTestFailureException]) {
+          hasTestPassed = false
+          testFailureMessage = "Test did not throw expected exception - CustomFailureException"
+        }
+        ScalaClientTest.notify(lock)
+      }
+    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail(testFailureMessage)
+  }
+
+  test("onJobCancelled") {
+    val jobHandleStub = new AbstractJobHandleStub[String] {
+      override def addListener(l: Listener[String]): Unit = l.onJobCancelled(this)
+      override def cancel(mayInterruptIfRunning: Boolean): Boolean = true
+    }
+    var hasTestPassed = true
+    val lock = new Object
+    val testScalaHandle = new ScalaJobHandle(jobHandleStub)
+    testScalaHandle onJobCancelled  {
+      case true => ScalaClientTest.notify(lock)
+      case false => {
+        hasTestPassed = false
+        ScalaClientTest.notify(lock)
+      }
+    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail("False callback should not have been triggered")
+  }
+
+  test("onJobQueued") {
+    val jobHandleStub = new AbstractJobHandleStub[String] {
+      override def addListener(l: Listener[String]): Unit = l.onJobQueued(this)
+    }
+    var hasTestPassed = false
+    val lock = new Object
+    val testScalaHandle = new ScalaJobHandle(jobHandleStub)
+    testScalaHandle onJobQueued {
+      case () => {
+        hasTestPassed = true
+        ScalaClientTest.notify(lock)
+      }
+    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail("Callback not triggered")
+  }
+
+  test("onJobStarted") {
+    val jobHandleStub = new AbstractJobHandleStub[String] {
+      override def addListener(l: Listener[String]): Unit = l.onJobStarted(this)
+    }
+    var hasTestPassed = false
+    val lock = new Object
+    val testScalaHandle = new ScalaJobHandle(jobHandleStub)
+    testScalaHandle onJobStarted {
+      case () => {
+        hasTestPassed = true
+        ScalaClientTest.notify(lock)
+      }
+    }
+    ScalaClientTest.wait(lock)
+    if (!hasTestPassed) fail("Callback not triggered")
+  }
+}
+
+private abstract class AbstractJobHandleStub[T] private[livy] extends JobHandle[T] {
+
+  override def getState: State = null
+
+  override def addListener(l: Listener[T]): Unit = {}
+
+  override def isCancelled: Boolean = false
+
+  override def get(): T = null.asInstanceOf[T]
+
+  override def get(timeout: Long, unit: TimeUnit): T = null.asInstanceOf[T]
+
+  override def cancel(mayInterruptIfRunning: Boolean): Boolean = false
+
+  override def isDone: Boolean = true
 }
