@@ -25,12 +25,14 @@ import traceback
 import StringIO
 import base64
 import os
+import re
 
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
 
 global_dict = {}
 
+TOP_FRAME_REGEX = re.compile(r'\s*File "<stdin>".*in <module>')
 
 def execute_reply(status, content):
     return {
@@ -50,10 +52,16 @@ def execute_reply_ok(data):
 
 def execute_reply_error(exc_type, exc_value, tb):
     LOG.error('execute_reply', exc_info=True)
+    formatted_tb = traceback.format_exception(exc_type, exc_value, tb)
+    for i in range(len(formatted_tb)):
+        if TOP_FRAME_REGEX.match(formatted_tb[i]):
+            formatted_tb = formatted_tb[:1] + formatted_tb[i + 1:]
+            break
+
     return execute_reply('error', {
         'ename': unicode(exc_type.__name__),
         'evalue': unicode(exc_value),
-        'traceback': traceback.format_exception(exc_type, exc_value, tb, -1),
+        'traceback': formatted_tb,
     })
 
 

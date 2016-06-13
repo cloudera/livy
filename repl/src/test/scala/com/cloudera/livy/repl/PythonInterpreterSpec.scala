@@ -21,7 +21,6 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
-import org.scalatest.Outcome
 
 class PythonInterpreterSpec extends BaseInterpreterSpec {
 

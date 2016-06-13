@@ -18,9 +18,6 @@
 
 package com.cloudera.livy.repl
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 
@@ -146,10 +143,12 @@ class PythonSessionSpec extends BaseSessionSpec {
 
   it should "report an error if exception is thrown" in withSession { session =>
     val statement = session.execute(
-      """def foo():
-        |    raise Exception()
-        |foo()
-        |""".stripMargin)
+      """def func1():
+        |  raise Exception("message")
+        |def func2():
+        |  func1()
+        |func2()
+      """.stripMargin)
     statement.id should equal (0)
 
     val result = statement.result
@@ -158,10 +157,12 @@ class PythonSessionSpec extends BaseSessionSpec {
       "execution_count" -> 0,
       "traceback" -> List(
         "Traceback (most recent call last):\n",
-        "Exception\n"
+        "  File \"<stdin>\", line 4, in func2\n",
+        "  File \"<stdin>\", line 2, in func1\n",
+        "Exception: message\n"
       ),
       "ename" -> "Exception",
-      "evalue" -> ""
+      "evalue" -> "message"
     ))
 
     result should equal (expectedResult)
