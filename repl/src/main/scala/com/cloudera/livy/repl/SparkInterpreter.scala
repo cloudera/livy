@@ -262,9 +262,9 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
 
   private def executeLines(
       lines: List[String],
-      result: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
+      resultFromLastLine: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
     lines match {
-      case Nil => result
+      case Nil => resultFromLastLine
       case head :: tail =>
         val result = executeLine(head)
 
@@ -272,10 +272,19 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
           case Interpreter.ExecuteIncomplete() =>
             tail match {
               case Nil =>
-                result
-
+                // ExecuteIncomplete could be caused by an actual incomplete statements (e.g. "sc.")
+                // or statements with just comments.
+                // To distinguish them, reissue the same statement wrapped in { }.
+                // If it is an actual incomplete statement, the interpreter will return an error.
+                // If it is some comment, the interpreter will return success.
+                executeLine(s"{\n$head\n}") match {
+                  case Interpreter.ExecuteIncomplete() | Interpreter.ExecuteError(_, _, _) =>
+                    // Return the original error so users won't get confusing error message.
+                    result
+                  case _ => resultFromLastLine
+                }
               case next :: nextTail =>
-                executeLines(head + "\n" + next :: nextTail, result)
+                executeLines(head + "\n" + next :: nextTail, resultFromLastLine)
             }
           case Interpreter.ExecuteError(_, _, _) =>
             result
