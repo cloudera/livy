@@ -42,6 +42,7 @@ class BatchSession(
     val builder = new SparkProcessBuilder(livyConf)
     builder.conf(conf)
     proxyUser.foreach(builder.proxyUser)
+    request.deployMode.foreach(builder.deployMode)
     request.className.foreach(builder.className)
     request.driverMemory.foreach(builder.driverMemory)
     request.driverCores.foreach(builder.driverCores)

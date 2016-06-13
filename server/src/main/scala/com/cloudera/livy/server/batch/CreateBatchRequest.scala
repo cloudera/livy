@@ -23,6 +23,7 @@ class CreateBatchRequest {
   var file: String = _
   var proxyUser: Option[String] = None
   var args: List[String] = List()
+  var deployMode: Option[String] = None
   var className: Option[String] = None
   var jars: List[String] = List()
   var pyFiles: List[String] = List()
