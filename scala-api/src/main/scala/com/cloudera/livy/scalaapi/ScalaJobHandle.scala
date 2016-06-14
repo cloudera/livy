@@ -26,7 +26,7 @@ import com.cloudera.livy.JobHandle.{Listener, State}
 
 class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T] {
 
-  def getState(): State = jobHandle.getState
+  def state: State = jobHandle.getState()
 
   override def onComplete[U](func: (Try[T]) => U)(implicit executor: ExecutionContext): Unit = {
     jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
@@ -46,22 +46,22 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
-  def onJobQueued[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
+  def onJobQueued[U](func: => Unit)(implicit executor: ExecutionContext): Unit = {
     jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
       override def onJobQueued(job: JobHandle[T]): Unit = {
         val onJobQueuedTask = new Runnable {
-          override def run(): Unit = func()
+          override def run(): Unit = func
         }
         executor.execute(onJobQueuedTask)
       }
     })
   }
 
-  def onJobStarted[U](func: Unit => Unit)(implicit executor: ExecutionContext): Unit = {
+  def onJobStarted[U](func: => Unit)(implicit executor: ExecutionContext): Unit = {
     jobHandle.addListener(new AbstractScalaJobHandleListener[T] {
       override def onJobStarted(job: JobHandle[T]): Unit = {
         val onJobStartedTask = new Runnable {
-          override def run(): Unit = func()
+          override def run(): Unit = func
         }
         executor.execute(onJobStartedTask)
       }
@@ -109,7 +109,7 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
   }
 }
 
-private abstract class AbstractScalaJobHandleListener[T] private[livy] extends Listener[T] {
+private abstract class AbstractScalaJobHandleListener[T] extends Listener[T] {
   override def onJobQueued(job: JobHandle[T]): Unit = {}
 
   override def onJobCancelled(job: JobHandle[T]): Unit = {}
