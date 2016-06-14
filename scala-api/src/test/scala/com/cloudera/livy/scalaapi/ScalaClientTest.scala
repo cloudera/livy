@@ -45,6 +45,7 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   import com.cloudera.livy._
 
   private var client: LivyScalaClient = _
+  private val Timeout = 40
 
   after {
     if (client != null) {
@@ -56,14 +57,14 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   test("test Job Submission") {
     configureClient(true)
     val jobHandle = client.submit(ScalaClientTest.helloJob)
-    val result = Await.result(jobHandle, 10 second)
+    val result = Await.result(jobHandle, Timeout second)
     assert(result === "hello")
   }
 
   test("test Simple Spark Job") {
     configureClient(true)
     val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-    val result = Await.result(sFuture, 10 second)
+    val result = Await.result(sFuture, Timeout second)
     assert(result === 5)
   }
 
@@ -91,14 +92,14 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   test("test Sync Rpc") {
     configureClient(true)
     val future = client.run(ScalaClientTest.helloJob)
-    val result = Await.result(future, 10 second)
+    val result = Await.result(future, Timeout second)
     assert(result === "hello")
   }
 
   test("test Remote client") {
     configureClient(false)
     val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-    val result = Await.result(sFuture, 10 second)
+    val result = Await.result(sFuture, Timeout second)
     assert(result === 5)
   }
 
@@ -109,11 +110,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     fileStream.write("test file".getBytes("UTF-8"))
     fileStream.close
     val addFileFuture = client.addFile(new URI("file:" + file.getAbsolutePath()))
-    Await.ready(addFileFuture, 5 second)
+    Await.ready(addFileFuture, Timeout second)
     val sFuture = client.submit { context =>
       ScalaClientTest.fileOperation(false, file.getName, context)
     }
-    val output = Await.result(sFuture, 10 second)
+    val output = Await.result(sFuture, Timeout second)
     assert(output === "test file")
   }
 
@@ -126,11 +127,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     jarFile.closeEntry()
     jarFile.close()
     val addJarFuture = client.addJar(new URI("file:" + jar.getAbsolutePath()))
-    Await.ready(addJarFuture, 5 second)
+    Await.ready(addJarFuture, Timeout second)
     val sFuture = client.submit { context =>
       ScalaClientTest.fileOperation(true, "test.resource", context)
     }
-    val output = Await.result(sFuture, 10 second)
+    val output = Await.result(sFuture, Timeout second)
     assert(output === "test resource")
   }
 
@@ -172,7 +173,7 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     val future = client.submit { context =>
       null
     }
-    val result = Await.result(future, 5 second)
+    val result = Await.result(future, Timeout second)
     assert(result == null)
   }
 }
