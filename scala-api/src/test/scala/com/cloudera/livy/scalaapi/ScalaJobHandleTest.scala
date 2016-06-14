@@ -81,25 +81,24 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
       override def addListener(l: Listener[String]): Unit = l.onJobSucceeded(this, "hello")
     }
     val lock = new Object
-    var hasTestPassed = true
-    var testFailureMessage = ""
+    var testFailure: Option[String] = None
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
-    testScalaHandle onComplete {
-      case Success(t) => {
-        if (!t.equals("hello")) {
-          hasTestPassed = false;
-          testFailureMessage = "onComplete has not returned the expected message"
+    lock.synchronized {
+      testScalaHandle onComplete {
+        case Success(t) => {
+          if (!t.equals("hello")) {
+            testFailure = Some("onComplete has not returned the expected message")
+          }
+          ScalaClientTest.notify(lock)
         }
-        ScalaClientTest.notify(lock)
-      }
-      case Failure(e) => {
-        hasTestPassed = false;
-        testFailureMessage = "onComplete should not have triggered Failure callback"
-        ScalaClientTest.notify(lock)
+        case Failure(e) => {
+          testFailure = Some("onComplete should not have triggered Failure callback")
+          ScalaClientTest.notify(lock)
+        }
       }
     }
     ScalaClientTest.wait(lock)
-    if (!hasTestPassed) fail(testFailureMessage)
+    testFailure.foreach(fail(_))
   }
 
   test("onComplete Failure") {
@@ -110,25 +109,24 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
       override def get(): String = throw new CustomTestFailureException()
     }
     val lock = new Object
-    var hasTestPassed = true
-    var testFailureMessage = ""
+    var testFailure: Option[String] = None
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
-    testScalaHandle onComplete {
-      case Success(t) => {
-        hasTestPassed = false
-        testFailureMessage = "Test should have thrown CustomFailureException"
-        ScalaClientTest.notify(lock)
-      }
-      case Failure(e) => {
-        if (!e.isInstanceOf[CustomTestFailureException]) {
-          hasTestPassed = false
-          testFailureMessage = "Test did not throw expected exception - CustomFailureException"
+    lock.synchronized {
+      testScalaHandle onComplete {
+        case Success(t) => {
+          testFailure = Some("Test should have thrown CustomFailureException")
+          ScalaClientTest.notify(lock)
         }
-        ScalaClientTest.notify(lock)
+        case Failure(e) => {
+          if (!e.isInstanceOf[CustomTestFailureException]) {
+            testFailure = Some("Test did not throw expected exception - CustomFailureException")
+          }
+          ScalaClientTest.notify(lock)
+        }
       }
     }
     ScalaClientTest.wait(lock)
-    if (!hasTestPassed) fail(testFailureMessage)
+    testFailure.foreach(fail(_))
   }
 
   test("onJobCancelled") {
@@ -136,18 +134,20 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
       override def addListener(l: Listener[String]): Unit = l.onJobCancelled(this)
       override def cancel(mayInterruptIfRunning: Boolean): Boolean = true
     }
-    var hasTestPassed = true
+    var testFailure: Option[String] = None
     val lock = new Object
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
-    testScalaHandle onJobCancelled  {
-      case true => ScalaClientTest.notify(lock)
-      case false => {
-        hasTestPassed = false
-        ScalaClientTest.notify(lock)
+    lock.synchronized {
+      testScalaHandle onJobCancelled  {
+        case true => ScalaClientTest.notify(lock)
+        case false => {
+          testFailure = Some("False callback should not have been triggered")
+          ScalaClientTest.notify(lock)
+        }
       }
     }
     ScalaClientTest.wait(lock)
-    if (!hasTestPassed) fail("False callback should not have been triggered")
+    testFailure.foreach(fail(_))
   }
 
   test("onJobQueued") {
@@ -157,8 +157,8 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
     var hasTestPassed = false
     val lock = new Object
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
-    testScalaHandle onJobQueued {
-      case () => {
+    lock.synchronized {
+      testScalaHandle onJobQueued {
         hasTestPassed = true
         ScalaClientTest.notify(lock)
       }
@@ -174,8 +174,8 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
     var hasTestPassed = false
     val lock = new Object
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
-    testScalaHandle onJobStarted {
-      case () => {
+    lock.synchronized {
+      testScalaHandle onJobStarted {
         hasTestPassed = true
         ScalaClientTest.notify(lock)
       }

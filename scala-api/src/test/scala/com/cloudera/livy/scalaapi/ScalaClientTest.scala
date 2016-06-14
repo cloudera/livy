@@ -35,6 +35,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
+import scala.util.control.Breaks._
 
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
@@ -69,24 +70,23 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     configureClient(true)
     val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
     val lock = new Object
-    var hasTestPassed = true
-    var testFailureMessage = ""
-    sFuture onComplete {
-      case Success(t) => {
-        hasTestPassed = false
-        testFailureMessage = "Test should have thrown CustomFailureException"
-        ScalaClientTest.notify(lock)
-      }
-      case Failure(e) => {
-        if (!e.getMessage.contains("CustomTestFailureException")) {
-          hasTestPassed = false
-          testFailureMessage = "Test did not throw expected exception - CustomFailureException"
+    var testFailure : Option[String] = None
+    lock.synchronized {
+      sFuture onComplete {
+        case Success(t) => {
+          testFailure = Some("Test should have thrown CustomFailureException")
+          ScalaClientTest.notify(lock)
         }
-        ScalaClientTest.notify(lock)
+        case Failure(e) => {
+          if (!e.getMessage.contains("CustomTestFailureException")) {
+            testFailure = Some("Test did not throw expected exception - CustomFailureException")
+          }
+          ScalaClientTest.notify(lock)
+        }
       }
     }
     ScalaClientTest.wait(lock)
-    if (!hasTestPassed) fail(testFailureMessage)
+    testFailure.foreach(fail(_))
   }
 
   test("test Sync Rpc") {
@@ -105,24 +105,22 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
   test("test add file") {
     configureClient(true)
-    var file: File = null
-    file = File.createTempFile("test", ".file")
+    val file = File.createTempFile("test", ".file")
     val fileStream = new FileOutputStream(file)
     fileStream.write("test file".getBytes("UTF-8"))
     fileStream.close
     val addFileFuture = client.addFile(new URI("file:" + file.getAbsolutePath()))
     Await.ready(addFileFuture, 5 second)
-    val sFuture = client.submit(
-      context => ScalaClientTest.fileOperation(false, file.getName, context)
-    )
+    val sFuture = client.submit { context =>
+      ScalaClientTest.fileOperation(false, file.getName, context)
+    }
     val output = Await.result(sFuture, 10 second)
     assert(output === "test file")
   }
 
   test("test add jar") {
     configureClient(true)
-    var jar: File = null
-    jar = File.createTempFile("test", ".resource")
+    val jar = File.createTempFile("test", ".resource")
     val jarFile = new JarOutputStream(new FileOutputStream(jar))
     jarFile.putNextEntry(new ZipEntry("test.resource"))
     jarFile.write("test resource".getBytes("UTF-8"))
@@ -130,34 +128,38 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     jarFile.close()
     val addJarFuture = client.addJar(new URI("file:" + jar.getAbsolutePath()))
     Await.ready(addJarFuture, 5 second)
-    val sFuture = client.submit(
-      context => ScalaClientTest.fileOperation(true, "test.resource", context)
-    )
+    val sFuture = client.submit { context =>
+      ScalaClientTest.fileOperation(true, "test.resource", context)
+    }
     val output = Await.result(sFuture, 10 second)
     assert(output === "test resource")
   }
 
   test("Successive onComplete callbacks") {
-    var hasTestPassed = true
-    var testFailureMessage = ""
+    var testFailure: Option[String] = None
     configureClient(true)
     val future = client.run(ScalaClientTest.helloJob)
-    Await.ready(future, 5 second)
-    for (i <- 0 to 2) {
-      future onComplete {
-        case Success(t) => {
-          if (!t.equals("hello")) {
-            hasTestPassed = false;
-            testFailureMessage = "onComplete has not returned the expected message"
+    var count: Integer = 0
+    breakable {
+      for (i <- 0 to 2) {
+        val lock = new Object
+        future onComplete {
+          case Success(t) => {
+            if (!t.equals("hello")) testFailure = Some("Expected message not returned")
+            count.synchronized { count += 1 }
+            ScalaClientTest.notify(lock)
+          }
+          case Failure(e) => {
+            testFailure = Some("onComplete should not have triggered Failure callback")
+            ScalaClientTest.notify(lock)
           }
         }
-        case Failure(e) => {
-          hasTestPassed = false;
-          testFailureMessage = "onComplete should not have triggered Failure callback"
-        }
+        ScalaClientTest.wait(lock)
+        if(!testFailure.isEmpty) break
       }
     }
-    if (!hasTestPassed) fail(testFailureMessage)
+    testFailure.foreach(fail(_))
+    if (count != 3) fail("Number of Success callbacks triggered should be 3")
   }
 
   private def configureClient(local: Boolean) = {
@@ -199,7 +201,7 @@ object ScalaClientTest {
 
   def fileOperation(isResource: Boolean, fileName: String, context: ScalaJobContext): String = {
     val arr = Seq(1)
-    val rdd = context.sc.parallelize(arr).map(value => {
+    val rdd = context.sc.parallelize(arr).map { value =>
       var inputStream: InputStream = null
       if (isResource) {
         val ccl = Thread.currentThread.getContextClassLoader
@@ -220,7 +222,7 @@ object ScalaClientTest {
       } finally {
         inputStream.close()
       }
-    })
+    }
     rdd.collect().head
   }
 

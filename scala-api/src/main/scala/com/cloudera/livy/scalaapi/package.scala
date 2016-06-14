@@ -24,11 +24,12 @@ import scala.concurrent.duration.Duration
 
 package object scalaapi {
 
-  implicit class ScalaWrapper private[livy] (livyJavaClient: LivyClient) {
+  implicit class ScalaWrapper(livyJavaClient: LivyClient) {
     def asScalaClient: LivyScalaClient = new LivyScalaClient(livyJavaClient)
   }
 
-  def getJavaFutureResult[T](jFuture: JFuture[T], atMost: Duration = Duration.Undefined): T = {
+  private[livy] def getJavaFutureResult[T](jFuture: JFuture[T],
+                                           atMost: Duration = Duration.Undefined): T = {
     try {
       if (!atMost.isFinite()) jFuture.get else jFuture.get(atMost.toMillis, TimeUnit.MILLISECONDS)
     } catch {

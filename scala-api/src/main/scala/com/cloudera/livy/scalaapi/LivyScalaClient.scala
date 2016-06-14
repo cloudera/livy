@@ -39,12 +39,12 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
     new ScalaJobHandle(livyJavaClient.submit(job))
   }
 
-  def run[T](block: ScalaJobContext => T): Future[T] = {
+  def run[T](fn: ScalaJobContext => T): Future[T] = {
     val job = new Job[T] {
       @throws(classOf[Exception])
       override def call(jobContext: JobContext): T = {
         val scalaJobContext = new ScalaJobContext(jobContext)
-        block(scalaJobContext)
+        fn(scalaJobContext)
       }
     }
     new PollingContainer(livyJavaClient.run(job)).poll()
