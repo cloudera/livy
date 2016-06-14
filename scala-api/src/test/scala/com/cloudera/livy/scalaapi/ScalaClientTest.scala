@@ -22,6 +22,7 @@ import java.io._
 import java.net.URI
 import java.nio.charset.StandardCharsets._
 import java.util._
+import java.util.concurrent.CountDownLatch
 import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
@@ -69,23 +70,21 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   test("test Job Failure") {
     configureClient(true)
     val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
-    val lock = new Object
+    val lock = new CountDownLatch(1)
     var testFailure : Option[String] = None
-    lock.synchronized {
-      sFuture onComplete {
-        case Success(t) => {
-          testFailure = Some("Test should have thrown CustomFailureException")
-          ScalaClientTest.notify(lock)
+    sFuture onComplete {
+      case Success(t) => {
+        testFailure = Some("Test should have thrown CustomFailureException")
+        lock.countDown()
+      }
+      case Failure(e) => {
+        if (!e.getMessage.contains("CustomTestFailureException")) {
+          testFailure = Some("Test did not throw expected exception - CustomFailureException")
         }
-        case Failure(e) => {
-          if (!e.getMessage.contains("CustomTestFailureException")) {
-            testFailure = Some("Test did not throw expected exception - CustomFailureException")
-          }
-          ScalaClientTest.notify(lock)
-        }
+        lock.countDown()
       }
     }
-    ScalaClientTest.wait(lock)
+    if (lock.getCount == 1) lock.await()
     testFailure.foreach(fail(_))
   }
 
@@ -142,19 +141,19 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     var count: Integer = 0
     breakable {
       for (i <- 0 to 2) {
-        val lock = new Object
+        val lock = new CountDownLatch(1)
         future onComplete {
           case Success(t) => {
             if (!t.equals("hello")) testFailure = Some("Expected message not returned")
             count.synchronized { count += 1 }
-            ScalaClientTest.notify(lock)
+            lock.countDown()
           }
           case Failure(e) => {
             testFailure = Some("onComplete should not have triggered Failure callback")
-            ScalaClientTest.notify(lock)
+            lock.countDown()
           }
         }
-        ScalaClientTest.wait(lock)
+        if (lock.getCount == 1) lock.await()
         if(!testFailure.isEmpty) break
       }
     }
@@ -240,8 +239,4 @@ object ScalaClientTest {
     }
     context.sc.parallelize(buffer, partitions).count()
   }
-
-  def notify(lock: Object): Unit = lock.synchronized { lock.notify() }
-
-  def wait(lock: Object): Unit = lock.synchronized { lock.wait() }
 }
