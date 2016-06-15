@@ -63,6 +63,7 @@ class ContextLauncher {
   private static final Logger LOG = LoggerFactory.getLogger(ContextLauncher.class);
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
 
+  private static final String SPARK_DEPLOY_MODE = "spark.submit.deployMode";
   private static final String SPARK_JARS_KEY = "spark.jars";
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
@@ -199,6 +200,13 @@ class ContextLauncher {
       return new ChildProcess(conf, promise, child, confFile);
     } else {
       final SparkLauncher launcher = new SparkLauncher();
+
+      // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
+      String deployMode = conf.get(SPARK_DEPLOY_MODE);
+      if (deployMode != null) {
+        launcher.setDeployMode(deployMode);
+      }
+
       launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
       launcher.setAppResource("spark-internal");
       launcher.setPropertiesFile(confFile.getAbsolutePath());

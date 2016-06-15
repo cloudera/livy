@@ -41,6 +41,7 @@ class BatchSession(
 
     val builder = new SparkProcessBuilder(livyConf)
     builder.conf(conf)
+
     proxyUser.foreach(builder.proxyUser)
     request.className.foreach(builder.className)
     request.driverMemory.foreach(builder.driverMemory)
@@ -50,6 +51,10 @@ class BatchSession(
     request.numExecutors.foreach(builder.numExecutors)
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
+
+    // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
+    livyConf.sparkDeployMode().foreach(builder.deployMode)
+
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 
