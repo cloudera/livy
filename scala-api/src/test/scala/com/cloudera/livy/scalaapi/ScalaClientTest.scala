@@ -30,13 +30,11 @@ import org.apache.spark.SparkFiles
 import org.apache.spark.launcher.SparkLauncher
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
-import scala.util.control.Breaks._
 
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
@@ -45,7 +43,6 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
   import com.cloudera.livy._
 
   private var client: LivyScalaClient = _
-  private val Timeout = 40
 
   after {
     if (client != null) {
@@ -56,21 +53,19 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
 
   test("test Job Submission") {
     configureClient(true)
-    val jobHandle = client.submit(ScalaClientTest.helloJob)
-    val result = Await.result(jobHandle, Timeout second)
-    assert(result === "hello")
+    val jobHandle = client.submit(ScalaClientTestUtils.helloJob)
+    ScalaClientTestUtils.assertTestPassed(jobHandle, "hello")
   }
 
   test("test Simple Spark Job") {
     configureClient(true)
-    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-    val result = Await.result(sFuture, Timeout second)
-    assert(result === 5)
+    val sFuture = client.submit(ScalaClientTestUtils.simpleSparkJob)
+    ScalaClientTestUtils.assertTestPassed(sFuture, 5)
   }
 
   test("test Job Failure") {
     configureClient(true)
-    val sFuture = client.submit(ScalaClientTest.throwExceptionJob)
+    val sFuture = client.submit(ScalaClientTestUtils.throwExceptionJob)
     val lock = new CountDownLatch(1)
     var testFailure : Option[String] = None
     sFuture onComplete {
@@ -85,22 +80,20 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
         lock.countDown()
       }
     }
-    if (lock.getCount == 1) lock.await()
+    ScalaClientTestUtils.assertAwait(lock)
     testFailure.foreach(fail(_))
   }
 
   test("test Sync Rpc") {
     configureClient(true)
-    val future = client.run(ScalaClientTest.helloJob)
-    val result = Await.result(future, Timeout second)
-    assert(result === "hello")
+    val future = client.run(ScalaClientTestUtils.helloJob)
+    ScalaClientTestUtils.assertTestPassed(future, "hello")
   }
 
   test("test Remote client") {
     configureClient(false)
-    val sFuture = client.submit(ScalaClientTest.simpleSparkJob)
-    val result = Await.result(sFuture, Timeout second)
-    assert(result === 5)
+    val sFuture = client.submit(ScalaClientTestUtils.simpleSparkJob)
+    ScalaClientTestUtils.assertTestPassed(sFuture, 5)
   }
 
   test("test add file") {
@@ -110,12 +103,11 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     fileStream.write("test file".getBytes("UTF-8"))
     fileStream.close
     val addFileFuture = client.addFile(new URI("file:" + file.getAbsolutePath()))
-    Await.ready(addFileFuture, Timeout second)
+    Await.ready(addFileFuture, ScalaClientTestUtils.Timeout second)
     val sFuture = client.submit { context =>
       ScalaClientTest.fileOperation(false, file.getName, context)
     }
-    val output = Await.result(sFuture, Timeout second)
-    assert(output === "test file")
+    ScalaClientTestUtils.assertTestPassed(sFuture, "test file")
   }
 
   test("test add jar") {
@@ -127,39 +119,32 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     jarFile.closeEntry()
     jarFile.close()
     val addJarFuture = client.addJar(new URI("file:" + jar.getAbsolutePath()))
-    Await.ready(addJarFuture, Timeout second)
+    Await.ready(addJarFuture, ScalaClientTestUtils.Timeout second)
     val sFuture = client.submit { context =>
       ScalaClientTest.fileOperation(true, "test.resource", context)
     }
-    val output = Await.result(sFuture, Timeout second)
-    assert(output === "test resource")
+    ScalaClientTestUtils.assertTestPassed(sFuture, "test resource")
   }
 
   test("Successive onComplete callbacks") {
     var testFailure: Option[String] = None
     configureClient(true)
-    val future = client.run(ScalaClientTest.helloJob)
-    var count: Integer = 0
-    breakable {
-      for (i <- 0 to 2) {
-        val lock = new CountDownLatch(1)
-        future onComplete {
-          case Success(t) => {
-            if (!t.equals("hello")) testFailure = Some("Expected message not returned")
-            count.synchronized { count += 1 }
-            lock.countDown()
-          }
-          case Failure(e) => {
-            testFailure = Some("onComplete should not have triggered Failure callback")
-            lock.countDown()
-          }
+    val future = client.run(ScalaClientTestUtils.helloJob)
+    val lock = new CountDownLatch(3)
+    for (i <- 0 to 2) {
+      future onComplete {
+        case Success(t) => {
+          if (!t.equals("hello")) testFailure = Some("Expected message not returned")
+          lock.countDown()
         }
-        if (lock.getCount == 1) lock.await()
-        if(!testFailure.isEmpty) break
+        case Failure(e) => {
+          testFailure = Some("onComplete should not have triggered Failure callback")
+          lock.countDown()
+        }
       }
     }
+    ScalaClientTestUtils.assertAwait(lock)
     testFailure.foreach(fail(_))
-    if (count != 3) fail("Number of Success callbacks triggered should be 3")
   }
 
   private def configureClient(local: Boolean) = {
@@ -173,8 +158,7 @@ class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
     val future = client.submit { context =>
       null
     }
-    val result = Await.result(future, Timeout second)
-    assert(result == null)
+    ScalaClientTestUtils.assertTestPassed(future, null)
   }
 }
 
@@ -224,20 +208,5 @@ object ScalaClientTest {
       }
     }
     rdd.collect().head
-  }
-
-  def helloJob(context: ScalaJobContext): String = "hello"
-
-  def throwExceptionJob(context: ScalaJobContext): Unit = throw new CustomTestFailureException
-
-  def simpleSparkJob(context: ScalaJobContext): Long = {
-    val r = new Random
-    val count = 5
-    val partitions = Math.min(r.nextInt(10) + 1, count)
-    val buffer = new ArrayBuffer[Int]()
-    for (a <- 1 to count) {
-      buffer += r.nextInt()
-    }
-    context.sc.parallelize(buffer, partitions).count()
   }
 }
