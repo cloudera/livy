@@ -39,6 +39,7 @@ object SparkInterpreter {
   private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:\tat .+?\n?)*)""".r
   private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
+  val USER_CODE_FRAME_NAME = "<user code>"
 }
 
 /**
@@ -311,7 +312,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
                         // Remove Interpreter frames
                         .take(interpreterFrameIdx)
                         // Replace weird internal class name
-                        .map(_.replace("$iwC$$iwC", "UserCode"))
+                        .map(_.replace("$iwC$$iwC", "<user code>"))
                       // TODO Proper translate line number in stack trace for $iwC$$iwC.
                     }
                     (ename.trim, traceback)

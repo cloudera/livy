@@ -135,7 +135,9 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     val traceback = resultMap("traceback").extract[Seq[String]]
     traceback should have length 1
-    traceback(0) should fullyMatch regex """\tat UserCode.func1\(<console>:\d+\)"""
+    val frameRegex = """\tat """ + SparkInterpreter.USER_CODE_FRAME_NAME +
+      """\.func1\(<console>:\d+\)"""
+    traceback(0) should fullyMatch regex frameRegex
   }
 
   it should "access the spark context" in withSession { session =>
@@ -177,7 +179,6 @@ class SparkSessionSpec extends BaseSessionSpec {
     statement.id should equal (0)
 
     val result = statement.result
-
 
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
