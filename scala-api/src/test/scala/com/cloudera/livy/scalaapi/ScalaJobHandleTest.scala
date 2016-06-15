@@ -95,7 +95,7 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
         lock.countDown()
       }
     }
-    if (lock.getCount == 1) lock.await()
+    ScalaClientTestUtils.assertAwait(lock)
     testFailure.foreach(fail(_))
   }
 
@@ -121,7 +121,7 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
         lock.countDown()
       }
     }
-    if (lock.getCount == 1) lock.await()
+    ScalaClientTestUtils.assertAwait(lock)
     testFailure.foreach(fail(_))
   }
 
@@ -134,15 +134,13 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
     val lock = new CountDownLatch(1)
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
     testScalaHandle onJobCancelled  {
-      case true => {
-        lock.countDown()
-      }
+      case true => lock.countDown()
       case false => {
         testFailure = Some("False callback should not have been triggered")
         lock.countDown()
       }
     }
-    if (lock.getCount == 1) lock.await()
+    ScalaClientTestUtils.assertAwait(lock)
     testFailure.foreach(fail(_))
   }
 
@@ -150,30 +148,24 @@ class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter 
     val jobHandleStub = new AbstractJobHandleStub[String] {
       override def addListener(l: Listener[String]): Unit = l.onJobQueued(this)
     }
-    var hasTestPassed = false
     val lock = new CountDownLatch(1)
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
     testScalaHandle onJobQueued {
-      hasTestPassed = true
       lock.countDown()
     }
-    if (lock.getCount == 1) lock.await()
-    if (!hasTestPassed) fail("Callback not triggered")
+    ScalaClientTestUtils.assertAwait(lock)
   }
 
   test("onJobStarted") {
     val jobHandleStub = new AbstractJobHandleStub[String] {
       override def addListener(l: Listener[String]): Unit = l.onJobStarted(this)
     }
-    var hasTestPassed = false
     val lock = new CountDownLatch(1)
     val testScalaHandle = new ScalaJobHandle(jobHandleStub)
     testScalaHandle onJobStarted {
-      hasTestPassed = true
       lock.countDown()
     }
-    if (lock.getCount == 1) lock.await()
-    if (!hasTestPassed) fail("Callback not triggered")
+    ScalaClientTestUtils.assertAwait(lock)
   }
 }
 
