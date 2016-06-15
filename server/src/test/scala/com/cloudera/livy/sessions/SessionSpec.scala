@@ -66,7 +66,7 @@ class SessionSpec extends FunSuite {
     val session = new MockSession(0, null, conf)
 
     // Test baseline.
-    assert(session.prepareConf(Map(), Nil, Nil, Nil, Nil) === Map())
+    assert(session.prepareConf(Map(), Nil, Nil, Nil, Nil) === Map("spark.master" -> "local"))
 
     // Test validations.
     intercept[IllegalArgumentException] {
