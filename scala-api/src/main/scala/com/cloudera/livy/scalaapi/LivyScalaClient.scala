@@ -20,7 +20,7 @@ package com.cloudera.livy.scalaapi
 
 import java.io.File
 import java.net.URI
-import java.util.concurrent.{Executors, Future => JFuture, ScheduledFuture, TimeUnit}
+import java.util.concurrent.{Executors, Future => JFuture, ScheduledFuture, ThreadFactory, TimeUnit}
 
 import scala.concurrent._
 import scala.util.Try
@@ -29,7 +29,13 @@ import com.cloudera.livy._
 
 class LivyScalaClient(livyJavaClient: LivyClient) {
 
-  private val executor = Executors.newSingleThreadScheduledExecutor()
+  private val executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory {
+    override def newThread(r: Runnable): Thread = {
+      val thread = new Thread(r, "LivyScalaClient-PollingContainer")
+      thread.setDaemon(true)
+      thread
+    }
+  })
 
   def submit[T](fn: ScalaJobContext => T): ScalaJobHandle[T] = {
     val job = new Job[T] {
@@ -69,7 +75,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
     private val initialDelay = 1
     private val longDelay = 1
     private var scheduledFuture: ScheduledFuture[_] = _
-    val promise = Promise[T]
+    private val promise = Promise[T]
 
     def poll(): Future[T] = {
       scheduledFuture =
