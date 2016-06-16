@@ -91,21 +91,13 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
 
   @throws(classOf[Exception])
   override def result(atMost: Duration)(implicit permit: CanAwait): T =
-    getJavaFutureResultAfterGivenWaitTime(atMost)
+    getJavaFutureResult(jobHandle, atMost)
 
   @throws(classOf[InterruptedException])
   @throws(classOf[TimeoutException])
   override def ready(atMost: Duration)(implicit permit: CanAwait): ScalaJobHandle.this.type = {
-    getJavaFutureResultAfterGivenWaitTime(atMost)
+    getJavaFutureResult(jobHandle, atMost)
     this
-  }
-
-  private def getJavaFutureResultAfterGivenWaitTime(atMost: Duration): T = {
-    if (!atMost.isFinite()) {
-      getJavaFutureResult(jobHandle)
-    } else {
-      getJavaFutureResult(jobHandle, atMost)
-    }
   }
 }
 

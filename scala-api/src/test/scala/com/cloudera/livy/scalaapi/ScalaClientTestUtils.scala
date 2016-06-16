@@ -45,12 +45,10 @@ object ScalaClientTestUtils extends FunSuite {
   }
 
   def assertAwait(lock: CountDownLatch): Unit = {
-    if (lock.getCount == 1) {
-      assert(lock.await(Timeout, TimeUnit.SECONDS) == true)
-    }
+    assert(lock.await(Timeout, TimeUnit.SECONDS) == true)
   }
 
-  def assertTestPassed(future: Future[Any], expectedValue: Any): Unit = {
+  def assertTestPassed[T](future: Future[T], expectedValue: T): Unit = {
     val result = Await.result(future, Timeout second)
     assert(result === expectedValue)
   }
