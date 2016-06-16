@@ -18,14 +18,14 @@ import ast
 import cStringIO
 import datetime
 import decimal
+import io
 import json
 import logging
 import sys
 import traceback
-import StringIO
-import base64
 import os
 import re
+import StringIO
 
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
@@ -193,11 +193,10 @@ def execute_request(content):
     if result is None:
         result = {}
 
-    stdout = fake_stdout.getvalue()
-    fake_stdout.truncate(0)
+    stdout = sys.stdout.getvalue()
+    stderr = sys.stderr.getvalue()
 
-    stderr = fake_stderr.getvalue()
-    fake_stderr.truncate(0)
+    clearOutputs()
 
     output = result.pop('text/plain', '')
 
@@ -382,9 +381,19 @@ msg_type_router = {
     'shutdown_request': shutdown_request,
 }
 
-fake_stdin = cStringIO.StringIO()
-fake_stdout = cStringIO.StringIO()
-fake_stderr = cStringIO.StringIO()
+
+class UnicodeDecodingStringIO(io.StringIO):
+    def write(self, s):
+        if isinstance(s, bytes):
+            s = s.decode("utf-8")
+        super(UnicodeDecodingStringIO, self).write(s)
+
+
+def clearOutputs():
+    sys.stdout.close()
+    sys.stderr.close()
+    sys.stdout = UnicodeDecodingStringIO()
+    sys.stderr = UnicodeDecodingStringIO()
 
 
 def main():
@@ -392,20 +401,19 @@ def main():
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
-    sys.stdin = fake_stdin
-    sys.stdout = fake_stdout
-    sys.stderr = fake_stderr
+    sys.stdin = cStringIO.StringIO()
+    sys.stdout = UnicodeDecodingStringIO()
+    sys.stderr = UnicodeDecodingStringIO()
 
     try:
         if os.environ.get("LIVY_TEST") != "true":
             # Load spark into the context
             exec 'from pyspark.shell import sc' in global_dict
 
-        print >> sys_stderr, fake_stdout.getvalue()
-        print >> sys_stderr, fake_stderr.getvalue()
+        print >> sys_stderr, sys.stdout.getvalue()
+        print >> sys_stderr, sys.stderr.getvalue()
 
-        fake_stdout.truncate(0)
-        fake_stderr.truncate(0)
+        clearOutputs()
 
         print >> sys_stdout, 'READY'
         sys_stdout.flush()
@@ -470,7 +478,6 @@ def main():
         sys.stdin = sys_stdin
         sys.stdout = sys_stdout
         sys.stderr = sys_stderr
-
 
 if __name__ == '__main__':
     sys.exit(main())
