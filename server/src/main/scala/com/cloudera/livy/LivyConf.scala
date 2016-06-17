@@ -45,6 +45,7 @@ object LivyConf {
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
+  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enableHiveContext", false)
 
   val ENVIRONMENT = Entry("livy.environment", "production")
 

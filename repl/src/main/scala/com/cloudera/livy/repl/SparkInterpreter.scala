@@ -121,20 +121,23 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
       }
 
       sparkContext = SparkContext.getOrCreate(conf)
-      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
+      if (conf.getBoolean("livy.repl.enableHiveContext", false)) {
         try {
           val loader = Option(Thread.currentThread().getContextClassLoader)
             .getOrElse(getClass.getClassLoader)
+          if (loader.getResource("hive-site.xml") == null) {
+            warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
+          }
           sqlContext = new HiveContext(sparkContext)
-          info("Created sql context (with Hive support)..")
+          info("Created sql context (with Hive support).")
         } catch {
           case _: java.lang.NoClassDefFoundError =>
             sqlContext = new SQLContext(sparkContext)
-            info("Created sql context..")
+            info("Created sql context.")
         }
       } else {
         sqlContext = new SQLContext(sparkContext)
-        info("Created sql context..")
+        info("Created sql context.")
       }
       sparkIMain.beQuietDuring {
         sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
