@@ -26,11 +26,11 @@ import traceback
 import base64
 import os
 import re
-import StringIO
 
 if sys.version >= '3' :
     unicode = str
 else :
+    import cStringIO
     import StringIO
 
 logging.basicConfig()
@@ -152,7 +152,7 @@ def parse_code_into_nodes(code):
         for i, line in enumerate(code.rstrip().split('\n')):
             if line.startswith('%'):
                 if normal:
-                    chunks.append(''.join(normal))
+                    chunks.append('\n'.join(normal))
                     normal = []
 
                 chunks.append(line)
@@ -414,7 +414,11 @@ def main():
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
-    sys.stdin = cStringIO.StringIO()
+    if sys.version >= '3' :
+        sys.stdin = io.StringIO()
+    else :
+        sys.stdin = cStringIO.StringIO()
+
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
