@@ -18,18 +18,22 @@
 
 package com.cloudera.livy.test
 
-import java.io.File
+import java.io.{File, FileOutputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
+import java.util.UUID
 import java.util.concurrent.{Future => JFuture, TimeUnit}
+import java.util.jar.JarOutputStream
+import java.util.zip.ZipEntry
 import javax.servlet.http.HttpServletResponse
 
 import scala.util.Try
 
+import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
 
-import com.cloudera.livy.{LivyClient, LivyClientBuilder}
+import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
@@ -43,7 +47,7 @@ private class SessionList {
   val sessions: List[SessionInfo] = Nil
 }
 
-class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
+class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logging {
 
   private var client: LivyClient = _
   private var sessionId: Int = _
@@ -60,21 +64,30 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     livyClient.stopSession(sessionId)
   }
 
-  test("create a new session") {
-    client = createClient(livyEndpoint)
+  test("create a new session and upload test jar") {
+    val tempClient = createClient(livyEndpoint)
 
-    // Figure out the session ID by poking at the REST endpoint. We should probably expose this
-    // in the Java API.
-    val list = sessionList()
-    assert(list.total === 1)
-    sessionId = list.sessions(0).id
+    try {
+      // Figure out the session ID by poking at the REST endpoint. We should probably expose this
+      // in the Java API.
+      val list = sessionList()
+      assert(list.total === 1)
+      val tempSessionId = list.sessions(0).id
 
-    waitTillSessionIdle(sessionId)
-  }
+      waitTillSessionIdle(tempSessionId)
+      waitFor(tempClient.uploadJar(new File(testLib)))
 
-  test("upload jar") {
-    assume(client != null, "Client not active.")
-    waitFor(client.uploadJar(new File(testLib)))
+      client = tempClient
+      sessionId = tempSessionId
+    } finally {
+      if (client == null) {
+        try {
+          tempClient.stop(true)
+        } catch {
+          case e: Exception => warn("Error stopping client.", e)
+        }
+      }
+    }
   }
 
   test("upload file") {
@@ -86,6 +99,19 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     waitFor(client.uploadFile(file.toFile()))
 
     val result = waitFor(client.submit(new FileReader(file.toFile().getName(), false)))
+    assert(result === "hello")
+  }
+
+  test("add file from HDFS") {
+    assume(client != null, "Client not active.")
+    val file = Files.createTempFile("filetest2", ".txt")
+    Files.write(file, "hello".getBytes(UTF_8))
+
+    val uri = new URI(uploadToHdfs(file.toFile()))
+    waitFor(client.addFile(uri))
+
+    val task = new FileReader(new File(uri.getPath()).getName(), false)
+    val result = waitFor(client.submit(task))
     assert(result === "hello")
   }
 
@@ -127,6 +153,39 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     assume(client2 != null, "Client not active.")
     val result = waitFor(client2.submit(new Echo("hello")))
     assert(result === "hello")
+  }
+
+  test("run scala jobs") {
+    assume(client2 != null, "Client not active.")
+
+    val jobs = Seq(
+      new ScalaEcho("abcde"),
+      new ScalaEcho(Seq(1, 2, 3, 4)),
+      new ScalaEcho(Map(1 -> 2, 3 -> 4)),
+      new ScalaEcho(ValueHolder("abcde")),
+      new ScalaEcho(ValueHolder(Seq(1, 2, 3, 4))),
+      new ScalaEcho(Some("abcde"))
+    )
+
+    jobs.foreach { job =>
+      val result = waitFor(client2.submit(job))
+      assert(result === job.value)
+    }
+  }
+
+  test("ensure failing jobs do not affect session state") {
+    assume(client2 != null, "Client not active.")
+
+    try {
+      waitFor(client2.submit(new Failure()))
+      fail("Job should have failued.")
+    } catch {
+      case e: Exception =>
+        assert(e.getMessage().contains(classOf[Failure.JobFailureException].getName()))
+    }
+
+    val result = waitFor(client2.submit(new Echo("foo")))
+    assert(result === "foo")
   }
 
   test("destroy the session") {

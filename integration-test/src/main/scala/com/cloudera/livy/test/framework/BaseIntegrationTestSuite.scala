@@ -19,21 +19,36 @@
 package com.cloudera.livy.test.framework
 
 import java.io.File
+import java.util.UUID
 import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util._
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
+import org.apache.hadoop.fs.Path
 import org.scalatest._
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.server.interactive.CreateInteractiveRequest
 import com.cloudera.livy.sessions._
 
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class StatementError(ename: String, evalue: String, stackTrace: Seq[String])
+
+object BaseIntegrationTestSuite {
+  // Duplicated from repl.Session. Should really be in a more shared location.
+  val OK = "ok"
+  val ERROR = "error"
+}
+
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
+  import BaseIntegrationTestSuite._
+
   var cluster: Cluster = _
   var httpClient: AsyncHttpClient = _
   var livyClient: LivyRestClient = _
@@ -50,10 +65,18 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     .get
 
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
-    eventually(timeout(30 seconds), interval(100 millis)) {
+    eventually(timeout(1 minute), interval(100 millis)) {
       val curState = livyClient.getSessionStatus(sessionId)
       assert(curState === SessionState.Idle().toString)
     }
+  }
+
+  /** Uploads a file to HDFS and returns just its path. */
+  protected def uploadToHdfs(file: File): String = {
+    val hdfsPath = new Path(cluster.hdfsScratchDir(),
+      UUID.randomUUID().toString() + "-" + file.getName())
+    cluster.fs.copyFromLocalFile(new Path(file.toURI()), hdfsPath)
+    hdfsPath.toUri().getPath()
   }
 
   /** Wrapper around test() to be used by pyspark tests. */
@@ -67,45 +90,52 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   /** Wrapper around test() to be used by SparkR tests. */
   protected def rtest(desc: String)(testFn: => Unit): Unit = {
     test(desc) {
+      assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
       assume(cluster.isRealSpark(), "SparkR tests require a real Spark installation.")
+      assume(cluster.hasSparkR(), "Spark under test does not support R.")
       testFn
     }
   }
 
   test("initialize test cluster") {
-    cluster = ClusterPool.get.lease()
+    cluster = Cluster.get()
     httpClient = new AsyncHttpClient()
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
 
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
-    def startSession(kind: Kind): Int = {
-      withClue(cluster.getLivyLog()) {
-        val requestBody = new CreateInteractiveRequest()
-        requestBody.kind = kind
+    def startSession(kind: Kind, sparkConf: Map[String, String] = Map()): Int = {
+      val requestBody = new CreateInteractiveRequest()
+      requestBody.kind = kind
+      requestBody.conf = sparkConf
 
-        val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
-          .setBody(mapper.writeValueAsString(requestBody))
-          .execute()
-          .get()
+      val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
+        .setBody(mapper.writeValueAsString(requestBody))
+        .execute()
+        .get()
 
-        val sessionId: Int = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
-          val newSession = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newSession should contain key ("id")
+      val sessionId: Int = withClue(rep.getResponseBody) {
+        rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
+        val newSession = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        newSession should contain key ("id")
 
-          newSession("id").asInstanceOf[Int]
-        }
-
-        sessionId
+        newSession("id").asInstanceOf[Int]
       }
+
+      sessionId
     }
 
     /** Stops a session. If an id < 0 is provided, do nothing. */
     def stopSession(sessionId: Int): Unit = {
       if (sessionId >= 0) {
-        httpClient.prepareDelete(s"$livyEndpoint/sessions/$sessionId").execute()
+        val sessionUri = s"$livyEndpoint/sessions/$sessionId"
+        httpClient.prepareDelete(sessionUri).execute().get()
+
+        eventually(timeout(30 seconds), interval(1 second)) {
+          var res = httpClient.prepareGet(sessionUri).execute().get()
+          assert(res.getStatusCode() === HttpServletResponse.SC_NOT_FOUND)
+        }
       }
     }
 
@@ -124,42 +154,43 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     }
 
     def runStatement(sessionId: Int, stmt: String): Int = {
-      withClue(cluster.getLivyLog()) {
-        val requestBody = Map("code" -> stmt)
-        val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
-          .setBody(mapper.writeValueAsString(requestBody))
-          .execute()
-          .get()
+      val requestBody = Map("code" -> stmt)
+      val rep = httpClient.preparePost(s"$livyEndpoint/sessions/$sessionId/statements")
+        .setBody(mapper.writeValueAsString(requestBody))
+        .execute()
+        .get()
 
-        val stmtId: Int = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
-          val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newStmt should contain key ("id")
+      val stmtId: Int = withClue(rep.getResponseBody) {
+        rep.getStatusCode should equal(HttpServletResponse.SC_CREATED)
+        val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        newStmt should contain key ("id")
 
-          newStmt("id").asInstanceOf[Int]
-        }
-        stmtId
+        newStmt("id").asInstanceOf[Int]
       }
+      stmtId
     }
 
-    def getStatementResult(sessionId: Int, stmtId: Int): String = {
-      withClue(cluster.getLivyLog()) {
-        val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId/statements/$stmtId")
-          .execute()
-          .get()
+    def getStatementResult(sessionId: Int, stmtId: Int): Either[String, StatementError] = {
+      val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId/statements/$stmtId")
+        .execute()
+        .get()
 
-        val stmtResult = withClue(rep.getResponseBody) {
-          rep.getStatusCode should equal(HttpServletResponse.SC_OK)
-          val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
-          newStmt should contain key ("output")
-          val output = newStmt("output").asInstanceOf[Map[String, Any]]
+      rep.getStatusCode should equal(HttpServletResponse.SC_OK)
+      val newStmt = mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+      newStmt should contain key ("output")
+      val output = newStmt("output").asInstanceOf[Map[String, Any]]
+      output("status") match {
+        case OK =>
           output should contain key ("data")
           val data = output("data").asInstanceOf[Map[String, Any]]
           data should contain key ("text/plain")
-          data("text/plain").asInstanceOf[String]
-        }
+          Left(data("text/plain").asInstanceOf[String])
 
-        stmtResult
+        case ERROR =>
+          Right(mapper.convertValue(output, classOf[StatementError]))
+
+        case status =>
+          fail(s"Unknown statement status: $status")
       }
     }
   }

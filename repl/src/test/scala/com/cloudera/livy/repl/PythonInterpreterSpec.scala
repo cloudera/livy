@@ -21,7 +21,6 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
-import org.scalatest.Outcome
 
 class PythonInterpreterSpec extends BaseInterpreterSpec {
 
@@ -201,4 +200,18 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
+  // Scalastyle is treating unicode escape as non ascii characters. Turn off the check.
+  // scalastyle:off non.ascii.character.disallowed
+  it should "print unicode correctly" in withInterpreter { intp =>
+    intp.execute("print(u\"\u263A\")") should equal(Interpreter.ExecuteSuccess(
+      TEXT_PLAIN -> "\u263A"
+    ))
+    intp.execute("""print(u"\u263A")""") should equal(Interpreter.ExecuteSuccess(
+      TEXT_PLAIN -> "\u263A"
+    ))
+    intp.execute("""print("\xE2\x98\xBA")""") should equal(Interpreter.ExecuteSuccess(
+      TEXT_PLAIN -> "\u263A"
+    ))
+  }
+  // scalastyle:on non.ascii.character.disallowed
 }

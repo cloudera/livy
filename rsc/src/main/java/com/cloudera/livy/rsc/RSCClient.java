@@ -107,7 +107,7 @@ public class RSCClient implements LivyClient {
             public void onSuccess(Void unused) {
               if (isAlive) {
                 LOG.warn("Client RPC channel closed unexpectedly.");
-                isAlive = false;
+                stop(false);
               }
             }
           });
@@ -212,14 +212,17 @@ public class RSCClient implements LivyClient {
         }
 
         // Report failure for all pending jobs, so that clients can react.
-        for (JobHandleImpl<?> job : jobs.values()) {
-          job.setFailure(new IOException("RSCClient instance stopped."));
+        for (Map.Entry<String, JobHandleImpl<?>> e : jobs.entrySet()) {
+          LOG.info("Failing pending job {} due to shutdown.", e.getKey());
+          e.getValue().setFailure(new IOException("RSCClient instance stopped."));
         }
 
         eventLoopGroup.shutdownGracefully();
       }
-      LOG.debug("Disconnected from context {}, shutdown = {}.", contextInfo.clientId,
-        shutdownContext);
+      if (contextInfo != null) {
+        LOG.debug("Disconnected from context {}, shutdown = {}.", contextInfo.clientId,
+          shutdownContext);
+      }
     }
   }
 

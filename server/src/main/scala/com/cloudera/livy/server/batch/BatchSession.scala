@@ -35,27 +35,26 @@ class BatchSession(
     extends Session(id, owner, livyConf) {
 
   private val process = {
+    val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
+      request.pyFiles)
     require(request.file != null, "File is required.")
 
     val builder = new SparkProcessBuilder(livyConf)
-    builder.conf(request.conf)
+    builder.conf(conf)
     proxyUser.foreach(builder.proxyUser)
     request.className.foreach(builder.className)
-    request.jars.foreach(builder.jar)
-    request.pyFiles.foreach(builder.pyFile)
-    request.files.foreach(builder.file)
     request.driverMemory.foreach(builder.driverMemory)
     request.driverCores.foreach(builder.driverCores)
     request.executorMemory.foreach(builder.executorMemory)
     request.executorCores.foreach(builder.executorCores)
     request.numExecutors.foreach(builder.numExecutors)
-    request.archives.foreach(builder.archive)
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 
-    builder.start(Some(request.file), request.args)
+    val file = resolveURIs(Seq(request.file))(0)
+    builder.start(Some(file), request.args)
   }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global

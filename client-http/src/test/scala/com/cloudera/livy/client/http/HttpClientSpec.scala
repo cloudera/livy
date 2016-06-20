@@ -146,7 +146,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
       verify(session, times(1)).cancelJob(meq(jobId))
     }
 
-    withClient("should notify listeners of new Spark jobs") {
+    withClient("should notify listeners of job completion") {
       val (jobId, handle) = runJob(false, { id => Seq(
           new JobStatus(id, JobHandle.State.STARTED, null, null),
           new JobStatus(id, JobHandle.State.SUCCEEDED, serialize(id), null))

@@ -24,11 +24,11 @@
         <groupId>com.cloudera.livy</groupId>
         <artifactId>livy-main</artifactId>
         <relativePath>../pom.xml</relativePath>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.3.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>livy-repl</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -166,22 +166,12 @@
                 </executions>
             </plugin>
 
-            <plugin>
+             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>com.cloudera.livy.repl.Main</mainClass>
-                        </manifest>
-                    </archive>
                     <outputDirectory>${project.build.directory}/jars</outputDirectory>
                 </configuration>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
             </plugin>
 
             <plugin>
@@ -191,8 +181,6 @@
                     <systemProperties>
                         <spark.app.name>Livy</spark.app.name>
                         <spark.master>local</spark.master>
-                        <spark.ui.enabled>false</spark.ui.enabled>
-                        <settings.usejavacp.value>true</settings.usejavacp.value>
                     </systemProperties>
                 </configuration>
             </plugin>

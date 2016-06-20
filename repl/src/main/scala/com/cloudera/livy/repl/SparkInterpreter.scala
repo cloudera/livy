@@ -19,10 +19,11 @@
 package com.cloudera.livy.repl
 
 import java.io._
+import java.net.URLClassLoader
+import java.nio.file.Paths
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.{JPrintWriter, Results}
-import scala.tools.nsc.settings.MutableSettings
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.{SparkConf, SparkContext}
@@ -32,19 +33,23 @@ import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.Logging
+
 object SparkInterpreter {
+  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:\tat .+?\n?)*)""".r
+  private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
+  val USER_CODE_FRAME_NAME = "<user code>"
 }
 
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter(conf: SparkConf) extends Interpreter {
+class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
   import SparkInterpreter._
 
   private implicit def formats = DefaultFormats
 
-  private val originalClassLoader = Thread.currentThread().getContextClassLoader
   private val outputStream = new ByteArrayOutputStream()
   private var sparkIMain: SparkIMain = _
   private var sparkContext: SparkContext = _
@@ -55,7 +60,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()
-    settings.embeddedDefaults(originalClassLoader)
+    settings.embeddedDefaults(Thread.currentThread().getContextClassLoader())
     settings.usejavacp.value = true
 
     sparkIMain = new SparkIMain(settings, new JPrintWriter(outputStream, true))
@@ -76,23 +81,53 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
           outputDir.invoke(sparkIMain).asInstanceOf[File].getAbsolutePath())
     }
 
-    // Call sparkIMain.setContextClassLoader() to make sure SparkContext and repl are using the
-    // same ClassLoader. Otherwise if someone defined a new class in interactive shell,
-    // SparkContext cannot see them and will result in job stage failure.
-    val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
-    setContextClassLoaderMethod.setAccessible(true)
-    setContextClassLoaderMethod.invoke(sparkIMain)
+    restoreContextClassLoader {
+      // Call sparkIMain.setContextClassLoader() to make sure SparkContext and repl are using the
+      // same ClassLoader. Otherwise if someone defined a new class in interactive shell,
+      // SparkContext cannot see them and will result in job stage failure.
+      val setContextClassLoaderMethod = sparkIMain.getClass().getMethod("setContextClassLoader")
+      setContextClassLoaderMethod.setAccessible(true)
+      setContextClassLoaderMethod.invoke(sparkIMain)
 
-    sparkContext = SparkContext.getOrCreate(conf)
+      // With usejavacp=true, the Scala interpreter looks for jars under System Classpath. But it
+      // doesn't look for jars added to MutableURLClassLoader. Thus extra jars are not visible to
+      // the interpreter. SparkContext can use them via JVM ClassLoaders but users cannot import
+      // them using Scala import statement.
+      //
+      // For instance: If we import a package using SparkConf:
+      // "spark.jars.packages": "com.databricks:spark-csv_2.10:1.4.0"
+      // then "import com.databricks.spark.csv._" in the interpreter, it will throw an error.
+      //
+      // Adding them to the interpreter manually to fix this issue.
+      var classLoader = Thread.currentThread().getContextClassLoader
+      while (classLoader != null) {
+        if (classLoader.getClass.getCanonicalName == "org.apache.spark.util.MutableURLClassLoader")
+        {
+          val extraJarPath = classLoader.asInstanceOf[URLClassLoader].getURLs()
+            // Check if the file exists. Otherwise an exception will be thrown.
+            .filter { u => u.getProtocol == "file" && new File(u.getPath).isFile }
+            // Livy rsc and repl are also in the extra jars list. Filter them out.
+            .filterNot { u => Paths.get(u.toURI).getFileName.toString.startsWith("livy-") }
 
-    sparkIMain.beQuietDuring {
-      sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
+          extraJarPath.foreach { p => debug(s"Adding $p to Scala interpreter's class path...") }
+          sparkIMain.addUrlsToClassPath(extraJarPath: _*)
+          classLoader = null
+        } else {
+          classLoader = classLoader.getParent
+        }
+      }
+
+      sparkContext = SparkContext.getOrCreate(conf)
+
+      sparkIMain.beQuietDuring {
+        sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
+      }
     }
 
     sparkContext
   }
 
-  override def execute(code: String): Interpreter.ExecuteResponse = {
+  override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
     require(sparkIMain != null && sparkContext != null)
 
     executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
@@ -109,9 +144,6 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
       sparkIMain.close()
       sparkIMain = null
     }
-
-    // SparkIMain.interpret will change current thread's contextClassLoader. Restore the original.
-    Thread.currentThread().setContextClassLoader(originalClassLoader)
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {
@@ -233,9 +265,9 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
 
   private def executeLines(
       lines: List[String],
-      result: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
+      resultFromLastLine: Interpreter.ExecuteResponse): Interpreter.ExecuteResponse = {
     lines match {
-      case Nil => result
+      case Nil => resultFromLastLine
       case head :: tail =>
         val result = executeLine(head)
 
@@ -243,10 +275,19 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
           case Interpreter.ExecuteIncomplete() =>
             tail match {
               case Nil =>
-                result
-
+                // ExecuteIncomplete could be caused by an actual incomplete statements (e.g. "sc.")
+                // or statements with just comments.
+                // To distinguish them, reissue the same statement wrapped in { }.
+                // If it is an actual incomplete statement, the interpreter will return an error.
+                // If it is some comment, the interpreter will return success.
+                executeLine(s"{\n$head\n}") match {
+                  case Interpreter.ExecuteIncomplete() | Interpreter.ExecuteError(_, _, _) =>
+                    // Return the original error so users won't get confusing error message.
+                    result
+                  case _ => resultFromLastLine
+                }
               case next :: nextTail =>
-                executeLines(head + "\n" + next :: nextTail, result)
+                executeLines(head + "\n" + next :: nextTail, resultFromLastLine)
             }
           case Interpreter.ExecuteError(_, _, _) =>
             result
@@ -269,9 +310,37 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter {
                 TEXT_PLAIN -> readStdout()
               )
             case Results.Incomplete => Interpreter.ExecuteIncomplete()
-            case Results.Error => Interpreter.ExecuteError("Error", readStdout())
+            case Results.Error =>
+              def parseStdout(stdout: String): (String, Seq[String]) = {
+                stdout match {
+                  case EXCEPTION_STACK_TRACE_REGEX(ename, tracebackLines) =>
+                    var traceback = KEEP_NEWLINE_REGEX.pattern.split(tracebackLines)
+                    val interpreterFrameIdx = traceback.indexWhere(_.contains("$iwC$$iwC.<init>"))
+                    if (interpreterFrameIdx >= 0) {
+                      traceback = traceback
+                        // Remove Interpreter frames
+                        .take(interpreterFrameIdx)
+                        // Replace weird internal class name
+                        .map(_.replace("$iwC$$iwC", "<user code>"))
+                      // TODO Proper translate line number in stack trace for $iwC$$iwC.
+                    }
+                    (ename.trim, traceback)
+                  case _ => (stdout, Seq.empty)
+                }
+              }
+              val (ename, traceback) = parseStdout(readStdout())
+              Interpreter.ExecuteError("Error", ename, traceback)
           }
         }
+    }
+  }
+
+  private def restoreContextClassLoader[T](fn: => T): T = {
+    val currentClassLoader = Thread.currentThread().getContextClassLoader()
+    try {
+      fn
+    } finally {
+      Thread.currentThread().setContextClassLoader(currentClassLoader)
     }
   }
 

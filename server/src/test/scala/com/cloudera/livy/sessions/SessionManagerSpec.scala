@@ -29,18 +29,6 @@ import com.cloudera.livy.LivyConf
 
 class SessionManagerSpec extends FlatSpec with Matchers {
 
-  class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
-    override val proxyUser = None
-
-    override protected def stopSession(): Unit = ()
-
-    override def logLines(): IndexedSeq[String] = IndexedSeq()
-
-    override def state: SessionState = SessionState.Idle()
-
-    override val timeout: Long = 0L
-  }
-
   it should "garbage collect old sessions" in {
     val livyConf = new LivyConf()
     livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")

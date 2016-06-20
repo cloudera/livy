@@ -93,7 +93,12 @@ class ContextLauncher {
       factory.getServer().registerClient(clientId, secret, handler);
       String replMode = conf.get("repl");
       boolean repl = replMode != null && replMode.equals("true");
-      this.child = startDriver(factory.getServer(), conf, clientId, secret);
+
+      conf.set(LAUNCHER_ADDRESS, factory.getServer().getAddress());
+      conf.set(LAUNCHER_PORT, factory.getServer().getPort());
+      conf.set(CLIENT_ID, clientId);
+      conf.set(CLIENT_SECRET, secret);
+      this.child = startDriver(conf, promise);
 
       // Set up a timeout to fail the promise if we don't hear back from the context
       // after a configurable timeout.
@@ -131,17 +136,8 @@ class ContextLauncher {
     }
   }
 
-  private static ChildProcess startDriver(
-      final RpcServer rpcServer,
-      final RSCConf conf,
-      final String clientId,
-      final String secret) throws IOException {
-    // Write out the config file used by the remote context.
-    conf.set(LAUNCHER_ADDRESS, rpcServer.getAddress());
-    conf.set(LAUNCHER_PORT, rpcServer.getPort());
-    conf.set(CLIENT_ID, clientId);
-    conf.set(CLIENT_SECRET, secret);
-
+  private static ChildProcess startDriver(final RSCConf conf, Promise<?> promise)
+      throws IOException {
     String livyJars = conf.get(LIVY_JARS);
     if (livyJars == null) {
       String livyHome = System.getenv("LIVY_HOME");
@@ -161,8 +157,11 @@ class ContextLauncher {
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
-    if ("sparkr".equals(conf.get(SESSION_KIND))) {
+    String kind = conf.get(SESSION_KIND);
+    if ("sparkr".equals(kind)) {
       merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
+    } else if ("pyspark".equals(kind)) {
+      merge(conf, "spark.submit.pyFiles", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES), ",");
     }
 
     // Disable multiple attempts since the RPC server doesn't yet support multiple
@@ -197,18 +196,11 @@ class ContextLauncher {
           }
         }
       };
-      return new ChildProcess(conf, child, confFile);
+      return new ChildProcess(conf, promise, child, confFile);
     } else {
       final SparkLauncher launcher = new SparkLauncher();
       launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
       launcher.setAppResource("spark-internal");
-
-      // Define how to pass options to the child process. If launching in client (or local)
-      // mode, the driver options need to be passed directly on the command line. Otherwise,
-      // SparkSubmit will take care of that for us.
-      String master = conf.get("spark.master");
-      Utils.checkArgument(master != null, "spark.master is not defined.");
-      launcher.setMaster(master);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
 
@@ -216,7 +208,7 @@ class ContextLauncher {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
 
-      return new ChildProcess(conf, launcher.launch(), confFile);
+      return new ChildProcess(conf, promise, launcher.launch(), confFile);
     }
   }
 
@@ -335,10 +327,11 @@ class ContextLauncher {
       ContextInfo info = new ContextInfo(msg.host, msg.port, clientId, secret);
       if (promise.trySuccess(info)) {
         timeout.cancel(true);
+        LOG.debug("Received driver info for client {}: {}/{}.", client.getChannel(),
+          msg.host, msg.port);
+      } else {
+        LOG.warn("Connection established but promise is already finalized.");
       }
-
-      LOG.debug("Received driver info for client {}: {}/{}.", client.getChannel(),
-        msg.host, msg.port);
 
       ctx.executor().submit(new Runnable() {
         @Override
@@ -354,31 +347,31 @@ class ContextLauncher {
   private static class ChildProcess {
 
     private final RSCConf conf;
+    private final Promise<?> promise;
     private final Process child;
     private final Thread monitor;
     private final Thread stdout;
     private final Thread stderr;
     private final File confFile;
-    private volatile boolean childFailed;
 
-    public ChildProcess(RSCConf conf, Runnable child, File confFile) {
+    public ChildProcess(RSCConf conf, Promise<?> promise, Runnable child, File confFile) {
       this.conf = conf;
+      this.promise = promise;
       this.monitor = monitor(child, CHILD_IDS.incrementAndGet());
       this.child = null;
       this.stdout = null;
       this.stderr = null;
       this.confFile = confFile;
-      this.childFailed = false;
     }
 
-    public ChildProcess(RSCConf conf, final Process childProc, File confFile) {
+    public ChildProcess(RSCConf conf, Promise<?> promise, final Process childProc, File confFile) {
       int childId = CHILD_IDS.incrementAndGet();
       this.conf = conf;
+      this.promise = promise;
       this.child = childProc;
       this.stdout = redirect("stdout-redir-" + childId, child.getInputStream());
       this.stderr = redirect("stderr-redir-" + childId, child.getErrorStream());
       this.confFile = confFile;
-      this.childFailed = false;
 
       Runnable monitorTask = new Runnable() {
         @Override
@@ -387,7 +380,7 @@ class ContextLauncher {
             int exitCode = child.waitFor();
             if (exitCode != 0) {
               LOG.warn("Child process exited with code {}.", exitCode);
-              childFailed = true;
+              fail(new IOException(String.format("Child process exited with code %d.", exitCode)));
             }
           } catch (InterruptedException ie) {
             LOG.warn("Waiting thread interrupted, killing child process.");
@@ -401,8 +394,8 @@ class ContextLauncher {
       this.monitor = monitor(monitorTask, childId);
     }
 
-    public boolean isFailed() {
-      return childFailed;
+    private void fail(Throwable error) {
+      promise.tryFailure(error);
     }
 
     public void kill() {
@@ -474,7 +467,7 @@ class ContextLauncher {
         @Override
         public void uncaughtException(Thread t, Throwable e) {
           LOG.warn("Child task threw exception.", e);
-          childFailed = true;
+          fail(e);
         }
       });
       thread.start();

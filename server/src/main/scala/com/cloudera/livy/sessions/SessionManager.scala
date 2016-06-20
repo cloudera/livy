@@ -22,7 +22,8 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.duration.Duration
 
 import com.cloudera.livy.{LivyConf, Logging}
 
@@ -71,7 +72,10 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
   }
 
   def shutdown(): Unit = {
-    // TODO: shut down open sessions?
+    // TODO: if recovery or HA is available, sessions should not be stopped.
+    sessions.values.map(_.stop).foreach { future =>
+      Await.ready(future, Duration.Inf)
+    }
   }
 
   def collectGarbage(): Future[Iterable[Unit]] = {

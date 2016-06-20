@@ -19,14 +19,14 @@
 package com.cloudera.livy.test.framework
 
 import java.io._
-import java.nio.charset.StandardCharsets.UTF_8
-import java.util.Properties
+import javax.servlet.http.HttpServletResponse
 
-import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
+import com.ning.http.client.AsyncHttpClient
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hdfs.MiniDFSCluster
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.server.MiniYARNCluster
@@ -49,7 +49,7 @@ private class MiniClusterConfig(val config: Map[String, String]) {
 
 }
 
-sealed trait MiniClusterUtils {
+sealed trait MiniClusterUtils extends ClusterUtils {
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
     val redacted = new Configuration(conf)
@@ -65,20 +65,6 @@ sealed trait MiniClusterUtils {
     }
   }
 
-  protected def saveProperties(props: Map[String, String], dest: File): Unit = {
-    val jprops = new Properties()
-    props.foreach { case (k, v) => jprops.put(k, v) }
-
-    val tempFile = new File(dest.getAbsolutePath() + ".tmp")
-    val out = new OutputStreamWriter(new FileOutputStream(tempFile), UTF_8)
-    try {
-      jprops.store(out, "Configuration")
-    } finally {
-      out.close()
-    }
-    tempFile.renameTo(dest)
-  }
-
 }
 
 sealed abstract class MiniClusterBase extends MiniClusterUtils with Logging {
@@ -91,14 +77,8 @@ sealed abstract class MiniClusterBase extends MiniClusterUtils with Logging {
     val Array(configPath) = args
     val config = {
       val file = new File(s"$configPath/cluster.conf")
-      val in = new InputStreamReader(new FileInputStream(file), UTF_8)
-      val props = new Properties()
-      try {
-        props.load(in)
-      } finally {
-        in.close()
-      }
-      new MiniClusterConfig(props.asScala.toMap)
+      val props = loadProperties(file)
+      new MiniClusterConfig(props)
     }
     start(config, configPath)
 
@@ -137,9 +117,15 @@ object MiniYarnMain extends MiniClusterBase {
     var yarnCluster = new MiniYARNCluster(getClass().getName(), config.nmCount,
       config.localDirCount, config.logDirCount)
     yarnCluster.init(baseConfig)
+
+    // Install a shutdown hook for stop the service and kill all running applications.
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      override def run(): Unit = yarnCluster.stop()
+    })
+
     yarnCluster.start()
 
-    // Woraround for YARN-2642.
+    // Workaround for YARN-2642.
     val yarnConfig = yarnCluster.getConfig()
     eventually(timeout(30 seconds), interval(100 millis)) {
       assert(yarnConfig.get(YarnConfiguration.RM_ADDRESS).split(":")(1) != "0",
@@ -158,11 +144,11 @@ object MiniLivyMain extends MiniClusterBase {
     val server = new LivyServer()
     server.start()
 
-    // Write a livy-defaults.conf file to the conf directory with the location of the Livy
+    // Write a livy.conf file to the conf directory with the location of the Livy
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.
     val clientConf = Map("livy.server.serverUrl" -> server.serverUrl())
-    saveProperties(clientConf, new File(configPath + "/livy-defaults.conf"))
+    saveProperties(clientConf, new File(configPath + "/livy.conf"))
   }
 
 }
@@ -191,12 +177,22 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   private var yarn: Option[ProcessInfo] = None
   private var livy: Option[ProcessInfo] = None
   private var livyUrl: String = _
+  private var _hdfsScrathDir: Path = _
 
   override def configDir(): File = _configDir
+
+  override def hdfsScratchDir(): Path = _hdfsScrathDir
 
   override def isRealSpark(): Boolean = {
     new File(sys.env("SPARK_HOME") + File.separator + "RELEASE").isFile()
   }
+
+  override def hasSparkR(): Boolean = {
+    val path = Seq(sys.env("SPARK_HOME"), "R", "lib", "sparkr.zip").mkString(File.separator)
+    new File(path).isFile()
+  }
+
+  override def doAsClusterUser[T](task: => T): T = task
 
   // Explicitly remove the "test-lib" dependency from the classpath of child processes. We
   // want tests to explicitly upload this jar when necessary, to test those code paths.
@@ -236,6 +232,8 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     hdfs = Some(start(MiniHdfsMain.getClass, new File(configDir, "core-site.xml")))
     yarn = Some(start(MiniYarnMain.getClass, new File(configDir, "yarn-site.xml")))
     runLivy()
+
+    _hdfsScrathDir = fs.makeQualified(new Path("/"))
   }
 
   override def cleanUp(): Unit = {
@@ -245,26 +243,21 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     livy = None
   }
 
-  // TODO?
-  override def getYarnRmEndpoint: String = ""
-
-  override def upload(srcPath: String, destPath: String): Unit = {
-    // TODO?
-  }
-
   def runLivy(): Unit = {
     assert(!livy.isDefined)
-    val confFile = new File(configDir, "livy-defaults.conf")
+    val confFile = new File(configDir, "livy.conf")
     val localLivy = start(MiniLivyMain.getClass, confFile)
 
-    val in = new InputStreamReader(new FileInputStream(confFile), UTF_8)
-    val props = new Properties()
-    try {
-      props.load(in)
-    } finally {
-      in.close()
+    val props = loadProperties(confFile)
+    livyUrl = props("livy.server.serverUrl")
+
+    // Wait until Livy server responds.
+    val httpClient = new AsyncHttpClient()
+    eventually(timeout(30 seconds), interval(1 second)) {
+      val res = httpClient.prepareGet(livyUrl).execute().get()
+      assert(res.getStatusCode() == HttpServletResponse.SC_OK)
     }
-    livyUrl = props.getProperty("livy.server.serverUrl")
+
     livy = Some(localLivy)
   }
 
@@ -275,12 +268,6 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   }
 
   def livyEndpoint: String = livyUrl
-
-  def getLivyLog(): String = livy.map(_.logFile.getAbsolutePath()).getOrElse("")
-
-  override def runCommand(cmd: String): String = {
-    throw new UnsupportedOperationException()
-  }
 
   private def mkdir(name: String, parent: File = tempDir): File = {
     val dir = new File(parent, name)
@@ -301,7 +288,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
       "-Dtest.appender=console",
       "-Djava.io.tmpdir=" + procTmp.getAbsolutePath(),
       "-cp", childClasspath + File.pathSeparator + configDir.getAbsolutePath(),
-      "-Xmx1g",
+      "-XX:MaxPermSize=256m",
       klass.getName().stripSuffix("$"),
       configDir.getAbsolutePath())
 
@@ -337,23 +324,5 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     svc.process.destroy()
     svc.process.waitFor()
   }
-
-}
-
-class MiniClusterPool(config: Map[String, String]) extends ClusterPool {
-
-  private val cluster = new MiniCluster(config)
-
-  override def init(): Unit = synchronized {
-    cluster.deploy()
-  }
-
-  override def destroy(): Unit = synchronized {
-    cluster.cleanUp()
-  }
-
-  override def lease(): Cluster = cluster
-
-  override def returnCluster(cluster: Cluster): Unit = ()
 
 }

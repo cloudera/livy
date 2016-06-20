@@ -124,4 +124,73 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
       TEXT_PLAIN -> "res0: Array[Int] = Array(1, 2)"
     ))
   }
+
+  it should "handle statements ending with comments" in withInterpreter { interpreter =>
+    // Test statements with only comments
+    var response = interpreter.execute("""// comment""")
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> ""))
+
+    response = interpreter.execute(
+      """/*
+        |comment
+        |*/
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> ""))
+
+    // Test statements ending with comments
+    response = interpreter.execute(
+      """val r = 1
+        |// comment
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> "r: Int = 1"))
+
+    response = interpreter.execute(
+      """val r = 1
+        |/*
+        |comment
+        |comment
+        |*/
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> "r: Int = 1"))
+
+    // Test statements ending with a mix of single line and multi-line comments
+    response = interpreter.execute(
+      """val r = 1
+        |// comment
+        |/*
+        |comment
+        |comment
+        |*/
+        |// comment
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> "r: Int = 1"))
+
+    response = interpreter.execute(
+      """val r = 1
+        |/*
+        |comment
+        |// comment
+        |comment
+        |*/
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteSuccess(TEXT_PLAIN -> "r: Int = 1"))
+
+    // Make sure incomplete statement is still returned as incomplete statement.
+    response = interpreter.execute("sc.")
+    response should equal(Interpreter.ExecuteIncomplete())
+
+    // Make sure incomplete statement is still returned as incomplete statement.
+    response = interpreter.execute(
+      """sc.
+        |// comment
+      """.stripMargin)
+    response should equal(Interpreter.ExecuteIncomplete())
+
+    // Make sure our handling doesn't mess up a string with value like comments.
+    val tripleQuotes = "\"\"\""
+    val stringWithComment = s"/*\ncomment\n*/\n//comment"
+    response = interpreter.execute(s"val r = $tripleQuotes$stringWithComment$tripleQuotes")
+    response should equal (
+      Interpreter.ExecuteSuccess(TEXT_PLAIN -> s"r: String = \n$stringWithComment"))
+  }
 }

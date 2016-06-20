@@ -23,7 +23,7 @@
 
   <groupId>com.cloudera.livy</groupId>
   <artifactId>livy-main</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>livy-main</name>
@@ -45,11 +45,11 @@
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
     <spark.version>1.5.0-cdh5.5.0</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
-    <httpclient.version>4.5</httpclient.version>
-    <httpcore.version>4.4.1</httpcore.version>
+    <httpclient.version>4.5.2</httpclient.version>
+    <httpcore.version>4.4.4</httpcore.version>
     <jackson.version>2.4.4</jackson.version>
     <javax.servlet-api.version>3.1.0</javax.servlet-api.version>
-    <jetty.version>9.2.10.v20150310</jetty.version>
+    <jetty.version>9.2.16.v20160414</jetty.version>
     <json4s.version>3.2.10</json4s.version>
     <junit.version>4.11</junit.version>
     <kryo.version>2.22</kryo.version>
@@ -68,6 +68,9 @@
     <test.redirectToFile>true</test.redirectToFile>
     <execution.root>${user.dir}</execution.root>
     <spark.home>${execution.root}/dev/spark</spark.home>
+
+    <!-- Set this to "true" to skip R tests. -->
+    <skipRTests>false</skipRTests>
 
     <!--
       Properties for the copyright header style checks. Modules that use the ASF header
@@ -119,7 +122,11 @@
 
     <MaxPermGen>512m</MaxPermGen>
     <CodeCacheSize>512m</CodeCacheSize>
+
+    <!-- Where to deploy artifacts. -->
+    <repository.root>http://maven.jenkins.cloudera.com:8081/artifactory</repository.root>
   </properties>
+
   <repositories>
     <repository>
       <id>cdh.repo</id>
@@ -169,6 +176,7 @@
     <module>core</module>
     <module>repl</module>
     <module>rsc</module>
+    <module>scala-api</module>
     <module>server</module>
     <module>test-lib</module>
     <module>integration-test</module>
@@ -648,6 +656,8 @@
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
+              <project.version>${project.version}</project.version>
+              <skipRTests>${skipRTests}</skipRTests>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -671,6 +681,8 @@
               <livy.environment>development</livy.environment>
               <jacoco.args>${argLine}</jacoco.args>
               <spark.ui.enabled>false</spark.ui.enabled>
+              <project.version>${project.version}</project.version>
+              <skipRTests>${skipRTests}</skipRTests>
             </systemProperties>
             <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
@@ -956,5 +968,18 @@
       </plugin>
     </plugins>
   </reporting>
+
+  <distributionManagement>
+    <repository>
+      <id>cdh.releases.repo</id>
+      <url>${repository.root}/cdh-staging-local</url>
+      <name>CDH Releases Repository</name>
+    </repository>
+    <snapshotRepository>
+      <id>cdh.snapshots.repo</id>
+      <url>${repository.root}/cdh-snapshot-local</url>
+      <name>CDH Snapshots Repository</name>
+    </snapshotRepository>
+  </distributionManagement>
 
 </project>

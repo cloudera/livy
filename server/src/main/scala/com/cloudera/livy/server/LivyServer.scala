@@ -28,7 +28,7 @@ import org.apache.hadoop.security.SecurityUtil
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
-import org.scalatra.servlet.ServletApiImplicits
+import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
@@ -50,9 +50,12 @@ class LivyServer extends Logging {
   private var _serverUrl: Option[String] = None
 
   def start(): Unit = {
-    val livyConf = new LivyConf().loadFromFile("livy-defaults.conf")
+    val livyConf = new LivyConf().loadFromFile("livy.conf")
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
+    val multipartConfig = MultipartConfig(
+        maxFileSize = Some(livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))
+      ).toMultipartConfigElement
 
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
@@ -63,6 +66,12 @@ class LivyServer extends Logging {
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
+        private def mount(sc: ServletContext, servlet: Servlet, mappings: String*): Unit = {
+          val registration = sc.addServlet(servlet.getClass().getName(), servlet)
+          registration.addMapping(mappings: _*)
+          registration.setMultipartConfig(multipartConfig)
+        }
+
         override def contextDestroyed(sce: ServletContextEvent): Unit = {
 
         }
@@ -71,8 +80,8 @@ class LivyServer extends Logging {
           try {
             val context = sce.getServletContext()
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
-            context.mount(new InteractiveSessionServlet(livyConf), "/sessions/*")
-            context.mount(new BatchSessionServlet(livyConf), "/batches/*")
+            mount(context, new InteractiveSessionServlet(livyConf), "/sessions/*")
+            mount(context, new BatchSessionServlet(livyConf), "/batches/*")
             context.mountMetricsAdminServlet("/")
           } catch {
             case e: Throwable =>
@@ -114,6 +123,13 @@ class LivyServer extends Logging {
     }
 
     server.start()
+
+    Runtime.getRuntime().addShutdownHook(new Thread("Livy Server Shutdown") {
+      override def run(): Unit = {
+        info("Shutting down Livy server.")
+        server.stop()
+      }
+    })
 
     _serverUrl = Some(s"http://${server.host}:${server.port}")
     sys.props("livy.server.serverUrl") = _serverUrl.get

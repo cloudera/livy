@@ -29,6 +29,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
+import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
@@ -42,9 +43,7 @@ import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
 
 object InteractiveSession {
-  val LivyReplDriverClassPath = "livy.repl.driverClassPath"
   val LivyReplJars = "livy.repl.jars"
-  val SparkSubmitPyFiles = "spark.submit.pyFiles"
   val SparkYarnIsPython = "spark.yarn.isPython"
 }
 
@@ -68,58 +67,50 @@ class InteractiveSession(
   val kind = request.kind
 
   private val client = {
+    val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
+      request.pyFiles)
+
     info(s"Creating LivyClient for sessionId: $id")
     val builder = new LivyClientBuilder()
       .setConf("spark.app.name", s"livy-session-$id")
-      .setConf("spark.master", "yarn-cluster")
-      .setAll(Option(request.conf).map(_.asJava).getOrElse(new JHashMap()))
+      .setAll(conf.asJava)
       .setConf("livy.client.sessionId", id.toString)
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
-      .setURI(new URI("local:spark"))
+      .setURI(new URI("rsc:/"))
+
+    def mergeConfList(list: Seq[String], key: String): Unit = {
+      if (list.nonEmpty) {
+        val newList = (list ++ conf.get(key)).mkString(",")
+        builder.setConf(key, newList)
+      }
+    }
 
     kind match {
       case PySpark() | PySpark3() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
+        mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
         builder.setConf(SparkYarnIsPython, "true")
-        builder.setConf(SparkSubmitPyFiles, (pySparkFiles ++ request.pyFiles).mkString(","))
       case SparkR() =>
-        val sparkRFile = if (!LivyConf.TEST_MODE) findSparkRArchives() else Nil
-        builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), sparkRFile.mkString(","))
+        val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
+        sparkRArchive.foreach { archive =>
+          builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+        }
       case _ =>
     }
     builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
-    sys.env.get("LIVY_REPL_JAVA_OPTS").foreach { opts =>
-      val userOpts = request.conf.get(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS)
-      val newOpts = userOpts.toSeq ++ Seq(opts)
-      builder.setConf(SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, newOpts.mkString(" "))
-    }
+    mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
 
-    Option(livyConf.get(LivyReplDriverClassPath)).foreach { cp =>
-      val userCp = request.conf.get(SparkLauncher.DRIVER_EXTRA_CLASSPATH)
-      val newCp = Seq(cp) ++ userCp.toSeq
-      builder.setConf(SparkLauncher.DRIVER_EXTRA_CLASSPATH, newCp.mkString(File.pathSeparator))
-    }
-
-    val allJars = livyJars(livyConf) ++ request.jars
-
-    def listToConf(lst: List[String]): Option[String] = {
-      if (lst.size > 0) Some(lst.mkString(",")) else None
-    }
-
-    val userOpts: Map[Option[String], String] = Map(
-      listToConf(request.archives) -> "spark.yarn.dist.archives",
-      listToConf(request.files) -> "spark.files",
-      listToConf(allJars) -> "spark.jars",
-      request.driverCores.map(_.toString) -> "spark.driver.cores",
-      request.driverMemory.map(_.toString + "b") -> SparkLauncher.DRIVER_MEMORY,
-      request.executorCores.map(_.toString) -> SparkLauncher.EXECUTOR_CORES,
-      request.executorMemory.map(_.toString) -> SparkLauncher.EXECUTOR_MEMORY,
-      request.numExecutors.map(_.toString) -> "spark.dynamicAllocation.maxExecutors"
+    val userOpts: Map[String, Option[String]] = Map(
+      "spark.driver.cores" -> request.driverCores.map(_.toString),
+      SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
+      SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
+      SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
+      "spark.dynamicAllocation.maxExecutors" -> request.numExecutors.map(_.toString)
     )
 
-    userOpts.foreach { case (opt, configKey) =>
-      opt.foreach { value => builder.setConf(configKey, value) }
+    userOpts.foreach { case (key, opt) =>
+      opt.foreach { value => builder.setConf(key, value) }
     }
 
     builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
@@ -203,12 +194,12 @@ class InteractiveSession(
 
   def addFile(uri: URI): Unit = {
     recordActivity()
-    client.addFile(uri).get()
+    client.addFile(resolveURI(uri)).get()
   }
 
   def addJar(uri: URI): Unit = {
     recordActivity()
-    client.addJar(uri).get()
+    client.addJar(resolveURI(uri)).get()
   }
 
   def jobStatus(id: Long): Any = {
@@ -226,24 +217,32 @@ class InteractiveSession(
 
   @tailrec
   private def waitForStatement(id: String): JValue = {
-    val response = client.getReplJobResult(id).get()
-    if (response != null) {
-      val result = parse(response)
-      // If the response errored out, it's possible it took down the interpreter. Check if
-      // it's still running.
-      result \ "status" match {
-        case JString("error") =>
-          val state = client.getReplState().get() match {
-            case "error" => SessionState.Error()
-            case _ => SessionState.Idle()
-          }
-          transition(state)
-        case _ => transition(SessionState.Idle())
-      }
-      result
-    } else {
-      Thread.sleep(1000)
-      waitForStatement(id)
+    Try(client.getReplJobResult(id).get()) match {
+      case Success(null) =>
+        Thread.sleep(1000)
+        waitForStatement(id)
+
+      case Success(response) =>
+        val result = parse(response)
+        // If the response errored out, it's possible it took down the interpreter. Check if
+        // it's still running.
+        result \ "status" match {
+          case JString("error") =>
+            val state = client.getReplState().get() match {
+              case "error" => SessionState.Error()
+              case _ => SessionState.Idle()
+            }
+            transition(state)
+          case _ => transition(SessionState.Idle())
+        }
+        result
+
+
+      case Failure(err) =>
+        // If any other error occurs, it probably means the session died. Transition to
+        // the error state.
+        transition(SessionState.Error())
+        throw err
     }
   }
 
@@ -258,23 +257,19 @@ class InteractiveSession(
     }
   }
 
-  private def findSparkRArchives(): Seq[String] = {
-    sys.env.get("SPARKR_ARCHIVES_PATH")
-      .map(_.split(",").toSeq)
-      .getOrElse {
-        sys.env.get("SPARK_HOME").map { case sparkHome =>
-          val rLibPath = Seq(sparkHome, "R", "lib").mkString(File.separator)
-          val rArchivesFile = new File(rLibPath, "sparkr.zip")
-          require(rArchivesFile.exists(),
-            "sparkr.zip not found; cannot run sparkr application.")
-          Seq(rArchivesFile.getAbsolutePath)
-        }.getOrElse(Seq())
+  private def findSparkRArchive(): Option[String] = {
+    Option(livyConf.get(RSCConf.Entry.SPARKR_PACKAGE.key())).orElse {
+      sys.env.get("SPARK_HOME").map { case sparkHome =>
+        val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
+        val rArchivesFile = new File(path)
+        require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
+        rArchivesFile.getAbsolutePath()
       }
+    }
   }
 
-
   private def findPySparkArchives(): Seq[String] = {
-    sys.env.get("PYSPARK_ARCHIVES_PATH")
+    Option(livyConf.get(RSCConf.Entry.PYSPARK_ARCHIVES))
       .map(_.split(",").toSeq)
       .getOrElse {
         sys.env.get("SPARK_HOME") .map { case sparkHome =>
@@ -294,7 +289,6 @@ class InteractiveSession(
         }.getOrElse(Seq())
       }
   }
-
 
   private def transition(state: SessionState) = synchronized {
     _state = state

@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.net.{URI, URL}
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
@@ -28,7 +28,7 @@ import scala.concurrent.duration._
 
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
-import org.scalatra.servlet.{FileUploadSupport, MultipartConfig}
+import org.scalatra.servlet.FileUploadSupport
 
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
@@ -47,7 +47,6 @@ class InteractiveSessionServlet(livyConf: LivyConf)
 
   override protected def createSession(req: HttpServletRequest): InteractiveSession = {
     val createRequest = bodyAs[CreateInteractiveRequest](req)
-    validateConf(createRequest.conf)
     val proxyUser = checkImpersonation(createRequest.proxyUser, req)
     new InteractiveSession(sessionManager.nextId(), remoteUser(req), proxyUser, livyConf,
       createRequest)
@@ -89,19 +88,15 @@ class InteractiveSessionServlet(livyConf: LivyConf)
 
   post("/:id/stop") {
     withSession { session =>
-      val future = session.stop()
-      new AsyncResult() { val is = for { _ <- future } yield NoContent() }
+      Await.ready(session.stop(), Duration.Inf)
+      NoContent()
     }
   }
 
   post("/:id/interrupt") {
     withSession { session =>
-      val future = for {
-        _ <- session.interrupt()
-      } yield Ok(Map("msg" -> "interrupted"))
-
-      // FIXME: this is silently eating exceptions.
-      new AsyncResult() { val is = future }
+      Await.ready(session.interrupt(), Duration.Inf)
+      Ok(Map("msg" -> "interrupted"))
     }
   }
 
@@ -180,9 +175,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     withSession { lsession =>
       fileParams.get("jar") match {
         case Some(file) =>
-          doAsync {
-            lsession.addJar(file.getInputStream, file.name)
-          }
+          lsession.addJar(file.getInputStream, file.name)
         case None =>
           BadRequest("No jar uploaded!")
       }
@@ -193,9 +186,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     withSession { lsession =>
       fileParams.get("file") match {
         case Some(file) =>
-          doAsync {
-            lsession.addFile(file.getInputStream, file.name)
-          }
+          lsession.addFile(file.getInputStream, file.name)
         case None =>
           BadRequest("No file sent!")
       }
@@ -205,32 +196,28 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   jpost[AddResource]("/:id/add-jar") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync {
-        lsession.addJar(uri)
-      }
+      lsession.addJar(uri)
     }
   }
 
   jpost[AddResource]("/:id/add-file") { req =>
     withSession { lsession =>
       val uri = new URI(req.uri)
-      doAsync {
-        lsession.addFile(uri)
-      }
+      lsession.addFile(uri)
     }
   }
 
   get("/:id/jobs/:jobid") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
-      doAsync { Ok(lsession.jobStatus(jobId)) }
+      Ok(lsession.jobStatus(jobId))
     }
   }
 
   post("/:id/jobs/:jobid/cancel") {
     withSession { lsession =>
       val jobId = params("jobid").toLong
-      doAsync { lsession.cancelJob(jobId) }
+      lsession.cancelJob(jobId)
     }
   }
 

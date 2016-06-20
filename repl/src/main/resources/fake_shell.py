@@ -18,13 +18,15 @@ from __future__ import print_function
 import ast
 import datetime
 import decimal
+import io
 import json
 import logging
 import sys
 import traceback
 import base64
-import io
 import os
+import re
+import StringIO
 
 if sys.version >= '3' :
     unicode = str
@@ -36,6 +38,7 @@ LOG = logging.getLogger('fake_shell')
 
 global_dict = {}
 
+TOP_FRAME_REGEX = re.compile(r'\s*File "<stdin>".*in <module>')
 
 def execute_reply(status, content):
     return {
@@ -55,11 +58,16 @@ def execute_reply_ok(data):
 
 def execute_reply_error(exc_type, exc_value, tb):
     LOG.error('execute_reply', exc_info=True)
+    formatted_tb = traceback.format_exception(exc_type, exc_value, tb)
+    for i in range(len(formatted_tb)):
+        if TOP_FRAME_REGEX.match(formatted_tb[i]):
+            formatted_tb = formatted_tb[:1] + formatted_tb[i + 1:]
+            break
 
     return execute_reply('error', {
         'ename': unicode(exc_type.__name__),
         'evalue': unicode(exc_value),
-        'traceback': traceback.format_exception(exc_type, exc_value, tb, -1),
+        'traceback': formatted_tb,
     })
 
 
@@ -192,11 +200,10 @@ def execute_request(content):
     if result is None:
         result = {}
 
-    stdout = fake_stdout.getvalue()
-    fake_stdout.truncate(0)
+    stdout = sys.stdout.getvalue()
+    stderr = sys.stderr.getvalue()
 
-    stderr = fake_stderr.getvalue()
-    fake_stderr.truncate(0)
+    clearOutputs()
 
     output = result.pop('text/plain', '')
 
@@ -389,36 +396,36 @@ msg_type_router = {
     'shutdown_request': shutdown_request,
 }
 
-if sys.version >= '3' :
-    fake_stdin = io.StringIO()
-    fake_stdout = io.StringIO()
-    fake_stderr = io.StringIO()
-else :
-    fake_stdin = StringIO.StringIO()
-    fake_stdout = StringIO.StringIO()
-    fake_stderr = StringIO.StringIO()
+class UnicodeDecodingStringIO(io.StringIO):
+    def write(self, s):
+        if isinstance(s, bytes):
+            s = s.decode("utf-8")
+        super(UnicodeDecodingStringIO, self).write(s)
 
+
+def clearOutputs():
+    sys.stdout.close()
+    sys.stderr.close()
+    sys.stdout = UnicodeDecodingStringIO()
+    sys.stderr = UnicodeDecodingStringIO()
 
 def main():
     sys_stdin = sys.stdin
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
-    sys.stdin = fake_stdin
-    sys.stdout = fake_stdout
-    sys.stderr = fake_stderr
+    sys.stdin = cStringIO.StringIO()
+    sys.stdout = UnicodeDecodingStringIO()
+    sys.stderr = UnicodeDecodingStringIO()
 
     try:
         if os.environ.get("LIVY_TEST") != "true":
             # Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
-        print(fake_stdout.getvalue(), file=sys_stderr)
-        print(fake_stderr.getvalue(), file=sys_stderr)
+        print(sys.stdout.getvalue(), file=sys_stderr)
+        print(sys.stderr.getvalue(), file=sys_stderr)
 
-        fake_stdout.truncate(0)
-        fake_stdout.seek(0)
-        fake_stderr.truncate(0)
-        fake_stderr.seek(0)
+        clearOutputs()
 
         print('READY', file=sys_stdout)
         sys_stdout.flush()
@@ -483,7 +490,6 @@ def main():
         sys.stdin = sys_stdin
         sys.stdout = sys_stdout
         sys.stderr = sys_stderr
-
 
 if __name__ == '__main__':
     sys.exit(main())

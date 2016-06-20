@@ -20,11 +20,12 @@ package com.cloudera.livy.server
 
 import javax.servlet.http.HttpServletRequest
 
-import scala.concurrent.Future
+import scala.concurrent._
+import scala.concurrent.duration._
 
 import org.scalatra._
 
-import com.cloudera.livy.{LivyConf, Logging, Utils}
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
 
 object SessionServlet extends Logging
@@ -44,11 +45,6 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
 {
 
   private[livy] val sessionManager = new SessionManager[S](livyConf)
-
-  private val configBlackList: Set[String] = {
-    val url = getClass.getResource("/spark-blacklist.properties")
-    if (url != null) Utils.loadProperties(url).keySet else Set()
-  }
 
   /**
    * Creates a new session based on the current request. The implementation is responsible for
@@ -111,29 +107,24 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   delete("/:id") {
     withSession { session =>
       sessionManager.delete(session.id) match {
-      case Some(future) =>
-        new AsyncResult {
-          val is = future.map { case () => Ok(Map("msg" -> "deleted")) }
-        }
-      case None =>
-        NotFound(s"Session ${session.id} already stopped.")
+        case Some(future) =>
+          Await.ready(future, Duration.Inf)
+          Ok(Map("msg" -> "deleted"))
+
+        case None =>
+          NotFound(s"Session ${session.id} already stopped.")
       }
     }
   }
 
   post("/") {
-    new AsyncResult {
-      val is = Future {
-        val session = sessionManager.register(createSession(request))
-        // Because it may take some time to establish the session, update the last activity
-        // time before returning the session info to the client.
-        session.recordActivity()
-        Created(clientSessionView(session, request),
-          headers = Map("Location" ->
-            (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString)))
-        )
-      }
-    }
+    val session = sessionManager.register(createSession(request))
+    // Because it may take some time to establish the session, update the last activity
+    // time before returning the session info to the client.
+    session.recordActivity()
+    Created(clientSessionView(session, request),
+      headers = Map("Location" ->
+        (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString))))
   }
 
   private def getRequestPathInfo(request: HttpServletRequest): String = {
@@ -151,27 +142,10 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
       InternalServerError(e.toString)
   }
 
-  protected def doAsync(fn: => Any): AsyncResult = {
-    new AsyncResult {
-      val is = Future { fn }
-    }
-  }
-
   /**
    * Returns the remote user for the given request. Separate method so that tests can override it.
    */
   protected def remoteUser(req: HttpServletRequest): String = req.getRemoteUser()
-
-  /**
-   * Validate that the user-provided configuration does not contain anything blacklisted.
-   */
-  protected def validateConf(conf: Map[String, String]): Unit = {
-    val errors = conf.keySet.filter(configBlackList.contains)
-    if (errors.nonEmpty) {
-      throw new IllegalArgumentException(
-        "Blacklisted configuration values in session config: " + errors.mkString(", "))
-    }
-  }
 
   /**
    * Checks that the request's user can impersonate the target user.
