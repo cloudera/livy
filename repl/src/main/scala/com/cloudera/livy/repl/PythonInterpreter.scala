@@ -38,11 +38,12 @@ import com.cloudera.livy.client.common.ClientConf
 // scalastyle:off println
 object PythonInterpreter extends Logging {
   def apply(conf: SparkConf, kind: String = "pyspark"): Interpreter = {
-    val pythonExec =
-    if (kind == "pyspark3")
-      sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
-    else
-      sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
+    val pythonExec = {
+        if (kind == "pyspark3")
+          sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
+        else
+          sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
+    }
 
     val gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
