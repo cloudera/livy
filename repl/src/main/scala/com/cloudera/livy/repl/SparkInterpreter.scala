@@ -349,7 +349,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
                         // Remove Interpreter frames
                         .take(interpreterFrameIdx)
                         // Replace weird internal class name
-                        .map(_.replace("$iwC$$iwC", "<user code>"))
+                        .map(_.replaceAll("(\\$iwC\\$)*\\$iwC", "<user code>"))
                       // TODO Proper translate line number in stack trace for $iwC$$iwC.
                     }
                     (ename.trim, traceback)
