@@ -33,11 +33,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.client.methods.*;
 import org.apache.http.client.protocol.HttpClientContext;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
@@ -180,7 +176,11 @@ class LivyConnection {
       Object... uriParams) throws Exception {
     req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
       uriRoot + String.format(uri, uriParams), null, null));
-
+    // It is no harm to set X-Requested-By when csrf protection is disabled.
+    if (req instanceof HttpPost || req instanceof HttpDelete || req instanceof HttpPut
+            || req instanceof  HttpPatch) {
+      req.addHeader("X-Requested-By", "livy");
+    }
     try (CloseableHttpResponse res = client.execute(req)) {
       int status = (res.getStatusLine().getStatusCode() / 100) * 100;
       HttpEntity entity = res.getEntity();
