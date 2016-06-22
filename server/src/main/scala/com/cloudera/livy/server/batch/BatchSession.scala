@@ -38,6 +38,10 @@ class BatchSession(
     val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
       request.pyFiles)
     require(request.file != null, "File is required.")
+    require(!request.pyspark_python.exists(s => s != "python2" && s != "python3"),
+      "pyspark_python can only be set to python2 or python3.")
+    require(!request.pyspark_driver_python.exists(s => s != "python2" && s != "python3"),
+      "pyspark_driver_python can only be set to python2 or python3.")
 
     val builder = new SparkProcessBuilder(livyConf)
     builder.conf(conf)
@@ -50,6 +54,9 @@ class BatchSession(
     request.numExecutors.foreach(builder.numExecutors)
     request.queue.foreach(builder.queue)
     request.name.foreach(builder.name)
+    request.pyspark_python.foreach(builder.pysparkPython)
+    request.pyspark_python.foreach(builder.pysparkDriverPython) // Always set to replace current.
+    request.pyspark_driver_python.foreach(builder.pysparkDriverPython)
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 

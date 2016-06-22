@@ -126,6 +126,14 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     this.conf("spark.executor.instances", numExecutors)
   }
 
+  def pysparkPython(pysparkPython: String): SparkProcessBuilder = {
+    this.env("PYSPARK_PYTHON", pysparkPython)
+  }
+
+  def pysparkDriverPython(pysparkDriverPython: String): SparkProcessBuilder = {
+    this.env("PYSPARK_DRIVER_PYTHON", pysparkDriverPython)
+  }
+
   def proxyUser(proxyUser: String): SparkProcessBuilder = {
     _proxyUser = Some(proxyUser)
     this
@@ -203,6 +211,7 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
 
     for ((key, value) <- _env) {
       env.put(key, value)
+      info(s"with environment $key = $value")
     }
 
     _redirectOutput.foreach(pb.redirectOutput)
