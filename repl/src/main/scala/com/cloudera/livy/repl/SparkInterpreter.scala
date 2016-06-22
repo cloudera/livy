@@ -121,7 +121,7 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
       }
 
       sparkContext = SparkContext.getOrCreate(conf)
-      if (conf.getBoolean("livy.repl.enableHiveContext", false)) {
+      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
         try {
           val loader = Option(Thread.currentThread().getContextClassLoader)
             .getOrElse(getClass.getClassLoader)

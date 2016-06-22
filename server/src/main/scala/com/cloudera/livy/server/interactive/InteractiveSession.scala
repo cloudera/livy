@@ -101,7 +101,7 @@ class InteractiveSession(
               " classpath and user request.")
         }
       }
-      builderProperties.put(LivyConf.ENABLE_HIVE_CONTEXT.key,
+      builderProperties.put("spark.repl.enableHiveContext",
         livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
     }
 
@@ -308,14 +308,16 @@ class InteractiveSession(
         } else {
           new File(sparkHome, "lib_managed/jars")
         }
-
-      if (libdir.isDirectory()) {
-        libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
-          .map(_.getAbsolutePath)
-      } else {
+      val jars = if (!libdir.isDirectory) {
+          Seq.empty[String]
+        } else {
+          libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
+            .map(_.getAbsolutePath).toSeq
+        }
+      if (jars.isEmpty) {
         warn("datanucleus jars can not be found")
-        Seq.empty[String]
       }
+      jars
     }
   }
 
