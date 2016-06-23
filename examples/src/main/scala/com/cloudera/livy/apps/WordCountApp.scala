@@ -77,7 +77,7 @@ object WordCountApp {
     }
   }
 
-  def processStreamingWordCount(host: String = "localhost", port: Int = 8086): Unit = {
+  def processStreamingWordCount(host: String, port: Int): Unit = {
     val handle = scalaClient.submit { context =>
       context.createStreamingContext(20000)
       var index = 1
@@ -145,11 +145,11 @@ object WordCountApp {
       init(args(0), args(1))
       lock.wait(12000)
       uploadScalaAPIJar()
-      processStreamingWordCount()
+      processStreamingWordCount("localhost", 8086)
       lock.wait(45000)
     }
     val handle = getWordWithMostCount()
     println()
-    print("result::", Await.result(handle, 40 second))
+    println("result::" + Await.result(handle, 40 second))
   }
 }
