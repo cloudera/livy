@@ -1,12 +1,13 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to Cloudera, Inc. under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  Cloudera, Inc. licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,15 +21,15 @@ import java.io.{File, FileNotFoundException}
 import java.net.URI
 import java.util.Properties
 
-import com.cloudera.livy.LivyClientBuilder
-import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.storage.StorageLevel
-
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.util.{Failure, Success}
+
+import com.cloudera.livy.LivyClientBuilder
+import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 
 /**
   * A WordCount example using Scala-API which reads text from a stream and saves
@@ -39,7 +40,7 @@ object WordCountApp {
   var scalaClient: LivyScalaClient = null
   var wordDataFramesPath: String = ""
 
-  def init(url: String, wordDataFramesPath: String) = {
+  def init(url: String, wordDataFramesPath: String): Unit = {
     val conf = new Properties
     val classpath: String = System.getProperty("java.class.path")
     conf.put("spark.app.name", "ScalaWordCount app")
@@ -49,7 +50,7 @@ object WordCountApp {
     this.wordDataFramesPath = wordDataFramesPath
   }
 
-  def uploadScalaAPIJar() = {
+  def uploadScalaAPIJar(): Unit = {
     var appTargetFolderPath = getClass().getProtectionDomain.getCodeSource.getLocation.getPath
     val index = appTargetFolderPath.lastIndexOf("/")
     appTargetFolderPath = appTargetFolderPath.substring(0, index-7)
@@ -66,12 +67,12 @@ object WordCountApp {
     val scalaApiPath = scalaClient.getClass.getProtectionDomain.getCodeSource.getLocation.getPath
     val scalaApiJarUploadFuture = scalaClient.uploadJar(new File(scalaApiPath))
     scalaApiJarUploadFuture onComplete {
-      case Success(t) => println("Successfully uploaded jar scala-api::" + t)
+      case Success(t) => println("Successfully uploaded jar scala-api")
       case Failure(e) => throw e
     }
     val appJarUploadFuture = scalaClient.uploadJar(new File(appJarPath))
     appJarUploadFuture onComplete {
-      case Success(t) => println("Successfully uploaded jar examples::" + t)
+      case Success(t) => println("Successfully uploaded jar examples::")
       case Failure(e) => throw e
     }
   }
@@ -100,7 +101,7 @@ object WordCountApp {
     }
   }
 
-  def getWordWithMostCount():ScalaJobHandle[Any] = {
+  def getWordWithMostCount(): ScalaJobHandle[Any] = {
     val handle = scalaClient.submit { context =>
       val sqlctx = context.sqlctx
       val rdd = sqlctx.read.json(wordDataFramesPath)
@@ -148,6 +149,7 @@ object WordCountApp {
       lock.wait(45000)
     }
     val handle = getWordWithMostCount()
-    println("result::" + Await.result(handle, 40 second))
+    println()
+    print("result::", Await.result(handle, 40 second))
   }
 }
