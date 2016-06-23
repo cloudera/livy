@@ -38,16 +38,14 @@ import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 object WordCountApp {
 
   var scalaClient: LivyScalaClient = null
-  var wordDataFramesPath: String = ""
 
-  def init(url: String, wordDataFramesPath: String): Unit = {
+  def init(url: String): Unit = {
     val conf = new Properties
     val classpath: String = System.getProperty("java.class.path")
     conf.put("spark.app.name", "ScalaWordCount app")
     conf.put(SparkLauncher.DRIVER_EXTRA_CLASSPATH, classpath)
     conf.put(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, classpath)
     scalaClient = new LivyClientBuilder(true).setURI(new URI(url)).build().asScalaClient
-    this.wordDataFramesPath = wordDataFramesPath
   }
 
   def uploadScalaAPIJar(): Unit = {
@@ -77,7 +75,7 @@ object WordCountApp {
     }
   }
 
-  def processStreamingWordCount(host: String, port: Int): Unit = {
+  def processStreamingWordCount(host: String, port: Int, outputPath:String): Unit = {
     val handle = scalaClient.submit { context =>
       context.createStreamingContext(20000)
       var index = 1
@@ -89,7 +87,7 @@ object WordCountApp {
       words.foreachRDD { rdd =>
         import sqlctx.implicits._
         val df = rdd.toDF("word")
-        df.write.mode("append").json(wordDataFramesPath)
+        df.write.mode("append").json(outputPath)
       }
       if (index == 2) {
         ssc.stop(true, true)
@@ -101,10 +99,10 @@ object WordCountApp {
     }
   }
 
-  def getWordWithMostCount(): ScalaJobHandle[Any] = {
+  def getWordWithMostCount(outputPath: String): ScalaJobHandle[Any] = {
     val handle = scalaClient.submit { context =>
       val sqlctx = context.sqlctx
-      val rdd = sqlctx.read.json(wordDataFramesPath)
+      val rdd = sqlctx.read.json(outputPath)
       rdd.registerTempTable("words")
       val result = sqlctx.sql("select word, count(word) as word_count from words " +
         "group by word order by word_count desc limit 1")
@@ -140,15 +138,16 @@ object WordCountApp {
     if (args.length < 2) {
       throw new IllegalArgumentException("Number of args is less")
     }
+    val outputPath = args(1)
     val lock = new Object
     lock.synchronized {
-      init(args(0), args(1))
+      init(args(0))
       lock.wait(12000)
       uploadScalaAPIJar()
-      processStreamingWordCount("localhost", 8086)
-      lock.wait(45000)
+      processStreamingWordCount("localhost", 8086, outputPath)
+      lock.wait(50000)
     }
-    val handle = getWordWithMostCount()
+    val handle = getWordWithMostCount(outputPath)
     println()
     println("result::" + Await.result(handle, 40 second))
   }
