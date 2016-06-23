@@ -176,7 +176,7 @@
     <module>client-common</module>
     <module>client-http</module>
     <module>core</module>
-    <module>coverage</module>
+    <module>examples</module>
     <module>repl</module>
     <module>rsc</module>
     <module>scala-api</module>
