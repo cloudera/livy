@@ -19,13 +19,14 @@ package com.cloudera.livy.apps
 
 import java.io.{File, FileNotFoundException}
 import java.net.URI
-import java.util.Properties
+import java.security.CodeSource
+import java.util.logging.Logger
 
-import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.storage.StorageLevel
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
 import com.cloudera.livy.LivyClientBuilder
@@ -38,47 +39,85 @@ import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 object WordCountApp {
 
   var scalaClient: LivyScalaClient = null
+  val logger = Logger.getLogger("WordCountApp")
 
+  /**
+    * Initializes the scala client with the given url
+    * @param url The livy server url
+    */
   def init(url: String): Unit = {
-    val conf = new Properties
-    val classpath: String = System.getProperty("java.class.path")
-    conf.put("spark.app.name", "ScalaWordCount app")
-    conf.put(SparkLauncher.DRIVER_EXTRA_CLASSPATH, classpath)
-    conf.put(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, classpath)
     scalaClient = new LivyClientBuilder(true).setURI(new URI(url)).build().asScalaClient
   }
 
-  def uploadScalaAPIJar(): Unit = {
-    var appTargetFolderPath = getClass().getProtectionDomain.getCodeSource.getLocation.getPath
-    val index = appTargetFolderPath.lastIndexOf("/")
-    appTargetFolderPath = appTargetFolderPath.substring(0, index-7)
-    val targetFolderFiles = new File(appTargetFolderPath).listFiles()
-    var appJarPath: String = ""
-    targetFolderFiles.foreach { file =>
-      if (!file.isDirectory && file.getAbsolutePath.contains("jar")) {
-        appJarPath = file.getAbsolutePath
+  /**
+    * Uploads the scala-api Jar and the examples Jar from the target directory
+    * @throws FileNotFoundException If the path to the examples Jar is not found
+    */
+  @throws(classOf[FileNotFoundException])
+  def uploadRelevantJarsForJobExecution(): Unit = {
+    val exampleAppJarPath = getPath(this)
+    val scalaApiJarPath =  getPath(scalaClient)
+    uploadJar(exampleAppJarPath)
+    uploadJar(scalaApiJarPath)
+  }
+
+  @throws(classOf[FileNotFoundException])
+  private def getSourceIfNotNull(obj: Object): CodeSource = {
+    val source = obj.getClass.getProtectionDomain.getCodeSource
+    if (source != null) {
+      source
+    } else {
+      throw new FileNotFoundException("Jar Source not found")
+    }
+  }
+
+  @throws(classOf[FileNotFoundException])
+  private def getPath(obj: Object): String = {
+    val source = getSourceIfNotNull(obj)
+    var path = ""
+    if (obj.isInstanceOf[LivyScalaClient]) {
+      path = source.getLocation.getPath
+    } else if (obj == this) {
+      val appTargetFolderPath = new File(source.getLocation.getPath).getParent
+      val targetFolderFiles = new File(appTargetFolderPath).listFiles()
+      if (targetFolderFiles == null || targetFolderFiles.size == 0) {
+        throw new FileNotFoundException("Examples App jar not found in the target folder")
+      }
+      targetFolderFiles.foreach { file =>
+        if (!file.isDirectory && file.getAbsolutePath.contains("jar")) {
+          path = file.getAbsolutePath
+        }
       }
     }
-    if (appJarPath == "" || !appJarPath.contains("jar")) {
-      throw new FileNotFoundException("Examples App jar not found in the target folder")
+    if (path == "" || !path.contains("jar")) {
+      throw new FileNotFoundException("Jar not found")
     }
-    val scalaApiPath = scalaClient.getClass.getProtectionDomain.getCodeSource.getLocation.getPath
-    val scalaApiJarUploadFuture = scalaClient.uploadJar(new File(scalaApiPath))
-    scalaApiJarUploadFuture onComplete {
-      case Success(t) => println("Successfully uploaded jar scala-api")
-      case Failure(e) => throw e
-    }
-    val appJarUploadFuture = scalaClient.uploadJar(new File(appJarPath))
-    appJarUploadFuture onComplete {
-      case Success(t) => println("Successfully uploaded jar examples::")
+    path
+  }
+
+  private def uploadJar(path: String) = {
+    val file = new File(path)
+    val uploadJarFuture = scalaClient.uploadJar(file)
+    Await.ready(uploadJarFuture, 40 second) onComplete {
+      case Success(t) => logger.info("Successfully uploaded " + file.getName)
       case Failure(e) => throw e
     }
   }
 
-  def processStreamingWordCount(host: String, port: Int, outputPath:String): Unit = {
+  /**
+    * Submits a spark streaming job to the livy server
+    * <p/>
+    * The streaming job reads data from the given host and port. The data read
+    * is saved in json format as data frames in the given output path. For simplicity,
+    * the number of streaming batches are 2 with each batch for 20 seconds. The Timeout
+    * of the streaming job is set to 40 seconds
+    * @param host Hostname that Spark Streaming context has to connect for receiving data
+    * @param port Port that Spark Streaming context has to connect for receiving data
+    * @param outputPath Output path to save the processed data read by the Spark Streaming context
+    */
+  def processStreamingWordCount(host: String, port: Int, outputPath: String): ScalaJobHandle[Unit] = {
     val handle = scalaClient.submit { context =>
       context.createStreamingContext(20000)
-      var index = 1
       val ssc = context.streamingctx
       val sqlctx = context.sqlctx
       val lines = ssc.socketTextStream(host, port, StorageLevel.MEMORY_AND_DISK_SER)
@@ -89,20 +128,24 @@ object WordCountApp {
         val df = rdd.toDF("word")
         df.write.mode("append").json(outputPath)
       }
-      if (index == 2) {
-        ssc.stop(true, true)
-      } else {
-        index += 1
-      }
       ssc.start()
-      ssc.awaitTerminationOrTimeout(40000)
+      ssc.awaitTerminationOrTimeout(35000)
+      ssc.stop(false, true)
     }
+    handle
   }
 
-  def getWordWithMostCount(outputPath: String): ScalaJobHandle[Any] = {
+  /**
+    * Submits a spark sql job to the livy server
+    * <p/>
+    * The sql context job reads data frames from the given json path and executes
+    * a sql query to get the word with max count on the temp table created with data frames
+    * @param inputPath Input path to the json data containing the words
+    */
+  def getWordWithMostCount(inputPath: String): ScalaJobHandle[Any] = {
     val handle = scalaClient.submit { context =>
       val sqlctx = context.sqlctx
-      val rdd = sqlctx.read.json(outputPath)
+      val rdd = sqlctx.read.json(inputPath)
       rdd.registerTempTable("words")
       val result = sqlctx.sql("select word, count(word) as word_count from words " +
         "group by word order by word_count desc limit 1")
@@ -139,16 +182,15 @@ object WordCountApp {
       throw new IllegalArgumentException("Number of args is less")
     }
     val outputPath = args(1)
-    val lock = new Object
-    lock.synchronized {
-      init(args(0))
-      lock.wait(12000)
-      uploadScalaAPIJar()
-      processStreamingWordCount("localhost", 8086, outputPath)
-      lock.wait(50000)
+    init(args(0))
+    uploadRelevantJarsForJobExecution()
+    logger.info("Calling processStreamingWordCount")
+    val handle1 = processStreamingWordCount("localhost", 8086, outputPath)
+    Await.result(handle1, 120 second) match {
+      case success: Unit => logger.info("Successfully read data from stream")
     }
+    logger.info("Calling getWordWithMostCount")
     val handle = getWordWithMostCount(outputPath)
-    println()
-    println("result::" + Await.result(handle, 40 second))
+    logger.info("Word with max count::" + Await.result(handle, 40 second))
   }
 }
