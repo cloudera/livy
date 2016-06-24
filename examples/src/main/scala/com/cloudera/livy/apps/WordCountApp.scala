@@ -51,7 +51,7 @@ object WordCountApp {
 
   /**
     * Uploads the scala-api Jar and the examples Jar from the target directory
-    * @throws FileNotFoundException If the path to the examples Jar is not found
+    * @throws FileNotFoundException If either of scala-api Jar or examples Jar is not found
     */
   @throws(classOf[FileNotFoundException])
   def uploadRelevantJarsForJobExecution(): Unit = {
