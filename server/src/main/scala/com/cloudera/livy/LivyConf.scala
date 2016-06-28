@@ -20,7 +20,6 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
-import java.nio.file.Files
 
 import org.apache.hadoop.conf.Configuration
 
@@ -39,15 +38,17 @@ object LivyConf {
 
   val TEST_MODE = ClientConf.TEST_MODE
 
-  val SESSION_FACTORY = Entry("livy.server.session.factory", "process")
   val SPARK_HOME = Entry("livy.server.spark-home", null)
+  val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
+  val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deployMode", null)
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val SUPERUSERS = Entry("livy.superusers", null)
-  val SPARKR_PACKAGE = Entry("livy.repl.sparkr.package", null)
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
 
+  val SPARK_MASTER = "spark.master"
+  val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"
   val SPARK_FILES = "spark.files"
   val SPARK_ARCHIVES = "spark.yarn.dist.archives"
@@ -113,8 +114,14 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     this
   }
 
+  /** Return the spark deploy mode Livy sessions should use. */
+  def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
+
   /** Return the location of the spark home directory */
   def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+
+  /** Return the spark master Livy sessions should use. */
+  def sparkMaster(): String = get(LIVY_SPARK_MASTER)
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {

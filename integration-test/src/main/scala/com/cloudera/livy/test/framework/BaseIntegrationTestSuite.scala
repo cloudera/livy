@@ -46,7 +46,7 @@ object BaseIntegrationTestSuite {
   val ERROR = "error"
 }
 
-abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
+abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with BeforeAndAfter {
   import BaseIntegrationTestSuite._
 
   var cluster: Cluster = _
@@ -62,7 +62,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
   protected val testLib = sys.props("java.class.path")
     .split(File.pathSeparator)
     .find(new File(_).getName().startsWith("livy-test-lib-"))
-    .get
+    .getOrElse(throw new Exception(s"Cannot find test lib in ${sys.props("java.class.path")}"))
 
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
     eventually(timeout(1 minute), interval(100 millis)) {
@@ -97,10 +97,15 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers {
     }
   }
 
-  test("initialize test cluster") {
+  before {
     cluster = Cluster.get()
     httpClient = new AsyncHttpClient()
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
+  }
+
+  test("initialize test cluster") {
+    // Empty test case to separate time spent on creating cluster in before() and executing actual
+    // test cases.
   }
 
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {

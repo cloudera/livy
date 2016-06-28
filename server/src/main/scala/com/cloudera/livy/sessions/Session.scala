@@ -222,7 +222,10 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
       }
     }
 
-    conf ++ merged
+    val masterConfList = Map(LivyConf.SPARK_MASTER -> livyConf.sparkMaster()) ++
+      livyConf.sparkDeployMode().map(LivyConf.SPARK_DEPLOY_MODE -> _).toMap
+
+    conf ++ masterConfList ++ merged
   }
 
   private def getStagingDir(fs: FileSystem): Path = synchronized {
