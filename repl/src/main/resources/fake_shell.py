@@ -27,7 +27,7 @@ import base64
 import os
 import re
 
-if sys.version >= '3' :
+if sys.version >= '3':
     unicode = str
 else :
     import cStringIO
@@ -102,7 +102,7 @@ class NormalNode(object):
                 mod = ast.Interactive([node])
                 code = compile(mod, '<stdin>', 'single')
                 exec(code, global_dict)
-        except :
+        except:
             # We don't need to log the exception because we're just executing user
             # code and passing the error along.
             raise ExecutionError(sys.exc_info())
@@ -194,7 +194,7 @@ def execute_request(content):
     except UnknownMagic:
         exc_type, exc_value, tb = sys.exc_info()
         return execute_reply_error(exc_type, exc_value, None)
-    except (ExecutionError) as e:
+    except ExecutionError as e:
         return execute_reply_error(*e.exc_info)
 
     if result is None:

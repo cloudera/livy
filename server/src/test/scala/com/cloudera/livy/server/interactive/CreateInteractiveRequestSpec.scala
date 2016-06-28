@@ -21,7 +21,7 @@ package com.cloudera.livy.server.interactive
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.scalatest.FunSpec
 
-import com.cloudera.livy.sessions.{PySpark, PySpark3, SessionKindModule}
+import com.cloudera.livy.sessions.{PySpark, SessionKindModule}
 
 class CreateInteractiveRequestSpec extends FunSpec {
 
@@ -49,6 +49,7 @@ class CreateInteractiveRequestSpec extends FunSpec {
       assert(req.name === None)
       assert(req.conf === Map())
     }
+
   }
 
 }
