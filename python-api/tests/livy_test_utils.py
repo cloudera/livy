@@ -16,32 +16,13 @@
 # limitations under the License.
 #
 
-from abc import ABCMeta, abstractmethod
-from urlparse import urlparse
+class LivyTestUtils(object):
 
-class Client:
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def submit(self, context):
-        pass
-
-    @abstractmethod
-    def run(self, context):
-        pass
-
-    @abstractmethod
-    def add_file(self, uri=urlparse):
-        pass
-
-    @abstractmethod
-    def add_jar(self, uri=urlparse):
-        pass
-
-    @abstractmethod
-    def upload_file(self, input_file=file):
-        pass
-
-    @abstractmethod
-    def upload_jar(self, input_file=file):
-        pass
+    @staticmethod
+    def simple_spark_job(context):
+        sc = context.sc
+        elements = []
+        elements.__add__(10)
+        elements.__add__(20)
+        elements.__add__(30)
+        return sc.parallelize(elements, 2).count()

@@ -20,26 +20,31 @@ from client import Client
 from urlparse import urlparse
 from ConfigParser import SafeConfigParser
 
+
 class HttpClient(Client):
 
-    def __init__(self, uri=urlparse, config=SafeConfigParser):
+    def __init__(self, uri, config):
         self._config = config
         self._uri = uri
 
-    def submit(self, context):
+    def add_pyfile(self, file_uri):
         pass
 
-    def add_file(self, uri=urlparse):
+    def submit(self, job):
         pass
 
-    def run(self, context):
+    def upload_pyfile(self, open_file):
         pass
 
-    def upload_jar(self, input_file=file):
+    def run(self, job):
         pass
 
-    def upload_file(self, input_file=file):
+    def upload_file(self, open_file):
         pass
 
-    def add_jar(self, uri=urlparse):
+    def add_file(self, file_uri):
         pass
+
+
+
+

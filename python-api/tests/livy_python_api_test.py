@@ -15,13 +15,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import unittest
+from livy.client_builder import ClientBuilder
+from livy.http_client import HttpClient
+from urlparse import urlparse
 
-# THIS IS A TEST CLASS AND WILL BE REMOVED BEFORE MOVING THE LIBRARY TO PROD
 
-from client_builder import ClientBuilder
+class LivyTestCase(unittest.TestCase):
 
-def main():
-    client = ClientBuilder(False).set_uri("http://localhost:8080/").build()
+    def test_builder_default_config(self):
+        client = ClientBuilder(urlparse("http://localhost:8080/")).build()
+        self.assertTrue(type(client) is HttpClient)
+
+    def test_builder_optional_config(self):
+        client = ClientBuilder(urlparse("http://localhost:8080/"), False).build()
+        self.assertTrue(type(client) is HttpClient)
 
 if __name__ == '__main__':
-    main()
+    unittest.main()
+

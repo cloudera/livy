@@ -15,22 +15,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from abc import ABCMeta, abstractmethod
-from urlparse import urlparse
-from http_client import HttpClient
-from ConfigParser import SafeConfigParser
-
-class _ClientFactory:
-    __metaclass__ = ABCMeta
-
-    @abstractmethod
-    def create_client(self):
-        pass
-
-class HttpClientFactory(_ClientFactory):
-    def create_client(self, uri=urlparse, config=SafeConfigParser):
-        if ('http' != uri.scheme and 'https' != uri.scheme):
-            return None
-        else:
-            return HttpClient(uri, config)

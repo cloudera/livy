@@ -16,7 +16,18 @@
 # limitations under the License.
 #
 
-from setuptools import setup
+from setuptools import setup, find_packages
+import os
+import io
+
+main_version = {}
+readme_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+with io.open(os.path.join(readme_path, 'README.rst'), encoding='utf-8') as long_description_file:
+    long_description = long_description_file.read()
+
+root = os.path.dirname(os.path.abspath(__file__))
+with io.open(os.path.join(root, 'livy', '__version__.py')) as version_file:
+    exec(version_file.read(), main_version)
 
 DESCRIPTION = "A simple Python API for Livy powered by requests"
 
@@ -32,12 +43,15 @@ requirements = []
 
 setup(
     name='livy-python-api',
-    version='1.0',
-    packages=['api'],
+    version=main_version['__version__'],
+    packages=find_packages(),
     url='https://github.com/manikandan89/livy',
     license='Cloudera Inc',
     description=DESCRIPTION,
+    long_description=long_description,
     platforms=['any'],
+    keywords='livy pyspark development',
     classifiers=CLASSIFIERS,
-    install_requires=requirements
+    install_requires=requirements,
+    test_suite='tests'
 )
