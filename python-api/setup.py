@@ -39,7 +39,9 @@ CLASSIFIERS = [
     'Topic :: Software Development :: Libraries :: Python Modules',
 ]
 
-requirements = []
+requirements = [
+    'pathlib2>=2.1.0'
+]
 
 setup(
     name='livy-python-api',
