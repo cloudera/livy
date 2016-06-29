@@ -46,8 +46,8 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   override protected def initializeContext(): JavaSparkContext = {
     val interpreter = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND)) match {
-      case PySpark() => PythonInterpreter(conf, "pyspark")
-      case PySpark3() => PythonInterpreter(conf, "pyspark3")
+      case PySpark() => PythonInterpreter(conf)
+      case PySpark3() => PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }

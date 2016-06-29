@@ -34,13 +34,14 @@ import py4j.GatewayServer
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
+import com.cloudera.livy.sessions._
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
-  def apply(conf: SparkConf, kind: String = "pyspark"): Interpreter = {
-    val pythonExec = {
-        if (kind == "pyspark3") sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
-        else sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
+  def apply(conf: SparkConf, kind: Kind = PySpark()): Interpreter = {
+    val pythonExec = kind match {
+        case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
+        case PySpark() => sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
     }
 
     val gatewayServer = new GatewayServer(null, 0)
@@ -64,7 +65,7 @@ object PythonInterpreter extends Logging {
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
 
-    new PythonInterpreter(process, gatewayServer, kind)
+    new PythonInterpreter(process, gatewayServer, kind.toString)
   }
 
   private def findPySparkArchives(): Seq[String] = {
