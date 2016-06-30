@@ -36,15 +36,7 @@ import com.cloudera.livy.util.LineBufferedProcess
 
 class LivyServer extends Logging {
 
-  private val ENVIRONMENT = LivyConf.Entry("livy.environment", "production")
-  private val SERVER_HOST = LivyConf.Entry("livy.server.host", "0.0.0.0")
-  private val SERVER_PORT = LivyConf.Entry("livy.server.port", 8998)
-  private val AUTH_TYPE = LivyConf.Entry("livy.server.auth.type", null)
-  private val KERBEROS_PRINCIPAL = LivyConf.Entry("livy.server.auth.kerberos.principal", null)
-  private val KERBEROS_KEYTAB = LivyConf.Entry("livy.server.auth.kerberos.keytab", null)
-  private val KERBEROS_NAME_RULES = LivyConf.Entry("livy.server.auth.kerberos.name_rules",
-    "DEFAULT")
-  private val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf_protection.enabled", false)
+  import LivyConf._
 
   private var server: WebServer = _
   private var _serverUrl: Option[String] = None

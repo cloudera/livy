@@ -41,11 +41,24 @@ object LivyConf {
   val SPARK_HOME = Entry("livy.server.spark-home", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deployMode", null)
-  val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
-  val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
-  val SUPERUSERS = Entry("livy.superusers", null)
+
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
+  val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
+
+  val ENVIRONMENT = Entry("livy.environment", "production")
+
+  val SERVER_HOST = Entry("livy.server.host", "0.0.0.0")
+  val SERVER_PORT = Entry("livy.server.port", 8998)
+  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf_protection.enabled", false)
+
+  val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
+  val SUPERUSERS = Entry("livy.superusers", null)
+
+  val AUTH_TYPE = Entry("livy.server.auth.type", null)
+  val KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
+  val KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
+  val KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"

@@ -34,7 +34,7 @@ import org.apache.hadoop.yarn.server.MiniYARNCluster
 import org.apache.spark.launcher.SparkLauncher
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.LivyServer
 
 private class MiniClusterConfig(val config: Map[String, String]) {
@@ -144,8 +144,8 @@ object MiniLivyMain extends MiniClusterBase {
 
   def start(config: MiniClusterConfig, configPath: String): Unit = {
     val livyConf = Map(
-      "livy.spark.master" -> "yarn",
-      "livy.spark.deployMode" -> "cluster")
+      LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
+      LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster")
     saveProperties(livyConf, new File(configPath + "/livy.conf"))
 
     val server = new LivyServer()
