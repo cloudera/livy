@@ -72,6 +72,9 @@
     <!-- Set this to "true" to skip R tests. -->
     <skipRTests>false</skipRTests>
 
+    <!-- Set this to "true" to skip PySpark3 tests. -->
+    <skipPySpark3Tests>false</skipPySpark3Tests>
+
     <!--
       Properties for the copyright header style checks. Modules that use the ASF header
       should override the "copyright.header" property.
@@ -658,6 +661,7 @@
               <spark.ui.enabled>false</spark.ui.enabled>
               <project.version>${project.version}</project.version>
               <skipRTests>${skipRTests}</skipRTests>
+              <skipPySpark3Tests>${skipPySpark3Tests}</skipPySpark3Tests>
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
@@ -683,6 +687,7 @@
               <spark.ui.enabled>false</spark.ui.enabled>
               <project.version>${project.version}</project.version>
               <skipRTests>${skipRTests}</skipRTests>
+              <skipPySpark3Tests>${skipPySpark3Tests}</skipPySpark3Tests>
             </systemProperties>
             <stdout>D</stdout>
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>

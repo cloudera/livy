@@ -58,7 +58,10 @@ def execute_reply_ok(data):
 
 def execute_reply_error(exc_type, exc_value, tb):
     LOG.error('execute_reply', exc_info=True)
-    formatted_tb = traceback.format_exception(exc_type, exc_value, tb)
+    if sys.version >= '3':
+      formatted_tb = traceback.format_exception(exc_type, exc_value, tb, chain=False)
+    else:
+      formatted_tb = traceback.format_exception(exc_type, exc_value, tb)
     for i in range(len(formatted_tb)):
         if TOP_FRAME_REGEX.match(formatted_tb[i]):
             formatted_tb = formatted_tb[:1] + formatted_tb[i + 1:]
