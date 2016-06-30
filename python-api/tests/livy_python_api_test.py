@@ -16,19 +16,18 @@
 # limitations under the License.
 #
 import unittest
-from livy.client_builder import ClientBuilder
-from livy.http_client import HttpClient
+from livy.client import HttpClient
 from urlparse import urlparse
 
 
 class LivyTestCase(unittest.TestCase):
 
     def test_builder_default_config(self):
-        client = ClientBuilder(urlparse("http://localhost:8080/")).build()
+        client = HttpClient(urlparse("http://localhost:8080/"))
         self.assertTrue(type(client) is HttpClient)
 
     def test_builder_optional_config(self):
-        client = ClientBuilder(urlparse("http://localhost:8080/"), False).build()
+        client = HttpClient(urlparse("http://localhost:8080/"), False)
         self.assertTrue(type(client) is HttpClient)
 
 if __name__ == '__main__':

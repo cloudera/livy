@@ -16,13 +16,11 @@
 # limitations under the License.
 #
 
+
 class LivyTestUtils(object):
 
     @staticmethod
     def simple_spark_job(context):
         sc = context.sc
-        elements = []
-        elements.__add__(10)
-        elements.__add__(20)
-        elements.__add__(30)
+        elements = [10, 20, 30]
         return sc.parallelize(elements, 2).count()

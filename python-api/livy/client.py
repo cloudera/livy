@@ -16,13 +16,38 @@
 # limitations under the License.
 #
 
-from abc import ABCMeta, abstractmethod
+from ConfigParser import SafeConfigParser
+from StringIO import StringIO
+import os
+import codecs
 
-"""A client for submitting Spark-based jobs to a Livy backend."""
-class Client:
-    __metaclass__ = ABCMeta
+"""A http based client for submitting Spark-based jobs to a Livy backend."""
+class HttpClient(object):
 
-    @abstractmethod
+    __CONFIG_SECTION = 'env'
+    __LIVY_CLIENT_CONF_DIR = "LIVY_CLIENT_CONF_DIR"
+
+    def __init__(self, uri, load_defaults=True, conf_dict = dict()):
+        """
+         Loads the provided config and creates a http-based client
+         :param uri: Livy server uri generated from urlparse lib
+         :type uri: ParseResult generated from urlparse lib
+
+         >>> from urlparse import urlparse
+         >>> uri = urlparse("http://test")
+
+         :param boolean load_defaults: Default value is true. If true, loads the
+             livy client configuration from the files 'livy-client.conf' and
+             'spark-defaults.conf'. The path to the files should be defined in the
+             'LIVY_CLIENT_CONF_DIR' environment variable
+         :param dict: Default value is empty dict. The key-value pairs in the dict
+             will be loaded to the config
+         :returns An instance of thsi class
+        """
+        self.__config = SafeConfigParser()
+        self.__load_config(load_defaults, conf_dict)
+        self.__set_uri(uri)
+
     def submit(self, job):
         """
         Submits a job for execution to the spark cluster.
@@ -33,7 +58,6 @@ class Client:
         """
         pass
 
-    @abstractmethod
     def run(self, job):
         """
         Asks the remote context to run a job immediately.
@@ -51,7 +75,6 @@ class Client:
         """
         pass
 
-    @abstractmethod
     def add_file(self, file_uri):
         """
         Adds a file to the running remote context.
@@ -70,7 +93,6 @@ class Client:
         """
         pass
 
-    @abstractmethod
     def add_pyfile(self, file_uri):
         """
         Adds a .py or .zip to the running remote context.
@@ -89,7 +111,6 @@ class Client:
         """
         pass
 
-    @abstractmethod
     def upload_file(self, open_file):
         """
         Upload a file to be passed to the Spark application
@@ -98,7 +119,6 @@ class Client:
         """
         pass
 
-    @abstractmethod
     def upload_pyfile(self, open_file):
         """
         Upload a .py or .zip dependency to be passed to the Spark application
@@ -106,3 +126,41 @@ class Client:
         :returns A future that can be used to monitor this operation
         """
         pass
+
+    def __set_uri(self, uri):
+        if uri is not None and ('http' == uri.scheme or 'https' == uri.scheme):
+            self.__config.set(self.__CONFIG_SECTION, 'livy.uri', uri.geturl())
+        else:
+            url_exception = uri.geturl if uri is not None else None
+            raise Exception('Cannot create client - Uri not supported - ', url_exception)
+
+    def __set_conf(self, key, value):
+        if value is not None:
+            self.__config.set(self.__CONFIG_SECTION, key, value)
+        else:
+            self.__config.remove_option('env', key)
+
+    def __set_multiple_conf(self, conf_dict):
+        if conf_dict is not None:
+            for key, value in conf_dict.iteritems():
+                self.set_conf(self.__CONFIG_SECTION, key, value)
+
+    def __load_config(self, load_defaults, conf_dict):
+        self.__config.add_section(self.__CONFIG_SECTION)
+        if load_defaults is True:
+            self.__handle_default_config_loading()
+        self.__set_multiple_conf(conf_dict)
+
+    def __handle_default_config_loading(self):
+        has_config_dir = os.environ.has_key(self.__LIVY_CLIENT_CONF_DIR)
+        if has_config_dir:
+            config_dir = os.environ.get(self.__LIVY_CLIENT_CONF_DIR)
+            config_files = os.listdir(config_dir)
+            default_conf_files = ['livy-client.conf', 'spark-defaults.conf']
+            for config_file in config_files:
+                if config_file in default_conf_files:
+                    path = os.path.join(config_dir, config_file)
+                    data = "[" + self.__CONFIG_SECTION + "]\n" + open(path).read()
+                    self.__config.readfp(StringIO(codecs.decode(data, 'utf-8')))
+
+
