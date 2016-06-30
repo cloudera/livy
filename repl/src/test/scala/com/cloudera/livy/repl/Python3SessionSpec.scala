@@ -25,12 +25,12 @@ import org.scalatest._
 import com.cloudera.livy.sessions._
 
 class Python3SessionSpec extends BaseSessionSpec {
-  
+
   override protected def withFixture(test: NoArgTest): Outcome = {
     assume(!sys.props.getOrElse("skipPySpark3Tests", "false").toBoolean, "Skipping PySpark3 tests.")
     test()
   }
-  
+
   override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
 
   it should "execute `1 / 2` == 0.5" in withSession { session =>
