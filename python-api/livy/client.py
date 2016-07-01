@@ -21,8 +21,9 @@ from StringIO import StringIO
 import os
 import codecs
 
-"""A http based client for submitting Spark-based jobs to a Livy backend."""
+
 class HttpClient(object):
+    """A http based client for submitting Spark-based jobs to a Livy backend."""
 
     __CONFIG_SECTION = 'env'
     __LIVY_CLIENT_CONF_DIR = "LIVY_CLIENT_CONF_DIR"

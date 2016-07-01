@@ -17,13 +17,15 @@
 #
 from abc import ABCMeta, abstractmethod
 
-"""
-Holds runtime information about the job execution context.
 
-An instance of this class is kept on the node hosting a remote Spark context and is made
-available to jobs being executed via RemoteSparkContext#submit().
-"""
 class JobContext:
+    """
+    Holds runtime information about the job execution context.
+
+    An instance of this class is kept on the node hosting a remote Spark context and is made
+    available to jobs being executed via RemoteSparkContext#submit().
+    """
+
     __metaclass__ = ABCMeta
 
     @abstractmethod

@@ -40,7 +40,8 @@ CLASSIFIERS = [
 ]
 
 requirements = [
-    'pathlib2>=2.1.0'
+    'pathlib2>=2.1.0',
+    'futures>=3.0.5'
 ]
 
 setup(
