@@ -38,6 +38,7 @@
       system.
     -->
     <cluster.spec>default</cluster.spec>
+    <skipDeploy>true</skipDeploy>
   </properties>
 
   <dependencies>
