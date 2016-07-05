@@ -41,7 +41,7 @@ class LivyServer extends Logging {
   private var server: WebServer = _
   private var _serverUrl: Option[String] = None
   // make livyConf accessible for testing
-  var livyConf: LivyConf = _
+  private[livy] var livyConf: LivyConf = _
 
   def start(): Unit = {
     livyConf = new LivyConf().loadFromFile("livy.conf")

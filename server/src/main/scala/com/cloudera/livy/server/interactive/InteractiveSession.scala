@@ -86,23 +86,19 @@ class InteractiveSession(
 
     def mergeHiveSiteAndHiveDeps(): Unit = {
       val sparkFiles = conf.get("spark.files").map(_.split(",")).getOrElse(Array.empty[String])
-      if (livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)) {
-        hiveSiteFile(sparkFiles, livyConf) match {
-          case (_, true) =>
-            info("Enable HiveContext because hive-site.xml is found in user request.")
-            mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
-          case (Some(file), false) =>
-            info("Enable HiveContext because hive-site.xml is found under classpath, "
-              + file.getAbsolutePath)
-            mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
-            mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
-          case (None, false) =>
-            warn("Enable HiveContext but no hive-site.xml found under" +
-              " classpath and user request.")
-        }
+      hiveSiteFile(sparkFiles, livyConf) match {
+        case (_, true) =>
+          debug("Enable HiveContext because hive-site.xml is found in user request.")
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+        case (Some(file), false) =>
+          debug("Enable HiveContext because hive-site.xml is found under classpath, "
+            + file.getAbsolutePath)
+          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+        case (None, false) =>
+          warn("Enable HiveContext but no hive-site.xml found under" +
+            " classpath or user request.")
       }
-      builderProperties.put("spark.repl.enableHiveContext",
-        livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
     }
 
     kind match {
@@ -120,7 +116,12 @@ class InteractiveSession(
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
     mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
-    mergeHiveSiteAndHiveDeps()
+    val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
+    builderProperties.put("spark.repl.enableHiveContext",
+      livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
+    if (enableHiveContext) {
+      mergeHiveSiteAndHiveDeps()
+    }
 
     val userOpts: Map[String, Option[String]] = Map(
       "spark.driver.cores" -> request.driverCores.map(_.toString),
