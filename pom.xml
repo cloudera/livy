@@ -78,10 +78,10 @@
     -->
 
     <!--
-      By default artifacts are not deployed. Artifacts that should be deployed to a maven
-      repo should override the "skipDeploy" property in their pom.
+      Artifacts that should not be deployed to a maven repo should override the "skipDeploy"
+      property in their pom.
     -->
-    <skipDeploy>true</skipDeploy>
+    <skipDeploy>false</skipDeploy>
 
     <asf.copyright.header><![CDATA[/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
