@@ -30,7 +30,6 @@
 
   <properties>
     <copyright.header>${asf.copyright.header}</copyright.header>
-    <skipDeploy>false</skipDeploy>
   </properties>
 
   <dependencies>

@@ -31,6 +31,10 @@
     <version>0.2.1-SNAPSHOT</version>
     <packaging>jar</packaging>
 
+    <properties>
+        <skipDeploy>true</skipDeploy>
+    </properties>
+
     <dependencies>
 
         <dependency>

@@ -39,6 +39,7 @@
     -->
     <cluster.spec>default</cluster.spec>
     <skipITs>${skipTests}</skipITs>
+    <skipDeploy>true</skipDeploy>
   </properties>
 
   <dependencies>

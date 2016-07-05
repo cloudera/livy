@@ -29,10 +29,6 @@
   <version>0.2.1-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <properties>
-    <skipDeploy>false</skipDeploy>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>com.cloudera.livy</groupId>
