@@ -20,10 +20,11 @@ package com.cloudera.livy.repl
 
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
+import org.scalatest._
 
-class PythonSessionSpec extends BaseSessionSpec {
+import com.cloudera.livy.sessions._
 
-  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf())
+abstract class PythonSessionSpec extends BaseSessionSpec {
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = session.execute("1 + 2")
@@ -107,7 +108,7 @@ class PythonSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout" in withSession { session =>
-    val statement = session.execute("""print 'Hello World'""")
+    val statement = session.execute("""print('Hello World')""")
     statement.id should equal (0)
 
     val result = statement.result
@@ -167,5 +168,34 @@ class PythonSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
   }
+}
 
+class Python2SessionSpec extends PythonSessionSpec {
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark())
+}
+
+class Python3SessionSpec extends PythonSessionSpec {
+
+  override protected def withFixture(test: NoArgTest): Outcome = {
+    assume(!sys.props.getOrElse("skipPySpark3Tests", "false").toBoolean, "Skipping PySpark3 tests.")
+    test()
+  }
+
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
+
+  it should "execute `1 / 2` == 0.5" in withSession { session =>
+    val statement = session.execute("1 / 2")
+    statement.id should equal (0)
+
+    val result = statement.result
+    val expectedResult = Extraction.decompose(Map(
+      "status" -> "ok",
+      "execution_count" -> 0,
+      "data" -> Map(
+        "text/plain" -> "0.5"
+      )
+    ))
+
+    result should equal (expectedResult)
+  }
 }

@@ -21,12 +21,11 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
+import org.scalatest._
 
-class PythonInterpreterSpec extends BaseInterpreterSpec {
+import com.cloudera.livy.sessions._
 
-  implicit val formats = DefaultFormats
-
-  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf())
+abstract class PythonBaseInterpreterSpec extends BaseInterpreterSpec {
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")
@@ -136,7 +135,7 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
   }
 
   it should "capture stdout" in withInterpreter { interpreter =>
-    val response = interpreter.execute("print 'Hello World'")
+    val response = interpreter.execute("print('Hello World')")
     response should equal(Interpreter.ExecuteSuccess(
       TEXT_PLAIN -> "Hello World"
     ))
@@ -199,6 +198,13 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
       )
     ))
   }
+}
+
+class Python2InterpreterSpec extends PythonBaseInterpreterSpec {
+
+  implicit val formats = DefaultFormats
+
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark())
 
   // Scalastyle is treating unicode escape as non ascii characters. Turn off the check.
   // scalastyle:off non.ascii.character.disallowed
@@ -214,4 +220,23 @@ class PythonInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
   // scalastyle:on non.ascii.character.disallowed
+}
+
+class Python3InterpreterSpec extends PythonBaseInterpreterSpec {
+
+  implicit val formats = DefaultFormats
+
+  override protected def withFixture(test: NoArgTest): Outcome = {
+    assume(!sys.props.getOrElse("skipPySpark3Tests", "false").toBoolean, "Skipping PySpark3 tests.")
+    test()
+  }
+
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
+
+  it should "execute `1 / 2` == 0.5" in withInterpreter { interpreter =>
+    val response = interpreter.execute("1 / 2")
+    response should equal (Interpreter.ExecuteSuccess(
+      TEXT_PLAIN -> "0.5"
+    ))
+  }  
 }

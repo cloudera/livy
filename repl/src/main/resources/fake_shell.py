@@ -29,7 +29,7 @@ import re
 
 if sys.version >= '3':
     unicode = str
-else :
+else:
     import cStringIO
     import StringIO
 
@@ -372,7 +372,7 @@ def magic_matplot(name):
         fig.savefig(imgdata, format='png')
         imgdata.seek(0)
         encode = base64.b64encode(imgdata.getvalue())
-        if sys.version >= '3' :
+        if sys.version >= '3':
             encode = encode.decode()
 
     except:
@@ -417,9 +417,9 @@ def main():
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
-    if sys.version >= '3' :
+    if sys.version >= '3':
         sys.stdin = io.StringIO()
-    else :
+    else:
         sys.stdin = cStringIO.StringIO()
 
     sys.stdout = UnicodeDecodingStringIO()
@@ -429,6 +429,7 @@ def main():
         if os.environ.get("LIVY_TEST") != "true":
             # Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
+
         print(sys.stdout.getvalue(), file=sys_stderr)
         print(sys.stderr.getvalue(), file=sys_stderr)
 
