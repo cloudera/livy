@@ -238,5 +238,5 @@ class Python3InterpreterSpec extends PythonBaseInterpreterSpec {
     response should equal (Interpreter.ExecuteSuccess(
       TEXT_PLAIN -> "0.5"
     ))
-  }  
+  }
 }
