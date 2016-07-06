@@ -225,6 +225,7 @@
           <environmentVariables>
             <LIVY_HOME>${execution.root}</LIVY_HOME>
             <LIVY_TEST>false</LIVY_TEST>
+            <LIVY_INTEGRATION_TEST>true</LIVY_INTEGRATION_TEST>
           </environmentVariables>
           <systemProperties>
             <cluster.spec>${cluster.spec}</cluster.spec>

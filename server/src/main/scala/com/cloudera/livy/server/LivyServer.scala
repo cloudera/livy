@@ -40,9 +40,11 @@ class LivyServer extends Logging {
 
   private var server: WebServer = _
   private var _serverUrl: Option[String] = None
+  // make livyConf accessible for testing
+  private[livy] var livyConf: LivyConf = _
 
   def start(): Unit = {
-    val livyConf = new LivyConf().loadFromFile("livy.conf")
+    livyConf = new LivyConf().loadFromFile("livy.conf")
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
     val multipartConfig = MultipartConfig(
