@@ -139,6 +139,7 @@ class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: T
     if (!ClientConf.TEST_MODE) {
       sendRequest("library(SparkR)")
       sendRequest("sc <- sparkR.init()")
+      sendRequest("sqlContext <- sparkRSQL.init(sc)")
     }
 
     isStarted.countDown()
