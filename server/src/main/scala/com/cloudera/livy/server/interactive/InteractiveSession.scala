@@ -326,7 +326,6 @@ class InteractiveSession(
    * Look for hive-site.xml (for now just ignore spark.files defined in spark-defaults.conf)
    * 1. First look for hive-site.xml in user request
    * 2. Then look for that under classpath
-   * 3. Finally look for that under SPARK_HOME/conf
    * @param livyConf
    * @return  (hive-site.xml path, whether it is provided by user)
    */
@@ -337,16 +336,10 @@ class InteractiveSession(
     } else {
       val hiveSiteURL = getClass.getResource("/hive-site.xml")
       if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
-        return (Some(new File(hiveSiteURL.toURI)), false)
+        (Some(new File(hiveSiteURL.toURI)), false)
+      } else {
+        (None, false)
       }
-      // only check SPARK_HOME/conf when SPARK_CONF_DIR is not defined
-      if (!sys.env.contains("SPARK_CONF_DIR")) {
-        val hiveSiteFile = new File(livyConf.sparkHome().get + "/conf/hive-site.xml")
-        if (hiveSiteFile.isFile) {
-          return (Some(hiveSiteFile), false)
-        }
-      }
-      (None, false)
     }
   }
 
