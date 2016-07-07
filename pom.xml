@@ -944,6 +944,9 @@
                   </includes>
                 </fileSet>
               </fileSets>
+              <excludes>
+                <exclude>**/com.cloudera.livy.test/**/*</exclude>
+              </excludes>
             </configuration>
           </execution>
           <execution>
