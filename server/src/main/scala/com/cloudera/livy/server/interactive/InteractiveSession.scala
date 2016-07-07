@@ -102,7 +102,7 @@ class InteractiveSession(
     }
 
     kind match {
-      case PySpark() =>
+      case PySpark() | PySpark3() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
         builderProperties.put(SparkYarnIsPython, "true")

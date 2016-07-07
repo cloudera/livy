@@ -31,6 +31,10 @@ case class PySpark() extends Kind {
   override def toString: String = "pyspark"
 }
 
+case class PySpark3() extends Kind {
+  override def toString: String = "pyspark3"
+}
+
 case class SparkR() extends Kind {
   override def toString: String = "sparkr"
 }
@@ -40,6 +44,7 @@ object Kind {
   def apply(kind: String): Kind = kind match {
     case "spark" | "scala" => Spark()
     case "pyspark" | "python" => PySpark()
+    case "pyspark3" | "python3" => PySpark3()
     case "sparkr" | "r" => SparkR()
     case other => throw new IllegalArgumentException(s"Invalid kind: $other")
   }
