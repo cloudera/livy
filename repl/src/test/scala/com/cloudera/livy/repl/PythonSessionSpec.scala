@@ -183,8 +183,11 @@ class Python3SessionSpec extends PythonSessionSpec {
 
   override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
 
-  it should "execute `1 / 2` == 0.5" in withSession { session =>
-    val statement = session.execute("1 / 2")
+  it should "check python version is 3.x" in withSession { session =>
+    val statement = session.execute(
+      """import sys
+      |sys.version >= '3'
+      """.stripMargin)
     statement.id should equal (0)
 
     val result = statement.result
@@ -192,7 +195,7 @@ class Python3SessionSpec extends PythonSessionSpec {
       "status" -> "ok",
       "execution_count" -> 0,
       "data" -> Map(
-        "text/plain" -> "0.5"
+        "text/plain" -> "True"
       )
     ))
 

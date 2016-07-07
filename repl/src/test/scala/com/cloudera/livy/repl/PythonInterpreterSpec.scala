@@ -233,10 +233,12 @@ class Python3InterpreterSpec extends PythonBaseInterpreterSpec {
 
   override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
 
-  it should "execute `1 / 2` == 0.5" in withInterpreter { interpreter =>
-    val response = interpreter.execute("1 / 2")
+  it should "check python version is 3.x" in withInterpreter { interpreter =>
+    val response = interpreter.execute("""import sys
+      |sys.version >= '3'
+      """.stripMargin)
     response should equal (Interpreter.ExecuteSuccess(
-      TEXT_PLAIN -> "0.5"
+      TEXT_PLAIN -> "True"
     ))
   }
 }
