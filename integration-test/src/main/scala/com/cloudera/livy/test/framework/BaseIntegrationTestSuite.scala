@@ -65,7 +65,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     .getOrElse(throw new Exception(s"Cannot find test lib in ${sys.props("java.class.path")}"))
 
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
-    eventually(timeout(1 minute), interval(100 millis)) {
+    eventually(timeout(2 minutes), interval(100 millis)) {
       val curState = livyClient.getSessionStatus(sessionId)
       assert(curState === SessionState.Idle().toString)
     }

@@ -48,6 +48,7 @@ import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cloudera.livy.client.common.TestUtils;
 import com.cloudera.livy.rsc.driver.RSCDriverBootstrapper;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
@@ -173,13 +174,14 @@ class ContextLauncher {
     // of "small" Java processes lingering on the Livy server node.
     conf.set("spark.yarn.submit.waitAppCompletion", "false");
 
-    // For testing; propagate jacoco settings so that we also do coverage analysis
-    // on the launched driver. We replace the name of the main file ("main.exec")
-    // so that we don't end up fighting with the main test launcher.
-    String jacocoArgs = System.getProperty("jacoco.args");
-    if (jacocoArgs != null) {
-      jacocoArgs = jacocoArgs.replace("main.exec", "child.exec");
-      merge(conf, SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, jacocoArgs, " ");
+    if (!conf.getBoolean(CLIENT_IN_PROCESS)) {
+      // For testing; propagate jacoco settings so that we also do coverage analysis
+      // on the launched driver. We replace the name of the main file ("main.exec")
+      // so that we don't end up fighting with the main test launcher.
+      String jacocoArgs = TestUtils.getJacocoArgs();
+      if (jacocoArgs != null) {
+        merge(conf, SparkLauncher.DRIVER_EXTRA_JAVA_OPTIONS, jacocoArgs, " ");
+      }
     }
 
     final File confFile = writeConfToFile(conf);
