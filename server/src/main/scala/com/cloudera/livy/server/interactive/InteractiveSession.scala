@@ -22,7 +22,6 @@ import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
-import java.util.{HashMap => JHashMap}
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.tailrec
@@ -70,18 +69,35 @@ class InteractiveSession(
     val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
       request.pyFiles)
 
-    info(s"Creating LivyClient for sessionId: $id")
-    val builder = new LivyClientBuilder()
-      .setConf("spark.app.name", s"livy-session-$id")
-      .setAll(conf.asJava)
-      .setConf("livy.client.sessionId", id.toString)
-      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
-      .setURI(new URI("rsc:/"))
+    val builderProperties = mutable.Map[String, String]()
+    builderProperties ++= conf
 
     def mergeConfList(list: Seq[String], key: String): Unit = {
       if (list.nonEmpty) {
-        val newList = (list ++ conf.get(key)).mkString(",")
-        builder.setConf(key, newList)
+        builderProperties.get(key) match {
+          case None =>
+            builderProperties.put(key, list.mkString(","))
+          case Some(oldList) =>
+            val newList = (oldList :: list.toList).mkString(",")
+            builderProperties.put(key, newList)
+        }
+      }
+    }
+
+    def mergeHiveSiteAndHiveDeps(): Unit = {
+      val sparkFiles = conf.get("spark.files").map(_.split(",")).getOrElse(Array.empty[String])
+      hiveSiteFile(sparkFiles, livyConf) match {
+        case (_, true) =>
+          debug("Enable HiveContext because hive-site.xml is found in user request.")
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+        case (Some(file), false) =>
+          debug("Enable HiveContext because hive-site.xml is found under classpath, "
+            + file.getAbsolutePath)
+          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
+          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+        case (None, false) =>
+          warn("Enable HiveContext but no hive-site.xml found under" +
+            " classpath or user request.")
       }
     }
 
@@ -89,17 +105,23 @@ class InteractiveSession(
       case PySpark() | PySpark3() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
         mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
-        builder.setConf(SparkYarnIsPython, "true")
+        builderProperties.put(SparkYarnIsPython, "true")
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
-          builder.setConf(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
         }
       case _ =>
     }
-    builder.setConf(RSCConf.Entry.SESSION_KIND.key, kind.toString)
+    builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
     mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
+    val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
+    builderProperties.put("spark.repl.enableHiveContext",
+      livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
+    if (enableHiveContext) {
+      mergeHiveSiteAndHiveDeps()
+    }
 
     val userOpts: Map[String, Option[String]] = Map(
       "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -110,10 +132,17 @@ class InteractiveSession(
     )
 
     userOpts.foreach { case (key, opt) =>
-      opt.foreach { value => builder.setConf(key, value) }
+      opt.foreach { value => builderProperties.put(key, value) }
     }
 
-    builder.setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
+    info(s"Creating LivyClient for sessionId: $id")
+    val builder = new LivyClientBuilder()
+      .setAll(builderProperties.asJava)
+      .setConf("spark.app.name", s"livy-session-$id")
+      .setConf("livy.client.sessionId", id.toString)
+      .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
+      .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
+      .setURI(new URI("rsc:/"))
     builder.build()
   }.asInstanceOf[RSCClient]
 
@@ -264,6 +293,52 @@ class InteractiveSession(
         val rArchivesFile = new File(path)
         require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
         rArchivesFile.getAbsolutePath()
+      }
+    }
+  }
+
+  private def datanucleusJars(livyConf: LivyConf): Seq[String] = {
+    if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
+      // datanucleus jars has already been in classpath in integration test
+      Seq.empty
+    } else {
+      val sparkHome = livyConf.sparkHome().get
+      val libdir =
+        if (new File(sparkHome, "RELEASE").isFile) {
+          new File(sparkHome, "lib")
+        } else {
+          new File(sparkHome, "lib_managed/jars")
+        }
+      val jars = if (!libdir.isDirectory) {
+          Seq.empty[String]
+        } else {
+          libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
+            .map(_.getAbsolutePath).toSeq
+        }
+      if (jars.isEmpty) {
+        warn("datanucleus jars can not be found")
+      }
+      jars
+    }
+  }
+
+  /**
+   * Look for hive-site.xml (for now just ignore spark.files defined in spark-defaults.conf)
+   * 1. First look for hive-site.xml in user request
+   * 2. Then look for that under classpath
+   * @param livyConf
+   * @return  (hive-site.xml path, whether it is provided by user)
+   */
+  private def hiveSiteFile(sparkFiles: Array[String],
+                           livyConf: LivyConf): (Option[File], Boolean) = {
+    if (sparkFiles.exists(_.split("/").last == "hive-site.xml")) {
+      (None, true)
+    } else {
+      val hiveSiteURL = getClass.getResource("/hive-site.xml")
+      if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
+        (Some(new File(hiveSiteURL.toURI)), false)
+      } else {
+        (None, false)
       }
     }
   }

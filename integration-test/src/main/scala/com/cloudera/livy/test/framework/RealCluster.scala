@@ -36,14 +36,14 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{LivyConf, Logging}
 
 private class RealClusterConfig(config: Map[String, String]) {
   val ip = config("ip")
 
   val sshLogin = config("ssh.login")
   val sshPubKey = config("ssh.pubkey")
-  val livyPort = config.getOrElse("livy.port", "8998").toInt
+  val livyPort = config.getOrElse(LivyConf.SERVER_PORT.key, "8998").toInt
   val livyClasspath = config.getOrElse("livy.classpath", "")
 
   val deployLivy = config.getOrElse("deploy-livy", "true").toBoolean
@@ -215,8 +215,9 @@ class RealCluster(_config: Map[String, String])
     val livyConf = Map(
       "livy.server.port" -> config.livyPort.toString,
       // "livy.server.recovery.mode=local",
-      "livy.environment" -> "development"
-    )
+      "livy.environment" -> "development",
+      LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
+      LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster")
     val livyConfFile = File.createTempFile("livy.", ".properties")
     saveProperties(livyConf, livyConfFile)
     upload(livyConfFile.getAbsolutePath(), s"$livyHomePath/conf/livy.conf")

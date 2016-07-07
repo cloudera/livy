@@ -81,10 +81,10 @@
     -->
 
     <!--
-      By default artifacts are not deployed. Artifacts that should be deployed to a maven
-      repo should override the "skipDeploy" property in their pom.
+      Artifacts that should not be deployed to a maven repo should override the "skipDeploy"
+      property in their pom.
     -->
-    <skipDeploy>true</skipDeploy>
+    <skipDeploy>false</skipDeploy>
 
     <asf.copyright.header><![CDATA[/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
@@ -665,7 +665,7 @@
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
-            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
+            <argLine>${argLine} -Xmx2g -XX:MaxPermSize=512m</argLine>
             <failIfNoTests>false</failIfNoTests>
           </configuration>
         </plugin>
@@ -693,7 +693,7 @@
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
-            <argLine>${argLine} -Xmx1g -XX:MaxPermSize=256m</argLine>
+            <argLine>${argLine} -Xmx2g -XX:MaxPermSize=512m</argLine>
           </configuration>
           <executions>
             <execution>
