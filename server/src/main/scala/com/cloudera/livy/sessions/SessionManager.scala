@@ -36,7 +36,7 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
   private[this] final val idCounter = new AtomicInteger()
-  private[this] final val sessions = mutable.Map[Int, S]()
+  private[this] final val sessions = mutable.LinkedHashMap[Int, S]()
 
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
