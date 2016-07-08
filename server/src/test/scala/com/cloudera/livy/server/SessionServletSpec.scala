@@ -36,10 +36,11 @@ object SessionServletSpec {
 
     override def state: SessionState = SessionState.Idle()
 
+    override def appId: Option[String] = None
+
     override protected def stopSession(): Unit = ()
 
     override def logLines(): IndexedSeq[String] = IndexedSeq("log")
-
   }
 
   case class MockSessionView(id: Int, owner: String, logs: Seq[String])

@@ -68,6 +68,8 @@ class BatchSession(
 
   override def state: SessionState = _state
 
+  override def appId: Option[String] = None
+
   override def logLines(): IndexedSeq[String] = process.inputLines
 
   override def stopSession(): Unit = destroyProcess()

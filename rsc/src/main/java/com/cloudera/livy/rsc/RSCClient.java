@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -43,7 +42,6 @@ import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
-import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.driver.AddJarJob;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
@@ -62,8 +60,12 @@ public class RSCClient implements LivyClient {
   private ContextInfo contextInfo;
   private volatile boolean isAlive;
 
-  RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
+  private RSCAppListener appListener;
+
+  RSCClient(RSCConf conf, Promise<ContextInfo> ctx, final RSCAppListener appListener)
+          throws IOException {
     this.conf = conf;
+    this.appListener = appListener;
     this.jobs = new ConcurrentHashMap<>();
     this.protocol = new ClientProtocol();
     this.driverRpc = ImmediateEventExecutor.INSTANCE.newPromise();
@@ -85,6 +87,14 @@ public class RSCClient implements LivyClient {
     });
 
     isAlive = true;
+  }
+
+  public String getAppId() {
+    if (appListener != null) {
+      return appListener.getAppId();
+    } else {
+      return null;
+    }
   }
 
   private synchronized void connectToContext(final ContextInfo info) throws Exception {
@@ -185,19 +195,24 @@ public class RSCClient implements LivyClient {
     if (isAlive) {
       isAlive = false;
       try {
-        if (shutdownContext && driverRpc.isSuccess()) {
-          protocol.endSession();
-
-          // Because the remote context won't really reply to the end session message -
-          // since it closes the channel while handling it, we wait for the RPC's channel
-          // to close instead.
-          long stopTimeout = conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT);
-          try {
-            driverRpc.get().getChannel().closeFuture().get(stopTimeout,
-              TimeUnit.MILLISECONDS);
-          } catch (Exception e) {
-            LOG.warn("Error waiting for context to shut down: {} ({}).",
-              e.getClass().getSimpleName(), e.getMessage());
+        if (shutdownContext) {
+          if (driverRpc.isSuccess()) {
+            protocol.endSession();
+            // Because the remote context won't really reply to the end session message -
+            // since it closes the channel while handling it, we wait for the RPC's channel
+            // to close instead.
+            long stopTimeout = conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT);
+            try {
+              driverRpc.get().getChannel().closeFuture().get(stopTimeout,
+                      TimeUnit.MILLISECONDS);
+            } catch (Exception e) {
+              LOG.warn("Error waiting for context to shut down: {} ({}).",
+                      e.getClass().getSimpleName(), e.getMessage());
+            }
+          } else if (appListener.getAppId() != null) {
+            // RPC connection is not established yet but yarn app is created.
+            LOG.info("Stop app:" + appListener.getAppId());
+            appListener.stopApp();
           }
         }
       } catch (Exception e) {

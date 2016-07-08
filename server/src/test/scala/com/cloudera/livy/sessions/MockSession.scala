@@ -31,6 +31,8 @@ class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, ow
 
   override def state: SessionState = SessionState.Idle()
 
+  override def appId: Option[String] = None
+
   override val timeout: Long = 0L
 
   override def resolveURIs(uris: Seq[String]): Seq[String] = super.resolveURIs(uris)

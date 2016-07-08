@@ -44,6 +44,7 @@ import static java.nio.file.attribute.PosixFilePermission.*;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.Promise;
+import org.apache.spark.launcher.SparkAppHandle;
 import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,9 +70,11 @@ class ContextLauncher {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
-  static Promise<ContextInfo> create(RSCClientFactory factory, RSCConf conf)
+  static Promise<ContextInfo> create(RSCClientFactory factory,
+                                     RSCConf conf,
+                                     RSCAppListener appListener)
       throws IOException {
-    ContextLauncher launcher = new ContextLauncher(factory, conf);
+    ContextLauncher launcher = new ContextLauncher(factory, conf, appListener);
     return launcher.promise;
   }
 
@@ -79,16 +82,19 @@ class ContextLauncher {
   private final ScheduledFuture<?> timeout;
   private final String clientId;
   private final String secret;
-  private final ChildProcess child;
   private final RSCConf conf;
   private final RSCClientFactory factory;
+  private final RSCAppListener appListener;
 
-  private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
+  private ContextLauncher(RSCClientFactory factory,
+                          RSCConf conf,
+                          RSCAppListener appListener) throws IOException {
     this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
     this.clientId = UUID.randomUUID().toString();
     this.secret = factory.getServer().createSecret();
     this.conf = conf;
     this.factory = factory;
+    this.appListener = appListener;
 
     final RegistrationHandler handler = new RegistrationHandler();
     try {
@@ -100,7 +106,7 @@ class ContextLauncher {
       conf.set(LAUNCHER_PORT, factory.getServer().getPort());
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
-      this.child = startDriver(conf, promise);
+      startDriver(conf, promise, appListener);
 
       // Set up a timeout to fail the promise if we don't hear back from the context
       // after a configurable timeout.
@@ -129,16 +135,18 @@ class ContextLauncher {
     factory.getServer().unregisterClient(clientId);
     try {
       if (forceKill) {
-        child.kill();
+        appListener.stopApp();
       } else {
-        child.detach();
+        appListener.disconnect();
       }
     } finally {
       factory.unref();
     }
   }
 
-  private static ChildProcess startDriver(final RSCConf conf, Promise<?> promise)
+  private static void startDriver(final RSCConf conf,
+                                  final Promise<?> promise,
+                                  final RSCAppListener appListener)
       throws IOException {
     String livyJars = conf.get(LIVY_JARS);
     if (livyJars == null) {
@@ -196,10 +204,22 @@ class ContextLauncher {
             RSCDriverBootstrapper.main(new String[] { confFile.getAbsolutePath() });
           } catch (Exception e) {
             throw Utils.propagate(e);
+          } finally {
+            confFile.delete();
           }
         }
       };
-      return new ChildProcess(conf, promise, child, confFile);
+      Thread thread = new Thread(child);
+      thread.setDaemon(true);
+      thread.setName("ContextLauncher-" + CHILD_IDS.getAndIncrement());
+      thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+        @Override
+        public void uncaughtException(Thread t, Throwable e) {
+          LOG.warn("Child task threw exception.", e);
+          promise.tryFailure(e);
+        }
+      });
+      thread.start();
     } else {
       final SparkLauncher launcher = new SparkLauncher();
 
@@ -218,7 +238,7 @@ class ContextLauncher {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
 
-      return new ChildProcess(conf, promise, launcher.launch(), confFile);
+      launcher.startApplication(appListener);
     }
   }
 
@@ -285,34 +305,6 @@ class ContextLauncher {
     return file;
   }
 
-  private static class Redirector implements Runnable {
-
-    private final BufferedReader in;
-
-    Redirector(InputStream in) {
-      this.in = new BufferedReader(new InputStreamReader(in));
-    }
-
-    @Override
-    public void run() {
-      try {
-        String line = null;
-        while ((line = in.readLine()) != null) {
-          LOG.info(line);
-        }
-      } catch (Exception e) {
-        LOG.warn("Error in redirector thread.", e);
-      }
-
-      try {
-        in.close();
-      } catch (IOException ioe) {
-        LOG.warn("Error closing child stream.", ioe);
-      }
-    }
-
-  }
-
   private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
 
@@ -353,136 +345,4 @@ class ContextLauncher {
     }
 
   }
-
-  private static class ChildProcess {
-
-    private final RSCConf conf;
-    private final Promise<?> promise;
-    private final Process child;
-    private final Thread monitor;
-    private final Thread stdout;
-    private final Thread stderr;
-    private final File confFile;
-
-    public ChildProcess(RSCConf conf, Promise<?> promise, Runnable child, File confFile) {
-      this.conf = conf;
-      this.promise = promise;
-      this.monitor = monitor(child, CHILD_IDS.incrementAndGet());
-      this.child = null;
-      this.stdout = null;
-      this.stderr = null;
-      this.confFile = confFile;
-    }
-
-    public ChildProcess(RSCConf conf, Promise<?> promise, final Process childProc, File confFile) {
-      int childId = CHILD_IDS.incrementAndGet();
-      this.conf = conf;
-      this.promise = promise;
-      this.child = childProc;
-      this.stdout = redirect("stdout-redir-" + childId, child.getInputStream());
-      this.stderr = redirect("stderr-redir-" + childId, child.getErrorStream());
-      this.confFile = confFile;
-
-      Runnable monitorTask = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            int exitCode = child.waitFor();
-            if (exitCode != 0) {
-              LOG.warn("Child process exited with code {}.", exitCode);
-              fail(new IOException(String.format("Child process exited with code %d.", exitCode)));
-            }
-          } catch (InterruptedException ie) {
-            LOG.warn("Waiting thread interrupted, killing child process.");
-            Thread.interrupted();
-            child.destroy();
-          } catch (Exception e) {
-            LOG.warn("Exception while waiting for child process.", e);
-          }
-        }
-      };
-      this.monitor = monitor(monitorTask, childId);
-    }
-
-    private void fail(Throwable error) {
-      promise.tryFailure(error);
-    }
-
-    public void kill() {
-      if (child != null) {
-        child.destroy();
-      }
-      monitor.interrupt();
-      detach();
-
-      if (!monitor.isAlive()) {
-        return;
-      }
-
-      // Last ditch effort.
-      if (monitor.isAlive()) {
-        LOG.warn("Timed out shutting down remote driver, interrupting...");
-        monitor.interrupt();
-      }
-    }
-
-    public void detach() {
-      if (stdout != null) {
-        stdout.interrupt();
-        try {
-          stdout.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
-        } catch (InterruptedException ie) {
-          LOG.info("Interrupted while waiting for child stdout to finish.");
-        }
-      }
-      if (stderr != null) {
-        stderr.interrupt();
-        try {
-          stderr.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
-        } catch (InterruptedException ie) {
-          LOG.info("Interrupted while waiting for child stderr to finish.");
-        }
-      }
-
-      try {
-        monitor.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
-      } catch (InterruptedException ie) {
-        LOG.debug("Interrupted before driver thread was finished.");
-      }
-    }
-
-    private Thread redirect(String name, InputStream in) {
-      Thread thread = new Thread(new Redirector(in));
-      thread.setName(name);
-      thread.setDaemon(true);
-      thread.start();
-      return thread;
-    }
-
-    private Thread monitor(final Runnable task, int childId) {
-      Runnable wrappedTask = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            task.run();
-          } finally {
-            confFile.delete();
-          }
-        }
-      };
-      Thread thread = new Thread(wrappedTask);
-      thread.setDaemon(true);
-      thread.setName("ContextLauncher-" + childId);
-      thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-        @Override
-        public void uncaughtException(Thread t, Throwable e) {
-          LOG.warn("Child task threw exception.", e);
-          fail(e);
-        }
-      });
-      thread.start();
-      return thread;
-    }
-  }
-
 }

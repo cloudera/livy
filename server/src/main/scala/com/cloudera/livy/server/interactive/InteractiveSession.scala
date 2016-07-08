@@ -30,7 +30,7 @@ import scala.collection.mutable
 import scala.concurrent.{Future, _}
 import scala.util.{Failure, Success, Try}
 
-import org.apache.spark.launcher.SparkLauncher
+import org.apache.spark.launcher.{SparkAppHandle, SparkLauncher}
 import org.json4s._
 import org.json4s.{DefaultFormats, Formats, JValue}
 import org.json4s.JsonAST.JString
@@ -386,4 +386,11 @@ class InteractiveSession(
     opId
    }
 
+  override def appId: Option[String] = {
+    if (client.getAppId != null) {
+      Some(client.getAppId)
+    } else {
+      None
+    }
+  }
 }

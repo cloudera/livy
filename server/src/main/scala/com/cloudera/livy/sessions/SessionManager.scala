@@ -25,7 +25,13 @@ import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.yarn.api.records.YarnApplicationState
+import org.apache.hadoop.yarn.client.api.YarnClient
+import org.apache.hadoop.yarn.util.ConverterUtils
+
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.server.interactive.InteractiveSession
 
 object SessionManager {
   val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
@@ -41,7 +47,12 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
 
+  private val yarnClient = YarnClient.createYarnClient()
+  yarnClient.init(new Configuration())
+  yarnClient.start()
+
   new GarbageCollector().start()
+  new SessionAppStateMonitor().start()
 
   def nextId(): Int = idCounter.getAndIncrement()
 
@@ -87,6 +98,28 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
     Future.sequence(all().filter(expired).map(delete))
   }
 
+  def checkAppState(): Unit = {
+    val appIds = all().filter(s => s.isInstanceOf[InteractiveSession]
+      && s.appId.isDefined
+      && s.state.isActive)
+      .foreach(s => {
+        try {
+          val appId = ConverterUtils.toApplicationId(s.appId.get)
+          val appReport = yarnClient.getApplicationReport(appId)
+          val appFinishedStates = Set(YarnApplicationState.FAILED, YarnApplicationState.KILLED,
+            YarnApplicationState.FINISHED)
+          if (appFinishedStates.contains(appReport.getYarnApplicationState)
+            && s.state.isActive) {
+            info(s"Stopping session ${s.id}, as the yarn app ${s.appId} is in " +
+              s"state ${appReport.getYarnApplicationState}")
+            s.stop()
+          }
+        } catch {
+          case e: NumberFormatException => // ignore non-yarn apps
+        }
+      })
+  }
+
   private class GarbageCollector extends Thread("session gc thread") {
 
     setDaemon(true)
@@ -100,4 +133,15 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
 
   }
 
+  private class SessionAppStateMonitor extends Thread("session app state monitor thread") {
+
+    setDaemon(true)
+
+    override def run(): Unit = {
+      while (true) {
+        checkAppState()
+        Thread.sleep(60 * 1000)
+      }
+    }
+  }
 }
