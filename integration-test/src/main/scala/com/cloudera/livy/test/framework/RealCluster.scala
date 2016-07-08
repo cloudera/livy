@@ -199,7 +199,7 @@ class RealCluster(_config: Map[String, String])
       doAsClusterUser {
         // Cannot use the shared `fs` since this runs in a shutdown hook, and that instance
         // may have been closed already.
-        val fs = FileSystem.newInstance(hadoopConf)
+        val fs = FileSystem.newInstance(coreSiteConf)
         try {
           fs.delete(hdfsScratch, true)
         } finally {

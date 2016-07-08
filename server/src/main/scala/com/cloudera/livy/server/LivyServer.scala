@@ -23,6 +23,9 @@ import java.util.concurrent._
 import java.util.EnumSet
 import javax.servlet._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
@@ -34,6 +37,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
+import com.cloudera.livy.utils.SparkYarnApp
 
 class LivyServer extends Logging {
 
@@ -58,6 +62,11 @@ class LivyServer extends Logging {
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
+
+    // Initialize YarnClient ASAP to save time.
+    if (livyConf.isRunningOnYarn) {
+      Future { SparkYarnApp.getYarnClient() }
+    }
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")

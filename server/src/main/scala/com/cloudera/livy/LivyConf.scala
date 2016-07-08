@@ -141,6 +141,9 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     this
   }
 
+  /** Return true if spark master starts with yarn. */
+  def isRunningOnYarn: Boolean = sparkMaster().startsWith("yarn")
+
   /** Return the spark deploy mode Livy sessions should use. */
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
