@@ -36,6 +36,7 @@
     <properties>
         <skipTests>true</skipTests>
         <skip>true</skip>
+        <skipDeploy>true</skipDeploy>
     </properties>
 
     <dependencies>

@@ -22,7 +22,6 @@ package com.cloudera.livy.examples
 import java.io.{File, FileNotFoundException, IOException}
 import java.net.URI
 
-import org.apache.spark.sql.Row
 import org.apache.spark.storage.StorageLevel
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -88,8 +87,10 @@ object WordCountApp {
    * @param port Port that Spark Streaming context has to connect for receiving data
    * @param outputPath Output path to save the processed data read by the Spark Streaming context
    */
-  def processStreamingWordCount(host: String, port: Int,
-                                outputPath: String): ScalaJobHandle[Unit] = {
+  def processStreamingWordCount(
+      host: String,
+      port: Int,
+      outputPath: String): ScalaJobHandle[Unit] = {
     scalaClient.submit { context =>
       context.createStreamingContext(20000)
       val ssc = context.streamingctx
@@ -115,7 +116,7 @@ object WordCountApp {
    * a sql query to get the word with max count on the temp table created with data frames
    * @param inputPath Input path to the json data containing the words
    */
-  def getWordWithMostCount(inputPath: String): ScalaJobHandle[Row] = {
+  def getWordWithMostCount(inputPath: String): ScalaJobHandle[String] = {
     scalaClient.submit { context =>
       val sqlctx = context.sqlctx
       try {
@@ -123,7 +124,7 @@ object WordCountApp {
         rdd.registerTempTable("words")
         val result = sqlctx.sql("select word, count(word) as word_count from words " +
           "group by word order by word_count desc limit 1")
-        result.first()
+        result.first().toString()
       } catch {
         case exception: IOException => {
           throw new Exception("The input path does not have any data frame")
