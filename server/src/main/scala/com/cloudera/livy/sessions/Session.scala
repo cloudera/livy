@@ -53,6 +53,8 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
   // to the session's effective user.
   private var stagingDir: Path = null
 
+  def appId: Option[String]
+
   def lastActivity: Long = state match {
     case SessionState.Error(time) => time
     case SessionState.Dead(time) => time

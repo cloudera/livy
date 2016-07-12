@@ -57,14 +57,15 @@ public final class RSCClientFactory implements LivyClientFactory {
     boolean needsServer = false;
     try {
       Promise<ContextInfo> info;
+      RSCAppListener appListener = new RSCAppListener();
       if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
         info = createContextInfo(uri);
       } else {
         needsServer = true;
         ref(lconf);
-        info = ContextLauncher.create(this, lconf);
+        info = ContextLauncher.create(this, lconf, appListener);
       }
-      return new RSCClient(lconf, info);
+      return new RSCClient(lconf, info, appListener);
     } catch (Exception e) {
       if (needsServer) {
         unref();

@@ -70,8 +70,8 @@ class InteractiveSessionServlet(livyConf: LivyConf)
         Nil
       }
 
-    new SessionInfo(session.id, session.owner, session.proxyUser.orNull, session.state.toString,
-      session.kind.toString, logs.asJava)
+    new SessionInfo(session.id, "", session.owner, session.proxyUser.orNull,
+      session.state.toString, session.kind.toString, logs.asJava)
   }
 
   private def statementView(statement: Statement): Any = {

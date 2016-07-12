@@ -43,7 +43,7 @@
 
   <properties>
     <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
-    <spark.version>1.5.0-cdh5.5.0</spark.version>
+    <spark.version>1.6.1</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
     <httpclient.version>4.5.2</httpclient.version>
     <httpcore.version>4.4.4</httpcore.version>
