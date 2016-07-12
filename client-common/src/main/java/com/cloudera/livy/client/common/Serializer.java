@@ -59,7 +59,9 @@ public class Serializer {
   }
 
   public Object deserialize(ByteBuffer data) {
-    Input kryoIn = new Input(new ByteBufferInputStream(data));
+    byte[] b = new byte[data.remaining()];
+    data.get(b);
+    Input kryoIn = new Input(b);
     return kryos.get().readClassAndObject(kryoIn);
   }
 

@@ -20,6 +20,7 @@ package com.cloudera.livy.client.common;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,6 +35,17 @@ public class TestSerializer {
   public void testSerializer() throws Exception {
     Object decoded = doSerDe(MESSAGE);
     assertEquals(MESSAGE, decoded);
+  }
+
+  @Test
+  public void testUnicodeSerializer() throws Exception {
+    StringBuilder builder = new StringBuilder();
+    for (int x = 0; x < 5000; x++) {
+      builder.append("\u263A");
+    }
+    String testMessage = builder.toString();
+    Object decoded = doSerDe(testMessage);
+    assertEquals(testMessage, decoded);
   }
 
   @Test
