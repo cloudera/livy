@@ -20,7 +20,6 @@ package com.cloudera.livy.client.common;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
