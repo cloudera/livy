@@ -38,7 +38,7 @@ public class TestSerializer {
 
   @Test
   // Scalastyle is treating unicode escape as non ascii characters. Turn off the check.
-  // scalastyle:off non.ascii.character.disallowed  
+  // scalastyle:off non.ascii.character.disallowed
   public void testUnicodeSerializer() throws Exception {
     StringBuilder builder = new StringBuilder();
     for (int x = 0; x < 5000; x++) {
