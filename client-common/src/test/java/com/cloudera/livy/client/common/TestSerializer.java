@@ -37,6 +37,17 @@ public class TestSerializer {
   }
 
   @Test
+  public void testUnicodeSerializer() throws Exception {
+    StringBuilder builder = new StringBuilder();
+    for (int x = 0; x < 5000; x++) {
+      builder.append("\u263A");
+    }
+    String testMessage = builder.toString();
+    Object decoded = doSerDe(testMessage);
+    assertEquals(testMessage, decoded);
+  }
+
+  @Test
   public void testAutoRegistration() throws Exception {
     Object decoded = doSerDe(new TestMessage(MESSAGE), TestMessage.class);
     assertTrue(decoded instanceof TestMessage);

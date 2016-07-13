@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
 
 import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.ByteBufferInputStream;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
 import com.esotericsoftware.shaded.org.objenesis.strategy.StdInstantiatorStrategy;
@@ -59,7 +58,9 @@ public class Serializer {
   }
 
   public Object deserialize(ByteBuffer data) {
-    Input kryoIn = new Input(new ByteBufferInputStream(data));
+    byte[] b = new byte[data.remaining()];
+    data.get(b);
+    Input kryoIn = new Input(b);
     return kryos.get().readClassAndObject(kryoIn);
   }
 

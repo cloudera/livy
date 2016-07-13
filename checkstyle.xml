@@ -54,6 +54,7 @@
       <property name="allowEscapesForControlCharacters" value="true"/>
       <property name="allowByTailComment" value="true"/>
       <property name="allowNonPrintableEscapes" value="true"/>
+      <property name="allowIfAllCharactersEscaped" value="true"/>
     </module>
     <module name="LineLength">
       <property name="max" value="100"/>
