@@ -25,12 +25,26 @@ import com.cloudera.livy.JobHandle
 import com.cloudera.livy.JobHandle.{Listener, State}
 
 /**
- * A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
+ *  A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
  *
- * Wrapper over the java JobHandle of livy
+ *  @constructor Creates a ScalaJobHandle
+ *  @param jobHandle the java JobHandle of livy
  *
- * @constructor Creates a ScalaJobHandle
- * @param jobHandle the java JobHandle of livy
+ *  @define multipleCallbacks
+ *  Multiple callbacks may be registered; there is no guarantee that they will be
+ *  executed in a particular order.
+ *
+ *  @define nonDeterministic
+ *  Note: using this method yields nondeterministic dataflow programs.
+ *
+ *  @define callbackInContext
+ *  The provided callback always runs in the provided implicit
+ *` ExecutionContext`, though there is no guarantee that the
+ *  `execute()` method on the `ExecutionContext` will be called once
+ *  per callback or that `execute()` will be called in the current
+ *  thread. That is, the implementation may run multiple callbacks
+ *  in a batch within a single `execute()` and it may run
+ *  `execute()` either immediately or asynchronously.
  */
 class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T] {
 
@@ -39,7 +53,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
    */
   def state: State = jobHandle.getState()
 
-  /** When the job is completed, either through an exception, or a value,
+  /**
+   *  When the job is completed, either through an exception, or a value,
    *  apply the provided function.
    *
    *  If the job has already been completed,

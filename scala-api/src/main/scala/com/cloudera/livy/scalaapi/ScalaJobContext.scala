@@ -29,11 +29,6 @@ import com.cloudera.livy.JobContext
 /**
  *  Holds runtime information about the job execution context.
  *
- *  An instance of this class is kept on the node hosting a remote Spark context and is made
- *  available to jobs being executed via RemoteSparkContext#submit().
- *
- *  Wrapper over the java JobContext of livy
- *
  *  @constructor Creates a ScalaJobContext
  *  @param context the java JobContext of livy
  */
@@ -42,10 +37,10 @@ class ScalaJobContext private[livy] (context: JobContext) {
   /** The shared SparkContext instance. */
   def sc: SparkContext = context.sc().sc
 
-  /** The shared SQLContext inststance. */
+  /** The shared SQLContext instance. */
   def sqlctx: SQLContext = context.sqlctx()
 
-  /** The shared HiveContext inststance. */
+  /** The shared HiveContext instance. */
   def hivectx: HiveContext = context.hivectx()
 
   /** Returns the StreamingContext which has already been created. */
@@ -54,8 +49,8 @@ class ScalaJobContext private[livy] (context: JobContext) {
   /**
    * Creates the SparkStreaming context.
    *
-   * @param batchDuration Time interval at which streaming data will be divided into batches,
-   *                      in milliseconds.
+   * @param batchDuration  Time interval at which streaming data will be divided into batches,
+   *                       in milliseconds.
    */
   def createStreamingContext(batchDuration: Long): Unit =
     context.createStreamingContext(batchDuration)
@@ -64,9 +59,8 @@ class ScalaJobContext private[livy] (context: JobContext) {
   def stopStreamingContext(): Unit = context.stopStreamingCtx()
 
   /**
-   * Returns a local tmp dir specific to the context
+   * Returns a local tmp dir specific to the context.
    */
   def localTmpDir: File = context.getLocalTmpDir
 
 }
-

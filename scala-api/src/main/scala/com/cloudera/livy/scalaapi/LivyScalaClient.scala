@@ -29,8 +29,8 @@ import com.cloudera.livy._
 
 /**
  * A client for submitting Spark-based jobs to a Livy backend.
- * @constructor Creates a Scala client
- * @param livyJavaClient the java client of livy
+ * @constructor  Creates a Scala client
+ * @param  livyJavaClient  the java client of livy
  */
 class LivyScalaClient(livyJavaClient: LivyClient) {
 
@@ -59,14 +59,13 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
   /**
    * Asks the remote context to run a job immediately.
-   * <p/>
+   *
    * Normally, the remote context will queue jobs and execute them based on how many worker
    * threads have been configured. This method will run the submitted job in the same thread
    * processing the RPC message, so that queueing does not apply.
-   * <p/>
+   *
    * It's recommended that this method only be used to run code that finishes quickly. This
    * avoids interfering with the normal operation of the context.
-   * <p/>
    *
    * @param fn The job to be executed. It is a function that takes in a ScalaJobContext and
    * returns the result of the execution of the job with that context
@@ -88,9 +87,9 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
    *
    * Any pending jobs will be cancelled, and the remote context will be torn down.
    *
-   * @param shutdownContext Whether to shutdown the underlying Spark context. If false, the
-   *                        context will keep running and it's still possible to send commands
-   *                        to it, if the backend being used supports it.
+   * @param  shutdownContext  Whether to shutdown the underlying Spark context. If false, the
+   *                          context will keep running and it's still possible to send commands
+   *                          to it, if the backend being used supports it.
    */
   def stop(shutdownContext: Boolean): Unit = {
     executor.shutdown()
