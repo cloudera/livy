@@ -81,7 +81,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
-  /** When this job is queued, apply the provided function.
+  /**
+   *  When this job is queued, apply the provided function.
    *
    *  $multipleCallbacks
    *  $callbackInContext
@@ -97,7 +98,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
-  /** When this job has started, apply the provided function.
+  /**
+   *  When this job has started, apply the provided function.
    *
    *  $multipleCallbacks
    *  $callbackInContext
@@ -113,7 +115,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
-  /** When this job is cancelled, apply the provided function.
+  /**
+   *  When this job is cancelled, apply the provided function.
    *
    *  $multipleCallbacks
    *  $callbackInContext
@@ -129,7 +132,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     })
   }
 
-  /** Returns whether the job has already been completed with
+  /**
+   *  Returns whether the job has already been completed with
    *  a value or an exception.
    *
    *  $nonDeterministic
@@ -138,7 +142,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
    */
   override def isCompleted: Boolean = jobHandle.isDone
 
-  /** The value of the job
+  /**
+   *  The value of the job
    *
    *  If the job is not completed the returned value will be `None`.
    *  If the job is completed the value will be `Some(Success(t))`
