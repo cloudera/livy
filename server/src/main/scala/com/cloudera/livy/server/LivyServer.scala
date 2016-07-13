@@ -250,12 +250,27 @@ class LivyServer extends Logging {
    */
   private[server] def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
-      val version = sparkSubmitVersion(livyConf)
-      logger.info(f"Using spark-submit version $version")
+      testSparkVersion(sparkSubmitVersion(livyConf))
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
     }
+  }
+
+  /**
+   * Throw an exception if Spark version is not supported.
+   * @param version Spark version
+   */
+  private[server] def testSparkVersion(version: String): Unit = {
+    val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
+    val (minMajor, minMinor) = (1, 6)
+    val supportedVersion = version match {
+      case versionPattern(major, minor) =>
+        major.toInt > minMajor || major.toInt == minMajor && minor.toInt >= minMinor
+      case _ => false
+    }
+    require(supportedVersion,
+      s"Unsupported Spark version $version. Minimum version: $minMajor.$minMinor.")
   }
 
   /**
