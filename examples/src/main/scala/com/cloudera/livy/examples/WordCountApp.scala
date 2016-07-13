@@ -159,9 +159,6 @@ object WordCountApp {
    * arg(1) - Output path to save the text read from the stream
    */
   def main(args: Array[String]) {
-    if (args.length < 2) {
-      throw new IllegalArgumentException("Number of args is less")
-    }
     val Array(uri, outputPath) = args
     try {
       init(uri)
