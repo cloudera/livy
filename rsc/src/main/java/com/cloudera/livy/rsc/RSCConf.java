@@ -69,7 +69,9 @@ public class RSCConf extends ClientConf<RSCConf> {
     RPC_SECRET_RANDOM_BITS("secret.bits", 256),
 
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
-    SASL_QOP("rpc.sasl.qop", null);
+    SASL_QOP("rpc.sasl.qop", null),
+
+    KINIT_CACHE_FILE("kinit.cache_file", null);
 
     private final String key;
     private final Object dflt;

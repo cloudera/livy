@@ -143,6 +143,11 @@ class InteractiveSession(
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
       .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
       .setURI(new URI("rsc:/"))
+
+    if (livyConf.get(RSCConf.Entry.KINIT_CACHE_FILE) != null) {
+      builder.setConf(RSCConf.Entry.KINIT_CACHE_FILE.key(),
+        livyConf.get(RSCConf.Entry.KINIT_CACHE_FILE))
+    }
     builder.build()
   }.asInstanceOf[RSCClient]
 
