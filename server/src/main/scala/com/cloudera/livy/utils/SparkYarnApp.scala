@@ -50,7 +50,7 @@ object SparkYarnApp extends Logging {
     Executors.newCachedThreadPool(new NonDaemonThreadFactory()))
 
   // It takes at least 5 seconds to see the newly submitted app.
-  private val APP_TAG_TO_ID_TIMEOUT = 10 seconds
+  private val APP_TAG_TO_ID_TIMEOUT = 30 seconds
   private val KILL_TIMEOUT = APP_TAG_TO_ID_TIMEOUT
   private val POLL_INTERVAL = 1 second
 
