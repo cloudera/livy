@@ -93,7 +93,7 @@ object SparkYarnApp extends Logging {
           if (deadline.isOverdue) {
             Failure(new Exception(s"No YARN application is tagged with $appTagLowerCase."))
           } else {
-            blocking { Thread.sleep(POLL_INTERVAL.toMillis) }
+            blocking { Clock.sleep(POLL_INTERVAL.toMillis) }
             getAppIdFromTag(appTagLowerCase, deadline)
           }
       }
@@ -110,12 +110,12 @@ object SparkYarnApp extends Logging {
 class SparkYarnApp (
     appIdFuture: Future[ApplicationId],
     process: Option[LineBufferedProcess],
-    listener: Option[SparkAppListener])
+    listener: Option[SparkAppListener],
+    yarnClient: => YarnClient = SparkYarnApp.getYarnClient()) // For unit test.
   extends SparkApp
   with Logging {
   import SparkYarnApp.ec
 
-  private lazy val yarnClient = SparkYarnApp.getYarnClient()
   private var state: SparkApp.State = SparkApp.State.STARTING
   private var yarnDiagnostics: IndexedSeq[String] = IndexedSeq.empty[String]
 
@@ -158,20 +158,24 @@ class SparkYarnApp (
     state != SparkApp.State.KILLED
   }
 
-  private def mapYarnState(applicationReport: ApplicationReport): SparkApp.State.Value = {
-      applicationReport.getYarnApplicationState match {
+  // Exposed for unit test.
+  private[utils] def mapYarnState(
+      appId: ApplicationId,
+      yarnAppState: YarnApplicationState,
+      finalAppStatus: FinalApplicationStatus): SparkApp.State.Value = {
+    yarnAppState match {
       case (YarnApplicationState.NEW |
             YarnApplicationState.NEW_SAVING |
             YarnApplicationState.SUBMITTED |
             YarnApplicationState.ACCEPTED) => SparkApp.State.STARTING
       case YarnApplicationState.RUNNING => SparkApp.State.RUNNING
       case YarnApplicationState.FINISHED =>
-        applicationReport.getFinalApplicationStatus match {
+        finalAppStatus match {
           case FinalApplicationStatus.SUCCEEDED => SparkApp.State.FINISHED
           case FinalApplicationStatus.FAILED => SparkApp.State.FAILED
           case FinalApplicationStatus.KILLED => SparkApp.State.KILLED
           case s =>
-            error(s"Unknown YARN final status ${applicationReport.getApplicationId} $s")
+            error(s"Unknown YARN final status $appId $s")
             SparkApp.State.FAILED
         }
       case YarnApplicationState.FAILED => SparkApp.State.FAILED
@@ -179,9 +183,10 @@ class SparkYarnApp (
     }
   }
 
+  // Exposed for unit test.
   // TODO Instead of spawning a thread for every session, create a centralized thread and
   // batch YARN queries.
-  private val yarnAppMonitorThread = new Thread(s"yarnAppMonitorThread-$this") {
+  private[utils] val yarnAppMonitorThread = new Thread(s"yarnAppMonitorThread-$this") {
     override def run() = {
       @tailrec
       def waitForAppId(): ApplicationId = {
@@ -206,12 +211,15 @@ class SparkYarnApp (
         listener foreach (_.appIdKnown(appId.toString))
 
         while (isRunning) {
-          Thread.sleep(SparkYarnApp.POLL_INTERVAL.toMillis)
+          Clock.sleep(SparkYarnApp.POLL_INTERVAL.toMillis)
 
           // Refresh application state
           val appReport = yarnClient.getApplicationReport(appId)
           yarnDiagnostics = getYarnDiagnostics(appReport)
-          changeState(mapYarnState(appReport))
+          changeState(mapYarnState(
+            appReport.getApplicationId,
+            appReport.getYarnApplicationState,
+            appReport.getFinalApplicationStatus))
         }
 
         debug(s"$appId $state ${yarnDiagnostics.mkString(" ")}")
