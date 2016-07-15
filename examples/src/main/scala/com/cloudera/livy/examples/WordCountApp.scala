@@ -78,11 +78,11 @@ object WordCountApp {
 
   /**
    * Submits a spark streaming job to the livy server
-   * <p/>
+   *
    * The streaming job reads data from the given host and port. The data read
-   * is saved in json format as data frames in the given output path. For simplicity,
-   * the number of streaming batches are 2 with each batch for 20 seconds. The Timeout
-   * of the streaming job is set to 40 seconds
+   * is saved in json format as data frames in the given output path file. If the file is present
+   * it appends to it, else creates a new file. For simplicity, the number of streaming batches
+   * are 2 with each batch for 20 seconds. The Timeout of the streaming job is set to 40 seconds
    * @param host Hostname that Spark Streaming context has to connect for receiving data
    * @param port Port that Spark Streaming context has to connect for receiving data
    * @param outputPath Output path to save the processed data read by the Spark Streaming context
@@ -111,7 +111,7 @@ object WordCountApp {
 
   /**
    * Submits a spark sql job to the livy server
-   * <p/>
+   *
    * The sql context job reads data frames from the given json path and executes
    * a sql query to get the word with max count on the temp table created with data frames
    * @param inputPath Input path to the json data containing the words
@@ -146,28 +146,91 @@ object WordCountApp {
   }
 
   /**
-   * Main method of the WordCount App
-   * STEPS FOR EXECUTION
-   * 1) 'livy.file.local-dir-whitelist' config has to be set in livy.conf file for the jars to be
-   * added to the session
-   *
-   * 2) Libraries to be added to classpath - livy-api-version-SNAPSHOT.jar,
-   * livy-scala-api-version-SNAPSHOT.jar, livy-client-http-version-SNAPSHOT.jar
+   * Main method of the WordCount App. This method does the following
+   * - Validate the arguments
+   * - Initializes the scala client of livy
+   * - Uploads the required livy and app code jar files to the spark cluster needed during runtime
+   * - Executes the streaming job that reads text-data from socket stream, tokenizes and saves
+   *   them as dataframes in JSON format in the given output path
+   * - Executes the sql-context job which reads the data frames from the given output path and
+   * and returns the word with max count
    *
    * @param args
+   *
+   * REQUIRED ARGUMENTS
    * arg(0) - Livy server url
    * arg(1) - Output path to save the text read from the stream
+   *
+   * OPTIONAL ARGUMENTS(Default values: arg(2) = 'localhost', arg(3) = 8086)
+   * arg(2) - Socket stream host that spark streaming will listen to
+   * arg(3) - Socket stream port that spark streaming will listen to
+   * Optional arguments need to be passed in a key=value way
+   * Example:
+   * host=examplehost where "host" is the required key for arg(2)
+   * port=8080 where "port" is the required key for arg(3)
+   *
+   * STEPS FOR EXECUTION - To get accurate results for one execution:
+   * 1) Delete if the file already exists in the given outputFilePath
+   *
+   * 2) Spark streaming will listen to the given or defaulted host and port. So textdata needs to be
+   *    passed as socket stream during the run-time of the App. The streaming context reads 2
+   *    batches of data with an interval of 20 seconds for each batch. All the data has to be
+   *    fed before the streaming context completes the second batch. NOTE - Inorder to get accurate
+   *    results for one execution, pass the textdata before the execution of the app so that all the
+   *    data is read by the socket stream
+   *    To pass data to localhost and port 8086 provide the following command
+   *    nc -kl 8086
+   *
+   * 3) The text can be provided as paragraphs as the app will tokenize the data and filter spaces
+   *
+   * 4) Execute the application jar file with the required and optional arguments either using
+   * mvn or scala.
+   *
+   * Example execution:
+   * scala -cp /pathTo/livy-api-*version*-SNAPSHOT.jar:/pathTo/livy-client-http-*version*
+   * -SNAPSHOT.jar:/pathTo/livy-examples-*version*-SNAPSHOT.jar:/pathTo/livy-scala-api-*version*
+   * -SNAPSHOT.jar com.cloudera.livy.examples.WordCountApp http://livy-host:8998 /outputFilePath
+   * host=myhost port=8080
    */
   def main(args: Array[String]) {
-    val Array(uri, outputPath) = args
+
+    var socketStreamHost: String = "localhost"
+    var socketStreamPort: Int = 8086
+    var url = ""
+    var outputFilePath = ""
+    def parseOptionalArg(arg: String): Unit = {
+      val Array(argKey, argValue) = arg.split("=")
+      if (argKey == "host") {
+        socketStreamHost = argValue
+      } else if (argKey == "port") {
+        socketStreamPort = argValue.toInt
+      }
+    }
+    def parseRequiredArgs(requiredArgs: Array[String]): Unit = {
+      url = requiredArgs(0)
+      outputFilePath = requiredArgs(1)
+    }
+    args.length match {
+      case 2 =>
+        parseRequiredArgs(args)
+      case 3 =>
+        parseRequiredArgs(args.slice(0, 2))
+        parseOptionalArg(args(2))
+      case 4 =>
+        parseRequiredArgs(args.slice(0, 2))
+        args.slice(2, 4).foreach(parseOptionalArg)
+      case _ =>
+        throw new IllegalArgumentException("Check the docs to provide required and optional " +
+          "arguments")
+    }
     try {
-      init(uri)
+      init(url)
       uploadRelevantJarsForJobExecution()
       println("Calling processStreamingWordCount")
-      val handle1 = processStreamingWordCount("localhost", 8086, outputPath)
+      val handle1 = processStreamingWordCount("localhost", 8086, outputFilePath)
       Await.result(handle1, 120 second)
       println("Calling getWordWithMostCount")
-      val handle = getWordWithMostCount(outputPath)
+      val handle = getWordWithMostCount(outputFilePath)
       println("Word with max count::" + Await.result(handle, 40 second))
     } finally {
       stopClient(true)

@@ -44,13 +44,19 @@
             <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-api</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>com.cloudera.livy</groupId>
             <artifactId>livy-scala-api</artifactId>
             <version>${project.version}</version>
-            <scope>provided</scope>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-client-http</artifactId>
+            <version>${project.version}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
