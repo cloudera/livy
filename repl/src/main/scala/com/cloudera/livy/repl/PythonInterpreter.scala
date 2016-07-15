@@ -38,13 +38,14 @@ import com.cloudera.livy.sessions._
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
+  var gatewayServer: GatewayServer = null
   def apply(conf: SparkConf, kind: Kind): Interpreter = {
     val pythonExec = kind match {
         case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
         case PySpark() => sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
     }
 
-    val gatewayServer = new GatewayServer(null, 0)
+    gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
 
     val builder = new ProcessBuilder(Seq(pythonExec, createFakeShell().toString).asJava)
@@ -66,6 +67,10 @@ object PythonInterpreter extends Logging {
     val process = builder.start()
 
     new PythonInterpreter(process, gatewayServer, kind.toString)
+  }
+
+  def getGatewayServer(): GatewayServer = {
+    return gatewayServer
   }
 
   private def findPySparkArchives(): Seq[String] = {

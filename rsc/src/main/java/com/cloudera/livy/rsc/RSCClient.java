@@ -250,8 +250,8 @@ public class RSCClient implements LivyClient {
     return submit(new AddFileJob(uri.toString()));
   }
 
-  public String bypass(ByteBuffer serializedJob, boolean sync) {
-    return protocol.bypass(serializedJob, sync);
+  public String bypass(ByteBuffer serializedJob, boolean sync, String kind) {
+    return protocol.bypass(serializedJob, sync, kind);
   }
 
   public Future<BypassJobStatus> getBypassJobStatus(String id) {
@@ -325,9 +325,9 @@ public class RSCClient implements LivyClient {
       return (Future<T>) deferredCall(new SyncJobRequest(job), Object.class);
     }
 
-    String bypass(ByteBuffer serializedJob, boolean sync) {
+    String bypass(ByteBuffer serializedJob, boolean sync, String kind) {
       String jobId = UUID.randomUUID().toString();
-      Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob), sync);
+      Object msg = new BypassJobRequest(jobId, BufferUtils.toByteArray(serializedJob), sync, kind);
       deferredCall(msg, Void.class);
       return jobId;
     }

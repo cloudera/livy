@@ -51,7 +51,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-
+    setGatewayServer(PythonInterpreter.getGatewayServer())
     session = new Session(interpreter)
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))

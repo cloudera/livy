@@ -26,6 +26,13 @@ import traceback
 import base64
 import os
 import re
+import cloudpickle
+import threading
+import tempfile
+import shutil
+from pyspark import SQLContext
+from pyspark import HiveContext
+from pyspark.streaming import StreamingContext
 
 if sys.version >= '3':
     unicode = str
@@ -37,6 +44,8 @@ logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
 
 global_dict = {}
+job_context = None
+local_temp_dir = None
 
 TOP_FRAME_REGEX = re.compile(r'\s*File "<stdin>".*in <module>')
 
@@ -81,6 +90,74 @@ def execute_reply_internal_error(message, exc_info=None):
         'evalue': message,
         'traceback': [],
     })
+
+
+class JobContextImpl(object):
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.sc = global_dict['sc']
+        self.sql_ctx = None
+        self.hive_ctx = None
+        self.streaming_ctx = None
+        self.local_tmp_dir = None
+
+    def sc(self):
+        return self.sc
+
+    def sql_ctx(self):
+        if self.sql_ctx is None:
+            with self.lock:
+                if self.sql_ctx is None:
+                    self.sql_ctx = SQLContext(self.sc)
+        return self.sql_ctx
+
+    def hive_ctx(self):
+        if self.hive_ctx is None:
+            with self.lock:
+                if self.hive_ctx is None:
+                    self.hive_ctx = HiveContext(self.sc)
+        return self.hive_ctx
+
+    def create_streaming_ctx(self, batch_duration):
+        with self.lock:
+            if self.streaming_ctx is not None:
+                raise ValueError("Streaming context already exists")
+            self.streaming_ctx = StreamingContext(self.sc, batch_duration)
+
+    def streaming_ctx(self):
+        with self.lock:
+            if self.streaming_ctx is None:
+                raise ValueError("create_streaming_ctx function should be called first")
+            return self.streaming_ctx
+
+    def stop_streaming_ctx(self):
+        with self.lock:
+            if self.streaming_ctx is None:
+                raise ValueError("Cannot stop streaming context. Streaming context is None")
+            self.streaming_ctx.stop()
+            self.streaming_ctx = None
+
+    def get_local_temp_dir(self):
+        return local_temp_dir
+
+    def stop(self):
+        with self.lock:
+            if self.streaming_ctx is not None:
+                self.streaming_ctx.stop()
+            if self.sc is not None:
+                self.sc.stop()
+
+
+class BypassPySparkJobProcessorImpl(object):
+    def process(self, serialized_job):
+        deserialized_job = cloudpickle.loads(serialized_job)
+        response = deserialized_job(job_context)
+        serialized_result = cloudpickle.dumps(response)
+        base64_serialized_result = base64.b64encode(serialized_result)
+        return base64_serialized_result
+
+    class Java:
+        implements = ['com.cloudera.livy.rsc.driver.BypassPySparkJobProcessor']
 
 
 class ExecutionError(Exception):
@@ -417,6 +494,13 @@ def main():
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
+    from py4j.protocol import ENTRY_POINT_OBJECT_ID
+    from py4j.java_gateway import JavaGateway, GatewayClient
+    gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get("PYSPARK_GATEWAY_PORT")),
+                      start_callback_server=True)
+    bypass_job_processor = BypassPySparkJobProcessorImpl()
+    gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = bypass_job_processor
+
     if sys.version >= '3':
         sys.stdin = io.StringIO()
     else:
@@ -438,6 +522,10 @@ def main():
 
         print('READY', file=sys_stdout)
         sys_stdout.flush()
+
+        global  local_temp_dir, job_context
+        local_temp_dir = tempfile.mkdtemp("rsc-tmp")
+        job_context = JobContextImpl()
 
         while True:
             line = sys_stdin.readline()
@@ -493,6 +581,8 @@ def main():
             print(response, file=sys_stdout)
             sys_stdout.flush()
     finally:
+        gateway.shutdown_callback_server()
+        shutil.rmtree(local_temp_dir)
         if os.environ.get("LIVY_TEST") != "true" and 'sc' in global_dict:
             global_dict['sc'].stop()
 

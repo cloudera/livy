@@ -56,6 +56,8 @@ import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 import com.cloudera.livy.rsc.rpc.RpcServer;
+import py4j.GatewayServer;
+
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 /**
@@ -85,6 +87,7 @@ public class RSCDriver extends BaseProtocol {
 
   protected final SparkConf conf;
   protected final RSCConf livyConf;
+  protected GatewayServer gatewayServer;
 
   private final AtomicReference<ScheduledFuture<?>> idleTimeout;
 
@@ -377,7 +380,7 @@ public class RSCDriver extends BaseProtocol {
 
   public void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    BypassJobWrapper wrapper = new BypassJobWrapper(this, msg.id, msg.serializedJob);
+    BypassJobWrapper wrapper = initiateWrapperBasedOnKind(ctx, msg);
     bypassJobs.add(wrapper);
     activeJobs.put(msg.id, wrapper);
     if (msg.synchronous) {
@@ -391,6 +394,22 @@ public class RSCDriver extends BaseProtocol {
     } else {
       submit(wrapper);
     }
+  }
+
+  public BypassJobWrapper initiateWrapperBasedOnKind(ChannelHandlerContext ctx,
+                                      BypassJobRequest msg) throws Exception {
+    BypassJobWrapper jobWrapper = null;
+    if (msg.kind.equals("spark")) {
+      jobWrapper = new BypassJobWrapper(this, msg.id,
+              new BypassJob(this.serializer(), msg.serializedJob));
+    } else if (msg.kind.equals("pyspark")) {
+      jobWrapper = new BypassJobWrapper(this, msg.id,
+              new BypassPySparkJob(msg.serializedJob, this.getGatewayServer()));
+    } else {
+      // should not happen
+      throw new Exception("Invalid Kind of Job for the BypassRequest");
+    }
+    return jobWrapper;
   }
 
   @SuppressWarnings("unchecked")
@@ -432,5 +451,12 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
+  public void setGatewayServer(GatewayServer gatewayServer) {
+    this.gatewayServer = gatewayServer;
+  }
+
+  public GatewayServer getGatewayServer() {
+    return gatewayServer;
+  }
 }
 
