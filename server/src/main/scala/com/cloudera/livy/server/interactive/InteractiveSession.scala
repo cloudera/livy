@@ -380,7 +380,7 @@ class InteractiveSession(
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {
     ensureRunning()
     recordActivity()
-    val future = client.bypass(ByteBuffer.wrap(job), sync, kind.toString)
+    val future = client.bypass(ByteBuffer.wrap(job), sync)
     val opId = operationCounter.incrementAndGet()
     operations(opId) = future
     opId

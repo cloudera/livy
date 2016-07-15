@@ -380,7 +380,7 @@ public class RSCDriver extends BaseProtocol {
 
   public void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    BypassJobWrapper wrapper = initiateWrapperBasedOnKind(ctx, msg);
+    BypassJobWrapper wrapper = initiateWrapperBasedOnKind(msg);
     bypassJobs.add(wrapper);
     activeJobs.put(msg.id, wrapper);
     if (msg.synchronous) {
@@ -396,13 +396,13 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
-  public BypassJobWrapper initiateWrapperBasedOnKind(ChannelHandlerContext ctx,
-                                      BypassJobRequest msg) throws Exception {
+  public BypassJobWrapper initiateWrapperBasedOnKind(BypassJobRequest msg) throws Exception {
     BypassJobWrapper jobWrapper = null;
-    if (msg.kind.equals("spark")) {
+    String kind = livyConf.get(RSCConf.Entry.SESSION_KIND);
+    if (kind.equals("spark")) {
       jobWrapper = new BypassJobWrapper(this, msg.id,
               new BypassJob(this.serializer(), msg.serializedJob));
-    } else if (msg.kind.equals("pyspark")) {
+    } else if (kind.equals("pyspark")) {
       jobWrapper = new BypassJobWrapper(this, msg.id,
               new BypassPySparkJob(msg.serializedJob, this.getGatewayServer()));
     } else {
