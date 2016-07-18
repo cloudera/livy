@@ -14,9 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.cloudera.livy.rsc.driver;
+package com.cloudera.livy.repl;
 
-public interface BypassPySparkJobProcessor {
+import com.cloudera.livy.Job;
+import com.cloudera.livy.rsc.driver.BypassJobWrapper;
+import com.cloudera.livy.rsc.driver.RSCDriver;
 
-    String process(byte[] job);
+class BypassPySparkJobWrapper extends BypassJobWrapper {
+
+    BypassPySparkJobWrapper(RSCDriver driver, String jobId, Job<byte[]> serializedJob) {
+        super(driver, jobId, serializedJob);
+    }
 }

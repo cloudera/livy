@@ -87,7 +87,6 @@ public class RSCDriver extends BaseProtocol {
 
   protected final SparkConf conf;
   protected final RSCConf livyConf;
-  protected GatewayServer gatewayServer;
 
   private final AtomicReference<ScheduledFuture<?>> idleTimeout;
 
@@ -380,7 +379,7 @@ public class RSCDriver extends BaseProtocol {
 
   public void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    BypassJobWrapper wrapper = initiateWrapperBasedOnKind(msg);
+    BypassJobWrapper wrapper = createWrapper(msg);
     bypassJobs.add(wrapper);
     activeJobs.put(msg.id, wrapper);
     if (msg.synchronous) {
@@ -396,20 +395,9 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
-  public BypassJobWrapper initiateWrapperBasedOnKind(BypassJobRequest msg) throws Exception {
-    BypassJobWrapper jobWrapper = null;
-    String kind = livyConf.get(RSCConf.Entry.SESSION_KIND);
-    if (kind.equals("spark")) {
-      jobWrapper = new BypassJobWrapper(this, msg.id,
+  public BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
+      return new BypassJobWrapper(this, msg.id,
               new BypassJob(this.serializer(), msg.serializedJob));
-    } else if (kind.equals("pyspark")) {
-      jobWrapper = new BypassJobWrapper(this, msg.id,
-              new BypassPySparkJob(msg.serializedJob, this.getGatewayServer()));
-    } else {
-      // should not happen
-      throw new Exception("Invalid Kind of Job for the BypassRequest");
-    }
-    return jobWrapper;
   }
 
   @SuppressWarnings("unchecked")
@@ -449,14 +437,6 @@ public class RSCDriver extends BaseProtocol {
         }
       }
     }
-  }
-
-  public void setGatewayServer(GatewayServer gatewayServer) {
-    this.gatewayServer = gatewayServer;
-  }
-
-  public GatewayServer getGatewayServer() {
-    return gatewayServer;
   }
 }
 

@@ -96,7 +96,7 @@ class JobContextImpl(object):
     def __init__(self):
         self.lock = threading.Lock()
         self.sc = global_dict['sc']
-        self.sql_ctx = None
+        self.sql_ctx = global_dict['sqlContext']
         self.hive_ctx = None
         self.streaming_ctx = None
         self.local_tmp_dir = None
@@ -105,10 +105,6 @@ class JobContextImpl(object):
         return self.sc
 
     def sql_ctx(self):
-        if self.sql_ctx is None:
-            with self.lock:
-                if self.sql_ctx is None:
-                    self.sql_ctx = SQLContext(self.sc)
         return self.sql_ctx
 
     def hive_ctx(self):
@@ -128,7 +124,7 @@ class JobContextImpl(object):
         with self.lock:
             if self.streaming_ctx is None:
                 raise ValueError("create_streaming_ctx function should be called first")
-            return self.streaming_ctx
+        return self.streaming_ctx
 
     def stop_streaming_ctx(self):
         with self.lock:
@@ -143,7 +139,7 @@ class JobContextImpl(object):
     def stop(self):
         with self.lock:
             if self.streaming_ctx is not None:
-                self.streaming_ctx.stop()
+                self.stop_streaming_ctx()
             if self.sc is not None:
                 self.sc.stop()
 
@@ -157,7 +153,7 @@ class BypassPySparkJobProcessorImpl(object):
         return base64_serialized_result
 
     class Java:
-        implements = ['com.cloudera.livy.rsc.driver.BypassPySparkJobProcessor']
+        implements = ['com.cloudera.livy.repl.BypassPySparkJobProcessor']
 
 
 class ExecutionError(Exception):
@@ -496,8 +492,8 @@ def main():
 
     from py4j.protocol import ENTRY_POINT_OBJECT_ID
     from py4j.java_gateway import JavaGateway, GatewayClient
-    gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get("PYSPARK_GATEWAY_PORT")),
-                      start_callback_server=True)
+    gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(
+        "PYSPARK_GATEWAY_PORT")), start_callback_server=True)
     bypass_job_processor = BypassPySparkJobProcessorImpl()
     gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = bypass_job_processor
 
@@ -523,7 +519,7 @@ def main():
         print('READY', file=sys_stdout)
         sys_stdout.flush()
 
-        global  local_temp_dir, job_context
+        global local_temp_dir, job_context
         local_temp_dir = tempfile.mkdtemp("rsc-tmp")
         job_context = JobContextImpl()
 

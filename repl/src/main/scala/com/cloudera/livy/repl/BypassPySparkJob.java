@@ -14,26 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.cloudera.livy.rsc.driver;
+package com.cloudera.livy.repl;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
-import java.net.InetAddress;
 import java.nio.charset.Charset;
-
-import org.apache.spark.SparkConf;
-import org.apache.spark.SparkContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import py4j.Gateway;
 import py4j.GatewayServer;
 import py4j.Protocol;
+import py4j.Py4JException;
+import py4j.reflection.PythonProxyHandler;
 
 import com.cloudera.livy.Job;
 import com.cloudera.livy.JobContext;
-import py4j.Py4JException;
-import py4j.reflection.PythonProxyHandler;
 
 public class BypassPySparkJob implements Job<byte[]> {
 
@@ -53,7 +47,7 @@ public class BypassPySparkJob implements Job<byte[]> {
         f.setAccessible(true);
         gateway = (Gateway) f.get(gatewayServer);
         String fakeCommandPart = "f" + Protocol.ENTRY_POINT_OBJECT_ID + ";" +
-                "com.cloudera.livy.rsc.driver.BypassPySparkJobProcessor";
+                "com.cloudera.livy.repl.BypassPySparkJobProcessor";
         BypassPySparkJobProcessor processor =
                 (BypassPySparkJobProcessor)getPythonProxy(fakeCommandPart, gateway);
         String value = processor.process(serializedJob);

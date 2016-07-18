@@ -17,7 +17,6 @@
 
 package com.cloudera.livy.rsc.driver;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import com.cloudera.livy.Job;
@@ -25,15 +24,15 @@ import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.rsc.BypassJobStatus;
 import com.cloudera.livy.rsc.Utils;
 
-class BypassJobWrapper extends JobWrapper<byte[]> {
+public class BypassJobWrapper extends JobWrapper<byte[]> {
 
   private volatile byte[] result;
   private volatile Throwable error;
   private volatile JobHandle.State state;
   private volatile List<Integer> newSparkJobs;
 
-  BypassJobWrapper(RSCDriver driver, String jobId, Job<byte[]> job) {
-    super(driver, jobId, job);
+  protected BypassJobWrapper(RSCDriver driver, String jobId, Job<byte[]> serializedJob) {
+    super(driver, jobId, serializedJob);
     state = JobHandle.State.QUEUED;
   }
 

@@ -23,16 +23,14 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success}
-
 import io.netty.channel.ChannelHandlerContext
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
-
 import com.cloudera.livy.{JobContext, Logging}
 import com.cloudera.livy.rsc.{BaseProtocol, RSCConf}
-import com.cloudera.livy.rsc.driver.RSCDriver
+import com.cloudera.livy.rsc.driver.{BypassJobWrapper, RSCDriver}
 import com.cloudera.livy.rsc.rpc.Rpc
 import com.cloudera.livy.sessions._
 
@@ -51,7 +49,6 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-    setGatewayServer(PythonInterpreter.getGatewayServer())
     session = new Session(interpreter)
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
@@ -83,4 +80,8 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     return session.state.toString
   }
 
+  override def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
+    new BypassPySparkJobWrapper(this, msg.id,
+      new BypassPySparkJob(msg.serializedJob, PythonInterpreter.getGatewayServer()))
+  }
 }
