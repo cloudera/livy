@@ -42,8 +42,10 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   private[repl] var session: Session = _
 
+  private val kind = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND))
+
   override protected def initializeContext(): JavaSparkContext = {
-    val interpreter = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND)) match {
+    val interpreter = kind match {
       case PySpark() => PythonInterpreter(conf, PySpark())
       case PySpark3() => PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
@@ -81,7 +83,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    new BypassPySparkJobWrapper(this, msg.id,
-      new BypassPySparkJob(msg.serializedJob, PythonInterpreter.getGatewayServer()))
+    kind match {
+      case Spark() => super.createWrapper(msg)
+      case PySpark() => {
+        new BypassPySparkJobWrapper(this, msg.id,
+          new BypassPySparkJob(msg.serializedJob, PythonInterpreter.getGatewayServer()))
+      }
+    }
   }
 }
