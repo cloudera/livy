@@ -16,7 +16,13 @@
  */
 package com.cloudera.livy.repl;
 
-public interface BypassPySparkJobProcessor {
+public interface PySparkJobProcessor {
 
-    String process(byte[] job);
+    String processByPassJob(byte[] job);
+
+    void addFile(String path);
+
+    void addPyFile(String path);
+
+    String getLocalTmpDirPath();
 }

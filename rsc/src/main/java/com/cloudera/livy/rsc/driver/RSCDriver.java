@@ -372,7 +372,7 @@ public class RSCDriver extends BaseProtocol {
 
   public void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {
     LOG.info("Received job request {}", msg.id);
-    JobWrapper<?> wrapper = new JobWrapper<>(this, msg.id, msg.job);
+    JobWrapper<?> wrapper = createWrapper(msg);
     activeJobs.put(msg.id, wrapper);
     submit(wrapper);
   }
@@ -398,6 +398,10 @@ public class RSCDriver extends BaseProtocol {
   public BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
       return new BypassJobWrapper(this, msg.id,
               new BypassJob(this.serializer(), msg.serializedJob));
+  }
+
+  public JobWrapper createWrapper(JobRequest<?> msg) {
+    return new JobWrapper<>(this, msg.id, msg.job);
   }
 
   @SuppressWarnings("unchecked")

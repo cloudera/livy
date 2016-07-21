@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import io.netty.channel.ChannelHandlerContext;
@@ -39,11 +38,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cloudera.livy.Job;
-import com.cloudera.livy.JobContext;
 import com.cloudera.livy.JobHandle;
 import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.client.common.BufferUtils;
-import com.cloudera.livy.rsc.Utils;
+import com.cloudera.livy.rsc.driver.AddFileJob;
 import com.cloudera.livy.rsc.driver.AddJarJob;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
@@ -372,27 +370,5 @@ public class RSCClient implements LivyClient {
         LOG.warn("Received event for unknown job {}", msg.id);
       }
     }
-
   }
-
-  private static class AddFileJob implements Job<Object> {
-
-    private final String path;
-
-    AddFileJob() {
-      this(null);
-    }
-
-    AddFileJob(String path) {
-      this.path = path;
-    }
-
-    @Override
-    public Object call(JobContext jc) throws Exception {
-      jc.sc().addFile(path);
-      return null;
-    }
-
-  }
-
 }

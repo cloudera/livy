@@ -22,14 +22,14 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
+import com.cloudera.livy.client.common.HttpMessages
+
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
-
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
 import org.scalatra.servlet.FileUploadSupport
-
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
@@ -182,6 +182,17 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     }
   }
 
+  post("/:id/upload-pyfile") {
+    withSession { lsession =>
+      fileParams.get("file") match {
+        case Some(file) =>
+          lsession.addJar(file.getInputStream, file.name)
+        case None =>
+          BadRequest("No pyfile uploaded!")
+      }
+    }
+  }
+
   post("/:id/upload-file") {
     withSession { lsession =>
       fileParams.get("file") match {
@@ -194,10 +205,11 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   }
 
   jpost[AddResource]("/:id/add-jar") { req =>
-    withSession { lsession =>
-      val uri = new URI(req.uri)
-      lsession.addJar(uri)
-    }
+    addJarOrPyFile(req)
+  }
+
+  jpost[AddResource]("/:id/add-pyfile") { req =>
+    addJarOrPyFile(req)
   }
 
   jpost[AddResource]("/:id/add-file") { req =>
@@ -218,6 +230,13 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     withSession { lsession =>
       val jobId = params("jobid").toLong
       lsession.cancelJob(jobId)
+    }
+  }
+
+  def addJarOrPyFile(req: HttpMessages.AddResource): Any = {
+    withSession { lsession =>
+      val uri = new URI(req.uri)
+      lsession.addJar(uri)
     }
   }
 

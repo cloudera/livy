@@ -30,7 +30,6 @@ import cloudpickle
 import threading
 import tempfile
 import shutil
-from pyspark import SQLContext
 from pyspark import HiveContext
 from pyspark.streaming import StreamingContext
 
@@ -45,7 +44,7 @@ LOG = logging.getLogger('fake_shell')
 
 global_dict = {}
 job_context = None
-local_temp_dir = None
+local_tmp_dir_path = None
 
 TOP_FRAME_REGEX = re.compile(r'\s*File "<stdin>".*in <module>')
 
@@ -99,7 +98,7 @@ class JobContextImpl(object):
         self.sql_ctx = global_dict['sqlContext']
         self.hive_ctx = None
         self.streaming_ctx = None
-        self.local_tmp_dir = None
+        self.local_tmp_dir_path = local_tmp_dir_path
 
     def sc(self):
         return self.sc
@@ -133,8 +132,8 @@ class JobContextImpl(object):
             self.streaming_ctx.stop()
             self.streaming_ctx = None
 
-    def get_local_temp_dir(self):
-        return local_temp_dir
+    def get_local_tmp_dir_path(self):
+        return self.local_tmp_dir_path
 
     def stop(self):
         with self.lock:
@@ -144,16 +143,25 @@ class JobContextImpl(object):
                 self.sc.stop()
 
 
-class BypassPySparkJobProcessorImpl(object):
-    def process(self, serialized_job):
+class PySparkJobProcessorImpl(object):
+    def processByPassJob(self, serialized_job):
         deserialized_job = cloudpickle.loads(serialized_job)
         response = deserialized_job(job_context)
         serialized_result = cloudpickle.dumps(response)
         base64_serialized_result = base64.b64encode(serialized_result)
         return base64_serialized_result
 
+    def addFile(self, uri_path):
+        job_context.sc.addFile(uri_path)
+
+    def addPyFile(self, uri_path):
+        job_context.sc.addPyFile(uri_path)
+
+    def getLocalTmpDirPath(self):
+        return os.path.join(job_context.get_local_tmp_dir_path(), '__livy__')
+
     class Java:
-        implements = ['com.cloudera.livy.repl.BypassPySparkJobProcessor']
+        implements = ['com.cloudera.livy.repl.PySparkJobProcessor']
 
 
 class ExecutionError(Exception):
@@ -494,8 +502,8 @@ def main():
     from py4j.java_gateway import JavaGateway, GatewayClient
     gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(
         "PYSPARK_GATEWAY_PORT")), start_callback_server=True)
-    bypass_job_processor = BypassPySparkJobProcessorImpl()
-    gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = bypass_job_processor
+    pyspark_job_processor = PySparkJobProcessorImpl()
+    gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
 
     if sys.version >= '3':
         sys.stdin = io.StringIO()
@@ -519,8 +527,8 @@ def main():
         print('READY', file=sys_stdout)
         sys_stdout.flush()
 
-        global local_temp_dir, job_context
-        local_temp_dir = tempfile.mkdtemp("rsc-tmp")
+        global local_tmp_dir_path, job_context
+        local_tmp_dir_path = tempfile.mkdtemp()
         job_context = JobContextImpl()
 
         while True:
@@ -578,7 +586,7 @@ def main():
             sys_stdout.flush()
     finally:
         gateway.shutdown_callback_server()
-        shutil.rmtree(local_temp_dir)
+        shutil.rmtree(local_tmp_dir_path)
         if os.environ.get("LIVY_TEST") != "true" and 'sc' in global_dict:
             global_dict['sc'].stop()
 

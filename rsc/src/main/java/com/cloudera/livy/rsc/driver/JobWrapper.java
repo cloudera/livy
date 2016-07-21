@@ -43,7 +43,7 @@ public class JobWrapper<T> implements Callable<Void> {
 
   private Future<?> future;
 
-  JobWrapper(RSCDriver driver, String jobId, Job<T> job) {
+  public JobWrapper(RSCDriver driver, String jobId, Job<T> job) {
     this.driver = driver;
     this.jobId = jobId;
     this.job = job;

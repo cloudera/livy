@@ -36,7 +36,6 @@ import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.sessions._
 
-// scalastyle:off println
 object PythonInterpreter extends Logging {
   var gatewayServer: GatewayServer = null
   def apply(conf: SparkConf, kind: Kind): Interpreter = {
@@ -70,7 +69,7 @@ object PythonInterpreter extends Logging {
   }
 
   def getGatewayServer(): GatewayServer = {
-    return gatewayServer
+    gatewayServer
   }
 
   private def findPySparkArchives(): Seq[String] = {
@@ -198,4 +197,3 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 }
-// scalastyle:on println

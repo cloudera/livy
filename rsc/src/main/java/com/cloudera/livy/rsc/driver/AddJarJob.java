@@ -70,4 +70,8 @@ public class AddJarJob implements Job<Object> {
     return null;
   }
 
+  public String getPath() {
+    return path;
+  }
+
 }
