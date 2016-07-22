@@ -20,10 +20,9 @@ package com.cloudera.livy.server.batch
 
 import java.lang.ProcessBuilder.Redirect
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
 import com.cloudera.livy.LivyConf
-import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions.{Session, SessionState}
 import com.cloudera.livy.utils.SparkProcessBuilder
 
@@ -55,9 +54,7 @@ class BatchSession(
 
     // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
     livyConf.sparkDeployMode().foreach(builder.deployMode)
-    if (livyConf.get(RSCConf.Entry.KINIT_CACHE_FILE) != null) {
-      builder.env("KRB5CCNAME", livyConf.get(RSCConf.Entry.KINIT_CACHE_FILE))
-    }
+
     builder.redirectOutput(Redirect.PIPE)
     builder.redirectErrorStream(true)
 

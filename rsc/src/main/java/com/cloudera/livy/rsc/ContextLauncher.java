@@ -28,7 +28,13 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -123,13 +129,9 @@ class ContextLauncher {
     factory.getServer().unregisterClient(clientId);
     try {
       if (forceKill) {
-        if (child != null) {
-          child.kill();
-        }
+        child.kill();
       } else {
-        if (child != null) {
-          child.detach();
-        }
+        child.detach();
       }
     } finally {
       factory.unref();
@@ -199,12 +201,7 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      Map<String, String> env = new HashMap<String, String>();
-      // it is no harm to set env KRB5CCNAME in non-secured cluster.
-      if (conf.get(RSCConf.Entry.KINIT_CACHE_FILE) != null) {
-        env.put("KRB5CCNAME", conf.get(RSCConf.Entry.KINIT_CACHE_FILE));
-      }
-      final SparkLauncher launcher = new SparkLauncher(env);
+      final SparkLauncher launcher = new SparkLauncher();
 
       // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
       String deployMode = conf.get(SPARK_DEPLOY_MODE);

@@ -49,7 +49,6 @@ class LivyServer extends Logging {
   private[livy] var livyConf: LivyConf = _
 
   private var kinitFailCount: Int = 0
-  private var kinitCacheDir: String = _
   private var executor: ScheduledExecutorService = _
 
   def start(): Unit = {
@@ -118,8 +117,6 @@ class LivyServer extends Logging {
           livyConf.set(LivyConf.IMPERSONATION_ENABLED, true)
         }
 
-        kinitCacheDir = livyConf.get(LivyConf.KINIT_CACHE_ROOT_DIR)
-        info(s"kinit cache dir = $kinitCacheDir")
         // run kinit periodically
         executor = Executors.newScheduledThreadPool(1,
           new ThreadFactory() {
@@ -131,11 +128,18 @@ class LivyServer extends Logging {
             }
           }
         )
-        if (!runKinit()) {
-          error("fail to run kinit, stop the server")
+        val launch_keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
+        val launch_principal = SecurityUtil.getServerPrincipal(
+          livyConf.get(LAUNCH_KERBEROS_PRINCIPAL), server.host)
+        require(launch_keytab != null,
+          s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
+        require(launch_principal != null,
+          s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
+        if (!runKinit(launch_keytab, launch_principal)) {
+          error("Failed to run kinit, stopping the server.")
           sys.exit(1)
         } else {
-          startKinitDaemon()
+          startKinitDaemon(launch_keytab, launch_principal)
         }
       case null =>
         // Nothing to do.
@@ -163,44 +167,34 @@ class LivyServer extends Logging {
     sys.props("livy.server.serverUrl") = _serverUrl.get
   }
 
-  def runKinit(): Boolean = {
-    val keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
-    val principal = SecurityUtil.getServerPrincipal(livyConf.get(LAUNCH_KERBEROS_PRINCIPAL),
-      server.host)
-    require(principal != null,
-      s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
-    require(keytab != null,
-      s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
-    val cacheFileName = kinitCacheDir + "/krb5cc_0"
-    val commands = Seq("kinit", "-kt", keytab, "-c", cacheFileName, principal)
+  def runKinit(keytab: String, principal: String): Boolean = {
+    val commands = Seq("kinit", "-kt", keytab, principal)
     val proc = new ProcessBuilder(commands: _*).inheritIO().start()
     proc.waitFor() match {
       case 0 =>
         debug("Ran kinit command successfully.")
-        livyConf.set(RSCConf.Entry.KINIT_CACHE_FILE, cacheFileName)
         kinitFailCount = 0
         UserGroupInformation.getCurrentUser.reloginFromTicketCache()
         true
       case _ =>
-        warn("Fail to run kinit command," +
-          StringUtils.join(IOUtils.readLines(proc.getErrorStream), "\n"))
+        warn("Fail to run kinit command.")
         kinitFailCount += 1
         false
     }
   }
 
-  def startKinitDaemon(): Unit = {
-    executor.scheduleWithFixedDelay(
+  def startKinitDaemon(keytab: String, principal: String): Unit = {
+    executor.schedule(
       new Runnable() {
         def run(): Unit = {
-          if (runKinit()) {
+          if (runKinit(keytab, principal)) {
             // schedule another kinit run with a fixed delay.
-            executor.scheduleWithFixedDelay(
+            executor.schedule(
               new Runnable() {
                 def run(): Unit = {
-                  runKinit()
+                  runKinit(keytab, principal)
                 }
-              }, 0, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
+              }, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
           } else {
             // schedule another retry at once or fail the livy server if too many times kinit fail
             val kinitFailThreshold = livyConf.getInt(KINIT_FAIL_THRESHOLD)
@@ -213,12 +207,12 @@ class LivyServer extends Logging {
               }
             } else {
               executor.submit(new Runnable() {
-                def run(): Unit = runKinit()
+                def run(): Unit = runKinit(keytab, principal)
               })
             }
           }
         }
-      }, 0, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
+      }, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
   }
 
   def join(): Unit = server.join()

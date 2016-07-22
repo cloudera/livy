@@ -20,7 +20,6 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
-import java.nio.file.Files
 
 import org.apache.hadoop.conf.Configuration
 
@@ -70,10 +69,6 @@ object LivyConf {
     LivyConf.Entry("livy.server.launch.kerberos.refresh_interval_seconds", 3600)
   val KINIT_FAIL_THRESHOLD =
     LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
-  val KINIT_CACHE_ROOT_DIR =
-    LivyConf.Entry("livy.server.launch.kerberos.kinit_cache_root_dir",
-      Files.createTempDirectory("kinit_cache").toFile.getAbsolutePath)
-
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
