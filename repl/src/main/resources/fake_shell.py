@@ -110,7 +110,10 @@ class JobContextImpl(object):
         if self.hive_ctx is None:
             with self.lock:
                 if self.hive_ctx is None:
-                    self.hive_ctx = HiveContext(self.sc)
+                    if isinstance(self.sql_ctx, HiveContext):
+                        self.hive_ctx = self.sql_ctx
+                    else:
+                        self.hive_ctx = HiveContext(self.sc)
         return self.hive_ctx
 
     def create_streaming_ctx(self, batch_duration):
@@ -144,7 +147,7 @@ class JobContextImpl(object):
 
 
 class PySparkJobProcessorImpl(object):
-    def processByPassJob(self, serialized_job):
+    def processBypassJob(self, serialized_job):
         deserialized_job = cloudpickle.loads(serialized_job)
         response = deserialized_job(job_context)
         serialized_result = cloudpickle.dumps(response)
@@ -160,8 +163,8 @@ class PySparkJobProcessorImpl(object):
     def getLocalTmpDirPath(self):
         return os.path.join(job_context.get_local_tmp_dir_path(), '__livy__')
 
-    class Java:
-        implements = ['com.cloudera.livy.repl.PySparkJobProcessor']
+    class Scala:
+        extends = ['com.cloudera.livy.repl.PySparkJobProcessor']
 
 
 class ExecutionError(Exception):

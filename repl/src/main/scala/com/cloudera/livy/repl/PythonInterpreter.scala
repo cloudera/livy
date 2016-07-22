@@ -20,9 +20,11 @@ package com.cloudera.livy.repl
 
 import java.io._
 import java.lang.ProcessBuilder.Redirect
+import java.lang.reflect.Proxy
 import java.nio.file.{Files, Paths}
 
 import scala.annotation.tailrec
+import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 
 import org.apache.spark.SparkConf
@@ -30,21 +32,24 @@ import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
-import py4j.GatewayServer
+import py4j.{Gateway, GatewayServer, Protocol, Py4JException}
+import py4j.reflection.PythonProxyHandler
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.sessions._
 
 object PythonInterpreter extends Logging {
-  var gatewayServer: GatewayServer = null
+
+  private var pysparkJobProcessor: PySparkJobProcessor = null
+
   def apply(conf: SparkConf, kind: Kind): Interpreter = {
     val pythonExec = kind match {
         case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
         case PySpark() => sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
     }
 
-    gatewayServer = new GatewayServer(null, 0)
+    val gatewayServer = new GatewayServer(null, 0)
     gatewayServer.start()
 
     val builder = new ProcessBuilder(Seq(pythonExec, createFakeShell().toString).asJava)
@@ -64,12 +69,12 @@ object PythonInterpreter extends Logging {
 
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
-
+    pysparkJobProcessor = initiatePy4jCallbackGateway(gatewayServer)
     new PythonInterpreter(process, gatewayServer, kind.toString)
   }
 
-  def getGatewayServer(): GatewayServer = {
-    gatewayServer
+  def getPySparkJobProcessor(): PySparkJobProcessor = {
+    pysparkJobProcessor
   }
 
   private def findPySparkArchives(): Seq[String] = {
@@ -127,6 +132,52 @@ object PythonInterpreter extends Logging {
     sink.close()
 
     file
+  }
+
+  private def initiatePy4jCallbackGateway(server: GatewayServer): PySparkJobProcessor  = {
+    val f = server.getClass.getDeclaredField("gateway")
+    f.setAccessible(true)
+    val gateway = f.get(server).asInstanceOf[Gateway]
+    val command: String = "f" + Protocol.ENTRY_POINT_OBJECT_ID + ";" +
+      "com.cloudera.livy.repl.PySparkJobProcessor"
+    getPythonProxy(command, gateway).asInstanceOf[PySparkJobProcessor]
+  }
+
+  // This method is a hack to get around the classLoader issues faced in py4j 0.8.2.1 for
+  // dynamically adding jars to the driver. The change is to use the context classLoader instead
+  // of the system classLoader when initiating a new Proxy instance
+  // ISSUE - https://issues.apache.org/jira/browse/SPARK-6047
+  // FIX - https://github.com/bartdag/py4j/pull/196
+  private def getPythonProxy(commandPart: String, gateway: Gateway): Any = {
+    val proxyString = commandPart.substring(1, commandPart.length)
+    val parts = proxyString.split(";")
+    val length: Int = parts.length
+    val interfaces = ArrayBuffer.fill[Class[_]](length - 1){ null }
+    if (length < 2) {
+      throw new Py4JException("Invalid Python Proxy.")
+    }
+    else {
+      var proxy: Int = 1
+      while (proxy < length) {
+        {
+          try {
+            interfaces(proxy - 1) = Class.forName(parts(proxy))
+            if (!interfaces(proxy - 1).isInterface) {
+              throw new Py4JException("This class " + parts(proxy) +
+                " is not an interface and cannot be used as a Python Proxy.")
+            }
+          }
+          catch {
+            case exception: ClassNotFoundException => {
+              throw new Py4JException("Invalid interface name: " + parts(proxy))
+            }
+          }
+        }
+        proxy += 1;
+      }
+      Proxy.newProxyInstance(Thread.currentThread.getContextClassLoader,
+        interfaces.toArray, new PythonProxyHandler(parts(0), gateway.getCallbackClient, gateway))
+    }
   }
 }
 

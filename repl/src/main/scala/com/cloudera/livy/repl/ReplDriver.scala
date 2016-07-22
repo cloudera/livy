@@ -18,22 +18,25 @@
 
 package com.cloudera.livy.repl
 
+import java.io.File
+
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
-import scala.util.{Failure, Success}
+
 import io.netty.channel.ChannelHandlerContext
+
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.api.java.JavaSparkContext
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
-import com.cloudera.livy.{Job, Logging}
+
+import com.cloudera.livy.Logging
 import com.cloudera.livy.rsc.{BaseProtocol, RSCConf}
 import com.cloudera.livy.rsc.driver._
 import com.cloudera.livy.sessions._
-import py4j.{Gateway, GatewayServer, Protocol}
-// scalastyle:off println
+
 class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   extends RSCDriver(conf, livyConf)
   with Logging {
@@ -44,8 +47,6 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   private val kind = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND))
 
-  private var pysparkJobProcessor:PySparkJobProcessor = null
-
   override protected def initializeContext(): JavaSparkContext = {
     val interpreter = kind match {
       case PySpark() => PythonInterpreter(conf, PySpark())
@@ -54,20 +55,9 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case SparkR() => SparkRInterpreter(conf)
     }
     session = new Session(interpreter)
-    initiatePy4jCallbackGateway(PythonInterpreter.getGatewayServer())
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
       .orNull
-  }
-
-  def initiatePy4jCallbackGateway(server: GatewayServer) = {
-    val f = server.getClass.getDeclaredField("gateway")
-    f.setAccessible(true)
-    val gateway = f.get(server).asInstanceOf[Gateway]
-    val command: String = "f" + Protocol.ENTRY_POINT_OBJECT_ID + ";" +
-      "com.cloudera.livy.repl.PySparkJobProcessor"
-    pysparkJobProcessor = PySparkJobHelper.
-      getPythonProxy(command, gateway).asInstanceOf[PySparkJobProcessor]
   }
 
   override protected def shutdownContext(): Unit = {
@@ -99,35 +89,27 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     kind match {
       case Spark() => super.createWrapper(msg)
       case PySpark() | PySpark3() => {
-        new BypassPySparkJobWrapper(this, msg.id,
-          new BypassPySparkJob(msg.serializedJob, pysparkJobProcessor))
+        new BypassJobWrapper(this, msg.id,
+          new BypassPySparkJob(msg.serializedJob, PythonInterpreter.getPySparkJobProcessor))
       }
     }
   }
 
-  def getEquivalentPySparkJobInstance(job: Job[_]): Job[_] = {
-    if (job.isInstanceOf[AddFileJob]) {
-      val addFileJob = job.asInstanceOf[AddFileJob]
-      new PySparkAddFileJob(addFileJob.getPath, pysparkJobProcessor)
-    } else if (job.isInstanceOf[AddJarJob]) {
-      val addJarJob = job.asInstanceOf[AddJarJob]
-      new PySparkAddPyFileJob(addJarJob.getPath, pysparkJobProcessor,
-        SparkContext.getOrCreate(conf))
-    } else {
-      null
+  override def addFile(path: String) = {
+    kind match  {
+      case Spark() => super.addFile(path)
+      case PySpark() | PySpark3() => PythonInterpreter.getPySparkJobProcessor.addFile(path)
     }
   }
 
-  override def createWrapper(msg: BaseProtocol.JobRequest[_]): JobWrapper[_] = {
-    kind match {
-      case Spark() => super.createWrapper(msg)
+  override def addJarOrPyFile(path: String) = {
+    kind match  {
+      case Spark() => super.addJarOrPyFile(path)
       case PySpark() | PySpark3() => {
-        val equivalentPySparkJob = getEquivalentPySparkJobInstance(msg.job)
-        if (equivalentPySparkJob != null) {
-          new JobWrapper(this, msg.id, equivalentPySparkJob)
-        } else {
-          super.createWrapper(msg)
-        }
+        val localCopyDir = new File(PythonInterpreter.getPySparkJobProcessor.getLocalTmpDirPath)
+        doAddJarOrPyFile_copyFileFromLocalToHDFS(localCopyDir, path,
+          SparkContext.getOrCreate(conf))
+        PythonInterpreter.getPySparkJobProcessor.addPyFile(path)
       }
     }
   }

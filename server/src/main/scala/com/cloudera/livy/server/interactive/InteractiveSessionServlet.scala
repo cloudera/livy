@@ -205,11 +205,19 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   }
 
   jpost[AddResource]("/:id/add-jar") { req =>
-    addJarOrPyFile(req)
+    withSession { lsession =>
+      addJarOrPyFile(req, lsession)
+    }
   }
 
   jpost[AddResource]("/:id/add-pyfile") { req =>
-    addJarOrPyFile(req)
+    withSession { lsession =>
+      lsession.kind match {
+        case Spark() => throw new UnsupportedOperationException("End point unsupported for " +
+          "pyspark session")
+        case PySpark() | PySpark3() => addJarOrPyFile(req, lsession)
+      }
+    }
   }
 
   jpost[AddResource]("/:id/add-file") { req =>
@@ -233,11 +241,8 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     }
   }
 
-  def addJarOrPyFile(req: HttpMessages.AddResource): Any = {
-    withSession { lsession =>
-      val uri = new URI(req.uri)
-      lsession.addJar(uri)
-    }
+  private def addJarOrPyFile(req: HttpMessages.AddResource, session: InteractiveSession): Unit = {
+    val uri = new URI(req.uri)
+    session.addJar(uri)
   }
-
 }
