@@ -26,7 +26,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 import io.netty.channel.ChannelHandlerContext
-
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.api.java.JavaSparkContext
 import org.json4s.JsonAST.JValue
@@ -95,15 +94,15 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     }
   }
 
-  override def addFile(path: String) = {
-    kind match  {
+  override def addFile(path: String): Unit = {
+    kind match {
       case Spark() => super.addFile(path)
       case PySpark() | PySpark3() => PythonInterpreter.getPySparkJobProcessor.addFile(path)
     }
   }
 
-  override def addJarOrPyFile(path: String) = {
-    kind match  {
+  override def addJarOrPyFile(path: String): Unit = {
+    kind match {
       case Spark() => super.addJarOrPyFile(path)
       case PySpark() | PySpark3() => {
         val localCopyDir = new File(PythonInterpreter.getPySparkJobProcessor.getLocalTmpDirPath)

@@ -39,6 +39,7 @@ import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.sessions._
 
+// scalastyle:off println
 object PythonInterpreter extends Logging {
 
   private var pysparkJobProcessor: PySparkJobProcessor = null
@@ -134,7 +135,7 @@ object PythonInterpreter extends Logging {
     file
   }
 
-  private def initiatePy4jCallbackGateway(server: GatewayServer): PySparkJobProcessor  = {
+  private def initiatePy4jCallbackGateway(server: GatewayServer): PySparkJobProcessor = {
     val f = server.getClass.getDeclaredField("gateway")
     f.setAccessible(true)
     val gateway = f.get(server).asInstanceOf[Gateway]
@@ -248,3 +249,4 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 }
+// scalastyle:off println

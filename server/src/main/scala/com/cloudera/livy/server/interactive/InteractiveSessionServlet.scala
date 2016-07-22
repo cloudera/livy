@@ -22,15 +22,16 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
-import com.cloudera.livy.client.common.HttpMessages
-
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
+
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
 import org.scalatra.servlet.FileUploadSupport
+
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
+import com.cloudera.livy.client.common.HttpMessages
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._

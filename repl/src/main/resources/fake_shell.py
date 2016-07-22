@@ -501,13 +501,6 @@ def main():
     sys_stdout = sys.stdout
     sys_stderr = sys.stderr
 
-    from py4j.protocol import ENTRY_POINT_OBJECT_ID
-    from py4j.java_gateway import JavaGateway, GatewayClient
-    gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(
-        "PYSPARK_GATEWAY_PORT")), start_callback_server=True)
-    pyspark_job_processor = PySparkJobProcessorImpl()
-    gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
-
     if sys.version >= '3':
         sys.stdin = io.StringIO()
     else:
@@ -522,6 +515,18 @@ def main():
             exec('from pyspark.shell import sc', global_dict)
             exec('from pyspark.shell import sqlContext',global_dict)
 
+        # Start py4j callabck server
+            from py4j.protocol import ENTRY_POINT_OBJECT_ID
+            from py4j.java_gateway import JavaGateway, GatewayClient
+            gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(
+                "PYSPARK_GATEWAY_PORT")), start_callback_server=True)
+            pyspark_job_processor = PySparkJobProcessorImpl()
+            gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
+
+            global local_tmp_dir_path, job_context
+            local_tmp_dir_path = tempfile.mkdtemp()
+            job_context = JobContextImpl()
+
         print(sys.stdout.getvalue(), file=sys_stderr)
         print(sys.stderr.getvalue(), file=sys_stderr)
 
@@ -529,10 +534,6 @@ def main():
 
         print('READY', file=sys_stdout)
         sys_stdout.flush()
-
-        global local_tmp_dir_path, job_context
-        local_tmp_dir_path = tempfile.mkdtemp()
-        job_context = JobContextImpl()
 
         while True:
             line = sys_stdin.readline()
@@ -588,9 +589,9 @@ def main():
             print(response, file=sys_stdout)
             sys_stdout.flush()
     finally:
-        gateway.shutdown_callback_server()
-        shutil.rmtree(local_tmp_dir_path)
         if os.environ.get("LIVY_TEST") != "true" and 'sc' in global_dict:
+            gateway.shutdown_callback_server()
+            shutil.rmtree(local_tmp_dir_path)
             global_dict['sc'].stop()
 
         sys.stdin = sys_stdin
