@@ -100,6 +100,15 @@ class ContextLauncher {
       conf.set(LAUNCHER_PORT, factory.getServer().getPort());
       conf.set(CLIENT_ID, clientId);
       conf.set(CLIENT_SECRET, secret);
+
+      Utils.addListener(promise, new FutureListener<ContextInfo>() {
+        @Override
+        public void onFailure(Throwable error) throws Exception {
+          // If promise is cancelled or failed, make sure spark-submit is not leaked.
+          child.kill();
+        }
+      });
+
       this.child = startDriver(conf, promise);
 
       // Set up a timeout to fail the promise if we don't hear back from the context
@@ -186,7 +195,9 @@ class ContextLauncher {
 
     final File confFile = writeConfToFile(conf);
 
-    if (conf.getBoolean(CLIENT_IN_PROCESS)) {
+    if (conf.getBoolean(TEST_MOCK_SPARK_SUBMIT)) {
+      return new ChildProcess(conf, promise, ContextLauncher.mockSparkSubmit, confFile);
+    } else if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
       Runnable child = new Runnable() {
@@ -484,5 +495,8 @@ class ContextLauncher {
       return thread;
     }
   }
+
+  // Just for testing.
+  static Process mockSparkSubmit;
 
 }
