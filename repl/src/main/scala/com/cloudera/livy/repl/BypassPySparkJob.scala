@@ -17,8 +17,6 @@
  */
 package com.cloudera.livy.repl
 
-import java.nio.charset.StandardCharsets
-
 import com.cloudera.livy.{Job, JobContext}
 
 class BypassPySparkJob(
@@ -26,8 +24,6 @@ class BypassPySparkJob(
       pysparkJobProcessor: PySparkJobProcessor) extends Job[Array[Byte]] {
 
   override def call(jc: JobContext): Array[Byte] = {
-    val value = pysparkJobProcessor.processBypassJob(serializedJob)
-    return if (value != null) value.getBytes(StandardCharsets.UTF_8)
-    else null
+    pysparkJobProcessor.processBypassJob(serializedJob)
   }
 }

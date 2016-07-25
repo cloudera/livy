@@ -18,7 +18,7 @@
 package com.cloudera.livy.repl
 
 trait PySparkJobProcessor {
-  def processBypassJob(job: Array[Byte]): String
+  def processBypassJob(job: Array[Byte]): Array[Byte]
 
   def addFile(path: String)
 
