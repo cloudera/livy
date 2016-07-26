@@ -66,7 +66,7 @@ object LivyConf {
   val LAUNCH_KERBEROS_KEYTAB =
     LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
   val LAUNCH_KERBEROS_REFRESH_INTERVAL =
-    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval_seconds", 3600)
+    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", "1h")
   val KINIT_FAIL_THRESHOLD =
     LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
 

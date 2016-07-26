@@ -21,12 +21,9 @@ package com.cloudera.livy.server
 import java.io.{File, IOException}
 import java.util.concurrent._
 import java.util.EnumSet
-import java.util.UUID
 import javax.servlet._
 
-import org.apache.commons.io.IOUtils
-import org.apache.commons.lang.StringUtils
-import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
+import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
@@ -34,7 +31,6 @@ import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
-import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
@@ -138,9 +134,9 @@ class LivyServer extends Logging {
         if (!runKinit(launch_keytab, launch_principal)) {
           error("Failed to run kinit, stopping the server.")
           sys.exit(1)
-        } else {
-          startKinitDaemon(launch_keytab, launch_principal)
         }
+        startKinitThread(launch_keytab, launch_principal)
+
       case null =>
         // Nothing to do.
 
@@ -174,7 +170,6 @@ class LivyServer extends Logging {
       case 0 =>
         debug("Ran kinit command successfully.")
         kinitFailCount = 0
-        UserGroupInformation.getCurrentUser.reloginFromTicketCache()
         true
       case _ =>
         warn("Fail to run kinit command.")
@@ -183,21 +178,17 @@ class LivyServer extends Logging {
     }
   }
 
-  def startKinitDaemon(keytab: String, principal: String): Unit = {
+  def startKinitThread(keytab: String, principal: String): Unit = {
+    val refreshInterval = livyConf.getTimeAsMs(LAUNCH_KERBEROS_REFRESH_INTERVAL)
+    val kinitFailThreshold = livyConf.getInt(KINIT_FAIL_THRESHOLD)
     executor.schedule(
       new Runnable() {
-        def run(): Unit = {
+        override def run(): Unit = {
           if (runKinit(keytab, principal)) {
             // schedule another kinit run with a fixed delay.
-            executor.schedule(
-              new Runnable() {
-                def run(): Unit = {
-                  runKinit(keytab, principal)
-                }
-              }, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
+            executor.schedule(this, refreshInterval, TimeUnit.MILLISECONDS)
           } else {
             // schedule another retry at once or fail the livy server if too many times kinit fail
-            val kinitFailThreshold = livyConf.getInt(KINIT_FAIL_THRESHOLD)
             if (kinitFailCount >= kinitFailThreshold) {
               error(s"Exit LivyServer after ${kinitFailThreshold} times failures running kinit.")
               if (server.server.getState == "STARTED") {
@@ -206,13 +197,11 @@ class LivyServer extends Logging {
                 sys.exit(1)
               }
             } else {
-              executor.submit(new Runnable() {
-                def run(): Unit = runKinit(keytab, principal)
-              })
+              executor.submit(this)
             }
           }
         }
-      }, livyConf.getInt(LAUNCH_KERBEROS_REFRESH_INTERVAL), TimeUnit.SECONDS)
+      }, refreshInterval, TimeUnit.MILLISECONDS)
   }
 
   def join(): Unit = server.join()
