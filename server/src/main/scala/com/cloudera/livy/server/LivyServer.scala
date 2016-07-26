@@ -118,6 +118,13 @@ class LivyServer extends Logging {
       server.context.addFilter(csrfHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
+    if (livyConf.getBoolean(ACCESS_CONTROL_ENABLED)) {
+      info("Access control is enabled.")
+      val accessHolder = new FilterHolder(new AccessFilter())
+      accessHolder.setInitParameter(ACCESS_CONTROL_USERS.key, livyConf.get(ACCESS_CONTROL_USERS))
+      server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
+    }
+
     server.start()
 
     Runtime.getRuntime().addShutdownHook(new Thread("Livy Server Shutdown") {
