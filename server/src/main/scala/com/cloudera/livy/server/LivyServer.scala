@@ -104,10 +104,6 @@ class LivyServer extends Logging {
           livyConf.get(KERBEROS_NAME_RULES))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
-        if (!livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
-          info(s"Enabling impersonation since auth type is $authType.")
-          livyConf.set(LivyConf.IMPERSONATION_ENABLED, true)
-        }
 
       case null =>
         // Nothing to do.
@@ -120,6 +116,13 @@ class LivyServer extends Logging {
       info("CSRF protection is enabled.")
       val csrfHolder = new FilterHolder(new CsrfFilter())
       server.context.addFilter(csrfHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
+    }
+
+    if (livyConf.getBoolean(ACCESS_CONTROL_ENABLED)) {
+      info("Access control is enabled.")
+      val accessHolder = new FilterHolder(new AccessFilter())
+      accessHolder.setInitParameter(ACCESS_CONTROL_USERS.key, livyConf.get(ACCESS_CONTROL_USERS))
+      server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
     server.start()

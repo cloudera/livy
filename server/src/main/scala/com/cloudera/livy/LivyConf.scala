@@ -56,6 +56,9 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
+  val ACCESS_CONTROL_ENABLED = LivyConf.Entry("livy.server.access_control.enabled", false)
+  val ACCESS_CONTROL_USERS = Entry("livy.server.access_control.users", null)
+
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
   val KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
   val KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
