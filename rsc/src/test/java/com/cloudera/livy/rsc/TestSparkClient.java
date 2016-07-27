@@ -30,9 +30,8 @@ import java.util.zip.ZipEntry;
 
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
-import org.joda.time.DateTime;
 import org.junit.Test;
-import org.mockito.exceptions.base.MockitoAssertionError;
+import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
@@ -348,41 +347,24 @@ public class TestSparkClient {
       when(mockSparkSubmit.getErrorStream()).thenReturn(stubStream);
 
       // Block waitFor until process.destroy is called.
-      final CountDownLatch waitForCalled = new CountDownLatch(1);
-      when(mockSparkSubmit.waitFor()).thenAnswer(new Answer<Void>() {
-        @Override
-        public Void answer(InvocationOnMock invocation) throws Throwable {
-          waitForCalled.await();
-          return null;
-        }
-      });
+      CountDownLatch waitForCalled = new CountDownLatch(1);
+      when(mockSparkSubmit.waitFor()).thenAnswer(new BlockingAnswer<>(waitForCalled, 1));
+
+      // Block waitFor until process.destroy is called.
+      CountDownLatch destroyCalled = new CountDownLatch(1);
+      Mockito.doAnswer(new BlockingAnswer<>(destroyCalled, null)).when(mockSparkSubmit).destroy();
 
       ContextLauncher.mockSparkSubmit = mockSparkSubmit;
       conf.put(TEST_MOCK_SPARK_SUBMIT.key(), "true");
 
       client = new LivyClientBuilder(false).setURI(new URI("rsc:/"))
-              .setAll(conf)
-              .build();
+        .setAll(conf)
+        .build();
 
       client.stop(true);
 
-      // The FutureListener that calls child.kill() is running in a different thread.
-      // To avoid race condition, add a retry block around verify.
-      DateTime deadline = new DateTime().plusSeconds(10);
-      while (true) {
-        try {
-          verify(mockSparkSubmit, atLeastOnce()).destroy();
-          break;
-        } catch (MockitoAssertionError e) {
-          if (deadline.isBeforeNow()) {
-            throw e;
-          } else {
-            Thread.sleep(1000);
-          }
-        }
-      }
-
       waitForCalled.countDown();
+      destroyCalled.countDown();
     } catch (Exception e) {
       // JUnit prints not so useful backtraces in test summary reports, and we don't see the
       // actual source line of the exception, so print the exception to the logs.
@@ -492,6 +474,22 @@ public class TestSparkClient {
       if (client != null) {
         client.stop(true);
       }
+    }
+  }
+
+  private static class BlockingAnswer<T> implements Answer<T> {
+    private final CountDownLatch blockUntil;
+    private final T returnValue;
+
+    public BlockingAnswer(CountDownLatch blockUntil, T returnValue) {
+      this.blockUntil = blockUntil;
+      this.returnValue = returnValue;
+    }
+
+    @Override
+    public T answer(InvocationOnMock invocation) throws Throwable {
+      blockUntil.await();
+      return returnValue;
     }
   }
 
