@@ -57,9 +57,18 @@ object LivyConf {
   val SUPERUSERS = Entry("livy.superusers", null)
 
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
-  val KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
-  val KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
-  val KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
+  val AUTH_KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
+  val AUTH_KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
+  val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
+
+  val LAUNCH_KERBEROS_PRINCIPAL =
+    LivyConf.Entry("livy.server.launch.kerberos.principal", null)
+  val LAUNCH_KERBEROS_KEYTAB =
+    LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
+  val LAUNCH_KERBEROS_REFRESH_INTERVAL =
+    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", "1h")
+  val KINIT_FAIL_THRESHOLD =
+    LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
