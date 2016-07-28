@@ -31,7 +31,6 @@ import java.util.zip.ZipEntry;
 import org.apache.spark.launcher.SparkLauncher;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.junit.Test;
-import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.slf4j.Logger;
@@ -347,15 +346,26 @@ public class TestSparkClient {
       when(mockSparkSubmit.getErrorStream()).thenReturn(stubStream);
 
       // Block waitFor until process.destroy is called.
-      CountDownLatch waitForCalled = new CountDownLatch(1);
-      when(mockSparkSubmit.waitFor()).thenAnswer(new BlockingAnswer<>(waitForCalled, 1));
+      final CountDownLatch waitForCalled = new CountDownLatch(1);
+      when(mockSparkSubmit.waitFor()).thenAnswer(new Answer<Integer>() {
+        @Override
+        public Integer answer(InvocationOnMock invocation) throws Throwable {
+          waitForCalled.await();
+          return 0;
+        }
+      });
 
       // Block waitFor until process.destroy is called.
-      CountDownLatch destroyCalled = new CountDownLatch(1);
-      Mockito.doAnswer(new BlockingAnswer<>(destroyCalled, null)).when(mockSparkSubmit).destroy();
+      final CountDownLatch destroyCalled = new CountDownLatch(1);
+      doAnswer(new Answer<Void>() {
+        @Override
+        public Void answer(InvocationOnMock invocation) throws Throwable {
+          destroyCalled.countDown();
+          return null;
+        }
+      }).when(mockSparkSubmit).destroy();
 
       ContextLauncher.mockSparkSubmit = mockSparkSubmit;
-      conf.put(TEST_MOCK_SPARK_SUBMIT.key(), "true");
 
       client = new LivyClientBuilder(false).setURI(new URI("rsc:/"))
         .setAll(conf)
@@ -363,14 +373,15 @@ public class TestSparkClient {
 
       client.stop(true);
 
+      assertTrue(destroyCalled.await(5, TimeUnit.SECONDS));
       waitForCalled.countDown();
-      destroyCalled.countDown();
     } catch (Exception e) {
       // JUnit prints not so useful backtraces in test summary reports, and we don't see the
       // actual source line of the exception, so print the exception to the logs.
       LOG.error("Test threw exception.", e);
       throw e;
     } finally {
+      ContextLauncher.mockSparkSubmit = null;
       stubStream.close();
       if (client != null) {
         client.stop(true);
@@ -474,22 +485,6 @@ public class TestSparkClient {
       if (client != null) {
         client.stop(true);
       }
-    }
-  }
-
-  private static class BlockingAnswer<T> implements Answer<T> {
-    private final CountDownLatch blockUntil;
-    private final T returnValue;
-
-    public BlockingAnswer(CountDownLatch blockUntil, T returnValue) {
-      this.blockUntil = blockUntil;
-      this.returnValue = returnValue;
-    }
-
-    @Override
-    public T answer(InvocationOnMock invocation) throws Throwable {
-      blockUntil.await();
-      return returnValue;
     }
   }
 

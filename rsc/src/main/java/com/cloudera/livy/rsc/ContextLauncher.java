@@ -195,7 +195,8 @@ class ContextLauncher {
 
     final File confFile = writeConfToFile(conf);
 
-    if (conf.getBoolean(TEST_MOCK_SPARK_SUBMIT)) {
+    if (ContextLauncher.mockSparkSubmit != null) {
+      LOG.warn("!!!! Using mock spark-submit. !!!!");
       return new ChildProcess(conf, promise, ContextLauncher.mockSparkSubmit, confFile);
     } else if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
