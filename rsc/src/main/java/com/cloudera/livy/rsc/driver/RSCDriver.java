@@ -448,13 +448,13 @@ public class RSCDriver extends BaseProtocol {
 
   public void addJarOrPyFile(String path) throws Exception {
     File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
-    File localCopy = doAddJarOrPyFile_copyFileFromLocalToHDFS(localCopyDir, path, jc.sc().sc());
+    File localCopy = doAddJarOrPyFile_copyFileToLocal(localCopyDir, path, jc.sc().sc());
     MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
     cl.addURL(localCopy.toURI().toURL());
     jc.sc().addJar(path);
   }
 
-  public File doAddJarOrPyFile_copyFileFromLocalToHDFS(
+  public File doAddJarOrPyFile_copyFileToLocal(
           File localCopyDir,
           String filePath,
           SparkContext sc) throws Exception {
