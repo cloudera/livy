@@ -53,6 +53,7 @@ public class RSCClient implements LivyClient {
   private static final AtomicInteger EXECUTOR_GROUP_ID = new AtomicInteger();
 
   private final RSCConf conf;
+  private final Promise<ContextInfo> contextInfoPromise;
   private final Map<String, JobHandleImpl<?>> jobs;
   private final ClientProtocol protocol;
   private final Promise<Rpc> driverRpc;
@@ -64,6 +65,7 @@ public class RSCClient implements LivyClient {
 
   RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
     this.conf = conf;
+    this.contextInfoPromise = ctx;
     this.jobs = new ConcurrentHashMap<>();
     this.protocol = new ClientProtocol();
     this.driverRpc = ImmediateEventExecutor.INSTANCE.newPromise();
@@ -72,7 +74,7 @@ public class RSCClient implements LivyClient {
         conf.getInt(RPC_MAX_THREADS),
         Utils.newDaemonThreadFactory("RSCClient-" + executorGroupId + "-%d"));
 
-    Utils.addListener(ctx, new FutureListener<ContextInfo>() {
+    Utils.addListener(this.contextInfoPromise, new FutureListener<ContextInfo>() {
       @Override
       public void onSuccess(ContextInfo info) throws Exception {
         connectToContext(info);
@@ -185,6 +187,8 @@ public class RSCClient implements LivyClient {
     if (isAlive) {
       isAlive = false;
       try {
+        this.contextInfoPromise.cancel(true);
+
         if (shutdownContext && driverRpc.isSuccess()) {
           protocol.endSession();
 
