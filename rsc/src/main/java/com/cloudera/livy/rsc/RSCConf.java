@@ -69,9 +69,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     RPC_SECRET_RANDOM_BITS("secret.bits", 256),
 
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
-    SASL_QOP("rpc.sasl.qop", null),
-
-    TEST_MOCK_SPARK_SUBMIT("client.do_not_use.mock_spark_submit", false);
+    SASL_QOP("rpc.sasl.qop", null);
 
     private final String key;
     private final Object dflt;

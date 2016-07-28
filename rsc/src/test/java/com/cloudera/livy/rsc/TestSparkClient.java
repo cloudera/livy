@@ -345,7 +345,7 @@ public class TestSparkClient {
       when(mockSparkSubmit.getInputStream()).thenReturn(stubStream);
       when(mockSparkSubmit.getErrorStream()).thenReturn(stubStream);
 
-      // Block waitFor until process.destroy is called.
+      // Block waitFor until process.destroy() is called.
       final CountDownLatch waitForCalled = new CountDownLatch(1);
       when(mockSparkSubmit.waitFor()).thenAnswer(new Answer<Integer>() {
         @Override
@@ -355,7 +355,7 @@ public class TestSparkClient {
         }
       });
 
-      // Block waitFor until process.destroy is called.
+      // Verify process.destroy() is called.
       final CountDownLatch destroyCalled = new CountDownLatch(1);
       doAnswer(new Answer<Void>() {
         @Override
