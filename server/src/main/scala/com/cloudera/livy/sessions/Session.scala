@@ -31,7 +31,7 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
-import com.cloudera.livy.LivyConf._
+import com.cloudera.livy.LivyConf.IMPERSONATION_ENABLED
 
 object Session {
 
