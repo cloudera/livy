@@ -146,6 +146,17 @@ class LivyServer extends Logging {
       server.context.addFilter(csrfHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
+    if (livyConf.getBoolean(ACCESS_CONTROL_ENABLED)) {
+      if (livyConf.get(AUTH_TYPE) != null) {
+        info("Access control is enabled.")
+        val accessHolder = new FilterHolder(new AccessFilter(livyConf))
+        server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
+      } else {
+        throw new IllegalArgumentException("Access control was requested but could " +
+          "not be enabled, since authentication is disabled.")
+      }
+    }
+
     server.start()
 
     Runtime.getRuntime().addShutdownHook(new Thread("Livy Server Shutdown") {
