@@ -108,10 +108,6 @@ class LivyServer extends Logging {
           livyConf.get(AUTH_KERBEROS_NAME_RULES))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
-        if (!livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
-          info(s"Enabling impersonation since auth type is $authType.")
-          livyConf.set(LivyConf.IMPERSONATION_ENABLED, true)
-        }
 
         // run kinit periodically
         executor = Executors.newScheduledThreadPool(1,

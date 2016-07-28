@@ -104,7 +104,11 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
     val user = proxyUser.getOrElse(owner)
     if (user != null) {
       val ugi = if (UserGroupInformation.isSecurityEnabled) {
-        UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
+        if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
+          UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
+        } else {
+          UserGroupInformation.getCurrentUser()
+        }
       } else {
         UserGroupInformation.createRemoteUser(user)
       }
