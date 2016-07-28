@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
+import com.cloudera.livy.LivyConf.IMPERSONATION_ENABLED
 
 object Session {
 
@@ -104,7 +105,11 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
     val user = proxyUser.getOrElse(owner)
     if (user != null) {
       val ugi = if (UserGroupInformation.isSecurityEnabled) {
-        UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
+        if (livyConf.getBoolean(IMPERSONATION_ENABLED)) {
+          UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
+        } else {
+          UserGroupInformation.getCurrentUser()
+        }
       } else {
         UserGroupInformation.createRemoteUser(user)
       }
