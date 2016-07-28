@@ -56,7 +56,7 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
-  val ACCESS_CONTROL_ENABLED = LivyConf.Entry("livy.server.access_control.enabled", false)
+  val ACCESS_CONTROL_ENABLED = Entry("livy.server.access_control.enabled", false)
   val ACCESS_CONTROL_USERS = Entry("livy.server.access_control.users", null)
 
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
@@ -114,7 +114,7 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   import LivyConf._
 
   private lazy val _superusers = configToSeq(SUPERUSERS)
-  private lazy val _allowedUsers = configToSeq(ACCESS_CONTROL_USERS)
+  private lazy val _allowedUsers = configToSeq(ACCESS_CONTROL_USERS).toSet
 
   lazy val hadoopConf = new Configuration()
   lazy val localFsWhitelist = configToSeq(LOCAL_FS_WHITELIST).map { path =>
@@ -158,8 +158,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   /** Return the list of superusers. */
   def superusers(): Seq[String] = _superusers
 
-  /** Return the list of users allowed to use Livy via SPNEGO. */
-  def allowedUsers(): Seq[String] = _allowedUsers
+  /** Return the set of users allowed to use Livy via SPNEGO. */
+  def allowedUsers(): Set[String] = _allowedUsers
 
   private val configDir: Option[File] = {
     sys.env.get("LIVY_CONF_DIR")

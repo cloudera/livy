@@ -25,8 +25,6 @@ import com.cloudera.livy.LivyConf
 
 class AccessFilter(livyConf: LivyConf) extends Filter {
 
-  private lazy val allowedUsers = livyConf.allowedUsers().toSet
-
   override def init(filterConfig: FilterConfig): Unit = {}
 
   override def doFilter(request: ServletRequest,
@@ -34,12 +32,12 @@ class AccessFilter(livyConf: LivyConf) extends Filter {
                         chain: FilterChain): Unit = {
     val httpRequest = request.asInstanceOf[HttpServletRequest]
     val remoteUser = httpRequest.getRemoteUser
-    if(allowedUsers.contains(remoteUser)) {
+    if (livyConf.allowedUsers.contains(remoteUser)) {
       chain.doFilter(request, response)
     } else {
       val httpServletResponse = response.asInstanceOf[HttpServletResponse]
-        httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED,
-          "User not authorised to use Livy.")
+      httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED,
+        "User not authorised to use Livy.")
     }
   }
 

@@ -151,14 +151,14 @@ class LivyServer extends Logging {
     }
 
     if (livyConf.getBoolean(ACCESS_CONTROL_ENABLED)) {
-      if (livyConf.get(AUTH_TYPE) == KerberosAuthenticationHandler.TYPE) {
+      if (livyConf.get(AUTH_TYPE) != null) {
         info("Access control is enabled.")
         val accessHolder = new FilterHolder(new AccessFilter(livyConf))
         server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
       } else {
-        throw new IllegalArgumentException (s"Access control was requested but could " +
-                                            s"not be enabled, since auth type is" +
-                                            s" ${livyConf.get(AUTH_TYPE)}.")
+        throw new IllegalArgumentException(s"Access control was requested but could " +
+          s"not be enabled, since auth type is" +
+          s" ${livyConf.get(AUTH_TYPE)}.")
       }
     }
 
