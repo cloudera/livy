@@ -23,10 +23,10 @@ import java.io.{File, FileNotFoundException, IOException}
 import java.net.URI
 
 import org.apache.spark.storage.StorageLevel
-
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
+
 import com.cloudera.livy.LivyClientBuilder
 import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 
