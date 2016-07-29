@@ -23,10 +23,10 @@ import java.io.{File, FileNotFoundException, IOException}
 import java.net.URI
 
 import org.apache.spark.storage.StorageLevel
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
-
 import com.cloudera.livy.LivyClientBuilder
 import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
 
@@ -92,7 +92,7 @@ object WordCountApp {
       port: Int,
       outputPath: String): ScalaJobHandle[Unit] = {
     scalaClient.submit { context =>
-      context.createStreamingContext(20000)
+      context.createStreamingContext(15000)
       val ssc = context.streamingctx
       val sqlctx = context.sqlctx
       val lines = ssc.socketTextStream(host, port, StorageLevel.MEMORY_AND_DISK_SER)
@@ -104,7 +104,7 @@ object WordCountApp {
         df.write.mode("append").json(outputPath)
       }
       ssc.start()
-      ssc.awaitTerminationOrTimeout(35000)
+      ssc.awaitTerminationOrTimeout(12000)
       ssc.stop(false, true)
     }
   }
@@ -127,7 +127,7 @@ object WordCountApp {
         result.first().toString()
       } catch {
         case exception: IOException => {
-          throw new Exception("The input path does not have any data frame")
+          throw new IOException("The input path does not have any data frame", exception)
         }
       }
     }
@@ -141,8 +141,11 @@ object WordCountApp {
     text.toLowerCase.replaceAll("[^a-zA-Z0-9\\s]", "").split("\\s+")
   }
 
-  private def stopClient(shutdownContext: Boolean): Unit = {
-    scalaClient.stop(shutdownContext)
+  private def stopClient(): Unit = {
+    if (scalaClient != null) {
+      scalaClient.stop(true)
+      scalaClient = null;
+    }
   }
 
   /**
@@ -228,12 +231,12 @@ object WordCountApp {
       uploadRelevantJarsForJobExecution()
       println("Calling processStreamingWordCount")
       val handle1 = processStreamingWordCount("localhost", 8086, outputFilePath)
-      Await.result(handle1, 120 second)
+      Await.result(handle1, 100 second)
       println("Calling getWordWithMostCount")
       val handle = getWordWithMostCount(outputFilePath)
-      println("Word with max count::" + Await.result(handle, 40 second))
+      println("Word with max count::" + Await.result(handle, 100 second))
     } finally {
-      stopClient(true)
+      stopClient()
     }
   }
 }
