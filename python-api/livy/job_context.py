@@ -15,48 +15,107 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractproperty, abstractmethod
 
 
 class JobContext:
     """
-    Holds runtime information about the job execution context.
+    An abstract class that holds runtime information about the job execution
+    context.
 
-    An instance of this class is kept on the node hosting a remote Spark context and is made
-    available to jobs being executed via RemoteSparkContext#submit().
+    An instance of this class is kept on the node hosting a remote Spark
+    context and is made available to jobs being executed via
+    RemoteSparkContext#submit().
+
     """
 
     __metaclass__ = ABCMeta
 
-    @abstractmethod
+    @abstractproperty
     def sc(self):
         """
         The shared SparkContext instance.
-        :returns SparkContext instance
+
+        Returns
+        -------
+        sc : pyspark.context.SparkContext
+            A SparkContext instance
+
+        Examples
+         -------
+
+        >>> def simple_spark_job(context):
+        >>>     elements = [10, 20, 30]
+        >>>     sc = context.sc
+        >>>     return sc.parallelize(elements, 2).count()
         """
         pass
 
-    @abstractmethod
+    @abstractproperty
     def sql_ctx(self):
         """
-        The shared SqlContext instance.
-        :returns SqlContext instance
+        The shared SQLContext instance.
+
+        Returns
+        -------
+        sql_ctx : pyspark.sql.SQLContext
+            A SQLContext instance
+
+        Examples
+         -------
+
+        >>> def simple_spark_sql_job(context):
+        >>>     sql_ctx = context.sql_ctx
+        >>>     df1 = sql_ctx.read.json("/sample.json")
+        >>>     return df1.dTypes()
         """
         pass
 
-    @abstractmethod
+    @abstractproperty
     def hive_ctx(self):
         """
         The shared HiveContext instance.
-        :returns HiveContext instance
+
+        Returns
+        -------
+        hive_ctx : pyspark.sql.HiveContext
+            A HiveContext instance
+
+        Examples
+         -------
+
+        >>> def simple_spark_hive_job(context):
+        >>>     hive_ctx = context.hive_ctx
+        >>>     df1 = hive_ctx.read.json("/sample.json")
+        >>>     return df1.dTypes()
         """
         pass
 
-    @abstractmethod
+    @abstractproperty
     def streaming_ctx(self):
         """
-        The shared SparkStreamingContext instance that has already been created.
-        :returns StreamingContext instance
+        The shared SparkStreamingContext instance that has already been created
+
+        Returns
+        -------
+        streaming_ctx : pyspark.streaming.StreamingContext
+            A StreamingContext instance
+
+        Raises
+        -------
+        ValueError
+            If the streaming_ctx is not already created using the function
+            create_streaming_ctx(batch_duration)
+
+        Examples
+         -------
+
+        >>> def simple_spark_streaming_job(context):
+        >>>     context.create_streaming_ctx(30)
+        >>>     streaming_ctx = context.streaming_ctx
+        >>>     lines = streaming_ctx.socketTextStream('localhost', '8080')
+        >>>     filtered_lines = lines.filter(lambda line: 'spark' in line)
+        >>>     filtered_lines.pprint()
         """
         pass
 
@@ -64,8 +123,16 @@ class JobContext:
     def create_streaming_ctx(self, batch_duration):
         """
         Creates the SparkStreaming context.
-        :param seconds batch_duration Time interval at which streaming data will
-            be divided into batches
+
+        Raises
+        -------
+        ValueError
+            If the streaming_ctx has already been initialized
+
+        Examples
+        -------
+        See usage in JobContext.streaming_ctx
+
         """
         pass
 
@@ -76,10 +143,12 @@ class JobContext:
         """
         pass
 
-    @abstractmethod
-    def get_temp_file(self):
+    @abstractproperty
+    def get_local_tmp_dir_path(self):
         """"
-        :returns Returns a local tmp dir specific to the context
+        Returns
+        -------
+        local_tmp_dir_path : string
+            Returns a local tmp dir path specific to the context
         """
         pass
-

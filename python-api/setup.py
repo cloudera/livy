@@ -19,15 +19,13 @@
 from setuptools import setup, find_packages
 import os
 import io
+import versioneer
 
-main_version = {}
-readme_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-with io.open(os.path.join(readme_path, 'README.rst'), encoding='utf-8') as long_description_file:
+readme_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                           os.pardir))
+with io.open(os.path.join(readme_path, 'README.rst'), encoding='utf-8') \
+        as long_description_file:
     long_description = long_description_file.read()
-
-root = os.path.dirname(os.path.abspath(__file__))
-with io.open(os.path.join(root, 'livy', '__version__.py')) as version_file:
-    exec(version_file.read(), main_version)
 
 DESCRIPTION = "A simple Python API for Livy powered by requests"
 
@@ -41,12 +39,15 @@ CLASSIFIERS = [
 
 requirements = [
     'pathlib2>=2.1.0',
-    'futures>=3.0.5'
+    'futures>=3.0.5',
+    'cloudpickle>=0.2.1',
+    'requests>=2.10.0'
 ]
 
 setup(
     name='livy-python-api',
-    version=main_version['__version__'],
+    version=versioneer.get_version(),
+    cmdclass=versioneer.get_cmdclass(),
     packages=find_packages(),
     url='https://github.com/manikandan89/livy',
     license='Cloudera Inc',
