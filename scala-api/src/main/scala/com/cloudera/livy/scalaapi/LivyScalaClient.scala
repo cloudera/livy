@@ -106,11 +106,11 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
   /**
    * Adds a jar file to the running remote context.
-   * <p>
+   *
    * Note that the URL should be reachable by the Spark driver process. If running the driver
    * in cluster mode, it may reside on a different host, meaning "file:" URLs have to exist
    * on that node (and not on the client machine).
-   * <p>
+   *
    * If the provided URI has no scheme, it's considered to be relative to the default file system
    * configured in the Livy server.
    *
@@ -130,11 +130,11 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
 
   /**
    * Adds a file to the running remote context.
-   * <p>
+   *
    * Note that the URL should be reachable by the Spark driver process. If running the driver
    * in cluster mode, it may reside on a different host, meaning "file:" URLs have to exist
    * on that node (and not on the client machine).
-   * <p>
+   *
    * If the provided URI has no scheme, it's considered to be relative to the default file system
    * configured in the Livy server.
    *

@@ -159,11 +159,9 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
   }
 
   /**
-   * Await the completion of the job and return the result (of type `T`)
+   * Supports Scala's Await.result(atmost) which awaits the completion of the job and returns the
+   * result (of type `T`)
    *
-   * Although this method is blocking, the internal use of [[scala.concurrent.blocking blocking]]
-   * ensures that the underlying [[ExecutionContext]] to properly detect blocking and ensure
-   * that there are no deadlocks.
    * @param  atMost
    *         maximum wait time, which may be negative (no waiting is done),
    *         [[scala.concurrent.duration.Duration.Inf Duration.Inf]] for unbounded waiting,
@@ -176,10 +174,8 @@ class ScalaJobHandle[T] private[livy] (jobHandle: JobHandle[T]) extends Future[T
     getJavaFutureResult(jobHandle, atMost)
 
   /**
-   * Await the completion of the job
+   * Supports Scala's Await.ready(atmost) which awaits the completion of the job
    *
-   * Although this method is blocking, the internal use of [[scala.concurrent.blocking blocking]]
-   * ensures that the underlying [[ExecutionContext]] is prepared to properly manage the blocking.
    * @param  atMost
    *         maximum wait time, which may be negative (no waiting is done),
    *         [[scala.concurrent.duration.Duration.Inf Duration.Inf]] for unbounded waiting,
