@@ -214,8 +214,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   jpost[AddResource]("/:id/add-pyfile") { req =>
     withSession { lsession =>
       lsession.kind match {
-        case Spark() => throw new UnsupportedOperationException("End point unsupported for " +
-          "pyspark session")
+        case Spark() => BadRequest("Only supported for pyspark sessions.")
         case PySpark() | PySpark3() => addJarOrPyFile(req, lsession)
       }
     }

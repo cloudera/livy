@@ -249,4 +249,4 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 }
-// scalastyle:off println
+// scalastyle:on println

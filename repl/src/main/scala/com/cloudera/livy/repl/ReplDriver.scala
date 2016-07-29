@@ -106,8 +106,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => super.addJarOrPyFile(path)
       case PySpark() | PySpark3() => {
         val localCopyDir = new File(PythonInterpreter.getPySparkJobProcessor.getLocalTmpDirPath)
-        doAddJarOrPyFile_copyFileToLocal(localCopyDir, path,
-          SparkContext.getOrCreate(conf))
+        copyFileToLocal(localCopyDir, path, SparkContext.getOrCreate(conf))
         PythonInterpreter.getPySparkJobProcessor.addPyFile(path)
       }
     }

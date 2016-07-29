@@ -21,20 +21,20 @@ import com.cloudera.livy.JobContext;
 
 public class AddFileJob implements Job<Object> {
 
-    private final String path;
+  private final String path;
 
-    AddFileJob() {
-        this(null);
-    }
+  AddFileJob() {
+    this(null);
+}
 
-    public AddFileJob(String path) {
-        this.path = path;
-    }
+  public AddFileJob(String path) {
+    this.path = path;
+}
 
-    @Override
-    public Object call(JobContext jc) throws Exception {
-        JobContextImpl jobContextImpl = (JobContextImpl)jc;
-        jobContextImpl.addFile(path);
-        return null;
-    }
+  @Override
+  public Object call(JobContext jc) throws Exception {
+    JobContextImpl jobContextImpl = (JobContextImpl)jc;
+    jobContextImpl.addFile(path);
+    return null;
+  }
 }

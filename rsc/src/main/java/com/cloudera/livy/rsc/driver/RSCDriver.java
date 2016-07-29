@@ -399,8 +399,7 @@ public class RSCDriver extends BaseProtocol {
   }
 
   public BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
-      return new BypassJobWrapper(this, msg.id,
-              new BypassJob(this.serializer(), msg.serializedJob));
+    return new BypassJobWrapper(this, msg.id, new BypassJob(this.serializer(), msg.serializedJob));
   }
 
   @SuppressWarnings("unchecked")
@@ -448,16 +447,14 @@ public class RSCDriver extends BaseProtocol {
 
   public void addJarOrPyFile(String path) throws Exception {
     File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
-    File localCopy = doAddJarOrPyFile_copyFileToLocal(localCopyDir, path, jc.sc().sc());
+    File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
     MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
     cl.addURL(localCopy.toURI().toURL());
     jc.sc().addJar(path);
   }
 
-  public File doAddJarOrPyFile_copyFileToLocal(
-          File localCopyDir,
-          String filePath,
-          SparkContext sc) throws Exception {
+  public File copyFileToLocal(File localCopyDir, String filePath,
+                              SparkContext sc) throws Exception {
     synchronized (jc) {
       if (!localCopyDir.isDirectory() && !localCopyDir.mkdir()) {
         throw new IOException("Failed to create directory to add pyFile");
