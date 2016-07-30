@@ -58,7 +58,7 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  protected static class BypassJobRequest {
+  public static class BypassJobRequest {
 
     public final String id;
     public final byte[] serializedJob;

@@ -18,8 +18,6 @@
 
 package com.cloudera.livy.repl
 
-import java.io.File
-
 import scala.collection.mutable
 import scala.concurrent.{Await, Future}
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -46,8 +44,10 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   private val kind = Kind(livyConf.get(RSCConf.Entry.SESSION_KIND))
 
+  private[repl] var interpreter: Interpreter = _
+
   override protected def initializeContext(): JavaSparkContext = {
-    val interpreter = kind match {
+    interpreter = kind match {
       case PySpark() => PythonInterpreter(conf, PySpark())
       case PySpark3() => PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
@@ -85,30 +85,23 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    kind match {
-      case Spark() => super.createWrapper(msg)
-      case PySpark() | PySpark3() => {
-        new BypassJobWrapper(this, msg.id,
-          new BypassPySparkJob(msg.serializedJob, PythonInterpreter.getPySparkJobProcessor))
-      }
+    interpreter match {
+      case pi: PythonInterpreter => PythonInterpreter.createWrapper(this, msg)
+      case _ => super.createWrapper(msg)
     }
   }
 
   override def addFile(path: String): Unit = {
-    kind match {
-      case Spark() => super.addFile(path)
-      case PySpark() | PySpark3() => PythonInterpreter.getPySparkJobProcessor.addFile(path)
+    interpreter match {
+      case pi: PythonInterpreter => PythonInterpreter.addFile(path)
+      case _ => super.addFile(path)
     }
   }
 
   override def addJarOrPyFile(path: String): Unit = {
-    kind match {
-      case Spark() => super.addJarOrPyFile(path)
-      case PySpark() | PySpark3() => {
-        val localCopyDir = new File(PythonInterpreter.getPySparkJobProcessor.getLocalTmpDirPath)
-        copyFileToLocal(localCopyDir, path, SparkContext.getOrCreate(conf))
-        PythonInterpreter.getPySparkJobProcessor.addPyFile(path)
-      }
+    interpreter match {
+      case pi: PythonInterpreter => PythonInterpreter.addPyFile(this, conf, path)
+      case _ => super.addJarOrPyFile(path)
     }
   }
 }
