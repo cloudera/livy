@@ -50,6 +50,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case PySpark3() => PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
+      case Shared() => new SharedInterpreter(conf)
     }
 
     session = new Session(interpreter)

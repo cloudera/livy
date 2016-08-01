@@ -426,10 +426,36 @@ def main():
     sys.stderr = UnicodeDecodingStringIO()
 
     try:
+
         if os.environ.get("LIVY_TEST") != "true":
-        # Load spark into the context
-            exec('from pyspark.shell import sc', global_dict)
-            exec('from pyspark.shell import sqlContext',global_dict)
+            from py4j.java_gateway import java_import, JavaGateway, GatewayClient
+            from pyspark.conf import SparkConf
+            from pyspark.context import SparkContext
+            from pyspark.sql import SQLContext, HiveContext, Row
+            # Connect to the gateway
+            gateway_port = int(os.environ["PYSPARK_GATEWAY_PORT"])
+            gateway = JavaGateway(GatewayClient(port=gateway_port), auto_convert=True)
+
+            # Import the classes used by PySpark
+            java_import(gateway.jvm, "org.apache.spark.SparkConf")
+            java_import(gateway.jvm, "org.apache.spark.api.java.*")
+            java_import(gateway.jvm, "org.apache.spark.api.python.*")
+            java_import(gateway.jvm, "org.apache.spark.mllib.api.python.*")
+            java_import(gateway.jvm, "org.apache.spark.sql.*")
+            java_import(gateway.jvm, "org.apache.spark.sql.hive.*")
+            java_import(gateway.jvm, "scala.Tuple2")
+
+            # get SparkConf/SparkContext/SQLContext from JVM side rather than creating them
+            # from python. So that we can share the same SparkContext/SQLContext in one jvm.
+            jconf = gateway.entry_point.getSparkConf()
+            jsc = gateway.entry_point.getJavaSparkContext()
+            scala_sqlContext = gateway.entry_point.getOrCreateSQLContext()
+
+            conf = SparkConf(_jvm = gateway.jvm, _jconf = jconf)
+            sc = SparkContext(jsc=jsc, gateway=gateway, conf=conf)
+            global_dict['sc'] = sc
+            sqlContext = SQLContext(sc, scala_sqlContext)
+            global_dict['sqlContext'] = sqlContext
 
         print(sys.stdout.getvalue(), file=sys_stderr)
         print(sys.stderr.getvalue(), file=sys_stderr)

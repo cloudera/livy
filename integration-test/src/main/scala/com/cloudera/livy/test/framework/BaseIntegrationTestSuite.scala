@@ -97,6 +97,13 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     }
   }
 
+  protected def sharedtest(desc: String) (testFn: => Unit): Unit = {
+    test(desc) {
+      assume(cluster.isRealSpark(), "Shared Interpreter tests require a real Spark installation.")
+      testFn
+    }
+  }
+
   // We need beforeAll() here because BatchIT's beforeAll() has to be executed after this.
   // Please create an issue if this breaks test logging for cluster creation.
   protected override def beforeAll() = {
