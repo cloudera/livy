@@ -57,21 +57,21 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   test("submit spark app") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = newOutputPath
+    val output = newOutputPath()
     val result = runSpark(classOf[SimpleSparkApp], args = List(output))
 
     dumpLogOnFailure(result.id) {
-      assert(result.state === SessionState.Success().toString)
+      assert(result.state === SessionState.Success().toString())
       assert(cluster.fs.isDirectory(new Path(output)))
     }
   }
 
   test("submit an app that fails") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = newOutputPath
+    val output = newOutputPath()
     val result = runSpark(classOf[FailingApp], args = List(output))
     // At this point the application has exited. State should be 'dead' instead of 'error'.
-    assert(result.state === SessionState.Dead().toString)
+    assert(result.state === SessionState.Dead().toString())
 
     // The file is written to make sure the app actually ran, instead of just failing for
     // some other reason.
@@ -80,9 +80,9 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   pytest("submit a pyspark application") {
     val hdfsPath = uploadResource("pytest.py")
-    val output = newOutputPath
+    val output = newOutputPath()
     val result = runScript(hdfsPath, args = List(output))
-    assert(result.state === SessionState.Success().toString)
+    assert(result.state === SessionState.Success().toString())
     assert(cluster.fs.isDirectory(new Path(output)))
   }
 
@@ -91,12 +91,12 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   ignore("submit a SparkR application") {
     val hdfsPath = uploadResource("rtest.R")
     val result = runScript(hdfsPath)
-    assert(result.state === SessionState.Success().toString)
+    assert(result.state === SessionState.Success().toString())
   }
 
   test("deleting a session should kill YARN app") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = newOutputPath
+    val output = newOutputPath()
     val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
 
     dumpLogOnFailure(batchId, cleanup = false) {
@@ -112,7 +112,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   test("killing YARN app should change batch state to dead") {
     assume(testLibPath != null, "Test lib not uploaded.")
-    val output = newOutputPath
+    val output = newOutputPath()
     val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
 
     dumpLogOnFailure(batchId) {
@@ -125,7 +125,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
           .getFinalApplicationStatus == FinalApplicationStatus.KILLED,
           "YARN app should be killed.")
         val batchInfo = getBatchSessionInfo(batchId)
-        assert(batchInfo.state == SessionState.Dead().toString, "Batch state should be dead.")
+        assert(batchInfo.state == SessionState.Dead().toString(), "Batch state should be dead.")
         assert(batchInfo.log.contains("Application killed by user."),
           "Batch log doesn't contain yarn final diagnostics.")
       }
@@ -157,12 +157,12 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
       assert(appReport != null, "appReport shouldn't be null")
 
-      appReport.getDiagnostics
-    } getOrElse ""
+      appReport.getDiagnostics()
+    }.getOrElse("")
   }
 
-  private def newOutputPath: String = {
-    cluster.hdfsScratchDir().toString + "/" + UUID.randomUUID().toString
+  private def newOutputPath(): String = {
+    cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()
   }
 
   private def uploadResource(name: String): String = {
@@ -175,7 +175,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       in.close()
       out.close()
     }
-    hdfsPath.toUri.getPath
+    hdfsPath.toUri().getPath()
   }
 
   private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
@@ -202,7 +202,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     val r = httpClient.prepareGet(s"$livyEndpoint/batches/$batchId")
       .execute()
       .get()
-    assert(r.getStatusCode === SC_OK)
+    assert(r.getStatusCode() === SC_OK)
     mapper.readValue(r.getResponseBodyAsStream(), classOf[SessionInfo])
   }
 
@@ -210,7 +210,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     val r = httpClient.prepareDelete(s"$livyEndpoint/batches/$batchId")
       .execute()
       .get()
-    assert(r.getStatusCode === SC_OK)
+    assert(r.getStatusCode() === SC_OK)
   }
 
   private def startBatch(request: CreateBatchRequest): SessionInfo = {
@@ -233,14 +233,14 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       val batch = getBatchSessionInfo(batchId)
 
       // If batch state transits to any error state, fail test immediately.
-      if (batch.state == SessionState.Error().toString ||
-        batch.state == SessionState.Dead().toString) {
+      if (batch.state == SessionState.Error().toString() ||
+        batch.state == SessionState.Dead().toString()) {
         throw new TestPendingException {
           override def getMessage = s"Session shouldn't be in a terminal state: ${batch.state}"
         }
       }
 
-      assert(batch.state === SessionState.Running().toString)
+      assert(batch.state === SessionState.Running().toString())
 
       ConverterUtils.toApplicationId(batch.appId)
     }
@@ -248,7 +248,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   private def waitAndDeleteBatch(batchId: Int): SessionInfo = {
     val terminalStates = Set(SessionState.Error(), SessionState.Dead(), SessionState.Success())
-      .map (_.toString)
+      .map(_.toString())
 
     var finished = false
     try {

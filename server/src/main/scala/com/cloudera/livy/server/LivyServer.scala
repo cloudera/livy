@@ -64,8 +64,8 @@ class LivyServer extends Logging {
     testSparkSubmit(livyConf)
 
     // Initialize YarnClient ASAP to save time.
-    if (livyConf.isRunningOnYarn) {
-      Future { SparkYarnApp.getYarnClient() }
+    if (livyConf.isRunningOnYarn()) {
+      Future { SparkYarnApp.yarnClient }
     }
 
     server = new WebServer(livyConf, host, port)
@@ -263,10 +263,14 @@ class LivyServer extends Logging {
    */
   private[server] def testSparkVersion(version: String): Unit = {
     val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
+    // This is exclusive. Version which equals to this will be rejected.
+    val (maxMajor, maxMinor) = (2, 0)
     val (minMajor, minMinor) = (1, 6)
+
     val supportedVersion = version match {
       case versionPattern(major, minor) =>
-        major.toInt > minMajor || major.toInt == minMajor && minor.toInt >= minMinor
+        (major.toInt > minMajor || major.toInt == minMajor && minor.toInt >= minMinor) &&
+        (major.toInt < maxMajor || major.toInt == maxMajor && minor.toInt < maxMinor)
       case _ => false
     }
     require(supportedVersion,

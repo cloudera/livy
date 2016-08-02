@@ -62,7 +62,7 @@ public class HttpMessages {
     public final List<String> log;
 
     public SessionInfo(int id, String appId, String owner, String proxyUser, String state,
-                       String kind, List<String> log) {
+        String kind, List<String> log) {
       this.id = id;
       this.appId = appId;
       this.owner = owner;

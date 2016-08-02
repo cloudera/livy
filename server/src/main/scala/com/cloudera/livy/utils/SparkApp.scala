@@ -29,13 +29,10 @@ trait SparkAppListener {
   def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {}
 }
 
-// This class looks quite similar to SparkLauncher. Consider adding recovery to SparkLauncher.
 /**
  * Provide factory methods for SparkApp.
  */
 object SparkApp {
-  import SparkYarnApp.getAppIdFromTagAsync
-
   private val SPARK_YARN_TAG_KEY = "spark.yarn.tags"
 
   object State extends Enumeration {
@@ -54,7 +51,7 @@ object SparkApp {
       uniqueAppTag: String,
       livyConf: LivyConf,
       sparkConf: Map[String, String]): Map[String, String] = {
-    if (livyConf.isRunningOnYarn) {
+    if (livyConf.isRunningOnYarn()) {
       val userYarnTags = sparkConf.get(uniqueAppTag).map("," + _).getOrElse("")
       val mergedYarnTags = uniqueAppTag + userYarnTags
       sparkConf ++ Map(
@@ -75,8 +72,8 @@ object SparkApp {
       process: LineBufferedProcess,
       livyConf: LivyConf,
       listener: Option[SparkAppListener]): SparkApp = {
-    if (livyConf.isRunningOnYarn) {
-      new SparkYarnApp(getAppIdFromTagAsync(uniqueAppTag), Some(process), listener)
+    if (livyConf.isRunningOnYarn()) {
+      SparkYarnApp.fromAppTag(uniqueAppTag, Some(process), listener, livyConf)
     } else {
       new SparkProcApp(process, listener)
     }

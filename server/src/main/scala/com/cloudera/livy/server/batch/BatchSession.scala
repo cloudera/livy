@@ -82,6 +82,7 @@ class BatchSession(
 
   override def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {
     synchronized {
+      debug(s"$this state changed from $oldState to $newState")
       newState match {
         case SparkApp.State.RUNNING => _state = SessionState.Running()
         case SparkApp.State.FINISHED => _state = SessionState.Success()

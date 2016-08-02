@@ -32,7 +32,7 @@ public class SimpleSparkApp {
   public static void main(String[] args) throws Exception {
     if (args.length < 1 || args.length > 2) {
       throw new IllegalArgumentException(
-              "Invalid arguments. <output path> [exit after output=true]>");
+        "Invalid arguments. <output path> [exit after output=true]>");
     }
 
     String output = args[0];
@@ -51,7 +51,7 @@ public class SimpleSparkApp {
       rdd.saveAsTextFile(output);
 
       if (!exitAfterOutput) {
-        while(true) {
+        while (true) {
           Thread.sleep(60 * 60 * 1000);
         }
       }

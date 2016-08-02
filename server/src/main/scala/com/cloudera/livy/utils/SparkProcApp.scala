@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.utils
 
-import com.cloudera.livy.Logging
+import com.cloudera.livy.{Logging, Utils}
 import com.cloudera.livy.util.LineBufferedProcess
 
 /**
@@ -36,6 +36,7 @@ class SparkProcApp (
   override def kill(): Unit = {
     if (process.isAlive) {
       process.destroy()
+      waitThread.join()
     }
   }
 
@@ -48,18 +49,13 @@ class SparkProcApp (
     }
   }
 
-  val waitThread = new Thread(new Runnable {
-    override def run(): Unit = {
-      changeState(SparkApp.State.RUNNING)
-      process.waitFor() match {
-        case 0 => changeState(SparkApp.State.FINISHED)
-        case exitCode =>
-          changeState(SparkApp.State.FAILED)
-          error(s"spark-submit exited with code $exitCode")
-      }
+  private val waitThread = Utils.startDaemonThread(s"SparProcApp_$this") {
+    changeState(SparkApp.State.RUNNING)
+    process.waitFor() match {
+      case 0 => changeState(SparkApp.State.FINISHED)
+      case exitCode =>
+        changeState(SparkApp.State.FAILED)
+        error(s"spark-submit exited with code $exitCode")
     }
-  }, s"SparProcApp_$this")
-
-  waitThread.setDaemon(true)
-  waitThread.start()
+  }
 }

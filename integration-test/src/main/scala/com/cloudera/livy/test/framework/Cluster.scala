@@ -49,25 +49,31 @@ trait Cluster {
 
   def doAsClusterUser[T](task: => T): T
 
-  lazy val coreSiteConf = loadConf(s"${configDir().getCanonicalPath}/core-site.xml")
+  lazy val hadoopConf = {
+    val conf = new Configuration(false)
+    configDir().listFiles().foreach { f =>
+      if (f.getName().endsWith(".xml")) {
+        conf.addResource(new Path(f.toURI()))
+      }
+    }
+    conf
+  }
 
-  lazy val yarnSiteConf = loadConf(s"${configDir().getCanonicalPath}/yarn-site.xml")
+  lazy val yarnConf = {
+    val conf = new Configuration(false)
+    conf.addResource(new Path(s"${configDir().getCanonicalPath}/yarn-site.xml"))
+    conf
+  }
 
   lazy val fs = doAsClusterUser {
-    FileSystem.get(coreSiteConf)
+    FileSystem.get(hadoopConf)
   }
 
   lazy val yarnClient = doAsClusterUser {
     val c = YarnClient.createYarnClient()
-    c.init(yarnSiteConf)
+    c.init(yarnConf)
     c.start()
     c
-  }
-
-  private def loadConf(confPath: String): Configuration = {
-    val conf = new Configuration(false)
-    conf.addResource(new Path(confPath))
-    conf
   }
 }
 
