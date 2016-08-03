@@ -23,10 +23,14 @@ import java.util.regex.Pattern
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import scala.util.control.Exception.allCatch
 
+import org.apache.hadoop.yarn.api.records.YarnApplicationState
+import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.Eventually._
 
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, StatementError}
 
@@ -41,14 +45,23 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   test("basic interactive session") {
     sessionId = livyClient.startSession(Spark())
 
-    matchResult("1+1", "res0: Int = 2")
-    matchResult("sqlContext", startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
-    matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
-      startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
+    dumpLogOnFailure(sessionId) {
+      matchResult("1+1", "res0: Int = 2")
+      matchResult("sqlContext", startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
+      matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
+        startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
 
-    matchError("abcde", evalue = ".*?:[0-9]+: error: not found: value abcde.*")
-    matchError("throw new IllegalStateException()",
-      evalue = ".*java\\.lang\\.IllegalStateException.*")
+      matchError("abcde", evalue = ".*?:[0-9]+: error: not found: value abcde.*")
+      matchError("throw new IllegalStateException()",
+        evalue = ".*java\\.lang\\.IllegalStateException.*")
+
+      // Stop session and verify the YARN app state is finished.
+      // This is important because if YARN app state is killed, Spark history is not archived.
+      val appId = getAppId(sessionId)
+      livyClient.stopSession(sessionId)
+      val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
+      assert(appReport.getYarnApplicationState() == YarnApplicationState.FINISHED)
+    }
   }
 
   pytest("pyspark interactive session") {
@@ -85,24 +98,29 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
 
   test("application kills session") {
     sessionId = livyClient.startSession(Spark())
-    waitTillSessionIdle(sessionId)
-    livyClient.runStatement(sessionId, "System.exit(0)")
+    dumpLogOnFailure(sessionId) {
+      waitTillSessionIdle(sessionId)
+      livyClient.runStatement(sessionId, "System.exit(0)")
 
-    val expected = Set(SessionState.Idle().toString, SessionState.Error().toString)
-    eventually(timeout(30 seconds), interval(1 second)) {
-      val state = livyClient.getSessionStatus(sessionId)
-      assert(expected.contains(state))
+      val expected = Set(SessionState.Dead().toString)
+      eventually(timeout(30 seconds), interval(1 second)) {
+        val state = livyClient.getSessionStatus(sessionId)
+        assert(expected.contains(state))
+      }
     }
+  }
 
-    // After the statement has run, it shouldn't be possible to run more commands. Once LIVY-139
-    // is fixed, this test should be changed to make sure the session state automatically turns
-    // to "error" or "dead", depending on how it's implemented.
-    try {
-      livyClient.runStatement(sessionId, "1+1")
-      val state = livyClient.getSessionStatus(sessionId)
-      fail(s"Should have failed to run statement; session state is $state")
-    } catch {
-      case e: Exception =>
+  test("should kill RSCDriver if it doesn't respond to end session") {
+    val testConfName = s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_END_SESSION.key()}"
+    sessionId = livyClient.startSession(Spark(), Map(testConfName -> "true"))
+
+    dumpLogOnFailure(sessionId) {
+      waitTillSessionIdle(sessionId)
+
+      val appId = getAppId(sessionId)
+      livyClient.stopSession(sessionId)
+      val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
+      assert(appReport.getYarnApplicationState() == YarnApplicationState.KILLED)
     }
   }
 
@@ -126,6 +144,31 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
       "val rdd = sc.parallelize(Array.fill(10){new Item(scala.util.Random.nextInt(1000))})",
       "rdd.*")
     matchResult("rdd.count()", ".*= 10")
+  }
+
+  private def dumpLogOnFailure[T](sessionId: Int)(f: => T): T = {
+    try {
+      f
+    } catch {
+      case e: Throwable =>
+        allCatch {
+          info(s"Session state: ${livyClient.getSessionInfo(sessionId)}")
+          info(s"YARN log: ${getSessionYarnLog(sessionId)}")
+        }
+        throw e
+    }
+  }
+
+  private def getAppId(sessionId: Int): String = {
+    val appId = livyClient.getSessionInfo(sessionId)("appId").asInstanceOf[String]
+    assert(appId != null, "appId returned null.")
+    appId
+  }
+
+  private def getSessionYarnLog(sessionId: Int): String = {
+    allCatch.opt {
+      getYarnLog(getAppId(sessionId))
+    }.getOrElse("")
   }
 
   private def matchResult(code: String, expected: String): Unit = {

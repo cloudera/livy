@@ -28,7 +28,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
@@ -40,6 +40,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
+import com.cloudera.livy.utils.{SparkApp, SparkAppListener}
 
 object InteractiveSession {
   val LivyReplJars = "livy.repl.jars"
@@ -52,7 +53,8 @@ class InteractiveSession(
     override val proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateInteractiveRequest)
-  extends Session(id, owner, livyConf) {
+  extends Session(id, owner, livyConf)
+  with SparkAppListener {
 
   import InteractiveSession._
 
@@ -65,9 +67,11 @@ class InteractiveSession(
 
   val kind = request.kind
 
-  private val client = {
-    val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
-      request.pyFiles)
+  private val (client: RSCClient, app: Option[SparkApp]) = {
+    val uniqueAppTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
+
+    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
+      prepareConf(request.conf, request.jars, request.files, request.archives, request.pyFiles))
 
     val builderProperties = mutable.Map[String, String]()
     builderProperties ++= conf
@@ -143,8 +147,19 @@ class InteractiveSession(
       .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
       .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
       .setURI(new URI("rsc:/"))
-    builder.build()
-  }.asInstanceOf[RSCClient]
+    val client = builder.build().asInstanceOf[RSCClient]
+
+    val app = if (livyConf.isRunningOnYarn()) {
+      // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
+      // (e.g. Reflect YARN application state to session state).
+      Option(SparkApp.create(uniqueAppTag, None, livyConf, Some(this)))
+    } else {
+      // When Livy is running with other cluster manager, SparkApp doesn't provide any additional
+      // benefit over controlling RSCDriver using RSCClient. Don't use it.
+      None
+    }
+    (client, app)
+  }
 
   // Send a dummy job that will return once the client is ready to be used, and set the
   // state to "idle" at that point.
@@ -152,18 +167,22 @@ class InteractiveSession(
     override def onJobQueued(job: JobHandle[Void]): Unit = { }
     override def onJobStarted(job: JobHandle[Void]): Unit = { }
 
-    override def onJobCancelled(job: JobHandle[Void]): Unit = {
-      transition(SessionState.Error())
-      stop()
-    }
+    override def onJobCancelled(job: JobHandle[Void]): Unit = errorOut()
 
-    override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = {
-      transition(SessionState.Error())
-      stop()
-    }
+    override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = errorOut()
 
     override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
       transition(SessionState.Idle())
+    }
+
+    private def errorOut(): Unit = {
+      // Other code might call stop() to close the RPC channel. When RPC channel is closing,
+      // this callback might be triggered. Check and don't call stop() to avoid nested called
+      // if the session is already shutting down.
+      if (_state != SessionState.ShuttingDown()) {
+        transition(SessionState.Error())
+        stop()
+      }
     }
   })
 
@@ -171,14 +190,23 @@ class InteractiveSession(
   private[this] var _executedStatements = 0
   private[this] var _statements = IndexedSeq[Statement]()
 
-  override def logLines(): IndexedSeq[String] = IndexedSeq()
+  override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(IndexedSeq.empty)
 
   override def state: SessionState = _state
 
   override def stopSession(): Unit = {
-    transition(SessionState.ShuttingDown())
-    client.stop(true)
-    transition(SessionState.Dead())
+    try {
+      transition(SessionState.ShuttingDown())
+      client.stop(true)
+    } catch {
+      case _: Exception =>
+        app.foreach {
+          warn(s"Failed to stop RSCDriver. Killing it...")
+          _.kill()
+        }
+    } finally {
+      transition(SessionState.Dead())
+    }
   }
 
   def statements: IndexedSeq[Statement] = _statements
@@ -366,7 +394,14 @@ class InteractiveSession(
   }
 
   private def transition(state: SessionState) = synchronized {
-    _state = state
+    // When a statement returns an error, the session should transit to error state.
+    // If the session crashed because of the error, the session should instead go to dead state.
+    // Since these 2 transitions are triggered by different threads, there's a race condition.
+    // Make sure we won't transit from dead to error state.
+    if (!_state.isInstanceOf[SessionState.Dead] || !state.isInstanceOf[SessionState.Error]) {
+      debug(s"$this session state change from ${_state} to $state")
+      _state = state
+    }
   }
 
   private def ensureRunning(): Unit = synchronized {
@@ -386,4 +421,18 @@ class InteractiveSession(
     opId
    }
 
+  override def appIdKnown(appId: String): Unit = {
+    _appId = Option(appId)
+  }
+
+  override def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {
+    synchronized {
+      debug(s"$this app state changed from $oldState to $newState")
+      newState match {
+        case SparkApp.State.FINISHED | SparkApp.State.KILLED | SparkApp.State.FAILED =>
+          transition(SessionState.Dead())
+        case _ =>
+      }
+    }
+  }
 }

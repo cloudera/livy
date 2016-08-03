@@ -59,9 +59,12 @@ object SparkYarnApp extends Logging {
 /**
  * Provide a class to control a Spark application using YARN API.
  *
- * @param appId A function that returns the YARN application id for this application.
+ * @param appTag An app tag that can unique identify the YARN app.
+ * @param appIdOption The appId of the YARN app. If this's None, SparkYarnApp will find it
+ *                    using appTag.
  * @param process The spark-submit process launched the YARN application. This is optional.
  *                If it's provided, SparkYarnApp.log() will include its log.
+ * @param listener Optional listener for notification of appId discovery and app state changes.
  */
 class SparkYarnApp private[utils] (
     appTag: String,
