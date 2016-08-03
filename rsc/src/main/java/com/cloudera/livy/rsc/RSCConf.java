@@ -69,7 +69,9 @@ public class RSCConf extends ClientConf<RSCConf> {
     RPC_SECRET_RANDOM_BITS("secret.bits", 256),
 
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
-    SASL_QOP("rpc.sasl.qop", null);
+    SASL_QOP("rpc.sasl.qop", null),
+
+    TEST_STUCK_END_SESSION("test.do_not_use.stuck_end_session", false);
 
     private final String key;
     private final Object dflt;

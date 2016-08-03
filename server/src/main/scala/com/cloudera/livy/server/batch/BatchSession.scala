@@ -63,7 +63,7 @@ class BatchSession(
 
     val file = resolveURIs(Seq(request.file))(0)
     val sparkSubmitProcess = builder.start(Some(file), request.args)
-    SparkApp.create(uniqueAppTag, sparkSubmitProcess, livyConf, Some(this))
+    SparkApp.create(uniqueAppTag, Option(sparkSubmitProcess), livyConf, Some(this))
   }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global

@@ -31,6 +31,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.ning.http.client.AsyncHttpClient
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest._
 import org.scalatest.concurrent.Eventually._
 
@@ -44,6 +45,8 @@ object BaseIntegrationTestSuite {
   // Duplicated from repl.Session. Should really be in a more shared location.
   val OK = "ok"
   val ERROR = "error"
+
+  def isRunningOnTravis: Boolean = sys.env.contains("TRAVIS")
 }
 
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with BeforeAndAfterAll {
@@ -64,8 +67,20 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     .find(new File(_).getName().startsWith("livy-test-lib-"))
     .getOrElse(throw new Exception(s"Cannot find test lib in ${sys.props("java.class.path")}"))
 
+  protected def getYarnLog(appId: String): String = {
+    require(appId != null, "appId shouldn't be null")
+
+    val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
+    assert(appReport != null, "appReport shouldn't be null")
+
+    appReport.getDiagnostics()
+  }
+
   protected def waitTillSessionIdle(sessionId: Int): Unit = {
-    eventually(timeout(2 minutes), interval(100 millis)) {
+    // Travis uses very slow VM. It needs a longer timeout.
+    // Keeping the original timeout to avoid slowing down local development.
+    val idleTimeout = if (isRunningOnTravis) 5.minutes else 2.minutes
+    eventually(timeout(idleTimeout), interval(1 second)) {
       val curState = livyClient.getSessionStatus(sessionId)
       assert(curState === SessionState.Idle().toString)
     }
@@ -141,16 +156,20 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
       }
     }
 
-    def getSessionStatus(sessionId: Int): String = {
+    def getSessionInfo(sessionId: Int): Map[String, Any] = {
       val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId").execute().get()
       withClue(rep.getResponseBody) {
         rep.getStatusCode should equal(HttpServletResponse.SC_OK)
 
-        val sessionState =
-          mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+        mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])
+      }
+    }
 
+    def getSessionStatus(sessionId: Int): String = {
+      val sessionState = getSessionInfo(sessionId)
+
+      withClue(sessionState) {
         sessionState should contain key ("state")
-
         sessionState("state").asInstanceOf[String]
       }
     }

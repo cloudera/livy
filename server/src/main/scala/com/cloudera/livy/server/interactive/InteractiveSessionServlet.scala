@@ -70,7 +70,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
         Nil
       }
 
-    new SessionInfo(session.id, null, session.owner, session.proxyUser.orNull,
+    new SessionInfo(session.id, session.appId.orNull, session.owner, session.proxyUser.orNull,
       session.state.toString, session.kind.toString, logs.asJava)
   }
 

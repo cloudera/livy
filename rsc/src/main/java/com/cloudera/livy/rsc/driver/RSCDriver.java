@@ -364,8 +364,12 @@ public class RSCDriver extends BaseProtocol {
   }
 
   public void handle(ChannelHandlerContext ctx, EndSession msg) {
-    LOG.debug("Shutting down due to EndSession request.");
-    shutdown();
+    if (livyConf.getBoolean(TEST_STUCK_END_SESSION)) {
+      LOG.warn("Ignoring EndSession request because TEST_STUCK_END_SESSION is set.");
+    } else {
+      LOG.debug("Shutting down due to EndSession request.");
+      shutdown();
+    }
   }
 
   public void handle(ChannelHandlerContext ctx, JobRequest<?> msg) {

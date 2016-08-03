@@ -269,6 +269,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
         val session = mock(classOf[InteractiveSession])
         val id = sessionManager.nextId()
         when(session.id).thenReturn(id)
+        when(session.appId).thenReturn(None)
         when(session.state).thenReturn(SessionState.Idle())
         when(session.proxyUser).thenReturn(None)
         when(session.kind).thenReturn(Spark())

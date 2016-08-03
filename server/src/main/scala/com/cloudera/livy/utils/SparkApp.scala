@@ -69,13 +69,14 @@ object SparkApp {
    */
   def create(
       uniqueAppTag: String,
-      process: LineBufferedProcess,
+      process: Option[LineBufferedProcess],
       livyConf: LivyConf,
       listener: Option[SparkAppListener]): SparkApp = {
     if (livyConf.isRunningOnYarn()) {
-      SparkYarnApp.fromAppTag(uniqueAppTag, Some(process), listener, livyConf)
+      SparkYarnApp.fromAppTag(uniqueAppTag, process, listener, livyConf)
     } else {
-      new SparkProcApp(process, listener)
+      require(process.isDefined, "process must not be None when Livy master is not YARN.")
+      new SparkProcApp(process.get, listener)
     }
   }
 }

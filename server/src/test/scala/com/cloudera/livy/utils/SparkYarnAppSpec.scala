@@ -52,7 +52,7 @@ class SparkYarnAppSpec extends FunSpec {
     val appId = ConverterUtils.toApplicationId("application_1467912463905_0021")
     val appTag = "fakeTag"
     val livyConf = new LivyConf()
-    livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "0")
+    livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "30s")
 
     it("should poll YARN state and terminate") {
       Clock.withSleepMethod(mockSleep) {

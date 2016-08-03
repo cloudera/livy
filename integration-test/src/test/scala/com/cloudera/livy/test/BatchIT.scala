@@ -129,7 +129,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       case e: Throwable =>
         ignoringAll {
           info(s"Session log: ${getBatchSessionInfo(batchId).log}")
-          info(s"YARN log: ${getYarnLog(batchId)}")
+          info(s"YARN log: ${getBatchYarnLog(batchId)}")
         }
         throw e
     } finally {
@@ -137,15 +137,12 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     }
   }
 
-  private def getYarnLog(batchId: Int): String = {
+  private def getBatchYarnLog(batchId: Int): String = {
     allCatch.opt {
       val appId = getBatchSessionInfo(batchId).appId
       assert(appId != null, "appId shouldn't be null")
 
-      val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
-      assert(appReport != null, "appReport shouldn't be null")
-
-      appReport.getDiagnostics()
+      getYarnLog(appId)
     }.getOrElse("")
   }
 

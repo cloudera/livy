@@ -109,7 +109,9 @@ public class RSCClient implements LivyClient {
             public void onSuccess(Void unused) {
               if (isAlive) {
                 LOG.warn("Client RPC channel closed unexpectedly.");
-                stop(false);
+                try {
+                  stop(false);
+                } catch (Exception e) { /* stop() itself prints warning. */ }
               }
             }
           });
@@ -130,7 +132,9 @@ public class RSCClient implements LivyClient {
 
   private void connectionError(Throwable error) {
     LOG.error("Failed to connect to context.", error);
-    stop(false);
+    try {
+      stop(false);
+    } catch (Exception e) { /* stop() itself prints warning. */ }
   }
 
   private <T> io.netty.util.concurrent.Future<T> deferredCall(final Object msg,
@@ -196,16 +200,12 @@ public class RSCClient implements LivyClient {
           // since it closes the channel while handling it, we wait for the RPC's channel
           // to close instead.
           long stopTimeout = conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT);
-          try {
-            driverRpc.get().getChannel().closeFuture().get(stopTimeout,
-              TimeUnit.MILLISECONDS);
-          } catch (Exception e) {
-            LOG.warn("Error waiting for context to shut down: {} ({}).",
-              e.getClass().getSimpleName(), e.getMessage());
-          }
+          driverRpc.get().getChannel().closeFuture().get(stopTimeout,
+            TimeUnit.MILLISECONDS);
         }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
+        throw new RuntimeException("Exception while waiting for end session reply.", e);
       } finally {
         if (driverRpc.isSuccess()) {
           try {
