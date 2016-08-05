@@ -30,7 +30,7 @@ import com.cloudera.livy._
 /**
  * A client for submitting Spark-based jobs to a Livy backend.
  * @constructor  Creates a Scala client
- * @param  livyJavaClient  the java client of livy
+ * @param  livyJavaClient  the Java client of Livy
  */
 class LivyScalaClient(livyJavaClient: LivyClient) {
 

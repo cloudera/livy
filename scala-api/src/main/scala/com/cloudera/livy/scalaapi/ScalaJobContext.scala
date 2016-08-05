@@ -30,7 +30,7 @@ import com.cloudera.livy.JobContext
  *  Holds runtime information about the job execution context.
  *
  *  @constructor Creates a ScalaJobContext
- *  @param context the java JobContext of livy
+ *  @param context the Java JobContext of Livy
  */
 class ScalaJobContext private[livy] (context: JobContext) {
 

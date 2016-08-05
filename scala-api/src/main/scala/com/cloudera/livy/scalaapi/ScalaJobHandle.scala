@@ -28,7 +28,7 @@ import com.cloudera.livy.JobHandle.{Listener, State}
  *  A handle to a submitted job. Allows for monitoring and controlling of the running remote job.
  *
  *  @constructor Creates a ScalaJobHandle
- *  @param jobHandle the java JobHandle of livy
+ *  @param jobHandle the Java JobHandle of Livy
  *
  *  @define multipleCallbacks
  *  Multiple callbacks may be registered; there is no guarantee that they will be
