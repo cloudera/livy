@@ -55,6 +55,8 @@ class JobHandle(Future):
         self._traceback = None
         self._waiters = []
         self._done_callbacks = []
+        self._running_callbacks = []
+        self._queued_callbacks = []
 
     def _start(self, command, serialized_job):
         self._executor.submit(self._send_job_task, command, serialized_job)
@@ -68,30 +70,94 @@ class JobHandle(Future):
         self._poll_result()
 
     def queued(self):
-
+        """
+        Returns
+        -------
+        True if the job is currently executing.
+        """
         with self._condition:
             return self._state == QUEUED
 
-    def sent(self):
+    def _invoke_queued_callbacks(self):
+        for callback in self._queued_callbacks:
+            try:
+                callback(self)
+            except Exception:
+                traceback.print_exc()
+            self._queued_callbacks.remove(callback)
+
+    def _invoke_running_callbacks(self):
+        for callback in self._running_callbacks:
+            try:
+                callback(self)
+            except Exception:
+                traceback.print_exc()
+            self._running_callbacks.remove(callback)
+
+    def add_queued_callback(self, fn):
+        """
+        Attaches a callable that will be called when the job state is
+        queued.
+
+        Parameters
+        ----------
+        fn : Function
+            A callable that will be called with this future as its only
+            argument when the job state is queued. The
+            callable will always be called by a thread in the same
+            process in which it was added. These callables are called in
+            the order that they were added.
+        """
         with self._condition:
-            return self._state == SENT
+            if self._state == PENDING:
+                self._queued_callbacks.append(fn)
+            elif self._state == QUEUED:
+                fn(self)
+
+    def add_running_callback(self, fn):
+        """
+        Attaches a callable that will be called when the job state is
+        running.
+
+        Parameters
+        ----------
+        fn : Function
+            A callable that will be called with this future as its only
+            argument when the job state is running. The
+            callable will always be called by a thread in the same
+            process in which it was added. These callables are called in
+            the order that they were added.
+        """
+        with self._condition:
+            if self._state in [PENDING, QUEUED]:
+                self._running_callbacks.append(fn)
+            elif self._state == RUNNING:
+                fn(self)
 
     def _update_state(self, state):
         with self._condition:
             if state == 'STARTED':
                 self._state = RUNNING
-            elif state == 'SENT':
-                self._state = SENT
+                self._invoke_running_callbacks()
             elif state == 'QUEUED':
                 self._state = QUEUED
+                self._invoke_queued_callbacks()
             elif state == 'CANCELLED':
                 self._state = CANCELLED
                 self._invoke_callbacks()
             else:
-                raise RuntimeError('Future in unexpected state')
+                raise RuntimeError('Future in unexpected state::', self._state)
             self._condition.notifyAll()
 
     def cancel(self):
+        """
+        Cancel the future if possible.
+
+        Returns
+        -------
+        True if the future was cancelled, False otherwise. A future
+        cannot be cancelled if it is running or has already completed.
+        """
         with self._condition:
             if self._state in [RUNNING, FINISHED]:
                 return False
@@ -108,9 +174,9 @@ class JobHandle(Future):
                 self._job_id) + "/cancel"
             self._conn.send_json(None, end_point)
         except Exception as err:
-            print(traceback.format_exc())
             super(JobHandle, self).set_exception_info(
                 err, traceback.format_exc())
+            traceback.print_exc()
 
     def _poll_result(self):
         def do_poll_result():
@@ -149,7 +215,7 @@ class JobHandle(Future):
                     self._update_state(job_state)
             except Exception as err:
                 repeated_timer.stop()
-                print(traceback.format_exc())
+                traceback.print_exc()
                 super(JobHandle, self).set_exception_info(
                     err, traceback.format_exc())
 

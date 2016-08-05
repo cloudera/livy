@@ -68,7 +68,7 @@ class HttpClient(object):
     def __init__(self, uri, **kwargs):
         self._config = SafeConfigParser()
         self._load_config(**kwargs)
-        match = re.match(r'(.*)/client/([0-9]+)', uri.path)
+        match = re.match(r'(.*)/sessions/([0-9]+)', uri.path)
         if match:
             base = ParseResult(scheme=uri.scheme, netloc=uri.netloc,
                                path=match.group(1), params=uri.params,
@@ -333,9 +333,8 @@ class HttpClient(object):
         self._config.remove_option(self._CONFIG_SECTION, key)
 
     def _set_multiple_conf(self, conf_dict):
-        if conf_dict is not None:
-            for key, value in conf_dict.iteritems():
-                self.set_conf(self._CONFIG_SECTION, key, value)
+        for key, value in conf_dict.iteritems():
+            self._set_conf(key, value)
 
     def _load_config(self, load_defaults=True, conf_dict=None):
         self._config.add_section(self._CONFIG_SECTION)
@@ -349,10 +348,10 @@ class HttpClient(object):
         if config_dir is None:
             raise KeyError('Config directory not set in environment')
         config_files = os.listdir(config_dir)
-        default_conf_files = ['livy-client.conf', 'spark-defaults.conf']
-        for config_file in config_files:
-            if config_file in default_conf_files:
-                self._load_config_from_files(config_dir, config_file)
+        default_conf_files = ['spark-defaults.conf', 'livy-client.conf']
+        for default_conf_file in default_conf_files:
+            if default_conf_file in config_files:
+                self._load_config_from_files(config_dir, default_conf_file)
 
     def _load_config_from_files(self, config_dir, config_file):
         path = os.path.join(config_dir, config_file)
@@ -394,7 +393,7 @@ class HttpClient(object):
                                      files=files, headers=headers)
 
     def _add_or_upload_resource(self, suffix_url, **kwargs):
-        return self._conn.send_request('POST', suffix_url, **kwargs)
+        return self._conn.send_request('POST', suffix_url, **kwargs).content
 
 
 class LivyConnection(object):

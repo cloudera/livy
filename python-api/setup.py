@@ -41,7 +41,9 @@ requirements = [
     'pathlib2>=2.1.0',
     'futures>=3.0.5',
     'cloudpickle>=0.2.1',
-    'requests>=2.10.0'
+    'requests>=2.10.0',
+    'pytest-runner>=2.9',
+    'responses>=0.5.1'
 ]
 
 setup(
@@ -49,13 +51,15 @@ setup(
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     packages=find_packages(),
-    url='https://github.com/manikandan89/livy',
-    license='Cloudera Inc',
+    url='https://github.com/cloudera/livy',
+    author_email='livy-user@cloudera.org',
+    license='Apache License, Version 2.0',
     description=DESCRIPTION,
     long_description=long_description,
     platforms=['any'],
     keywords='livy pyspark development',
     classifiers=CLASSIFIERS,
     install_requires=requirements,
-    test_suite='tests'
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest']
 )
