@@ -178,7 +178,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
         case Some(file) =>
           lsession.addJar(file.getInputStream, file.name)
         case None =>
-          BadRequest("No jar uploaded!")
+          BadRequest("No jar sent!")
       }
     }
   }
@@ -189,7 +189,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
         case Some(file) =>
           lsession.addJar(file.getInputStream, file.name)
         case None =>
-          BadRequest("No pyfile uploaded!")
+          BadRequest("No file sent!")
       }
     }
   }
@@ -214,8 +214,8 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   jpost[AddResource]("/:id/add-pyfile") { req =>
     withSession { lsession =>
       lsession.kind match {
-        case Spark() => BadRequest("Only supported for pyspark sessions.")
         case PySpark() | PySpark3() => addJarOrPyFile(req, lsession)
+        case _ => BadRequest("Only supported for pyspark sessions.")
       }
     }
   }

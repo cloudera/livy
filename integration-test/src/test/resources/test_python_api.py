@@ -170,4 +170,4 @@ if __name__ == '__main__':
     test_dir_path = os.getcwd() + "/src"
     value = pytest.main(test_dir_path)
     if value == 1:
-        raise Exception("One or more test cases have failed")
+        raise Exception("One or more test cases have failed.")

@@ -44,8 +44,6 @@ import com.cloudera.livy.sessions._
 // scalastyle:off println
 object PythonInterpreter extends Logging {
 
-  private var pysparkJobProcessor: PySparkJobProcessor = null
-
   def apply(conf: SparkConf, kind: Kind): Interpreter = {
     val pythonExec = kind match {
         case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
@@ -72,7 +70,6 @@ object PythonInterpreter extends Logging {
 
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
-    pysparkJobProcessor = initiatePy4jCallbackGateway(gatewayServer)
     new PythonInterpreter(process, gatewayServer, kind.toString)
   }
 
@@ -178,21 +175,6 @@ object PythonInterpreter extends Logging {
         interfaces.toArray, new PythonProxyHandler(parts(0), gateway.getCallbackClient, gateway))
     }
   }
-
-  def createWrapper(driver: ReplDriver, msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    new BypassJobWrapper(driver, msg.id,
-      new BypassPySparkJob(msg.serializedJob, pysparkJobProcessor))
-  }
-
-  def addFile(path: String): Unit = {
-    pysparkJobProcessor.addFile(path)
-  }
-
-  def addPyFile(driver: ReplDriver, conf: SparkConf, path: String): Unit = {
-    val localCopyDir = new File(pysparkJobProcessor.getLocalTmpDirPath)
-    val localCopyFile = driver.copyFileToLocal(localCopyDir, path, SparkContext.getOrCreate(conf))
-    pysparkJobProcessor.addPyFile(localCopyFile.getPath)
-  }
 }
 
 private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, pyKind: String)
@@ -202,6 +184,8 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
   implicit val formats = DefaultFormats
 
   override def kind: String = pyKind
+
+  private val pysparkJobProcessor = PythonInterpreter.initiatePy4jCallbackGateway(gatewayServer)
 
   override def close(): Unit = {
     try {
@@ -260,6 +244,21 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     Option(stdout.readLine()).map { case line =>
       parse(line)
     }
+  }
+
+  def createWrapper(driver: ReplDriver, msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
+    new BypassJobWrapper(driver, msg.id,
+      new BypassPySparkJob(msg.serializedJob, pysparkJobProcessor))
+  }
+
+  def addFile(path: String): Unit = {
+    pysparkJobProcessor.addFile(path)
+  }
+
+  def addPyFile(driver: ReplDriver, conf: SparkConf, path: String): Unit = {
+    val localCopyDir = new File(pysparkJobProcessor.getLocalTmpDirPath)
+    val localCopyFile = driver.copyFileToLocal(localCopyDir, path, SparkContext.getOrCreate(conf))
+    pysparkJobProcessor.addPyFile(localCopyFile.getPath)
   }
 }
 // scalastyle:on println

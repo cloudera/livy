@@ -84,23 +84,23 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     return session.state.toString
   }
 
-  override def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
+  override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
     interpreter match {
-      case pi: PythonInterpreter => PythonInterpreter.createWrapper(this, msg)
+      case pi: PythonInterpreter => pi.createWrapper(this, msg)
       case _ => super.createWrapper(msg)
     }
   }
 
-  override def addFile(path: String): Unit = {
+  override protected def addFile(path: String): Unit = {
     interpreter match {
-      case pi: PythonInterpreter => PythonInterpreter.addFile(path)
+      case pi: PythonInterpreter => pi.addFile(path)
       case _ => super.addFile(path)
     }
   }
 
-  override def addJarOrPyFile(path: String): Unit = {
+  override protected def addJarOrPyFile(path: String): Unit = {
     interpreter match {
-      case pi: PythonInterpreter => PythonInterpreter.addPyFile(this, conf, path)
+      case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
       case _ => super.addJarOrPyFile(path)
     }
   }

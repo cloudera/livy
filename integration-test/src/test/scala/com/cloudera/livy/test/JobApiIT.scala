@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.test
 
-import java.io.{File, FileOutputStream}
+import java.io.{File, FileOutputStream, InputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
 import java.nio.file.Files
@@ -28,10 +28,9 @@ import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 import javax.servlet.http.HttpServletResponse
 
-import scala.util.Try
-
-import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
@@ -202,6 +201,70 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     }
 
     sessionId = -1
+  }
+
+  pytest("validate Python-API requests") {
+    val addFileContent = "hello from addfile"
+    val addFilePath = createTempFilesForTest("add_file", ".txt", addFileContent, true)
+    val addPyFileContent = "def test_add_pyfile(): return \"hello from addpyfile\""
+    val addPyFilePath = createTempFilesForTest("add_pyfile", ".py", addPyFileContent, true)
+    val uploadFileContent = "hello from uploadfile"
+    val uploadFilePath = createTempFilesForTest("upload_pyfile", ".py", uploadFileContent, false)
+    val uploadPyFileContent = "def test_upload_pyfile(): return \"hello from uploadpyfile\""
+    val uploadPyFilePath = createTempFilesForTest("upload_pyfile", ".py",
+      uploadPyFileContent, false)
+
+    val builder = new ProcessBuilder(Seq("python", createPyTestsForPythonAPI().toString).asJava)
+
+    val env = builder.environment()
+    env.put("LIVY_END_POINT", livyEndpoint)
+    env.put("ADD_FILE_URL", addFilePath)
+    env.put("ADD_PYFILE_URL", addPyFilePath)
+    env.put("UPLOAD_FILE_URL", uploadFilePath)
+    env.put("UPLOAD_PYFILE_URL", uploadPyFilePath)
+
+    builder.redirectOutput(new File("src/test/resources/pytest_results.txt"))
+
+    val process = builder.start()
+
+    process.waitFor()
+
+    if (process.exitValue() == 1) {
+      fail("One or more pytest have failed. Check pytest_results.txt for test results.")
+    }
+  }
+
+  private def createPyTestsForPythonAPI(): File = {
+    val source: InputStream = getClass.getClassLoader.getResourceAsStream("test_python_api.py")
+
+    val file = Files.createTempFile("", "").toFile
+    file.deleteOnExit()
+
+    val sink = new FileOutputStream(file)
+    val buf = new Array[Byte](1024)
+    var n = source.read(buf)
+
+    while (n > 0) {
+      sink.write(buf, 0, n)
+      n = source.read(buf)
+    }
+
+    source.close()
+    sink.close()
+
+    file
+  }
+
+  private def createTempFilesForTest(fileName: String,
+                                     fileExtension: String,
+                                     fileContent: String,
+                                     uploadFileToHdfs: Boolean): String = {
+    val path = Files.createTempFile(fileName, fileExtension)
+    Files.write(path, fileContent.getBytes(UTF_8))
+    if (uploadFileToHdfs) {
+      return uploadToHdfs(path.toFile())
+    }
+    path.toString
   }
 
   private def waitFor[T](future: JFuture[T]): T = {

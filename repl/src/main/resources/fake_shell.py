@@ -512,11 +512,11 @@ def main():
 
     try:
         if os.environ.get("LIVY_TEST") != "true":
-        # Load spark into the context
+            #Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
             exec('from pyspark.shell import sqlContext',global_dict)
 
-        # Start py4j callback server
+            #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID
             from py4j.java_gateway import JavaGateway, GatewayClient
             gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(

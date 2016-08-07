@@ -398,7 +398,7 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
-  public BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
+  protected BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
     return new BypassJobWrapper(this, msg.id, new BypassJob(this.serializer(), msg.serializedJob));
   }
 
@@ -441,11 +441,11 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
-  public void addFile(String path) {
+  protected void addFile(String path) {
     jc.sc().addFile(path);
   }
 
-  public void addJarOrPyFile(String path) throws Exception {
+  protected void addJarOrPyFile(String path) throws Exception {
     File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
     File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
     MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
@@ -453,7 +453,8 @@ public class RSCDriver extends BaseProtocol {
     jc.sc().addJar(path);
   }
 
-  public File copyFileToLocal(File localCopyDir, String filePath,
+  public File copyFileToLocal(File localCopyDir,
+                              String filePath,
                               SparkContext sc) throws Exception {
     synchronized (jc) {
       if (!localCopyDir.isDirectory() && !localCopyDir.mkdir()) {
