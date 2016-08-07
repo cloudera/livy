@@ -22,6 +22,9 @@ before_install:
 install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
 
+before_script:
+  - pip install --user requests pathlib2 cloudpickle pytest
+
 script:
   - mvn verify
 
