@@ -446,11 +446,12 @@ public class RSCDriver extends BaseProtocol {
   }
 
   protected void addJarOrPyFile(String path) throws Exception {
+    SparkContext sc = jc.sc() != null ? jc.sc().sc() : SparkContext.getOrCreate(conf);
     File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
-    File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
+    File localCopy = copyFileToLocal(localCopyDir, path, sc);
     MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
     cl.addURL(localCopy.toURI().toURL());
-    jc.sc().addJar(path);
+    sc.addJar(path);
   }
 
   public File copyFileToLocal(File localCopyDir,

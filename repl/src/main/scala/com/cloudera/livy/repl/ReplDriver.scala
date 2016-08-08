@@ -99,9 +99,14 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override protected def addJarOrPyFile(path: String): Unit = {
-    interpreter match {
-      case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
-      case _ => super.addJarOrPyFile(path)
+    path.endsWith(".jar") match {
+      case true => super.addJarOrPyFile(path)
+      case false => {
+        interpreter match {
+          case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
+          case _ => super.addJarOrPyFile(path)
+        }
+      }
     }
   }
 }
