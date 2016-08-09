@@ -25,9 +25,9 @@ import scala.concurrent.duration.Duration
 package object scalaapi {
 
   /**
-   *  A Scala Client for Livy which is a wrapper over the Java client
-   *  @constructor Creates a Scala client
-   *  @param livyJavaClient  the Java client of Livy
+   *  A Scala Client for Livy which is a wrapper over the Java client.
+   *  @constructor Creates a Scala client.
+   *  @param livyJavaClient  the Java client of Livy.
    *  {{{
    *     import com.cloudera.livy._
    *     import com.cloudera.livy.scalaapi._

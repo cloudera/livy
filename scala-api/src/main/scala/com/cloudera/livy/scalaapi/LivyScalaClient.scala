@@ -29,8 +29,8 @@ import com.cloudera.livy._
 
 /**
  * A client for submitting Spark-based jobs to a Livy backend.
- * @constructor  Creates a Scala client
- * @param  livyJavaClient  the Java client of Livy
+ * @constructor  Creates a Scala client.
+ * @param  livyJavaClient  the Java client of Livy.
  */
 class LivyScalaClient(livyJavaClient: LivyClient) {
 
@@ -46,7 +46,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
    * Submits a job for asynchronous execution.
    *
    * @param fn The job to be executed. It is a function that takes in a ScalaJobContext and
-   * returns the result of the execution of the job with that context
+   * returns the result of the execution of the job with that context.
    * @return A handle that can be used to monitor the job.
    */
   def submit[T](fn: ScalaJobContext => T): ScalaJobHandle[T] = {
@@ -68,7 +68,7 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
    * avoids interfering with the normal operation of the context.
    *
    * @param fn The job to be executed. It is a function that takes in a ScalaJobContext and
-   * returns the result of the execution of the job with that context
+   * returns the result of the execution of the job with that context.
    * @return A handle that can be used to monitor the job.
    */
   def run[T](fn: ScalaJobContext => T): Future[T] = {
@@ -97,10 +97,10 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
   }
 
   /**
-   * Upload a jar to be added to the Spark application classpath
+   * Upload a jar to be added to the Spark application classpath.
    *
-   * @param jar The local file to be uploaded
-   * @return A future that can be used to monitor this operation
+   * @param jar The local file to be uploaded.
+   * @return A future that can be used to monitor this operation.
    */
   def uploadJar(jar: File): Future[_] = new PollingContainer(livyJavaClient.uploadJar(jar)).poll()
 
@@ -120,10 +120,10 @@ class LivyScalaClient(livyJavaClient: LivyClient) {
   def addJar(uri: URI): Future[_] = new PollingContainer(livyJavaClient.addJar(uri)).poll()
 
   /**
-   * Upload a file to be passed to the Spark application
+   * Upload a file to be passed to the Spark application.
    *
-   * @param file The local file to be uploaded
-   * @return A future that can be used to monitor this operation
+   * @param file The local file to be uploaded.
+   * @return A future that can be used to monitor this operation.
    */
   def uploadFile(file: File): Future[_] =
     new PollingContainer(livyJavaClient.uploadFile(file)).poll()
