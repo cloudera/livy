@@ -189,6 +189,35 @@ class HttpClient(object):
         """
         return self._add_file_or_pyfile_job("add-file", file_uri)
 
+    def add_jar(self, file_uri):
+        """
+        Adds a jar file to the running remote context.
+
+        Note that the URL should be reachable by the Spark driver process. If
+        running the driver  in cluster mode, it may reside on a different host,
+         meaning "file:" URLs have to exist on that node (and not on the
+         client machine).
+
+        Parameters
+        ----------
+        file_uri : string, pathlib.PurePath or pathlib2.PurePath
+            Representation of path to a local file using filesystem encoding.
+
+        Returns
+        -------
+        future : concurrent.futures.Future
+            A future to monitor the status of the job
+
+        Examples
+        -------
+        >>> import pathlib2
+        >>> file_uri = pathlib2.Path("/test_package.jar").as_uri()
+
+        >>> client.add_jar(file_uri)
+
+        """
+        return self._add_file_or_pyfile_job("add-jar", file_uri)
+
     def add_pyfile(self, file_uri):
         """
         Adds a .py or .zip to the running remote context.

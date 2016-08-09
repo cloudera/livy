@@ -42,19 +42,14 @@ class JobHandle(Future):
     _JOB_MAX_POLL_INTERVAL = 5
 
     def __init__(self, conn, session_id, executor):
+        Future.__init__(self)
         self._conn = conn
         self._session_id = session_id
         self._executor = executor
         self._cancelled = False
         self._job_id = -1
         self._done = False
-        self._condition = threading.Condition()
-        self._state = PENDING
-        self._result = None
-        self._exception = None
-        self._traceback = None
-        self._waiters = []
-        self._done_callbacks = []
+        self._job_handle_condition = threading.Condition()
         self._running_callbacks = []
         self._queued_callbacks = []
 
@@ -75,7 +70,7 @@ class JobHandle(Future):
         -------
         True if the job is currently executing.
         """
-        with self._condition:
+        with self._job_handle_condition:
             return self._state == QUEUED
 
     def _invoke_queued_callbacks(self):
@@ -108,7 +103,7 @@ class JobHandle(Future):
             process in which it was added. These callables are called in
             the order that they were added.
         """
-        with self._condition:
+        with self._job_handle_condition:
             if self._state == PENDING:
                 self._queued_callbacks.append(fn)
             elif self._state == QUEUED:
@@ -128,14 +123,14 @@ class JobHandle(Future):
             process in which it was added. These callables are called in
             the order that they were added.
         """
-        with self._condition:
+        with self._job_handle_condition:
             if self._state in [PENDING, QUEUED]:
                 self._running_callbacks.append(fn)
             elif self._state == RUNNING:
                 fn(self)
 
     def _update_state(self, state):
-        with self._condition:
+        with self._job_handle_condition:
             if state == 'STARTED':
                 self._state = RUNNING
                 self._invoke_running_callbacks()
@@ -147,7 +142,7 @@ class JobHandle(Future):
                 self._invoke_callbacks()
             else:
                 raise RuntimeError('Future in unexpected state::', self._state)
-            self._condition.notifyAll()
+            self._job_handle_condition.notifyAll()
 
     def cancel(self):
         """
@@ -158,14 +153,14 @@ class JobHandle(Future):
         True if the future was cancelled, False otherwise. A future
         cannot be cancelled if it is running or has already completed.
         """
-        with self._condition:
+        with self._job_handle_condition:
             if self._state in [RUNNING, FINISHED]:
                 return False
             if self._state in CANCELLED:
                 return True
             if self._job_id > -1:
                 self._executor.submit(self._send_cancel_request)
-            self._condition.notify_all()
+            self._job_handle_condition.notify_all()
         return True
 
     def _send_cancel_request(self):
