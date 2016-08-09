@@ -105,11 +105,6 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
 
-  test("initialize test cluster") {
-    // Empty test case to separate time spent on creating cluster in beforeAll() and
-    // executing actual test cases.
-  }
-
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
     def startSession(kind: Kind, sparkConf: Map[String, String] = Map()): Int = {

@@ -26,7 +26,14 @@ package com.cloudera.livy.utils
 object Clock {
   private var _sleep: Long => Unit = Thread.sleep
 
-  def setSleepMethod(sleep: Long => Unit): Unit = _sleep = sleep
+  def withSleepMethod(mockSleep: Long => Unit)(f: => Unit): Unit = {
+    try {
+      _sleep = sleep
+      f
+    } finally {
+      _sleep = Thread.sleep
+    }
+  }
 
   def sleep(milliseconds: Long): Unit = _sleep
 }

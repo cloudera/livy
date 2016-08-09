@@ -47,13 +47,6 @@ class SparkYarnAppSpec extends FunSpec {
     Thread.`yield`()
   }
 
-  private def withSleepMethod(mockSleep: Long => Unit)(f: => Unit): Unit = {
-    noCatch.andFinally { Clock.setSleepMethod(Thread.sleep) } {
-      Clock.setSleepMethod(mockSleep)
-      f
-    }
-  }
-
   describe("SparkYarnApp") {
     val TEST_TIMEOUT = 30 seconds
     val appId = ConverterUtils.toApplicationId("application_1467912463905_0021")
@@ -61,7 +54,7 @@ class SparkYarnAppSpec extends FunSpec {
     livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "0")
 
     it("should poll YARN state and terminate") {
-      withSleepMethod(mockSleep) {
+      Clock.withSleepMethod(mockSleep) {
         val mockYarnClient = mock[YarnClient]
         val mockAppListener = mock[SparkAppListener]
 
@@ -95,7 +88,7 @@ class SparkYarnAppSpec extends FunSpec {
     }
 
     it("should kill yarn app") {
-      withSleepMethod(mockSleep) {
+      Clock.withSleepMethod(mockSleep) {
         val diag = "DIAG"
         val mockYarnClient = mock[YarnClient]
 
@@ -132,7 +125,7 @@ class SparkYarnAppSpec extends FunSpec {
     }
 
     it("should return spark-submit log") {
-      withSleepMethod(mockSleep) {
+      Clock.withSleepMethod(mockSleep) {
         val mockYarnClient = mock[YarnClient]
         val mockSparkSubmit = mock[LineBufferedProcess]
         val sparkSubmitLog = IndexedSeq("SPARK-SUBMIT", "LOG")
@@ -154,7 +147,7 @@ class SparkYarnAppSpec extends FunSpec {
     }
 
     it("can kill spark-submit while it's running") {
-      withSleepMethod(mockSleep) {
+      Clock.withSleepMethod(mockSleep) {
         val mockYarnClient = mock[YarnClient]
         val mockSparkSubmit = mock[LineBufferedProcess]
         when(mockSparkSubmit.exitValue()).thenReturn(1)

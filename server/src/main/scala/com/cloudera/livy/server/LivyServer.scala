@@ -25,6 +25,7 @@ import javax.servlet._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+import scala.math.Ordering.Implicits._
 
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
@@ -264,17 +265,16 @@ class LivyServer extends Logging {
   private[server] def testSparkVersion(version: String): Unit = {
     val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
     // This is exclusive. Version which equals to this will be rejected.
-    val (maxMajor, maxMinor) = (2, 0)
-    val (minMajor, minMinor) = (1, 6)
+    val maxVersion = (2, 0)
+    val minVersion = (1, 6)
 
     val supportedVersion = version match {
       case versionPattern(major, minor) =>
-        (major.toInt > minMajor || major.toInt == minMajor && minor.toInt >= minMinor) &&
-        (major.toInt < maxMajor || major.toInt == maxMajor && minor.toInt < maxMinor)
+        val v = (major.toInt, minor.toInt)
+        v >= minVersion && v < maxVersion
       case _ => false
     }
-    require(supportedVersion,
-      s"Unsupported Spark version $version. Minimum version: $minMajor.$minMinor.")
+    require(supportedVersion, s"Unsupported Spark version $version.")
   }
 
   /**

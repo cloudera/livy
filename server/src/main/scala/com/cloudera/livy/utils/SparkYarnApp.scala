@@ -17,7 +17,6 @@
  */
 package com.cloudera.livy.utils
 
-import java.util.concurrent.Executors
 import java.util.concurrent.TimeoutException
 
 import scala.annotation.tailrec
@@ -32,15 +31,9 @@ import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
-import com.cloudera.livy.rsc.{Utils => RSCUtils}
 import com.cloudera.livy.util.LineBufferedProcess
 
 object SparkYarnApp extends Logging {
-  // Create a non daemon thread pool to run getAppIdFromTag().
-  // getAppIdFromTag() might take a while and should not use the global default thread pool.
-  private implicit val ec = ExecutionContext.fromExecutor(
-    Executors.newCachedThreadPool(RSCUtils.newDaemonThreadFactory("getAppIdFromTag-%d")))
-
   // YarnClient is thread safe. Create once, share it across threads.
   lazy val yarnClient = {
     val c = YarnClient.createYarnClient()
@@ -154,7 +147,7 @@ class SparkYarnApp private[utils] (
 
   private def isRunning: Boolean = {
     state != SparkApp.State.FAILED && state != SparkApp.State.FINISHED &&
-    state != SparkApp.State.KILLED
+      state != SparkApp.State.KILLED
   }
 
   // Exposed for unit test.

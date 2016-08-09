@@ -32,7 +32,6 @@ import org.apache.hadoop.yarn.api.records.{ApplicationId, FinalApplicationStatus
 import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually._
-import org.scalatest.exceptions.TestPendingException
 
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.batch.CreateBatchRequest
@@ -50,13 +49,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     testLibPath = uploadToHdfs(new File(testLib))
   }
 
-  test("upload test lib") {
-    // Empty test case to separate time spent on uploading test lib in beforeAll() and
-    // executing actual test cases.
-  }
-
   test("submit spark app") {
-    assume(testLibPath != null, "Test lib not uploaded.")
     val output = newOutputPath()
     val result = runSpark(classOf[SimpleSparkApp], args = List(output))
 
@@ -67,7 +60,6 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   }
 
   test("submit an app that fails") {
-    assume(testLibPath != null, "Test lib not uploaded.")
     val output = newOutputPath()
     val result = runSpark(classOf[FailingApp], args = List(output))
     // At this point the application has exited. State should be 'dead' instead of 'error'.
@@ -95,12 +87,11 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   }
 
   test("deleting a session should kill YARN app") {
-    assume(testLibPath != null, "Test lib not uploaded.")
     val output = newOutputPath()
     val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
 
     dumpLogOnFailure(batchId, cleanup = false) {
-      val appId = waitBatchForRunning(batchId)
+      val appId = waitUntilRunning(batchId)
 
       // Delete the session then verify the YARN app state is KILLED.
       deleteBatch(batchId)
@@ -111,12 +102,11 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   }
 
   test("killing YARN app should change batch state to dead") {
-    assume(testLibPath != null, "Test lib not uploaded.")
     val output = newOutputPath()
     val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
 
     dumpLogOnFailure(batchId) {
-      val appId = waitBatchForRunning(batchId)
+      val appId = waitUntilRunning(batchId)
 
       // Kill the YARN app and check batch state should be KILLED.
       cluster.yarnClient.killApplication(appId)
@@ -228,16 +218,14 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     mapper.readValue(response.getResponseBodyAsStream(), classOf[SessionInfo])
   }
 
-  private def waitBatchForRunning(batchId: Int): ApplicationId = {
+  private def waitUntilRunning(batchId: Int): ApplicationId = {
     eventually {
       val batch = getBatchSessionInfo(batchId)
 
       // If batch state transits to any error state, fail test immediately.
       if (batch.state == SessionState.Error().toString() ||
         batch.state == SessionState.Dead().toString()) {
-        throw new TestPendingException {
-          override def getMessage = s"Session shouldn't be in a terminal state: ${batch.state}"
-        }
+        fail(s"Session shouldn't be in a terminal state: ${batch.state}")
       }
 
       assert(batch.state === SessionState.Running().toString())
