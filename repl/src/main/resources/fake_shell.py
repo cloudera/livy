@@ -149,7 +149,7 @@ class JobContextImpl(object):
 class PySparkJobProcessorImpl(object):
     def processBypassJob(self, serialized_job):
         deserialized_job = cloudpickle.loads(serialized_job)
-        result = str(deserialized_job(job_context))
+        result = deserialized_job(job_context)
         serialized_result = cloudpickle.dumps(result)
         base64_serialized_result = base64.b64encode(serialized_result)
         response = bytearray(base64_serialized_result)
