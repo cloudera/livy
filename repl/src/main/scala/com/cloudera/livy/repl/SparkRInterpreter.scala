@@ -87,7 +87,11 @@ object SparkRInterpreter {
     try {
       // Wait for RBackend initialization to finish
       initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
-      val rExec = sys.env.getOrElse("DRIVER_R", "R")
+      val rExec = conf.getOption("spark.sparkr.r.command")
+        .orElse(conf.getOption("spark.r.command"))
+        .orElse(sys.env.get("DRIVER_R"))
+        .getOrElse("R")
+
       var packageDir = ""
       if (sys.env.getOrElse("SPARK_YARN_MODE", "") == "true") {
         packageDir = "./sparkr.zip"
