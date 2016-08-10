@@ -177,7 +177,7 @@ def test_submit_job_verify_failed_state():
 
 @responses.activate
 def test_add_file():
-    file_path = os.getcwd() + "/tests/input.txt"
+    file_path = os.getcwd() + "/tests/text_file.txt"
     add_file_uri = str(pathlib2.Path(file_path).as_uri())
     add_file_future = mock_file_apis('add-file', client_test.add_file,
                                      add_file_uri)
@@ -187,7 +187,7 @@ def test_add_file():
 
 @responses.activate
 def test_upload_file():
-    file_path = os.getcwd() + "/tests/input.txt"
+    file_path = os.getcwd() + "/tests/text_file.txt"
     upload_text_file = open(file_path)
     upload_file_future = mock_file_apis('upload-file', client_test.upload_file,
                                         upload_text_file)
@@ -197,7 +197,7 @@ def test_upload_file():
 
 @responses.activate
 def test_add_pyfile():
-    file_path = os.getcwd() + "/tests/numpy-1.11.1.zip"
+    file_path = os.getcwd() + "/tests/zip_file.zip"
     add_file_uri = str(pathlib2.Path(file_path).as_uri())
     add_file_future = mock_file_apis('add-pyfile', client_test.add_pyfile,
                                      add_file_uri)
@@ -207,9 +207,18 @@ def test_add_pyfile():
 
 @responses.activate
 def test_upload_pyfile():
-    file_path = os.getcwd() + "/tests/numpy-1.11.1.zip"
+    file_path = os.getcwd() + "/tests/zip_file.zip"
     upload_zip_file = open(file_path)
     pyfile_future = mock_file_apis('upload-pyfile',
                                    client_test.upload_pyfile, upload_zip_file)
     pyfile_future.result(15)
     assert pyfile_future.done() == True
+
+@responses.activate
+def test_add_jar():
+    file_path = os.getcwd() + "/tests/jar_file.jar"
+    add_jar_uri = str(pathlib2.Path(file_path).as_uri())
+    add_file_future = mock_file_apis('add-jar', client_test.add_jar,
+                                     add_jar_uri)
+    add_file_future.result(15)
+    assert add_file_future.done() == True
