@@ -119,17 +119,11 @@ object WordCountApp {
   def getWordWithMostCount(inputPath: String): ScalaJobHandle[String] = {
     scalaClient.submit { context =>
       val sqlctx = context.sqlctx
-      try {
-        val rdd = sqlctx.read.json(inputPath)
-        rdd.registerTempTable("words")
-        val result = sqlctx.sql("select word, count(word) as word_count from words " +
-          "group by word order by word_count desc limit 1")
-        result.first().toString()
-      } catch {
-        case exception: IOException => {
-          throw new IOException("The input path does not have any data frame", exception)
-        }
-      }
+      val rdd = sqlctx.read.json(inputPath)
+      rdd.registerTempTable("words")
+      val result = sqlctx.sql("select word, count(word) as word_count from words " +
+        "group by word order by word_count desc limit 1")
+      result.first().toString()
     }
   }
 
@@ -164,13 +158,9 @@ object WordCountApp {
    * arg(0) - Livy server url.
    * arg(1) - Output path to save the text read from the stream.
    *
-   * OPTIONAL ARGUMENTS(Default values: arg(2) = 'localhost', arg(3) = 8086)
-   * arg(2) - Socket stream host that spark streaming will listen to.
-   * arg(3) - Socket stream port that spark streaming will listen to.
-   * Optional arguments need to be passed in a key=value way
-   * Example:
-   * host=examplehost where "host" is the required key for arg(2)
-   * port=8080 where "port" is the required key for arg(3)
+   * Remaining arguments are treated as key=value pairs. The following keys are recognized:
+   * host="examplehost" where "host" is the key and "examplehost" is the value
+   * port=8080 where "port" is the key and 8080 is the value
    *
    * STEPS FOR EXECUTION - To get accurate results for one execution:
    * 1) Delete if the file already exists in the given outputFilePath.
@@ -190,47 +180,36 @@ object WordCountApp {
    * mvn or scala.
    *
    * Example execution:
-   * scala -cp /pathTo/livy-api-*version*-SNAPSHOT.jar:/pathTo/livy-client-http-*version*
-   * -SNAPSHOT.jar:/pathTo/livy-examples-*version*-SNAPSHOT.jar:/pathTo/livy-scala-api-*version*
-   * -SNAPSHOT.jar com.cloudera.livy.examples.WordCountApp http://livy-host:8998 /outputFilePath
+   * scala -cp /pathTo/livy-api-*version*.jar:/pathTo/livy-client-http-*version*.jar:
+   * /pathTo/livy-examples-*version*.jar:/pathTo/livy-scala-api-*version*.jar
+   * com.cloudera.livy.examples.WordCountApp http://livy-host:8998 /outputFilePath
    * host=myhost port=8080
    */
-  def main(args: Array[String]) {
-
+  def main(args: Array[String]): Unit = {
     var socketStreamHost: String = "localhost"
     var socketStreamPort: Int = 8086
     var url = ""
     var outputFilePath = ""
     def parseOptionalArg(arg: String): Unit = {
       val Array(argKey, argValue) = arg.split("=")
-      if (argKey == "host") {
-        socketStreamHost = argValue
-      } else if (argKey == "port") {
-        socketStreamPort = argValue.toInt
+      argKey match {
+        case "host" => socketStreamHost = argValue
+        case "port" => socketStreamPort = argValue.toInt
+        case _ => throw new IllegalArgumentException("Invalid key for optional arguments")
       }
     }
     def parseRequiredArgs(requiredArgs: Array[String]): Unit = {
+      require(requiredArgs.length >= 2 && requiredArgs.length <= 4)
       url = requiredArgs(0)
       outputFilePath = requiredArgs(1)
+      args.slice(2, args.length).foreach(parseOptionalArg)
     }
-    args.length match {
-      case 2 =>
-        parseRequiredArgs(args)
-      case 3 =>
-        parseRequiredArgs(args.slice(0, 2))
-        parseOptionalArg(args(2))
-      case 4 =>
-        parseRequiredArgs(args.slice(0, 2))
-        args.slice(2, 4).foreach(parseOptionalArg)
-      case _ =>
-        throw new IllegalArgumentException("Check the docs to provide required and optional " +
-          "arguments")
-    }
+    parseRequiredArgs(args)
     try {
       init(url)
       uploadRelevantJarsForJobExecution()
       println("Calling processStreamingWordCount")
-      val handle1 = processStreamingWordCount("localhost", 8086, outputFilePath)
+      val handle1 = processStreamingWordCount(socketStreamHost, socketStreamPort, outputFilePath)
       Await.result(handle1, 100 second)
       println("Calling getWordWithMostCount")
       val handle = getWordWithMostCount(outputFilePath)
