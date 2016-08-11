@@ -519,8 +519,9 @@ def main():
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID
             from py4j.java_gateway import JavaGateway, GatewayClient
-            gateway = JavaGateway(gateway_client=GatewayClient(port=os.environ.get(
-                "PYSPARK_GATEWAY_PORT")), start_callback_server=True)
+            gateway = JavaGateway(
+                gateway_client=GatewayClient(port=os.environ.get("PYSPARK_GATEWAY_PORT")),
+                start_callback_server=True)
             pyspark_job_processor = PySparkJobProcessorImpl()
             gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
 

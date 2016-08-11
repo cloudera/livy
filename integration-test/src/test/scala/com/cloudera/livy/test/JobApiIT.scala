@@ -18,14 +18,11 @@
 
 package com.cloudera.livy.test
 
-import java.io.{File, FileOutputStream, InputStream}
+import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
-import java.nio.file.Files
-import java.util.UUID
+import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.{Future => JFuture, TimeUnit}
-import java.util.jar.JarOutputStream
-import java.util.zip.ZipEntry
 import javax.servlet.http.HttpServletResponse
 
 import org.scalatest.BeforeAndAfterAll
@@ -224,47 +221,40 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     env.put("UPLOAD_PYFILE_URL", uploadPyFilePath)
 
     builder.redirectOutput(new File("src/test/resources/pytest_results.txt"))
+    builder.redirectErrorStream(true)
 
     val process = builder.start()
 
     process.waitFor()
 
-    if (process.exitValue() == 1) {
-      fail("One or more pytest have failed. Check pytest_results.txt for test results.")
-    }
+    assert(process.exitValue() === 0)
   }
 
   private def createPyTestsForPythonAPI(): File = {
-    val source: InputStream = getClass.getClassLoader.getResourceAsStream("test_python_api.py")
-
-    val file = Files.createTempFile("", "").toFile
-    file.deleteOnExit()
-
-    val sink = new FileOutputStream(file)
-    val buf = new Array[Byte](1024)
-    var n = source.read(buf)
-
-    while (n > 0) {
-      sink.write(buf, 0, n)
-      n = source.read(buf)
+    var source: InputStream = null
+    try {
+      source = getClass.getClassLoader.getResourceAsStream("test_python_api.py")
+      val file = Files.createTempFile("", "").toFile
+      file.deleteOnExit()
+      Files.copy(source, Paths.get(file.getPath), StandardCopyOption.REPLACE_EXISTING)
+      file
+    } finally {
+      source.close()
     }
-
-    source.close()
-    sink.close()
-
-    file
   }
 
-  private def createTempFilesForTest(fileName: String,
-                                     fileExtension: String,
-                                     fileContent: String,
-                                     uploadFileToHdfs: Boolean): String = {
+  private def createTempFilesForTest(
+      fileName: String,
+      fileExtension: String,
+      fileContent: String,
+      uploadFileToHdfs: Boolean): String = {
     val path = Files.createTempFile(fileName, fileExtension)
     Files.write(path, fileContent.getBytes(UTF_8))
     if (uploadFileToHdfs) {
-      return uploadToHdfs(path.toFile())
+      uploadToHdfs(path.toFile())
+    } else {
+      path.toString
     }
-    path.toString
   }
 
   private def waitFor[T](future: JFuture[T]): T = {
@@ -280,5 +270,4 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
   private def createClient(uri: String): LivyClient = {
     new LivyClientBuilder().setURI(new URI(uri)).build()
   }
-
 }

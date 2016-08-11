@@ -19,6 +19,7 @@ package com.cloudera.livy.rsc.driver;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
@@ -446,17 +447,21 @@ public class RSCDriver extends BaseProtocol {
   }
 
   protected void addJarOrPyFile(String path) throws Exception {
-    SparkContext sc = jc.sc() != null ? jc.sc().sc() : SparkContext.getOrCreate(conf);
     File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
-    File localCopy = copyFileToLocal(localCopyDir, path, sc);
-    MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
-    cl.addURL(localCopy.toURI().toURL());
-    sc.addJar(path);
+    File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
+    addLocalFileToClassLoader(localCopy);
+    jc.sc().addJar(path);
   }
 
-  public File copyFileToLocal(File localCopyDir,
-                              String filePath,
-                              SparkContext sc) throws Exception {
+  public void addLocalFileToClassLoader(File localCopy) throws MalformedURLException {
+    MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
+    cl.addURL(localCopy.toURI().toURL());
+  }
+
+  public File copyFileToLocal(
+      File localCopyDir,
+      String filePath,
+      SparkContext sc) throws Exception {
     synchronized (jc) {
       if (!localCopyDir.isDirectory() && !localCopyDir.mkdir()) {
         throw new IOException("Failed to create directory to add pyFile");
@@ -477,4 +482,3 @@ public class RSCDriver extends BaseProtocol {
     return localCopy;
   }
 }
-

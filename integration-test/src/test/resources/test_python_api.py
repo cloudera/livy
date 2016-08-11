@@ -23,7 +23,8 @@ from urlparse import urlparse
 import requests
 import cloudpickle
 import pytest
-import pathlib2
+import httplib
+from flaky import flaky
 
 global session_id, job_id
 session_id = None
@@ -46,7 +47,7 @@ def process_job(job, expected_result):
     header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
     response = requests.request('POST', request_url, headers=header, data=base64_pickled_job_json)
 
-    assert response.status_code == 201
+    assert response.status_code == httplib.CREATED
     job_id = response.json()['id']
 
     poll_time = 0.1
@@ -61,13 +62,18 @@ def process_job(job, expected_result):
         poll_response = requests.request('GET', poll_request_uri, headers=poll_header)
         poll_time *= 2
 
-    assert poll_response.status_code == 200
+    assert poll_response.status_code == httplib.OK
     assert poll_response.json()['id'] == job_id
     result = poll_response.json()['result']
     b64_decoded = base64.b64decode(result)
     b64_decoded_decoded = base64.b64decode(b64_decoded)
     deserialized_object = cloudpickle.loads(b64_decoded_decoded)
     assert deserialized_object == expected_result
+
+
+def delay_rerun(*args):
+    time.sleep(8)
+    return True
 
 
 def test_create_session():
@@ -79,29 +85,38 @@ def test_create_session():
     json_data = json.dumps({'kind': 'pyspark', 'conf': {'livy.uri': uri.geturl()}})
     response = requests.request('POST', request_url, headers=header, data=json_data)
 
-    assert response.status_code == 201
+    assert response.status_code == httplib.CREATED
     session_id = response.json()['id']
 
 
-def test_spark_job():
-    time.sleep(40) # Internal Server Error - Session state in Starting - Need to figure this out
+@flaky(max_runs=6, rerun_filter=delay_rerun)
+def test_wait_for_session_to_become_idle():
+    request_url = livy_end_point + "/sessions/" + str(session_id)
+    header = {'X-Requested-By': 'livy'}
+    response = requests.request('GET', request_url, headers=header)
+    assert response.status_code == httplib.OK
+    session_state = response.json()['state']
 
+    assert session_state == 'idle'
+
+
+def test_spark_job():
     def simple_spark_job(context):
         elements = [10, 20, 30]
         sc = context.sc
         return sc.parallelize(elements, 2).count()
 
-    process_job(simple_spark_job, str(3))
+    process_job(simple_spark_job, 3)
 
 
 def test_add_file():
-    add_file_name = pathlib2.Path(add_file_url).name
+    add_file_name = os.path.basename(add_file_url)
     json_data = json.dumps({'uri': add_file_url})
     request_url = livy_end_point + "/sessions/" + str(session_id) + "/add-file"
     header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
     response = requests.request('POST', request_url, headers=header, data=json_data)
 
-    assert response.status_code == 200
+    assert response.status_code == httplib.OK
 
     def add_file_job(context):
         from pyspark import SparkFiles
@@ -113,15 +128,14 @@ def test_add_file():
 
 
 def test_add_pyfile():
-    add_pyfile_name_with_ext = pathlib2.Path(add_pyfile_url).name
-    add_pyfile_name_list = add_pyfile_name_with_ext.rsplit('.', 1)
-    add_pyfile_name = add_pyfile_name_list[0]
+    add_pyfile_name_with_ext = os.path.basename(add_pyfile_url)
+    add_pyfile_name = add_pyfile_name_with_ext.rsplit('.', 1)[0]
     json_data = json.dumps({'uri': add_pyfile_url})
     request_url = livy_end_point + "/sessions/" + str(session_id) + "/add-pyfile"
     header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
     response_add_pyfile = requests.request('POST', request_url, headers=header, data=json_data)
 
-    assert response_add_pyfile.status_code == 200
+    assert response_add_pyfile.status_code == httplib.OK
 
     def add_pyfile_job(context):
        pyfile_module = __import__ (add_pyfile_name)
@@ -138,7 +152,7 @@ def test_upload_file():
     header = {'X-Requested-By': 'livy'}
     response = requests.request('POST', request_url, headers=header, files=files)
 
-    assert response.status_code == 200
+    assert response.status_code == httplib.OK
 
     def upload_file_job(context):
         from pyspark import SparkFiles
@@ -152,13 +166,12 @@ def test_upload_file():
 def test_upload_pyfile():
     upload_pyfile = open(upload_pyfile_url)
     upload_pyfile_name_with_ext = os.path.basename(upload_pyfile.name)
-    upload_pyfile_name_list = upload_pyfile_name_with_ext.rsplit('.', 1)
-    upload_pyfile_name = upload_pyfile_name_list[0]
+    upload_pyfile_name = upload_pyfile_name_with_ext.rsplit('.', 1)[0]
     request_url = livy_end_point + "/sessions/" + str(session_id) + "/upload-pyfile"
     files = {'file': upload_pyfile}
     header = {'X-Requested-By': 'livy'}
     response = requests.request('POST', request_url, headers=header, files=files)
-    assert response.status_code == 200
+    assert response.status_code == httplib.OK
 
     def upload_pyfile_job(context):
         pyfile_module = __import__ (upload_pyfile_name)
@@ -169,5 +182,5 @@ def test_upload_pyfile():
 if __name__ == '__main__':
     test_dir_path = os.getcwd() + "/src"
     value = pytest.main(test_dir_path)
-    if value == 1:
+    if value != 0:
         raise Exception("One or more test cases have failed.")

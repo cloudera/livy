@@ -155,18 +155,15 @@ object PythonInterpreter extends Logging {
     else {
       var proxy: Int = 1
       while (proxy < length) {
-        {
-          try {
-            interfaces(proxy - 1) = Class.forName(parts(proxy))
-            if (!interfaces(proxy - 1).isInterface) {
-              throw new Py4JException("This class " + parts(proxy) +
-                " is not an interface and cannot be used as a Python Proxy.")
-            }
+        try {
+          interfaces(proxy - 1) = Class.forName(parts(proxy))
+          if (!interfaces(proxy - 1).isInterface) {
+            throw new Py4JException("This class " + parts(proxy) +
+              " is not an interface and cannot be used as a Python Proxy.")
           }
-          catch {
-            case exception: ClassNotFoundException => {
-              throw new Py4JException("Invalid interface name: " + parts(proxy))
-            }
+        } catch {
+          case exception: ClassNotFoundException => {
+            throw new Py4JException("Invalid interface name: " + parts(proxy))
           }
         }
         proxy += 1;
@@ -259,6 +256,9 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     val localCopyDir = new File(pysparkJobProcessor.getLocalTmpDirPath)
     val localCopyFile = driver.copyFileToLocal(localCopyDir, path, SparkContext.getOrCreate(conf))
     pysparkJobProcessor.addPyFile(localCopyFile.getPath)
+    if (path.endsWith(".jar")) {
+      driver.addLocalFileToClassLoader(localCopyFile)
+    }
   }
 }
 // scalastyle:on println
