@@ -19,7 +19,7 @@
 // scalastyle:off println
 package com.cloudera.livy.examples
 
-import java.io.{File, FileNotFoundException, IOException}
+import java.io.{File, FileNotFoundException}
 import java.net.URI
 
 import org.apache.spark.storage.StorageLevel
@@ -28,7 +28,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import com.cloudera.livy.LivyClientBuilder
-import com.cloudera.livy.scalaapi.{LivyScalaClient, ScalaJobHandle, _}
+import com.cloudera.livy.scalaapi._
 
 /**
  *  A WordCount example using Scala-API which reads text from a stream and saves
@@ -198,13 +198,10 @@ object WordCountApp {
         case _ => throw new IllegalArgumentException("Invalid key for optional arguments")
       }
     }
-    def parseRequiredArgs(requiredArgs: Array[String]): Unit = {
-      require(requiredArgs.length >= 2 && requiredArgs.length <= 4)
-      url = requiredArgs(0)
-      outputFilePath = requiredArgs(1)
-      args.slice(2, args.length).foreach(parseOptionalArg)
-    }
-    parseRequiredArgs(args)
+    require(args.length >= 2 && args.length <= 4)
+    url = args(0)
+    outputFilePath = args(1)
+    args.slice(2, args.length).foreach(parseOptionalArg)
     try {
       init(url)
       uploadRelevantJarsForJobExecution()
