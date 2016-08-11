@@ -46,42 +46,8 @@ object SparkYarnApp extends Logging {
       appTag: String,
       process: Option[LineBufferedProcess],
       listener: Option[SparkAppListener],
-      livyConf: LivyConf): SparkYarnApp = {
-    val deadline = getYarnTagToAppIdTimeout(livyConf).fromNow
-    val pollInterval = getYarnPollInterval(livyConf)
-    new SparkYarnApp(getAppIdFromTag(appTag, pollInterval, deadline), process, listener, livyConf)
-  }
-
-  /**
-   * Find the corresponding YARN application id from an application tag.
-   *
-   * @param appTag The application tag tagged on the target application.
-   *               If the tag is not unique, it returns the first application it found.
-   *               It will be converted to lower case to match YARN's behaviour.
-   * @return ApplicationId or the failure.
-   */
-  @tailrec
-  private def getAppIdFromTag(
-      appTag: String,
-      pollInterval: Duration,
-      deadline: Deadline): ApplicationId = {
-    val appTagLowerCase = appTag.toLowerCase()
-
-    // FIXME Should not loop thru all YARN applications but YarnClient doesn't offer an API.
-    // Consider calling rmClient in YarnClient directly.
-    val appType = Set("SPARK").asJava
-    yarnClient.getApplications(appType).asScala.find(_.getApplicationTags.contains(appTagLowerCase))
-    match {
-      case Some(app) => app.getApplicationId
-      case None =>
-        if (deadline.isOverdue) {
-          throw new Exception(s"No YARN application is tagged with $appTagLowerCase.")
-        } else {
-          Clock.sleep(pollInterval.toMillis)
-          getAppIdFromTag(appTagLowerCase, pollInterval, deadline)
-        }
-    }
-  }
+      livyConf: LivyConf): SparkYarnApp =
+    new SparkYarnApp(appTag, None, process, listener, livyConf)
 
   private def getYarnTagToAppIdTimeout(livyConf: LivyConf): FiniteDuration =
     livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT) milliseconds
@@ -98,13 +64,15 @@ object SparkYarnApp extends Logging {
  *                If it's provided, SparkYarnApp.log() will include its log.
  */
 class SparkYarnApp private[utils] (
-    appId: => ApplicationId,
+    appTag: String,
+    appIdOption: Option[ApplicationId],
     process: Option[LineBufferedProcess],
     listener: Option[SparkAppListener],
     livyConf: LivyConf,
     yarnClient: => YarnClient = SparkYarnApp.yarnClient) // For unit test.
   extends SparkApp
   with Logging {
+  import SparkYarnApp._
 
   private val appIdPromise: Promise[ApplicationId] = Promise()
   private var state: SparkApp.State = SparkApp.State.STARTING
@@ -135,6 +103,37 @@ class SparkYarnApp private[utils] (
     if (state != newState) {
       listener.foreach(_.stateChanged(state, newState))
       state = newState
+    }
+  }
+
+  /**
+   * Find the corresponding YARN application id from an application tag.
+   *
+   * @param appTag The application tag tagged on the target application.
+   *               If the tag is not unique, it returns the first application it found.
+   *               It will be converted to lower case to match YARN's behaviour.
+   * @return ApplicationId or the failure.
+   */
+  @tailrec
+  private def getAppIdFromTag(
+    appTag: String,
+    pollInterval: Duration = getYarnPollInterval(livyConf),
+    deadline: Deadline = getYarnTagToAppIdTimeout(livyConf).fromNow): ApplicationId = {
+    val appTagLowerCase = appTag.toLowerCase()
+
+    // FIXME Should not loop thru all YARN applications but YarnClient doesn't offer an API.
+    // Consider calling rmClient in YarnClient directly.
+    val appType = Set("SPARK").asJava
+    yarnClient.getApplications(appType).asScala.find(_.getApplicationTags.contains(appTagLowerCase))
+    match {
+      case Some(app) => app.getApplicationId
+      case None =>
+        if (deadline.isOverdue) {
+          throw new Exception(s"No YARN application is tagged with $appTagLowerCase.")
+        } else {
+          Clock.sleep(pollInterval.toMillis)
+          getAppIdFromTag(appTagLowerCase, pollInterval, deadline)
+        }
     }
   }
 
@@ -179,20 +178,26 @@ class SparkYarnApp private[utils] (
   // TODO Instead of spawning a thread for every session, create a centralized thread and
   // batch YARN queries.
   private[utils] val yarnAppMonitorThread = Utils.startDaemonThread(s"yarnAppMonitorThread-$this") {
-    def waitForAppId(): Unit = {
-      // Wait for spark-submit to finish submitting the app to YARN.
-      process.map(_.waitFor()) match {
-        case (None | Some(0)) =>
-          appIdPromise.success(appId)
-        case Some(exitCode) =>
-          appIdPromise.failure(new Exception(s"spark-submit exited with code $exitCode}.\n" +
-            s"${process.get.inputLines.mkString("\n")}"))
-      }
-    }
-
     try {
-      waitForAppId()
-      val appId = appIdPromise.future.value.get.get
+      // Wait for spark-submit to finish submitting the app to YARN.
+      process.foreach { p =>
+        val exitCode = p.waitFor()
+        if (exitCode != 0) {
+          throw new Exception(s"spark-submit exited with code $exitCode}.\n" +
+            s"${process.get.inputLines.mkString("\n")}")
+        }
+      }
+
+      // If appId is not know, query YARN by appTag to get it.
+      val appId = try {
+        appIdOption.getOrElse { getAppIdFromTag(appTag) }
+      } catch {
+        case e: Exception =>
+          appIdPromise.failure(e)
+          throw e
+      }
+      appIdPromise.success(appId)
+
       Thread.currentThread().setName(s"yarnAppMonitorThread-$appId")
       listener.foreach(_.appIdKnown(appId.toString))
 

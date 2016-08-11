@@ -50,6 +50,7 @@ class SparkYarnAppSpec extends FunSpec {
   describe("SparkYarnApp") {
     val TEST_TIMEOUT = 30 seconds
     val appId = ConverterUtils.toApplicationId("application_1467912463905_0021")
+    val appTag = "fakeTag"
     val livyConf = new LivyConf()
     livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "0")
 
@@ -75,7 +76,13 @@ class SparkYarnAppSpec extends FunSpec {
         })
         when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
 
-        val app = new SparkYarnApp(appId, None, Some(mockAppListener), livyConf, mockYarnClient)
+        val app = new SparkYarnApp(
+          appTag,
+          Some(appId),
+          None,
+          Some(mockAppListener),
+          livyConf,
+          mockYarnClient)
         cleanupThread(app.yarnAppMonitorThread) {
           app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
           assert(!app.yarnAppMonitorThread.isAlive,
@@ -109,7 +116,7 @@ class SparkYarnAppSpec extends FunSpec {
         })
         when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
 
-        val app = new SparkYarnApp(appId, None, None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(appTag, Some(appId), None, None, livyConf, mockYarnClient)
         cleanupThread(app.yarnAppMonitorThread) {
           app.kill()
           appKilled = true
@@ -138,7 +145,13 @@ class SparkYarnAppSpec extends FunSpec {
           }
         })
 
-        val app = new SparkYarnApp(appId, Some(mockSparkSubmit), None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(
+          appTag,
+          Some(appId),
+          Some(mockSparkSubmit),
+          None,
+          livyConf,
+          mockYarnClient)
         cleanupThread(app.yarnAppMonitorThread) {
           waitForCalledLatch.await(TEST_TIMEOUT.toMillis, TimeUnit.MILLISECONDS)
           assert(app.log() == sparkSubmitLog, "Expect spark-submit log")
@@ -160,8 +173,13 @@ class SparkYarnAppSpec extends FunSpec {
           }
         })
 
-        def appId: ApplicationId = { throw new Exception("fake") }
-        val app = new SparkYarnApp(appId, Some(mockSparkSubmit), None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(
+          appTag,
+          None,
+          Some(mockSparkSubmit),
+          None,
+          livyConf,
+          mockYarnClient)
         cleanupThread(app.yarnAppMonitorThread) {
           app.kill()
           verify(mockSparkSubmit, times(1)).destroy()
@@ -170,7 +188,7 @@ class SparkYarnAppSpec extends FunSpec {
     }
 
     it("should map YARN state to SparkApp.State correctly") {
-      val app = new SparkYarnApp(appId, None, None, livyConf)
+      val app = new SparkYarnApp(appTag, Some(appId), None, None, livyConf)
       cleanupThread(app.yarnAppMonitorThread) {
         assert(app.mapYarnState(appId, NEW, UNDEFINED) == State.STARTING)
         assert(app.mapYarnState(appId, NEW_SAVING, UNDEFINED) == State.STARTING)
