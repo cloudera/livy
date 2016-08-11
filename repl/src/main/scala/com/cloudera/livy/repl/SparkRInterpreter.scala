@@ -87,9 +87,10 @@ object SparkRInterpreter {
     try {
       // Wait for RBackend initialization to finish
       initialized.tryAcquire(backendTimeout, TimeUnit.SECONDS)
-      val rExec = conf.getOption("spark.sparkr.r.command")
-        .orElse(conf.getOption("spark.r.command"))
+      val rExec = conf.getOption("spark.r.driver.command")
         .orElse(sys.env.get("DRIVER_R"))
+        .orElse(conf.getOption("spark.r.command"))
+        .orElse(conf.getOption("spark.sparkr.r.command"))
         .getOrElse("R")
 
       var packageDir = ""
