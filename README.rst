@@ -42,6 +42,17 @@ MacOS:
   * Python 2.6+
   * R 3.x
 
+Required python packages for:
+
+install:
+  * cloudpickle
+
+tests:
+  * cloudpickle
+  * requests
+  * flaky
+  * pytest
+
 
 To run Livy, you will also need a Spark installation. You can get Spark releases at
 https://spark.apache.org/downloads.html. Livy requires at least Spark 1.4 and currently
