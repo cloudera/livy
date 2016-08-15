@@ -79,6 +79,8 @@ object LivyConf {
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
+  val STATEMENT_TIMEOUT = LivyConf.Entry("livy.server.statement.timeout", 100)
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"
