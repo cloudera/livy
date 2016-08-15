@@ -235,8 +235,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     try {
       source = getClass.getClassLoader.getResourceAsStream("test_python_api.py")
       val file = Files.createTempFile("", "").toFile
-      file.deleteOnExit()
-      Files.copy(source, Paths.get(file.getPath), StandardCopyOption.REPLACE_EXISTING)
+      Files.copy(source, file.toPath, StandardCopyOption.REPLACE_EXISTING)
       file
     } finally {
       source.close()

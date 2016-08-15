@@ -30,8 +30,6 @@ import cloudpickle
 import threading
 import tempfile
 import shutil
-from pyspark import HiveContext
-from pyspark.streaming import StreamingContext
 
 if sys.version >= '3':
     unicode = str
@@ -514,7 +512,9 @@ def main():
         if os.environ.get("LIVY_TEST") != "true":
             #Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
-            exec('from pyspark.shell import sqlContext',global_dict)
+            exec('from pyspark.shell import sqlContext', global_dict)
+            exec('from pyspark.sql import HiveContext', global_dict)
+            exec('from pyspark.streaming import StreamingContext', global_dict)
 
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID

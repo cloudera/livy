@@ -76,6 +76,15 @@ def delay_rerun(*args):
     return True
 
 
+def stop_session():
+    global session_id
+
+    request_url = livy_end_point + "/sessions/" + str(session_id)
+    headers = {'X-Requested-By': 'livy'}
+    response = requests.request('DELETE', request_url, headers=headers)
+    assert response.status_code == httplib.OK
+
+
 def test_create_session():
     global session_id
 
