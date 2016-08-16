@@ -175,7 +175,7 @@ class SparkYarnAppSpec extends FunSpec {
 
         val app = new SparkYarnApp(
           appTag,
-          None,
+          Some(appId),
           Some(mockSparkSubmit),
           None,
           livyConf,

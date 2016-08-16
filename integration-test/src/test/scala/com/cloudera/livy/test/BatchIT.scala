@@ -24,7 +24,7 @@ import javax.servlet.http.HttpServletResponse._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.control.Exception.allCatch
+import scala.util.control.Exception.{allCatch, ignoring, Catch}
 
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.Path
@@ -90,7 +90,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     val output = newOutputPath()
     val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
 
-    dumpLogOnFailure(batchId, cleanup = false) {
+    dumpLogOnFailure(batchId) {
       val appId = waitUntilRunning(batchId)
 
       // Delete the session then verify the YARN app state is KILLED.
@@ -127,15 +127,13 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       f
     } catch {
       case e: Throwable =>
-        allCatch {
+        ignoringAll {
           info(s"Session log: ${getBatchSessionInfo(batchId).log}")
           info(s"YARN log: ${getYarnLog(batchId)}")
         }
         throw e
     } finally {
-      if (cleanup) {
-        deleteBatch(batchId)
-      }
+      ignoringAll { deleteBatch(batchId) }
     }
   }
 
@@ -150,6 +148,8 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       appReport.getDiagnostics()
     }.getOrElse("")
   }
+
+  private def ignoringAll: Catch[Unit] = ignoring(classOf[Throwable])
 
   private def newOutputPath(): String = {
     cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()

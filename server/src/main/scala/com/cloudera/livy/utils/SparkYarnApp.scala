@@ -116,9 +116,9 @@ class SparkYarnApp private[utils] (
    */
   @tailrec
   private def getAppIdFromTag(
-    appTag: String,
-    pollInterval: Duration = getYarnPollInterval(livyConf),
-    deadline: Deadline = getYarnTagToAppIdTimeout(livyConf).fromNow): ApplicationId = {
+      appTag: String,
+      pollInterval: Duration,
+      deadline: Deadline): ApplicationId = {
     val appTagLowerCase = appTag.toLowerCase()
 
     // FIXME Should not loop thru all YARN applications but YarnClient doesn't offer an API.
@@ -188,9 +188,13 @@ class SparkYarnApp private[utils] (
         }
       }
 
-      // If appId is not know, query YARN by appTag to get it.
+      // If appId is not known, query YARN by appTag to get it.
       val appId = try {
-        appIdOption.getOrElse { getAppIdFromTag(appTag) }
+        appIdOption.getOrElse {
+          val pollInterval = getYarnPollInterval(livyConf)
+          val deadline = getYarnTagToAppIdTimeout(livyConf).fromNow
+          getAppIdFromTag(appTag, pollInterval, deadline)
+        }
       } catch {
         case e: Exception =>
           appIdPromise.failure(e)

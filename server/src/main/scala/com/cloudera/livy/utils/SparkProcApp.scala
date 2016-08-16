@@ -29,7 +29,7 @@ import com.cloudera.livy.util.LineBufferedProcess
 class SparkProcApp (
     process: LineBufferedProcess,
     listener: Option[SparkAppListener])
-  extends SparkApp with Logging{
+  extends SparkApp with Logging {
 
   private var state = SparkApp.State.STARTING
 
