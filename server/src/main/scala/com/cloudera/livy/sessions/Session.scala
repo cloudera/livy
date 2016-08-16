@@ -47,11 +47,15 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
 
   protected implicit val executionContext = ExecutionContext.global
 
+  protected var _appId: Option[String] = None
+
   private var _lastActivity = System.nanoTime()
 
   // Directory where the session's staging files are created. The directory is only accessible
   // to the session's effective user.
   private var stagingDir: Path = null
+
+  def appId: Option[String] = _appId
 
   def lastActivity: Long = state match {
     case SessionState.Error(time) => time
@@ -60,13 +64,19 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
     case _ => _lastActivity
   }
 
-  val timeout: Long = TimeUnit.HOURS.toNanos(1)
+  def logLines(): IndexedSeq[String]
+
+  def recordActivity(): Unit = {
+    _lastActivity = System.nanoTime()
+  }
 
   def state: SessionState
 
   def stop(): Future[Unit] = Future {
     try {
+      info(s"Stopping $this...")
       stopSession()
+      info(s"Stopped $this.")
     } catch {
       case e: Exception =>
         warn(s"Error stopping session $id.", e)
@@ -90,11 +100,9 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
     }
   }
 
-  def recordActivity(): Unit = {
-    _lastActivity = System.nanoTime()
-  }
+  val timeout: Long = TimeUnit.HOURS.toNanos(1)
 
-  def logLines(): IndexedSeq[String]
+  override def toString(): String = s"${this.getClass.getSimpleName} $id"
 
   protected def stopSession(): Unit
 

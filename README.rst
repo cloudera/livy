@@ -44,7 +44,7 @@ MacOS:
 
 
 To run Livy, you will also need a Spark installation. You can get Spark releases at
-https://spark.apache.org/downloads.html. Livy requires at least Spark 1.4 and currently
+https://spark.apache.org/downloads.html. Livy requires at least Spark 1.6 and currently
 only supports Scala 2.10 builds of Spark.
 
 

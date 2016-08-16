@@ -28,6 +28,7 @@ import scala.util.Try
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.yarn.client.api.YarnClient
 
 import com.cloudera.livy.Logging
 
@@ -58,10 +59,22 @@ trait Cluster {
     conf
   }
 
+  lazy val yarnConf = {
+    val conf = new Configuration(false)
+    conf.addResource(new Path(s"${configDir().getCanonicalPath}/yarn-site.xml"))
+    conf
+  }
+
   lazy val fs = doAsClusterUser {
     FileSystem.get(hadoopConf)
   }
 
+  lazy val yarnClient = doAsClusterUser {
+    val c = YarnClient.createYarnClient()
+    c.init(yarnConf)
+    c.start()
+    c
+  }
 }
 
 object Cluster extends Logging {

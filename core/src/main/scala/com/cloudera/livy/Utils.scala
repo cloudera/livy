@@ -90,6 +90,15 @@ object Utils {
     }
   }
 
+  def startDaemonThread(name: String)(f: => Unit): Thread = {
+    val thread = new Thread(name) {
+      override def run(): Unit = f
+    }
+    thread.setDaemon(true)
+    thread.start()
+    thread
+  }
+
   def usingResource[A <: Closeable, B](resource: A)(f: A => B): B = {
     try {
       f(resource)

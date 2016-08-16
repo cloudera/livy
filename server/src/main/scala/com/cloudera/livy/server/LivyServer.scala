@@ -23,6 +23,10 @@ import java.util.concurrent._
 import java.util.EnumSet
 import javax.servlet._
 
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.math.Ordering.Implicits._
+
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
@@ -34,6 +38,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.util.LineBufferedProcess
+import com.cloudera.livy.utils.SparkYarnApp
 
 class LivyServer extends Logging {
 
@@ -58,6 +63,11 @@ class LivyServer extends Logging {
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
+
+    // Initialize YarnClient ASAP to save time.
+    if (livyConf.isRunningOnYarn()) {
+      Future { SparkYarnApp.yarnClient }
+    }
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
@@ -241,12 +251,30 @@ class LivyServer extends Logging {
    */
   private[server] def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
-      val version = sparkSubmitVersion(livyConf)
-      logger.info(f"Using spark-submit version $version")
+      testSparkVersion(sparkSubmitVersion(livyConf))
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
     }
+  }
+
+  /**
+   * Throw an exception if Spark version is not supported.
+   * @param version Spark version
+   */
+  private[server] def testSparkVersion(version: String): Unit = {
+    val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
+    // This is exclusive. Version which equals to this will be rejected.
+    val maxVersion = (2, 0)
+    val minVersion = (1, 6)
+
+    val supportedVersion = version match {
+      case versionPattern(major, minor) =>
+        val v = (major.toInt, minor.toInt)
+        v >= minVersion && v < maxVersion
+      case _ => false
+    }
+    require(supportedVersion, s"Unsupported Spark version $version.")
   }
 
   /**

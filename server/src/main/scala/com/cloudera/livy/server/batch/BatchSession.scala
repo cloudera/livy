@@ -20,11 +20,12 @@ package com.cloudera.livy.server.batch
 
 import java.lang.ProcessBuilder.Redirect
 
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
+import scala.util.Random
 
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.{Session, SessionState}
-import com.cloudera.livy.utils.SparkProcessBuilder
+import com.cloudera.livy.utils.{SparkApp, SparkAppListener, SparkProcessBuilder}
 
 class BatchSession(
     id: Int,
@@ -32,11 +33,13 @@ class BatchSession(
     override val proxyUser: Option[String],
     livyConf: LivyConf,
     request: CreateBatchRequest)
-    extends Session(id, owner, livyConf) {
+    extends Session(id, owner, livyConf) with SparkAppListener {
 
-  private val process = {
-    val conf = prepareConf(request.conf, request.jars, request.files, request.archives,
-      request.pyFiles)
+  private val app = {
+    val uniqueAppTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
+
+    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
+      prepareConf(request.conf, request.jars, request.files, request.archives, request.pyFiles))
     require(request.file != null, "File is required.")
 
     val builder = new SparkProcessBuilder(livyConf)
@@ -59,42 +62,34 @@ class BatchSession(
     builder.redirectErrorStream(true)
 
     val file = resolveURIs(Seq(request.file))(0)
-    builder.start(Some(file), request.args)
+    val sparkSubmitProcess = builder.start(Some(file), request.args)
+    SparkApp.create(uniqueAppTag, sparkSubmitProcess, livyConf, Some(this))
   }
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
-  private[this] var _state: SessionState = SessionState.Running()
+  private[this] var _state: SessionState = SessionState.Starting()
 
   override def state: SessionState = _state
 
-  override def logLines(): IndexedSeq[String] = process.inputLines
+  override def logLines(): IndexedSeq[String] = app.log()
 
-  override def stopSession(): Unit = destroyProcess()
+  override def stopSession(): Unit = app.kill()
 
-  private def destroyProcess() = {
-    if (process.isAlive) {
-      process.destroy()
-      reapProcess(process.waitFor())
-    }
+  override def appIdKnown(appId: String): Unit = {
+    _appId = Option(appId)
   }
 
-  private def reapProcess(exitCode: Int) = synchronized {
-    if (_state.isActive) {
-      if (exitCode == 0) {
-        _state = SessionState.Success()
-      } else {
-        _state = SessionState.Error()
+  override def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {
+    synchronized {
+      debug(s"$this state changed from $oldState to $newState")
+      newState match {
+        case SparkApp.State.RUNNING => _state = SessionState.Running()
+        case SparkApp.State.FINISHED => _state = SessionState.Success()
+        case SparkApp.State.KILLED | SparkApp.State.FAILED =>
+          _state = SessionState.Dead()
+        case _ =>
       }
     }
   }
-
-  /** Simple daemon thread to make sure we change state when the process exits. */
-  private[this] val thread = new Thread("Batch Process Reaper") {
-    override def run(): Unit = {
-      reapProcess(process.waitFor())
-    }
-  }
-  thread.setDaemon(true)
-  thread.start()
 }

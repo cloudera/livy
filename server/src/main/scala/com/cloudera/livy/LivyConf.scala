@@ -73,6 +73,12 @@ object LivyConf {
   val KINIT_FAIL_THRESHOLD =
     LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
 
+  // If Livy can't find the yarn app within this time, consider it lost.
+  val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "30s")
+
+  // How often Livy polls YARN to refresh YARN app state.
+  val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"
@@ -140,6 +146,9 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
       .foreach(loadFromMap)
     this
   }
+
+  /** Return true if spark master starts with yarn. */
+  def isRunningOnYarn(): Boolean = sparkMaster().startsWith("yarn")
 
   /** Return the spark deploy mode Livy sessions should use. */
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)

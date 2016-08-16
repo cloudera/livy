@@ -46,7 +46,7 @@ object BaseIntegrationTestSuite {
   val ERROR = "error"
 }
 
-abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with BeforeAndAfter {
+abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with BeforeAndAfterAll {
   import BaseIntegrationTestSuite._
 
   var cluster: Cluster = _
@@ -97,15 +97,12 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     }
   }
 
-  before {
+  // We need beforeAll() here because BatchIT's beforeAll() has to be executed after this.
+  // Please create an issue if this breaks test logging for cluster creation.
+  protected override def beforeAll() = {
     cluster = Cluster.get()
     httpClient = new AsyncHttpClient()
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
-  }
-
-  test("initialize test cluster") {
-    // Empty test case to separate time spent on creating cluster in before() and executing actual
-    // test cases.
   }
 
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {

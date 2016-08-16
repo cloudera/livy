@@ -34,4 +34,25 @@ class LivyServerSuite extends FunSuite {
     new LivyServer().testSparkSubmit(livyConf)
   }
 
+  test("should support Spark 1.6") {
+    val s = new LivyServer()
+    s.testSparkVersion("1.6.0")
+    s.testSparkVersion("1.6.1")
+    s.testSparkVersion("1.6.2")
+  }
+
+  test("should not support Spark older than 1.6") {
+    val s = new LivyServer()
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.0") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.0") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.1") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.2") }
+  }
+
+  test("should not support Spark 2.0+") {
+    val s = new LivyServer()
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.0") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.1") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.1.0") }
+  }
 }

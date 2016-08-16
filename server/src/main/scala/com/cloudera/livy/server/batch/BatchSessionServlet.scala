@@ -23,7 +23,7 @@ import javax.servlet.http.HttpServletRequest
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.server.SessionServlet
 
-case class BatchSessionView(id: Long, state: String, log: Seq[String])
+case class BatchSessionView(id: Long, state: String, appId: Option[String], log: Seq[String])
 
 class BatchSessionServlet(livyConf: LivyConf)
   extends SessionServlet[BatchSession](livyConf)
@@ -48,7 +48,7 @@ class BatchSessionServlet(livyConf: LivyConf)
       } else {
         Nil
       }
-    BatchSessionView(session.id, session.state.toString, logs)
+    BatchSessionView(session.id, session.state.toString, session.appId, logs)
   }
 
 }

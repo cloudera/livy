@@ -30,10 +30,16 @@ import org.apache.spark.api.java.function.PairFunction;
 public class SimpleSparkApp {
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 1) {
-      throw new IllegalArgumentException("Missing output path.");
+    if (args.length < 1 || args.length > 2) {
+      throw new IllegalArgumentException(
+        "Invalid arguments. <output path> [exit after output=true]>");
     }
+
     String output = args[0];
+    Boolean exitAfterOutput = true;
+    if (args.length == 2) {
+      exitAfterOutput = Boolean.parseBoolean(args[1]);
+    }
 
     JavaSparkContext sc = new JavaSparkContext();
     try {
@@ -43,6 +49,12 @@ public class SimpleSparkApp {
       JavaPairRDD<String, Integer> rdd = sc.parallelize(data, 3)
         .mapToPair(new Counter());
       rdd.saveAsTextFile(output);
+
+      if (!exitAfterOutput) {
+        while (true) {
+          Thread.sleep(60 * 60 * 1000);
+        }
+      }
     } finally {
       sc.close();
     }
