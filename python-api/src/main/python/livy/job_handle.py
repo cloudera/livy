@@ -15,12 +15,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from concurrent.futures import Future
-import traceback
-import cloudpickle
-from threading import Timer
-import threading
 import base64
+import cloudpickle
+import threading
+import traceback
+from concurrent.futures import Future
+from threading import Timer
 
 # Possible job states.
 PENDING = 'PENDING'
@@ -58,9 +58,8 @@ class JobHandle(Future):
 
     def _send_job_task(self, command, job):
         suffix_url = "/" + str(self._session_id) + "/" + command
-        header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
-        job_status = self._conn.send_request('POST', suffix_url,
-                                             headers=header, data=job)
+        job_status = self._conn.send_request(
+            'POST', suffix_url, headers=self._conn._JSON_HEADERS, data=job)
         self._job_id = job_status.json()['id']
         self._poll_result()
 
@@ -68,7 +67,7 @@ class JobHandle(Future):
         """
         Returns
         -------
-        True if the job is currently executing.
+        True if the job is currently queued.
         """
         with self._job_handle_condition:
             return self._state == QUEUED
@@ -91,17 +90,13 @@ class JobHandle(Future):
 
     def add_queued_callback(self, fn):
         """
-        Attaches a callable that will be called when the job state is
-        queued.
+        Attaches a callable that will be called when the job is queued.
 
         Parameters
         ----------
         fn : Function
             A callable that will be called with this future as its only
-            argument when the job state is queued. The
-            callable will always be called by a thread in the same
-            process in which it was added. These callables are called in
-            the order that they were added.
+            argument when the job is queued.
         """
         with self._job_handle_condition:
             if self._state == PENDING:
@@ -111,17 +106,13 @@ class JobHandle(Future):
 
     def add_running_callback(self, fn):
         """
-        Attaches a callable that will be called when the job state is
-        running.
+        Attaches a callable that will be called when the job is running.
 
         Parameters
         ----------
         fn : Function
             A callable that will be called with this future as its only
-            argument when the job state is running. The
-            callable will always be called by a thread in the same
-            process in which it was added. These callables are called in
-            the order that they were added.
+            argument when the job is running.
         """
         with self._job_handle_condition:
             if self._state in [PENDING, QUEUED]:
@@ -146,17 +137,16 @@ class JobHandle(Future):
 
     def cancel(self):
         """
-        Cancel the future if possible.
+        Cancel the job if possible.
 
         Returns
         -------
-        True if the future was cancelled, False otherwise. A future
-        cannot be cancelled if it is running or has already completed.
+        True if the job was cancelled, False if the job has already finished.
         """
         with self._job_handle_condition:
-            if self._state in [RUNNING, FINISHED]:
+            if self._state == FINISHED:
                 return False
-            if self._state in CANCELLED:
+            if self._state == CANCELLED:
                 return True
             if self._job_id > -1:
                 self._executor.submit(self._send_cancel_request)
@@ -165,8 +155,8 @@ class JobHandle(Future):
 
     def _send_cancel_request(self):
         try:
-            end_point = "/" + str(self._session_id) + "/jobs/" + str(
-                self._job_id) + "/cancel"
+            end_point = "/" + str(self._session_id) + "/jobs/" + \
+                        str(self._job_id) + "/cancel"
             self._conn.send_json(None, end_point)
         except Exception as err:
             super(JobHandle, self).set_exception_info(
@@ -176,11 +166,9 @@ class JobHandle(Future):
     def _poll_result(self):
         def do_poll_result():
             try:
-                suffix_url = "/" + str(self._session_id) + "/jobs/" + str(
-                    self._job_id)
-                headers = {'X-Requested-By': 'livy'}
-                job_status = self._conn.send_request('GET', suffix_url,
-                                                     headers=headers).json()
+                suffix_url = "/" + str(self._session_id) + "/jobs/" + \
+                             str(self._job_id)
+                job_status = self._conn.send_request('GET', suffix_url).json()
                 job_state = job_status['state']
                 job_result = None
                 has_finished = False
@@ -203,8 +191,8 @@ class JobHandle(Future):
                             b64_decoded_decoded)
                         super(JobHandle, self).set_result(deserialized_object)
                     if job_error is not None:
-                        super(JobHandle, self).set_exception_info(Exception(
-                            job_error), None)
+                        super(JobHandle, self).set_exception_info(
+                            Exception(job_error), None)
                     repeated_timer.stop()
                 else:
                     self._update_state(job_state)
@@ -247,8 +235,8 @@ class JobHandle(Future):
             if not self.is_running and not self.stop_called:
                 self._timer = Timer(self.interval, self._run)
                 self._timer.start()
-                self.interval = min(self.interval * 2,
-                                    JobHandle._JOB_MAX_POLL_INTERVAL)
+                self.interval = min(
+                    self.interval * 2, JobHandle._JOB_MAX_POLL_INTERVAL)
                 self.is_running = True
 
         def stop(self):

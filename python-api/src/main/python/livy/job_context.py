@@ -144,7 +144,7 @@ class JobContext:
         pass
 
     @abstractproperty
-    def get_local_tmp_dir_path(self):
+    def local_tmp_dir_path(self):
         """"
         Returns
         -------

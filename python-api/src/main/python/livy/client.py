@@ -15,20 +15,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from ConfigParser import SafeConfigParser
-from StringIO import StringIO
-import os
-from concurrent.futures import ThreadPoolExecutor
-import json
-import cloudpickle
 import base64
-from job_handle import JobHandle
+import cloudpickle
+import os
 import re
-from urlparse import ParseResult
-import traceback
 import requests
 import threading
+import traceback
+from concurrent.futures import ThreadPoolExecutor
+from ConfigParser import SafeConfigParser
+from StringIO import StringIO
+from urlparse import ParseResult, urlparse
+from job_handle import JobHandle
 
 
 class HttpClient(object):
@@ -36,51 +34,53 @@ class HttpClient(object):
 
     Parameters
     ----------
-    uri : urlparse.ParseResult instance
-        Livy server uri generated from urlparse lib
+    url_str : string
+        Livy server url
     load_defaults : boolean, optional
         This parameter decides if the default config needs to be loaded
         Default is True
     conf_dict : dict, optional
         The key-value pairs in the conf_dict will be loaded to the config
+        Default is None
 
     Examples
     --------
     Imports needed to create an instance of HttpClient
-    >>> from livy.client import HttpClient
-    >>> from urlparse import urlparse
+    >>> from src.main.python.livy.client import HttpClient
 
     1) Creates a client that is loaded with default config
        as 'load_defaults' is True by default
-    >>> client = HttpClient(urlparse("http://example:8998/"))
+    >>> client = HttpClient("http://example:8998/")
 
     2) Creates a client that does not load default config, but loads
        config that are passed in 'config_dict'
     >>> config_dict = {'spark.app.name', 'Test App'}
-    >>> client = HttpClient(urlparse("http://example:8998/"),
-    >>>             load_defaults=False, config_dict=config_dict)
+    >>> client = HttpClient(
+    >>>             "http://example:8998/", load_defaults=False,
+    >>>             config_dict=config_dict)
 
     """
 
     _CONFIG_SECTION = 'env'
     _LIVY_CLIENT_CONF_DIR = "LIVY_CLIENT_CONF_DIR"
 
-    def __init__(self, uri, **kwargs):
+    def __init__(self, url, load_defaults=True, conf_dict=None):
+        uri = urlparse(url)
         self._config = SafeConfigParser()
-        self._load_config(**kwargs)
+        self._load_config(load_defaults, conf_dict)
         match = re.match(r'(.*)/sessions/([0-9]+)', uri.path)
         if match:
             base = ParseResult(scheme=uri.scheme, netloc=uri.netloc,
                                path=match.group(1), params=uri.params,
                                query=uri.query, fragment=uri.fragment)
             self._set_uri(base)
-            self._conn = LivyConnection(base)
+            self._conn = _LivyConnection(base)
             self._session_id = int(match.group(2))
             self._reconnect_to_existing_session()
         else:
             self._set_uri(uri)
             session_conf_dict = dict(self._config.items(self._CONFIG_SECTION))
-            self._conn = LivyConnection(uri)
+            self._conn = _LivyConnection(uri)
             self._session_id = self._create_new_session(
                 session_conf_dict).json()['id']
         self._executor = ThreadPoolExecutor(max_workers=1)
@@ -94,8 +94,7 @@ class HttpClient(object):
         ----------
         job : function
             The function must accept a single parameter, which is an instance
-            of JobContext. Spark jobs can be created with the help of
-            JobContext, which exposes the Spark libraries
+            of JobContext.
 
         Returns
         -------
@@ -140,15 +139,14 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> def simple_spark_job(context):
-        >>>     elements = [10, 20, 30, 40, 50]
-        >>>     return context.sc.parallelize(elements, 2).count()
+        >>> def simple_job(context):
+        >>>     return "hello"
 
-        >>> client.run(simple_spark_job)
+        >>> client.run(simple_job)
         """
         return self._send_job("run-job", job)
 
-    def add_file(self, file_uri):
+    def add_file(self, file_path):
         """
         Adds a file to the running remote context.
 
@@ -159,8 +157,7 @@ class HttpClient(object):
 
         Parameters
         ----------
-        file_uri : pathlib.PurePath or pathlib2.PurePath, string in the format
-            of file uri
+        file_path : string
         Representation of the path to a local file using filesystem encoding.
 
         Returns
@@ -170,10 +167,7 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> import pathlib2
-        >>> file_uri = pathlib2.Path("/test_add.txt").as_uri()
-
-        >>> client.add_file(file_uri)
+        >>> client.add_file("/test_add.txt")
 
         >>> # Example job using the file added using add_file function
         >>> def add_file_job(context):
@@ -187,20 +181,20 @@ class HttpClient(object):
 
         >>> client.submit(add_file_job)
         """
-        return self._add_file_or_pyfile_job("add-file", file_uri)
+        return self._add_file_or_pyfile_job("add-file", file_path)
 
-    def add_jar(self, file_uri):
+    def add_jar(self, file_path):
         """
         Adds a jar file to the running remote context.
 
         Note that the URL should be reachable by the Spark driver process. If
         running the driver  in cluster mode, it may reside on a different host,
-         meaning "file:" URLs have to exist on that node (and not on the
-         client machine).
+        meaning "file:" URLs have to exist on that node (and not on the
+        client machine).
 
         Parameters
         ----------
-        file_uri : string, pathlib.PurePath or pathlib2.PurePath
+        file_path : string
             Representation of path to a local file using filesystem encoding.
 
         Returns
@@ -210,26 +204,23 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> import pathlib2
-        >>> file_uri = pathlib2.Path("/test_package.jar").as_uri()
-
-        >>> client.add_jar(file_uri)
+        >>> client.add_jar("/test_package.jar")
 
         """
-        return self._add_file_or_pyfile_job("add-jar", file_uri)
+        return self._add_file_or_pyfile_job("add-jar", file_path)
 
-    def add_pyfile(self, file_uri):
+    def add_pyfile(self, file_path):
         """
         Adds a .py or .zip to the running remote context.
 
         Note that the URL should be reachable by the Spark driver process. If
         running the driver  in cluster mode, it may reside on a different host,
-         meaning "file:" URLs have to exist on that node (and not on the
-         client machine).
+        meaning "file:" URLs have to exist on that node (and not on the
+        client machine).
 
         Parameters
         ----------
-        file_uri : string, pathlib.PurePath or pathlib2.PurePath
+        file_path : string
             Representation of path to a local file using filesystem encoding.
 
         Returns
@@ -239,11 +230,9 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> import pathlib2
-        >>> file_uri = pathlib2.Path("/test_package.egg").as_uri()
+        >>> client.add_pyfile("/test_package.egg")
 
-        >>> client.add_pyfile(file_uri)
-
+        >>> # Example job using the file added using add_pyfile function
         >>> def add_pyfile_job(context):
         >>>    # Importing module from test_package.egg
         >>>    from test.pyfile_test import TestClass
@@ -252,16 +241,16 @@ class HttpClient(object):
 
         >>> client.submit(add_pyfile_job)
         """
-        return self._add_file_or_pyfile_job("add-pyfile", file_uri)
+        return self._add_file_or_pyfile_job("add-pyfile", file_path)
 
-    def upload_file(self, open_file):
+    def upload_file(self, file_path):
         """
         Upload a file to be passed to the Spark application.
 
         Parameters
         ----------
-        open_file : file
-            A handle to the local file to be uploaded.
+        file_path : string
+            File path of the local file to be uploaded.
 
         Returns
         -------
@@ -270,11 +259,9 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> file_handle = open("/test_upload.txt")
+        >>> client.upload_file("/test_upload.txt")
 
-        >>> client.upload_file(file_handle)
-
-        >>> # Example job using the file added using upload_file function
+        >>> # Example job using the file uploaded using upload_file function
         >>> def upload_file_job(context):
         >>>    from pyspark import SparkFiles
         >>>    def func(iterator):
@@ -286,16 +273,17 @@ class HttpClient(object):
 
         >>> client.submit(add_file_job)
         """
-        return self._upload_file_or_pyfile("upload-file", open_file)
+        return self._upload_file_or_pyfile(
+            "upload-file", open(file_path, 'rb'))
 
-    def upload_pyfile(self, open_file):
+    def upload_pyfile(self, file_path):
         """
         Upload a .py or .zip dependency to be passed to the Spark application.
 
         Parameters
         ----------
-        open_file : file
-            A handle to the local file to be uploaded.
+        file_path : string
+            File path of the local file to be uploaded.
 
         Returns
         -------
@@ -304,10 +292,9 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> file_handle = open("/test_package.egg")
+        >>> client.upload_pyfile("/test_package.egg")
 
-        >>> client.upload_pyfile(file_handle)
-
+        >>> # Example job using the file uploaded using upload_pyfile function
         >>> def upload_pyfile_job(context):
         >>>    # Importing module from test_package.egg
         >>>    from test.pyfile_test import TestClass
@@ -316,7 +303,8 @@ class HttpClient(object):
 
         >>> client.submit(upload_pyfile_job)
         """
-        return self._upload_file_or_pyfile("upload-pyfile", open_file)
+        return self._upload_file_or_pyfile(
+            "upload-pyfile", open(file_path, 'rb'))
 
     def stop(self, shutdown_context):
         """
@@ -338,8 +326,8 @@ class HttpClient(object):
                     if shutdown_context:
                         session_uri = "/" + str(self._session_id)
                         headers = {'X-Requested-By': 'livy'}
-                        self._conn.send_request("DELETE", session_uri,
-                                                headers=headers)
+                        self._conn.send_request(
+                            "DELETE", session_uri, headers=headers)
                 except:
                     raise Exception(traceback.format_exc())
                 self._stopped = True
@@ -349,8 +337,8 @@ class HttpClient(object):
             self._config.set(self._CONFIG_SECTION, 'livy.uri', uri.geturl())
         else:
             url_exception = uri.geturl if uri is not None else None
-            raise ValueError('Cannot create client - Uri not supported - ',
-                             url_exception)
+            raise ValueError(
+                'Cannot create client - Uri not supported - ', url_exception)
 
     def _set_conf(self, key, value):
         if value is not None:
@@ -365,7 +353,7 @@ class HttpClient(object):
         for key, value in conf_dict.iteritems():
             self._set_conf(key, value)
 
-    def _load_config(self, load_defaults=True, conf_dict=None):
+    def _load_config(self, load_defaults, conf_dict):
         self._config.add_section(self._CONFIG_SECTION)
         if load_defaults:
             self._load_default_config()
@@ -374,71 +362,79 @@ class HttpClient(object):
 
     def _load_default_config(self):
         config_dir = os.environ.get(self._LIVY_CLIENT_CONF_DIR)
-        if config_dir is None:
-            raise KeyError('Config directory not set in environment')
-        config_files = os.listdir(config_dir)
-        default_conf_files = ['spark-defaults.conf', 'livy-client.conf']
-        for default_conf_file in default_conf_files:
-            if default_conf_file in config_files:
-                self._load_config_from_files(config_dir, default_conf_file)
+        if config_dir is not None:
+            config_files = os.listdir(config_dir)
+            default_conf_files = ['spark-defaults.conf', 'livy-client.conf']
+            for default_conf_file in default_conf_files:
+                if default_conf_file in config_files:
+                    self._load_config_from_file(config_dir, default_conf_file)
 
-    def _load_config_from_files(self, config_dir, config_file):
+    def _load_config_from_file(self, config_dir, config_file):
         path = os.path.join(config_dir, config_file)
         data = "[" + self._CONFIG_SECTION + "]\n" + open(path).read()
         self._config.readfp(StringIO(data.decode('utf8')))
 
     def _create_new_session(self, session_conf_dict):
-        json_data = json.dumps({'kind': 'pyspark', 'conf': session_conf_dict})
-        header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
-        response = self._conn.send_request('POST', "/", headers=header,
-                                           data=json_data)
+        data = {'kind': 'pyspark', 'conf': session_conf_dict}
+        response = self._conn.send_request(
+            'POST', "/", headers=self._conn._JSON_HEADERS, data=data)
         return response
 
     def _reconnect_to_existing_session(self):
         reconnect_uri = "/" + str(self._session_id) + "/connect"
-        header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
-        self._conn.send_request('POST', reconnect_uri, headers=header)
+        self._conn.send_request(
+            'POST', reconnect_uri, headers=self._conn._JSON_HEADERS)
 
     def _send_job(self, command, job):
         pickled_job = cloudpickle.dumps(job)
         base64_pickled_job = base64.b64encode(pickled_job).decode('utf-8')
-        base64_pickled_job_json = json.dumps({'job': base64_pickled_job})
+        base64_pickled_job_data = {'job': base64_pickled_job}
         job_handle = JobHandle(self._conn, self._session_id, self._executor)
-        job_handle._start(command, base64_pickled_job_json)
+        job_handle._start(command, base64_pickled_job_data)
         return job_handle
 
     def _add_file_or_pyfile_job(self, command, file_uri):
-        json_data = json.dumps({'uri': file_uri})
+        data = {'uri': file_uri}
         suffix_url = "/" + str(self._session_id) + "/" + command
-        header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
-        return self._executor.submit(self._add_or_upload_resource, suffix_url,
-                                     data=json_data, headers=header)
+        return self._executor.submit(
+            self._add_or_upload_resource, suffix_url, data=data,
+            headers=self._conn._JSON_HEADERS)
 
     def _upload_file_or_pyfile(self, command, open_file):
         files = {'file': open_file}
         suffix_url = "/" + str(self._session_id) + "/" + command
-        headers = {'X-Requested-By': 'livy'}
-        return self._executor.submit(self._add_or_upload_resource, suffix_url,
-                                     files=files, headers=headers)
+        return self._executor.submit(
+            self._add_or_upload_resource, suffix_url, files=files)
 
-    def _add_or_upload_resource(self, suffix_url, **kwargs):
-        return self._conn.send_request('POST', suffix_url, **kwargs).content
+    def _add_or_upload_resource(self, suffix_url, files=None, data=None,
+                                headers={}):
+        return self._conn.send_request(
+            'POST', suffix_url, files=files, data=data,
+            headers=headers).content
 
 
-class LivyConnection(object):
+class _LivyConnection(object):
 
     _SESSIONS_URI = '/sessions'
     # Timeout in seconds
     _TIMEOUT = 10
+    _JSON_HEADERS = {'Content-Type': 'application/json',
+                     'Accept': 'application/json'}
 
     def __init__(self, uri):
         self._server_url_prefix = uri.geturl() + self._SESSIONS_URI
         self._requests = requests
         self.lock = threading.Lock()
 
-    def send_request(self, method, suffix_url, **kwargs):
-        with self.lock:
-            request_url = self._server_url_prefix + suffix_url
-            response = self._requests.request(method, request_url,
-                                              timeout=self._TIMEOUT, **kwargs)
-            return response
+    def send_request(
+            self, method, suffix_url, headers={}, files=None, data=None):
+        try:
+            with self.lock:
+                headers['X-Requested-By'] = 'livy'
+                request_url = self._server_url_prefix + suffix_url
+                return self._requests.request(
+                    method, request_url, timeout=self._TIMEOUT,
+                    headers=headers, files=files, json=data)
+        finally:
+            if files is not None:
+                files.clear()

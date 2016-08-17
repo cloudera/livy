@@ -38,7 +38,6 @@ CLASSIFIERS = [
 ]
 
 requirements = [
-    'pathlib2>=2.1.0',
     'futures>=3.0.5',
     'cloudpickle>=0.2.1',
     'requests>=2.10.0',
@@ -50,7 +49,8 @@ setup(
     name='livy-python-api',
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
-    packages=find_packages(),
+    packages=["livy", "tests"],
+    package_dir={"": "src/main/python"},
     url='https://github.com/cloudera/livy',
     author_email='livy-user@cloudera.org',
     license='Apache License, Version 2.0',
