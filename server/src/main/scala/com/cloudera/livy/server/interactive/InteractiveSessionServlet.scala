@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeMap
 import scala.concurrent._
 import scala.concurrent.duration._
 
@@ -87,6 +88,56 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       "output" -> output)
   }
 
+  private def slice(from: Option[Int], to: Option[Int], size: Option[Int], offset: Option[Int], items: TreeMap[Int, Statement]): TreeMap[Int, Statement] = {
+
+    // Can't slice an empty list
+    if(items.isEmpty) {
+      return items
+    }
+
+    // No slicing
+    if (from.isEmpty && to.isEmpty && size.isEmpty && offset.isEmpty) {
+      return items
+    }
+
+    // Size only
+    if (from.isEmpty && to.isEmpty && size.isDefined && offset.isEmpty) {
+      return items.takeRight(size.get)
+    }
+
+    // Size + offset
+    if (from.isEmpty && to.isEmpty && size.isDefined && offset.isDefined) {
+      return items.takeRight(size.get + offset.get).take(size.get)
+    }
+
+    // From only
+    if (from.isDefined && to.isEmpty && size.isEmpty && offset.isEmpty) {
+      return items.from(from.get)
+    }
+
+    // From + size
+    if (from.isDefined && to.isEmpty && size.isDefined && offset.isEmpty) {
+      return items.from(from.get).take(size.get)
+    }
+
+    // To only
+    if (from.isEmpty && to.isDefined && size.isEmpty && offset.isEmpty) {
+      return items.to(to.get)
+    }
+
+    // To + size
+    if (from.isEmpty && to.isDefined && size.isDefined && offset.isEmpty) {
+      return items.to(to.get).takeRight(size.get)
+    }
+
+    // From + to
+    if (from.isDefined && to.isDefined && size.isEmpty && offset.isEmpty) {
+      return items.from(from.get).to(to.get)
+    }
+
+    throw new IllegalStateException()
+  }
+
   post("/:id/stop") {
     withSession { session =>
       Await.ready(session.stop(), Duration.Inf)
@@ -103,12 +154,14 @@ class InteractiveSessionServlet(livyConf: LivyConf)
 
   get("/:id/statements") {
     withSession { session =>
-      val from = params.get("from").map(_.toInt).getOrElse(0)
-      val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
+      val from = params.get("from").map(_.toInt)
+      val to = params.get("to").map(_.toInt)
+      val size = params.get("size").map(_.toInt)
+      val offset = params.get("offset").map(_.toInt)
 
       Map(
-        "total_statements" -> session.statements.length,
-        "statements" -> session.statements.view(from, from + size).map(statementView)
+        "total_statements" -> session.statements.size,
+        "statements" -> slice(from, to, size, offset, session.statements).mapValues(statementView)
       )
     }
   }
@@ -116,14 +169,21 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   val getStatement = get("/:id/statements/:statementId") {
     withSession { session =>
       val statementId = params("statementId").toInt
-      val from = params.get("from").map(_.toInt)
-      val size = params.get("size").map(_.toInt)
+      val statement = session.statements.get(statementId)
 
-      session.statements.lift(statementId) match {
+      statement match {
         case None => NotFound("Statement not found")
         case Some(statement) =>
           statementView(statement)
       }
+    }
+  }
+
+  delete("/:id/statements/:statementId") {
+    withSession { session =>
+      val statementId = params("statementId").toInt
+      session.removeStatement(statementId)
+      Ok()
     }
   }
 
