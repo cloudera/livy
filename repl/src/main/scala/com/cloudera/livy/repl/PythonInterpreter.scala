@@ -43,8 +43,8 @@ object PythonInterpreter extends Logging {
         case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
         case PySpark() => sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
     }
-
-    val gatewayServer = new GatewayServer(null, 0)
+    SparkFactory.setSparkConf(conf)
+    val gatewayServer = new GatewayServer(SparkFactory, 0)
     gatewayServer.start()
 
     val builder = new ProcessBuilder(Seq(pythonExec, createFakeShell().toString).asJava)

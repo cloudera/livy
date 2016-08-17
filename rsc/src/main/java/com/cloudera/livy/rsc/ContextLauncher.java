@@ -28,13 +28,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -42,6 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermission.*;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.Promise;
 import org.apache.spark.launcher.SparkLauncher;
@@ -169,9 +165,9 @@ class ContextLauncher {
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
     String kind = conf.get(SESSION_KIND);
-    if ("sparkr".equals(kind)) {
+    if (Sets.newHashSet("sparkr", "shared").contains(kind)) {
       merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
-    } else if ("pyspark".equals(kind)) {
+    } else if (Sets.newHashSet("pyspark", "shared").equals(kind)) {
       merge(conf, "spark.submit.pyFiles", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES), ",");
     }
 

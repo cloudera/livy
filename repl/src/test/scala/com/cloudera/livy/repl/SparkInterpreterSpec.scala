@@ -22,7 +22,7 @@ import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
-class ScalaInterpreterSpec extends BaseInterpreterSpec {
+class SparkInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 

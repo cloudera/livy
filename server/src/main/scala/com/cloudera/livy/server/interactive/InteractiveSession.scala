@@ -111,6 +111,14 @@ class InteractiveSession(
         sparkRArchive.foreach { archive =>
           builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
         }
+      case Shared() =>
+        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
+        mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
+        builderProperties.put(SparkYarnIsPython, "true")
+        val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
+        sparkRArchive.foreach { archive =>
+          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+        }
       case _ =>
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)

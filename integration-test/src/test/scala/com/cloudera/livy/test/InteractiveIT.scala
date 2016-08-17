@@ -83,6 +83,11 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
          | |-- age: double (nullable = true)""".stripMargin))
   }
 
+  sharedtest("SparkContext shared session") {
+    sessionId = livyClient.startSession(Shared())
+    matchResult("%spark sc.parallelize(1 to 10).sum()", startsWith("res1: 55"))
+  }
+
   test("application kills session") {
     sessionId = livyClient.startSession(Spark())
     waitTillSessionIdle(sessionId)

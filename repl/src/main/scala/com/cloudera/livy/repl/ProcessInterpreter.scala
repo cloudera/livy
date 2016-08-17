@@ -75,7 +75,6 @@ abstract class ProcessInterpreter(process: Process)
       } catch {
         case _: IOException =>
       }
-
       try {
         process.destroy()
       } finally {
@@ -126,7 +125,7 @@ abstract class ProcessInterpreter(process: Process)
     override def run() = {
       val exitCode = process.waitFor()
       if (exitCode != 0) {
-        error(f"Process has died with $exitCode")
+        error(f"Process has died with $exitCode, " + stderrLines.mkString("\n"))
       }
     }
   }

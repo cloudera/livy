@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.repl
 
-import java.io.{File, FileOutputStream}
+import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, Semaphore, TimeUnit}
@@ -29,7 +29,7 @@ import scala.reflect.runtime.universe
 
 import org.apache.commons.codec.binary.Base64
 import org.apache.spark.{SparkConf, SparkContext}
-import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
+import org.apache.spark.sql.SQLContext
 import org.json4s._
 import org.json4s.JsonDSL._
 
@@ -64,6 +64,7 @@ object SparkRInterpreter {
     ).r.unanchored
 
   def apply(conf: SparkConf): SparkRInterpreter = {
+    SparkFactory.setSparkConf(conf)
     val backendTimeout = sys.env.getOrElse("SPARKR_BACKEND_TIMEOUT", "120").toInt
     val mirror = universe.runtimeMirror(getClass.getClassLoader)
     val sparkRBackendClass = mirror.classLoader.loadClass("org.apache.spark.api.r.RBackend")
@@ -92,7 +93,6 @@ object SparkRInterpreter {
         .orElse(conf.getOption("spark.r.command"))
         .orElse(conf.getOption("spark.sparkr.r.command"))
         .getOrElse("R")
-
       var packageDir = ""
       if (sys.env.getOrElse("SPARK_YARN_MODE", "") == "true") {
         packageDir = "./sparkr.zip"
@@ -125,6 +125,15 @@ object SparkRInterpreter {
         throw e
     }
   }
+
+  def getSparkContext(): SparkContext = {
+    SparkFactory.getOrCreateSparkContext()
+  }
+
+  def getSQLContext(): SQLContext = {
+    SparkFactory.getOrCreateSQLContext()
+  }
+
 }
 
 class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: Thread)
@@ -143,8 +152,8 @@ class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: T
     sendRequest("options(error = dump.frames)")
     if (!ClientConf.TEST_MODE) {
       sendRequest("library(SparkR)")
-      sendRequest("sc <- sparkR.init()")
-      sendRequest("sqlContext <- sparkRSQL.init(sc)")
+      scala.io.Source.fromInputStream(getClass.getClassLoader.getResourceAsStream("fake_shell.r"))
+        .getLines().foreach(line => sendRequest(line))
     }
 
     isStarted.countDown()

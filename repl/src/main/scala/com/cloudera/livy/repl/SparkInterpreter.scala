@@ -27,6 +27,7 @@ import scala.tools.nsc.interpreter.{JPrintWriter, Results}
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.api.java.JavaSparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.repl.SparkIMain
 import org.apache.spark.sql.hive.HiveContext
@@ -119,26 +120,9 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
           classLoader = classLoader.getParent
         }
       }
-
-      sparkContext = SparkContext.getOrCreate(conf)
-      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
-        try {
-          val loader = Option(Thread.currentThread().getContextClassLoader)
-            .getOrElse(getClass.getClassLoader)
-          if (loader.getResource("hive-site.xml") == null) {
-            warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
-          }
-          sqlContext = new HiveContext(sparkContext)
-          info("Created sql context (with Hive support).")
-        } catch {
-          case _: java.lang.NoClassDefFoundError =>
-            sqlContext = new SQLContext(sparkContext)
-            info("Created sql context.")
-        }
-      } else {
-        sqlContext = new SQLContext(sparkContext)
-        info("Created sql context.")
-      }
+      SparkFactory.setSparkConf(conf)
+      sparkContext = SparkFactory.getOrCreateSparkContext()
+      sqlContext = SparkFactory.getOrCreateSQLContext()
       sparkIMain.beQuietDuring {
         sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
       }
@@ -154,6 +138,8 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
     sparkContext
   }
 
+  def getSparkContext(): SparkContext = sparkContext
+
   override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
     require(sparkIMain != null && sparkContext != null)
 
@@ -163,14 +149,12 @@ class SparkInterpreter(conf: SparkConf) extends Interpreter with Logging {
   }
 
   override def close(): Unit = synchronized {
-    if (sparkContext != null) {
-      sparkContext.stop()
-    }
-
+    SparkFactory.close()
     if (sparkIMain != null) {
       sparkIMain.close()
       sparkIMain = null
     }
+    sparkContext = null
     sqlContext = null
   }
 
