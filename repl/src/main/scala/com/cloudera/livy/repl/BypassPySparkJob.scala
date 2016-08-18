@@ -20,8 +20,8 @@ package com.cloudera.livy.repl
 import com.cloudera.livy.{Job, JobContext}
 
 class BypassPySparkJob(
-      serializedJob: Array[Byte],
-      pysparkJobProcessor: PySparkJobProcessor) extends Job[Array[Byte]] {
+    serializedJob: Array[Byte],
+    pysparkJobProcessor: PySparkJobProcessor) extends Job[Array[Byte]] {
 
   override def call(jc: JobContext): Array[Byte] = {
     pysparkJobProcessor.processBypassJob(serializedJob)

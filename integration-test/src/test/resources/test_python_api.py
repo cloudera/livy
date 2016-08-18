@@ -37,6 +37,11 @@ upload_file_url = os.environ.get("UPLOAD_FILE_URL")
 upload_pyfile_url = os.environ.get("UPLOAD_PYFILE_URL")
 
 
+@pytest.fixture(scope="module", autouse=True)
+def after_all(request):
+    request.addfinalizer(stop_session)
+
+
 def process_job(job, expected_result):
     global job_id
 
@@ -116,6 +121,17 @@ def test_spark_job():
         return sc.parallelize(elements, 2).count()
 
     process_job(simple_spark_job, 3)
+
+
+def test_reconnect():
+    global session_id
+
+    request_url = livy_end_point + "/sessions/" + str(session_id) + "/connect"
+    header = {'Content-Type': 'application/json', 'X-Requested-By': 'livy'}
+    response = requests.request('POST', request_url, headers=header)
+
+    assert response.status_code == httplib.OK
+    assert session_id == response.json()['id']
 
 
 def test_add_file():

@@ -260,5 +260,23 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
       driver.addLocalFileToClassLoader(localCopyFile)
     }
   }
+
+  def readPort(): Unit = {
+    val line = stdout.readLine()
+    if (line != null) {
+      val portIdentifierArray = line.split(":")
+      if (portIdentifierArray.length == 2 && portIdentifierArray(0) == "PORT") {
+        updatePythonGatewayPort(portIdentifierArray(1).toInt)
+      }
+    }
+    // TODO: Handle error scenarios
+  }
+
+  private def updatePythonGatewayPort(port: Int): Unit = {
+    val callbackClient = gatewayServer.getCallbackClient
+    val field = callbackClient.getClass.getDeclaredField("port")
+    field.setAccessible(true)
+    field.setInt(callbackClient, port)
+  }
 }
 // scalastyle:on println

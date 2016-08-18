@@ -518,10 +518,15 @@ def main():
 
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID
-            from py4j.java_gateway import JavaGateway, GatewayClient
-            gateway = JavaGateway(
-                gateway_client=GatewayClient(port=os.environ.get("PYSPARK_GATEWAY_PORT")),
-                start_callback_server=True)
+            from py4j.java_gateway import JavaGateway, GatewayClient, CallbackServerParameters
+            import socket
+
+            gateway_client_port = int(os.environ.get("PYSPARK_GATEWAY_PORT"))
+            gateway = JavaGateway(GatewayClient(port=gateway_client_port))
+            gateway.start_callback_server(
+                callback_server_parameters=CallbackServerParameters(port=0))
+            socket_info = gateway._callback_server.server_socket.getsockname()
+            listening_port = socket_info[1]
             pyspark_job_processor = PySparkJobProcessorImpl()
             gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
 
@@ -536,6 +541,9 @@ def main():
 
         print('READY', file=sys_stdout)
         sys_stdout.flush()
+        if os.environ.get("LIVY_TEST") != "true":
+            print('PORT:' + str(listening_port), file=sys_stdout)
+            sys_stdout.flush()
 
         while True:
             line = sys_stdin.readline()
