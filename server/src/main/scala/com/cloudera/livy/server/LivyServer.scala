@@ -263,10 +263,10 @@ class LivyServer extends Logging {
    * @param version Spark version
    */
   private[server] def testSparkVersion(version: String): Unit = {
-    val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
+    val versionPattern = """(\d)+\.(\d)+(?:\.\d*).*?""".r
     // This is exclusive. Version which equals to this will be rejected.
     val maxVersion = (2, 0)
-    val minVersion = (1, 6)
+    val minVersion = (1, 5)
 
     val supportedVersion = version match {
       case versionPattern(major, minor) =>
