@@ -1,8 +1,13 @@
 sudo: required
+dist: trusty
 language: scala
 
 jdk:
   - oraclejdk7
+
+python:
+  - "2.7"
+  - "3.2"
 
 addons:
   apt:
@@ -17,13 +22,16 @@ cache:
     - $HOME/.m2
 
 before_install:
-  - pip install --user codecov
+  - sudo apt-get -y install python3-pip
+  - pip install --user codecov cloudpickle
+  - pip3 install --user cloudpickle
 
 install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
 
 before_script:
-  - pip install --user requests cloudpickle pytest flaky
+  - pip install --user requests pytest flaky
+  - pip3 install --user requests pytest flaky
 
 script:
   - mvn verify
