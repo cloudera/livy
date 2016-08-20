@@ -292,7 +292,7 @@ class InteractiveSession(
         val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
         val rArchivesFile = new File(path)
         require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
-        rArchivesFile.getAbsolutePath()
+        rArchivesFile.getAbsolutePath() + "#sparkr"
       }
     }
   }
