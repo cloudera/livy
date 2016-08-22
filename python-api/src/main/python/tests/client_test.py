@@ -139,7 +139,7 @@ def test_submit_job_verify_running_state():
         lock.set()
     submit_job_future.add_running_callback(handle_job_running_callback)
     lock.wait(15)
-    assert invoked_running_callback == True
+    assert invoked_running_callback
 
 
 @responses.activate
@@ -154,7 +154,7 @@ def test_submit_job_verify_queued_state():
         lock.set()
     submit_job_future.add_queued_callback(handle_job_queued_callback)
     lock.wait(15)
-    assert invoked_queued_callback == True
+    assert invoked_queued_callback
 
 
 @responses.activate
@@ -181,7 +181,7 @@ def test_add_file():
     add_file_future = mock_file_apis('add-file', client_test.add_file,
          file_uri)
     add_file_future.result(15)
-    assert add_file_future.done() == True
+    assert add_file_future.done()
 
 
 @responses.activate
@@ -191,7 +191,7 @@ def test_upload_file():
     upload_file_future = mock_file_apis('upload-file', client_test.upload_file,
         file_path)
     upload_file_future.result(15)
-    assert upload_file_future.done() == True
+    assert upload_file_future.done()
 
 
 @responses.activate
@@ -201,7 +201,7 @@ def test_add_pyfile():
     add_file_future = mock_file_apis('add-pyfile', client_test.add_pyfile,
          file_uri)
     add_file_future.result(15)
-    assert add_file_future.done() == True
+    assert add_file_future.done()
 
 
 @responses.activate
@@ -211,7 +211,7 @@ def test_upload_pyfile():
     pyfile_future = mock_file_apis('upload-pyfile', client_test.upload_pyfile,
         file_path)
     pyfile_future.result(15)
-    assert pyfile_future.done() == True
+    assert pyfile_future.done()
 
 
 @responses.activate
@@ -220,4 +220,4 @@ def test_add_jar():
         "/resources/jar_file.jar"
     add_file_future = mock_file_apis('add-jar', client_test.add_jar, file_uri)
     add_file_future.result(15)
-    assert add_file_future.done() == True
+    assert add_file_future.done()
