@@ -54,17 +54,9 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case SparkR() => SparkRInterpreter(conf)
     }
     session = new Session(interpreter)
-    val javaSparkContext = Option(Await.result(session.start(), Duration.Inf))
+    Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
       .orNull
-    val livy_test = System.getenv("LIVY_TEST")
-    if (livy_test == null || !livy_test.toBoolean) {
-      interpreter match {
-        case pi: PythonInterpreter => pi.readPort()
-        case _ =>
-      }
-    }
-    javaSparkContext
   }
 
   override protected def shutdownContext(): Unit = {

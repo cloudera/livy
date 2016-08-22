@@ -495,6 +495,32 @@ def clearOutputs():
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
+#Monkey patch to propagate the underlying error message in python side of py4j
+# to the Java side
+def propagate_actual_error_message():
+    import py4j
+    from py4j import protocol
+
+    def call_proxy(self, obj_id, input):
+        return_message = protocol.ERROR_RETURN_MESSAGE
+        if obj_id in self.pool:
+            try:
+                method = protocol.smart_decode(input.readline())[:-1]
+                params = self._get_params(input)
+                return_value = getattr(self.pool[obj_id], method)(*params)
+                return_message = "y" + protocol.get_command_part(return_value,
+                    self.pool)
+            except Exception:
+                message = ''
+                formatted_lines = traceback.format_exc().splitlines()
+                for formatted_line in formatted_lines:
+                    message = message + formatted_line + " ; "
+                return_message = protocol.ERROR + " " + message + "\n"
+        return return_message
+
+    py4j.java_gateway.CallbackConnection._call_proxy = call_proxy
+
+
 def main():
     sys_stdin = sys.stdin
     sys_stdout = sys.stdout
@@ -509,6 +535,7 @@ def main():
     sys.stderr = UnicodeDecodingStringIO()
 
     try:
+        listening_port = 0
         if os.environ.get("LIVY_TEST") != "true":
             #Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
@@ -519,7 +546,6 @@ def main():
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID
             from py4j.java_gateway import JavaGateway, GatewayClient, CallbackServerParameters
-            import socket
 
             gateway_client_port = int(os.environ.get("PYSPARK_GATEWAY_PORT"))
             gateway = JavaGateway(GatewayClient(port=gateway_client_port))
@@ -527,6 +553,7 @@ def main():
                 callback_server_parameters=CallbackServerParameters(port=0))
             socket_info = gateway._callback_server.server_socket.getsockname()
             listening_port = socket_info[1]
+            propagate_actual_error_message()
             pyspark_job_processor = PySparkJobProcessorImpl()
             gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
 
@@ -539,11 +566,8 @@ def main():
 
         clearOutputs()
 
-        print('READY', file=sys_stdout)
+        print('READY' + "(port=" + str(listening_port) + ")", file=sys_stdout)
         sys_stdout.flush()
-        if os.environ.get("LIVY_TEST") != "true":
-            print('PORT:' + str(listening_port), file=sys_stdout)
-            sys_stdout.flush()
 
         while True:
             line = sys_stdin.readline()

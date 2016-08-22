@@ -194,9 +194,10 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
 
   @tailrec
   final override protected def waitUntilReady(): Unit = {
-    val line = stdout.readLine()
-    line match {
-      case null | "READY" =>
+    val READY_REGEX = "READY\\(port=([0-9]+)\\)".r
+    stdout.readLine() match {
+      case null =>
+      case READY_REGEX(port) => updatePythonGatewayPort(port.toInt)
       case _ => waitUntilReady()
     }
   }
@@ -261,22 +262,13 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 
-  def readPort(): Unit = {
-    val line = stdout.readLine()
-    if (line != null) {
-      val portIdentifierArray = line.split(":")
-      if (portIdentifierArray.length == 2 && portIdentifierArray(0) == "PORT") {
-        updatePythonGatewayPort(portIdentifierArray(1).toInt)
-      }
-    }
-    // TODO: Handle error scenarios
-  }
-
   private def updatePythonGatewayPort(port: Int): Unit = {
-    val callbackClient = gatewayServer.getCallbackClient
-    val field = callbackClient.getClass.getDeclaredField("port")
-    field.setAccessible(true)
-    field.setInt(callbackClient, port)
+    if (port != 0) {
+      val callbackClient = gatewayServer.getCallbackClient
+      val field = callbackClient.getClass.getDeclaredField("port")
+      field.setAccessible(true)
+      field.setInt(callbackClient, port.toInt)
+    }
   }
 }
 // scalastyle:on println
