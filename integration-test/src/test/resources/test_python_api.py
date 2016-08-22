@@ -42,7 +42,7 @@ def after_all(request):
     request.addfinalizer(stop_session)
 
 
-def process_job(job, expected_result):
+def process_job(job, expected_result, is_error_job=False):
     global job_id
 
     pickled_job = cloudpickle.dumps(job)
@@ -67,13 +67,17 @@ def process_job(job, expected_result):
         poll_response = requests.request('GET', poll_request_uri, headers=poll_header)
         poll_time *= 2
 
-    assert poll_response.status_code == httplib.OK
     assert poll_response.json()['id'] == job_id
-    result = poll_response.json()['result']
-    b64_decoded = base64.b64decode(result)
-    b64_decoded_decoded = base64.b64decode(b64_decoded)
-    deserialized_object = cloudpickle.loads(b64_decoded_decoded)
-    assert deserialized_object == expected_result
+    assert poll_response.status_code == httplib.OK
+    if not is_error_job:
+        result = poll_response.json()['result']
+        b64_decoded = base64.b64decode(result)
+        b64_decoded_decoded = base64.b64decode(b64_decoded)
+        deserialized_object = cloudpickle.loads(b64_decoded_decoded)
+        assert deserialized_object == expected_result
+    else:
+        error = poll_response.json()['error']
+        assert expected_result in error
 
 
 def delay_rerun(*args):
@@ -121,6 +125,14 @@ def test_spark_job():
         return sc.parallelize(elements, 2).count()
 
     process_job(simple_spark_job, 3)
+
+
+def test_error_job():
+    def error_job(context):
+        return "hello" + 1
+
+    process_job(error_job,
+        "TypeError: cannot concatenate 'str' and 'int' objects", True)
 
 
 def test_reconnect():
