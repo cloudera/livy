@@ -16,7 +16,7 @@
 # limitations under the License.
 #
 
-from setuptools import setup, find_packages
+from setuptools import setup
 import os
 import io
 import versioneer
@@ -62,6 +62,6 @@ setup(
     keywords='livy pyspark development',
     classifiers=CLASSIFIERS,
     install_requires=requirements,
-    setup_requires=['pytest-runner'],
+    setup_requires=['pytest-runner', 'flake8'],
     tests_require=['pytest']
 )

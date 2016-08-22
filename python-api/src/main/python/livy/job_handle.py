@@ -21,7 +21,7 @@ import sys
 import threading
 import traceback
 from concurrent.futures import Future
-from threading import Timer, current_thread
+from threading import Timer
 
 # Possible job states.
 PENDING = 'PENDING'
