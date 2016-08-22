@@ -30,8 +30,9 @@ install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
 
 before_script:
-  - pip install --user requests pytest flaky
+  - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
+  - flake8 .
 
 script:
   - mvn verify
