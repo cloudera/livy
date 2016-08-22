@@ -38,10 +38,12 @@ CLASSIFIERS = [
 ]
 
 requirements = [
-    'futures>=3.0.5',
     'cloudpickle>=0.2.1',
-    'requests>=2.10.0',
+    'configparser>=3.5.0',
+    'future>=0.15.2',
+    'futures>=3.0.5',
     'pytest-runner>=2.9',
+    'requests>=2.10.0',
     'responses>=0.5.1'
 ]
 

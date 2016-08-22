@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from __future__ import absolute_import
+
 import base64
 import cloudpickle
 import os
@@ -22,11 +24,11 @@ import re
 import requests
 import threading
 import traceback
+from configparser import ConfigParser
 from concurrent.futures import ThreadPoolExecutor
-from ConfigParser import SafeConfigParser
-from StringIO import StringIO
-from urlparse import ParseResult, urlparse
-from job_handle import JobHandle
+from future.moves.urllib.parse import ParseResult, urlparse
+from io import open, StringIO
+from livy.job_handle import JobHandle
 
 
 class HttpClient(object):
@@ -35,7 +37,8 @@ class HttpClient(object):
     Parameters
     ----------
     url_str : string
-        Livy server url
+        Livy server url to create a new session or the url of an existing
+        session
     load_defaults : boolean, optional
         This parameter decides if the default config needs to be loaded
         Default is True
@@ -46,7 +49,7 @@ class HttpClient(object):
     Examples
     --------
     Imports needed to create an instance of HttpClient
-    >>> from src.main.python.livy.client import HttpClient
+    >>> from livy.client import HttpClient
 
     1) Creates a client that is loaded with default config
        as 'load_defaults' is True by default
@@ -55,9 +58,8 @@ class HttpClient(object):
     2) Creates a client that does not load default config, but loads
        config that are passed in 'config_dict'
     >>> config_dict = {'spark.app.name', 'Test App'}
-    >>> client = HttpClient(
-    >>>             "http://example:8998/", load_defaults=False,
-    >>>             config_dict=config_dict)
+    >>> client = HttpClient("http://example:8998/", load_defaults=False,
+    >>>    config_dict=config_dict)
 
     """
 
@@ -66,13 +68,13 @@ class HttpClient(object):
 
     def __init__(self, url, load_defaults=True, conf_dict=None):
         uri = urlparse(url)
-        self._config = SafeConfigParser()
+        self._config = ConfigParser()
         self._load_config(load_defaults, conf_dict)
         match = re.match(r'(.*)/sessions/([0-9]+)', uri.path)
         if match:
             base = ParseResult(scheme=uri.scheme, netloc=uri.netloc,
-                               path=match.group(1), params=uri.params,
-                               query=uri.query, fragment=uri.fragment)
+                path=match.group(1), params=uri.params, query=uri.query,
+                fragment=uri.fragment)
             self._set_uri(base)
             self._conn = _LivyConnection(base)
             self._session_id = int(match.group(2))
@@ -85,6 +87,7 @@ class HttpClient(object):
                 session_conf_dict).json()['id']
         self._executor = ThreadPoolExecutor(max_workers=1)
         self._stopped = False
+        self.lock = threading.Lock()
 
     def submit(self, job):
         """
@@ -146,7 +149,7 @@ class HttpClient(object):
         """
         return self._send_job("run-job", job)
 
-    def add_file(self, file_path):
+    def add_file(self, file_uri):
         """
         Adds a file to the running remote context.
 
@@ -157,8 +160,9 @@ class HttpClient(object):
 
         Parameters
         ----------
-        file_path : string
-        Representation of the path to a local file using filesystem encoding.
+        file_uri : string
+            String representation of the uri using filesystem encoding that
+            points to the location of the file
 
         Returns
         -------
@@ -167,7 +171,7 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> client.add_file("/test_add.txt")
+        >>> client.add_file("file:/test_add.txt")
 
         >>> # Example job using the file added using add_file function
         >>> def add_file_job(context):
@@ -177,13 +181,13 @@ class HttpClient(object):
         >>>        fileVal = int(testFile.readline())
         >>>        return [x * fileVal for x in iterator]
         >>>    return context.sc.parallelize([1, 2, 3, 4])
-        >>>             .mapPartitions(func).collect()
+        >>>        .mapPartitions(func).collect()
 
         >>> client.submit(add_file_job)
         """
-        return self._add_file_or_pyfile_job("add-file", file_path)
+        return self._add_file_or_pyfile_job("add-file", file_uri)
 
-    def add_jar(self, file_path):
+    def add_jar(self, file_uri):
         """
         Adds a jar file to the running remote context.
 
@@ -194,8 +198,9 @@ class HttpClient(object):
 
         Parameters
         ----------
-        file_path : string
-            Representation of path to a local file using filesystem encoding.
+        file_uri : string
+            String representation of the uri using filesystem encoding that
+            points to the location of the file
 
         Returns
         -------
@@ -204,12 +209,12 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> client.add_jar("/test_package.jar")
+        >>> client.add_jar("file:/test_package.jar")
 
         """
-        return self._add_file_or_pyfile_job("add-jar", file_path)
+        return self._add_file_or_pyfile_job("add-jar", file_uri)
 
-    def add_pyfile(self, file_path):
+    def add_pyfile(self, file_uri):
         """
         Adds a .py or .zip to the running remote context.
 
@@ -220,8 +225,9 @@ class HttpClient(object):
 
         Parameters
         ----------
-        file_path : string
-            Representation of path to a local file using filesystem encoding.
+        file_uri : string
+            String representation of the uri using filesystem encoding that
+            points to the location of the file
 
         Returns
         -------
@@ -230,7 +236,7 @@ class HttpClient(object):
 
         Examples
         -------
-        >>> client.add_pyfile("/test_package.egg")
+        >>> client.add_pyfile("file:/test_package.egg")
 
         >>> # Example job using the file added using add_pyfile function
         >>> def add_pyfile_job(context):
@@ -241,7 +247,7 @@ class HttpClient(object):
 
         >>> client.submit(add_pyfile_job)
         """
-        return self._add_file_or_pyfile_job("add-pyfile", file_path)
+        return self._add_file_or_pyfile_job("add-pyfile", file_uri)
 
     def upload_file(self, file_path):
         """
@@ -269,12 +275,12 @@ class HttpClient(object):
         >>>        fileVal = int(testFile.readline())
         >>>        return [x * fileVal for x in iterator]
         >>>    return context.sc.parallelize([1, 2, 3, 4])
-        >>>               .mapPartitions(func).collect()
+        >>>        .mapPartitions(func).collect()
 
         >>> client.submit(add_file_job)
         """
-        return self._upload_file_or_pyfile(
-            "upload-file", open(file_path, 'rb'))
+        return self._upload_file_or_pyfile("upload-file",
+            open(file_path, 'rb'))
 
     def upload_pyfile(self, file_path):
         """
@@ -303,8 +309,8 @@ class HttpClient(object):
 
         >>> client.submit(upload_pyfile_job)
         """
-        return self._upload_file_or_pyfile(
-            "upload-pyfile", open(file_path, 'rb'))
+        return self._upload_file_or_pyfile("upload-pyfile",
+            open(file_path, 'rb'))
 
     def stop(self, shutdown_context):
         """
@@ -326,8 +332,8 @@ class HttpClient(object):
                     if shutdown_context:
                         session_uri = "/" + str(self._session_id)
                         headers = {'X-Requested-By': 'livy'}
-                        self._conn.send_request(
-                            "DELETE", session_uri, headers=headers)
+                        self._conn.send_request("DELETE", session_uri,
+                            headers=headers)
                 except:
                     raise Exception(traceback.format_exc())
                 self._stopped = True
@@ -337,8 +343,8 @@ class HttpClient(object):
             self._config.set(self._CONFIG_SECTION, 'livy.uri', uri.geturl())
         else:
             url_exception = uri.geturl if uri is not None else None
-            raise ValueError(
-                'Cannot create client - Uri not supported - ', url_exception)
+            raise ValueError('Cannot create client - Uri not supported - ',
+                url_exception)
 
     def _set_conf(self, key, value):
         if value is not None:
@@ -350,7 +356,7 @@ class HttpClient(object):
         self._config.remove_option(self._CONFIG_SECTION, key)
 
     def _set_multiple_conf(self, conf_dict):
-        for key, value in conf_dict.iteritems():
+        for key, value in conf_dict.items():
             self._set_conf(key, value)
 
     def _load_config(self, load_defaults, conf_dict):
@@ -371,46 +377,51 @@ class HttpClient(object):
 
     def _load_config_from_file(self, config_dir, config_file):
         path = os.path.join(config_dir, config_file)
-        data = "[" + self._CONFIG_SECTION + "]\n" + open(path).read()
-        self._config.readfp(StringIO(data.decode('utf8')))
+        data = "[" + self._CONFIG_SECTION + "]\n" + \
+            open(path, encoding='utf-8').read()
+        self._config.readfp(StringIO(data))
 
     def _create_new_session(self, session_conf_dict):
         data = {'kind': 'pyspark', 'conf': session_conf_dict}
-        response = self._conn.send_request(
-            'POST', "/", headers=self._conn._JSON_HEADERS, data=data)
+        response = self._conn.send_request('POST', "/",
+            headers=self._conn._JSON_HEADERS, data=data)
         return response
 
     def _reconnect_to_existing_session(self):
         reconnect_uri = "/" + str(self._session_id) + "/connect"
-        self._conn.send_request(
-            'POST', reconnect_uri, headers=self._conn._JSON_HEADERS)
+        self._conn.send_request('POST', reconnect_uri,
+            headers=self._conn._JSON_HEADERS)
 
     def _send_job(self, command, job):
         pickled_job = cloudpickle.dumps(job)
         base64_pickled_job = base64.b64encode(pickled_job).decode('utf-8')
         base64_pickled_job_data = {'job': base64_pickled_job}
-        job_handle = JobHandle(self._conn, self._session_id, self._executor)
-        job_handle._start(command, base64_pickled_job_data)
-        return job_handle
+        handle = JobHandle(self._conn, self._session_id,
+            self._executor)
+        handle._start(command, base64_pickled_job_data)
+        return handle
 
     def _add_file_or_pyfile_job(self, command, file_uri):
         data = {'uri': file_uri}
         suffix_url = "/" + str(self._session_id) + "/" + command
-        return self._executor.submit(
-            self._add_or_upload_resource, suffix_url, data=data,
-            headers=self._conn._JSON_HEADERS)
+        return self._executor.submit(self._add_or_upload_resource, suffix_url,
+            data=data, headers=self._conn._JSON_HEADERS)
 
     def _upload_file_or_pyfile(self, command, open_file):
         files = {'file': open_file}
         suffix_url = "/" + str(self._session_id) + "/" + command
-        return self._executor.submit(
-            self._add_or_upload_resource, suffix_url, files=files)
+        return self._executor.submit(self._add_or_upload_resource, suffix_url,
+            files=files)
 
-    def _add_or_upload_resource(self, suffix_url, files=None, data=None,
-                                headers={}):
-        return self._conn.send_request(
-            'POST', suffix_url, files=files, data=data,
-            headers=headers).content
+    def _add_or_upload_resource(
+        self,
+        suffix_url,
+        files=None,
+        data=None,
+        headers=None
+    ):
+        return self._conn.send_request('POST', suffix_url, files=files,
+            data=data, headers=headers).content
 
 
 class _LivyConnection(object):
@@ -418,8 +429,10 @@ class _LivyConnection(object):
     _SESSIONS_URI = '/sessions'
     # Timeout in seconds
     _TIMEOUT = 10
-    _JSON_HEADERS = {'Content-Type': 'application/json',
-                     'Accept': 'application/json'}
+    _JSON_HEADERS = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+    }
 
     def __init__(self, uri):
         self._server_url_prefix = uri.geturl() + self._SESSIONS_URI
@@ -427,14 +440,50 @@ class _LivyConnection(object):
         self.lock = threading.Lock()
 
     def send_request(
-            self, method, suffix_url, headers={}, files=None, data=None):
+        self,
+        method,
+        suffix_url,
+        headers=None,
+        files=None,
+        data=None
+    ):
+        """
+        Makes a HTTP request to the server for the given REST method and
+        endpoint.
+        This method takes care of closing the handles of the files that
+        are to be sent as part of the http request
+
+        Parameters
+        ----------
+        method : string
+            REST verb
+        suffix_url : string
+            valid API endpoint
+        headers : dict, optional
+            Http headers for the request
+            Default is None
+        files : dict, optional
+            Files to be sent with the http request
+            Default is None
+        data : dict, optional
+            The payload to be sent with the http request
+            Default is None
+
+        Returns
+        -------
+        future : concurrent.futures.Future
+           A future to monitor the status of the job
+
+        """
         try:
             with self.lock:
-                headers['X-Requested-By'] = 'livy'
+                local_headers = {'X-Requested-By': 'livy'}
+                if headers:
+                    local_headers.update(headers)
                 request_url = self._server_url_prefix + suffix_url
-                return self._requests.request(
-                    method, request_url, timeout=self._TIMEOUT,
-                    headers=headers, files=files, json=data)
+                return self._requests.request(method, request_url,
+                    timeout=self._TIMEOUT, headers=local_headers, files=files,
+                    json=data)
         finally:
             if files is not None:
                 files.clear()

@@ -17,10 +17,11 @@
 #
 import base64
 import cloudpickle
+import sys
 import threading
 import traceback
 from concurrent.futures import Future
-from threading import Timer
+from threading import Timer, current_thread
 
 # Possible job states.
 PENDING = 'PENDING'
@@ -58,8 +59,8 @@ class JobHandle(Future):
 
     def _send_job_task(self, command, job):
         suffix_url = "/" + str(self._session_id) + "/" + command
-        job_status = self._conn.send_request(
-            'POST', suffix_url, headers=self._conn._JSON_HEADERS, data=job)
+        job_status = self._conn.send_request('POST', suffix_url,
+            headers=self._conn._JSON_HEADERS, data=job)
         self._job_id = job_status.json()['id']
         self._poll_result()
 
@@ -156,19 +157,19 @@ class JobHandle(Future):
     def _send_cancel_request(self):
         try:
             end_point = "/" + str(self._session_id) + "/jobs/" + \
-                        str(self._job_id) + "/cancel"
+                str(self._job_id) + "/cancel"
             self._conn.send_json(None, end_point)
         except Exception as err:
-            super(JobHandle, self).set_exception_info(
-                err, traceback.format_exc())
+            self.set_job_exception(err, traceback.format_exc())
             traceback.print_exc()
 
     def _poll_result(self):
         def do_poll_result():
             try:
                 suffix_url = "/" + str(self._session_id) + "/jobs/" + \
-                             str(self._job_id)
-                job_status = self._conn.send_request('GET', suffix_url).json()
+                    str(self._job_id)
+                job_status = self._conn.send_request('GET', suffix_url,
+                    headers={'Accept': 'application/json'}).json()
                 job_state = job_status['state']
                 job_result = None
                 has_finished = False
@@ -191,19 +192,17 @@ class JobHandle(Future):
                             b64_decoded_decoded)
                         super(JobHandle, self).set_result(deserialized_object)
                     if job_error is not None:
-                        super(JobHandle, self).set_exception_info(
-                            Exception(job_error), None)
+                        self.set_job_exception(Exception(job_error))
                     repeated_timer.stop()
                 else:
                     self._update_state(job_state)
             except Exception as err:
                 repeated_timer.stop()
                 traceback.print_exc()
-                super(JobHandle, self).set_exception_info(
-                    err, traceback.format_exc())
+                self.set_job_exception(err, traceback.format_exc())
 
-        repeated_timer = self._RepeatedTimer(
-            self._JOB_INITIAL_POLL_INTERVAL, do_poll_result)
+        repeated_timer = self._RepeatedTimer(self._JOB_INITIAL_POLL_INTERVAL,
+            do_poll_result, self._executor)
         repeated_timer.start()
 
     def set_running_or_notify_cancel(self):
@@ -218,25 +217,32 @@ class JobHandle(Future):
     def set_exception(self, exception):
         raise NotImplementedError("This operation is not supported.")
 
+    def set_job_exception(self, exception, error_msg=None):
+        if sys.version >= '3':
+            super(JobHandle, self).set_exception(exception)
+        else:
+            super(JobHandle, self).set_exception_info(exception, error_msg)
+
     class _RepeatedTimer(object):
-        def __init__(self, interval, polling_job):
+        def __init__(self, interval, polling_job, executor):
             self._timer = None
             self.polling_job = polling_job
             self.interval = interval
             self.is_running = False
             self.stop_called = False
+            self.executor = executor
 
         def _run(self):
             self.is_running = False
-            self.polling_job()
+            self.executor.submit(self.polling_job)
             self.start()
 
         def start(self):
             if not self.is_running and not self.stop_called:
                 self._timer = Timer(self.interval, self._run)
                 self._timer.start()
-                self.interval = min(
-                    self.interval * 2, JobHandle._JOB_MAX_POLL_INTERVAL)
+                self.interval = min(self.interval * 2,
+                    JobHandle._JOB_MAX_POLL_INTERVAL)
                 self.is_running = True
 
         def stop(self):
