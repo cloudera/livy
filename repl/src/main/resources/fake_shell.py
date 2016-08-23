@@ -26,10 +26,10 @@ import traceback
 import base64
 import os
 import re
-import cloudpickle
 import threading
 import tempfile
 import shutil
+import pickle
 
 if sys.version >= '3':
     unicode = str
@@ -108,17 +108,17 @@ class JobContextImpl(object):
         if self.hive_ctx is None:
             with self.lock:
                 if self.hive_ctx is None:
-                    if isinstance(self.sql_ctx, HiveContext):
+                    if isinstance(self.sql_ctx, global_dict['HiveContext']):
                         self.hive_ctx = self.sql_ctx
                     else:
-                        self.hive_ctx = HiveContext(self.sc)
+                        self.hive_ctx = global_dict['HiveContext'](self.sc)
         return self.hive_ctx
 
     def create_streaming_ctx(self, batch_duration):
         with self.lock:
             if self.streaming_ctx is not None:
                 raise ValueError("Streaming context already exists")
-            self.streaming_ctx = StreamingContext(self.sc, batch_duration)
+            self.streaming_ctx = global_dict['StreamingContext'](self.sc, batch_duration)
 
     def streaming_ctx(self):
         with self.lock:
@@ -146,11 +146,16 @@ class JobContextImpl(object):
 
 class PySparkJobProcessorImpl(object):
     def processBypassJob(self, serialized_job):
-        deserialized_job = cloudpickle.loads(serialized_job)
-        result = deserialized_job(job_context)
-        serialized_result = cloudpickle.dumps(result)
-        base64_serialized_result = base64.b64encode(serialized_result)
-        response = bytearray(base64_serialized_result)
+        try:
+            if sys.version >= '3':
+                deserialized_job = pickle.loads(serialized_job, encoding="bytes")
+            else:
+                deserialized_job = pickle.loads(serialized_job)
+            result = deserialized_job(job_context)
+            serialized_result = global_dict['cloudpickle'].dumps(result)
+            response = bytearray(base64.b64encode(serialized_result))
+        except:
+            response = bytearray('Error job(' + traceback.format_exc() + ')', 'utf-8')
         return response
 
     def addFile(self, uri_path):
@@ -495,31 +500,6 @@ def clearOutputs():
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
-#Monkey patch to propagate the underlying error message in python side of py4j
-# to the Java side
-def propagate_actual_error_message():
-    import py4j
-    from py4j import protocol
-
-    def call_proxy(self, obj_id, input):
-        return_message = protocol.ERROR_RETURN_MESSAGE
-        if obj_id in self.pool:
-            try:
-                method = protocol.smart_decode(input.readline())[:-1]
-                params = self._get_params(input)
-                return_value = getattr(self.pool[obj_id], method)(*params)
-                return_message = "y" + protocol.get_command_part(return_value,
-                    self.pool)
-            except Exception:
-                message = ''
-                formatted_lines = traceback.format_exc().splitlines()
-                for formatted_line in formatted_lines:
-                    message = message + formatted_line + " ; "
-                return_message = protocol.ERROR + " " + message + "\n"
-        return return_message
-
-    py4j.java_gateway.CallbackConnection._call_proxy = call_proxy
-
 
 def main():
     sys_stdin = sys.stdin
@@ -542,6 +522,7 @@ def main():
             exec('from pyspark.shell import sqlContext', global_dict)
             exec('from pyspark.sql import HiveContext', global_dict)
             exec('from pyspark.streaming import StreamingContext', global_dict)
+            exec('import pyspark.cloudpickle as cloudpickle', global_dict)
 
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID
@@ -553,7 +534,6 @@ def main():
                 callback_server_parameters=CallbackServerParameters(port=0))
             socket_info = gateway._callback_server.server_socket.getsockname()
             listening_port = socket_info[1]
-            propagate_actual_error_message()
             pyspark_job_processor = PySparkJobProcessorImpl()
             gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
 
@@ -566,7 +546,7 @@ def main():
 
         clearOutputs()
 
-        print('READY' + "(port=" + str(listening_port) + ")", file=sys_stdout)
+        print('READY(port=' + str(listening_port) + ')', file=sys_stdout)
         sys_stdout.flush()
 
         while True:

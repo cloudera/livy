@@ -24,6 +24,11 @@ class BypassPySparkJob(
     pysparkJobProcessor: PySparkJobProcessor) extends Job[Array[Byte]] {
 
   override def call(jc: JobContext): Array[Byte] = {
-    pysparkJobProcessor.processBypassJob(serializedJob)
+    val resultByteArray = pysparkJobProcessor.processBypassJob(serializedJob)
+    val resultString = new String(resultByteArray, "UTF-8")
+    if (resultString.startsWith("Error job")) {
+      throw new Exception(resultString)
+    }
+    resultByteArray
   }
 }
