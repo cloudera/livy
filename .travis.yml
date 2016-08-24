@@ -1,13 +1,8 @@
 sudo: required
-dist: trusty
 language: scala
 
 jdk:
   - oraclejdk7
-
-python:
-  - "2.7"
-  - "3.2"
 
 addons:
   apt:
@@ -28,7 +23,7 @@ install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
 
 before_script:
-  - sudo apt-get -y install python3-pip
+  - sudo apt-get -y install python3-pip python-dev
   - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
   - flake8 . --exclude=./target,./resources --ignore=E127,E128
