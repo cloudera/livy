@@ -26,16 +26,24 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.server.recovery.SessionRecoveryMode
 
 object SessionManager {
   val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
 }
 
-class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
+class SessionManager[S <: Session](
+    startingId: Int,
+    val livyConf: LivyConf)
+  extends Logging {
+  // TODO Remove this once InteractiveSession supports recovery.
+  def this(livyConf: LivyConf) {
+    this(0, livyConf)
+  }
 
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
-  private[this] final val idCounter = new AtomicInteger()
+  private[this] final val idCounter = new AtomicInteger(startingId)
   private[this] final val sessions = mutable.LinkedHashMap[Int, S]()
 
   private[this] final val sessionTimeout =
@@ -72,9 +80,11 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
   }
 
   def shutdown(): Unit = {
-    // TODO: if recovery or HA is available, sessions should not be stopped.
-    sessions.values.map(_.stop).foreach { future =>
-      Await.ready(future, Duration.Inf)
+    val recoveryEnabled = livyConf.get(LivyConf.RECOVERY_MODE) != SessionRecoveryMode.OFF
+    if (!recoveryEnabled) {
+      sessions.values.map(_.stop).foreach { future =>
+        Await.ready(future, Duration.Inf)
+      }
     }
   }
 

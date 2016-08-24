@@ -31,6 +31,7 @@ import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, Fin
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
+import org.apache.hadoop.yarn.util.ConverterUtils
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
 import com.cloudera.livy.util.LineBufferedProcess
@@ -43,13 +44,6 @@ object SparkYarnApp extends Logging {
     c.start()
     c
   }
-
-  def fromAppTag(
-      appTag: String,
-      process: Option[LineBufferedProcess],
-      listener: Option[SparkAppListener],
-      livyConf: LivyConf): SparkYarnApp =
-    new SparkYarnApp(appTag, None, process, listener, livyConf)
 
   private def getYarnTagToAppIdTimeout(livyConf: LivyConf): FiniteDuration =
     livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT) milliseconds
@@ -70,7 +64,7 @@ object SparkYarnApp extends Logging {
  */
 class SparkYarnApp private[utils] (
     appTag: String,
-    appIdOption: Option[ApplicationId],
+    appIdOption: Option[String],
     process: Option[LineBufferedProcess],
     listener: Option[SparkAppListener],
     livyConf: LivyConf,
@@ -195,7 +189,7 @@ class SparkYarnApp private[utils] (
 
       // If appId is not known, query YARN by appTag to get it.
       val appId = try {
-        appIdOption.getOrElse {
+        appIdOption.map(ConverterUtils.toApplicationId).getOrElse {
           val pollInterval = getYarnPollInterval(livyConf)
           val deadline = getYarnTagToAppIdTimeout(livyConf).fromNow
           getAppIdFromTag(appTag, pollInterval, deadline)

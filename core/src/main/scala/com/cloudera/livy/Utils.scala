@@ -18,7 +18,7 @@
 
 package com.cloudera.livy
 
-import java.io.{Closeable, File, FileInputStream, InputStreamReader}
+import java.io.{Closeable, File, InputStreamReader}
 import java.net.URL
 import java.nio.charset.StandardCharsets.UTF_8
 import java.util.Properties
@@ -27,6 +27,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
+import scala.util.control.Exception._
 
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {

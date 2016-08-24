@@ -34,15 +34,16 @@ import com.cloudera.livy.{LivyConf, Logging, Utils}
 import com.cloudera.livy.utils.AppInfo
 
 object Session {
+  trait RecoveryMetadata { val id: Int }
 
   lazy val configBlackList: Set[String] = {
     val url = getClass.getResource("/spark-blacklist.conf")
     if (url != null) Utils.loadProperties(url).keySet else Set()
   }
-
 }
 
-abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) extends Logging {
+abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf)
+  extends Logging {
 
   import Session._
 
@@ -72,6 +73,8 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
   def recordActivity(): Unit = {
     _lastActivity = System.nanoTime()
   }
+
+  def recoveryMetadata: RecoveryMetadata
 
   def state: SessionState
 

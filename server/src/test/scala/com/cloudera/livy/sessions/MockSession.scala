@@ -23,6 +23,8 @@ import java.net.URI
 import com.cloudera.livy.LivyConf
 
 class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
+  case class RecoveryMetadata(id: Int) extends Session.RecoveryMetadata()
+
   override val proxyUser = None
 
   override protected def stopSession(): Unit = ()
@@ -32,6 +34,8 @@ class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, ow
   override def state: SessionState = SessionState.Idle()
 
   override val timeout: Long = 0L
+
+  override def recoveryMetadata: RecoveryMetadata = RecoveryMetadata(0)
 
   override def resolveURIs(uris: Seq[String]): Seq[String] = super.resolveURIs(uris)
 
