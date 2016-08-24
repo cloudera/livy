@@ -31,7 +31,7 @@ before_script:
   - sudo apt-get -y install python3-pip
   - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
-  - flake8 .
+  - flake8 . --exclude=./target,./resources --ignore=E127,E128
 
 script:
   - mvn verify

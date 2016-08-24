@@ -263,6 +263,7 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
   }
 
   private def updatePythonGatewayPort(port: Int): Unit = {
+    // The python gateway port can be 0 only when LivyConf.TEST_MODE is true
     if (port != 0) {
       val callbackClient = gatewayServer.getCallbackClient
       val field = callbackClient.getClass.getDeclaredField("port")
