@@ -161,8 +161,8 @@ class HttpClient(object):
         Parameters
         ----------
         file_uri : string
-            String representation of the uri using filesystem encoding that
-            points to the location of the file
+            String representation of the uri that points to the location
+            of the file
 
         Returns
         -------
@@ -199,8 +199,8 @@ class HttpClient(object):
         Parameters
         ----------
         file_uri : string
-            String representation of the uri using filesystem encoding that
-            points to the location of the file
+            String representation of the uri that points to the location
+            of the file
 
         Returns
         -------
@@ -226,8 +226,8 @@ class HttpClient(object):
         Parameters
         ----------
         file_uri : string
-            String representation of the uri using filesystem encoding that
-            points to the location of the file
+            String representation of the uri that points to the location
+            of the file
 
         Returns
         -------
