@@ -272,4 +272,7 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 }
+
+case class PythonJobException(message: String) extends Exception(message) {}
+
 // scalastyle:on println

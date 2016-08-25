@@ -155,7 +155,7 @@ class PySparkJobProcessorImpl(object):
             serialized_result = global_dict['cloudpickle'].dumps(result)
             response = bytearray(base64.b64encode(serialized_result))
         except:
-            response = bytearray('Error job(' + traceback.format_exc() + ')', 'utf-8')
+            response = bytearray('Client job error:' + traceback.format_exc(), 'utf-8')
         return response
 
     def addFile(self, uri_path):

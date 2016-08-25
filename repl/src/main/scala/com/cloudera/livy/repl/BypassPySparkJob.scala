@@ -17,6 +17,8 @@
  */
 package com.cloudera.livy.repl
 
+import java.nio.charset.StandardCharsets
+
 import com.cloudera.livy.{Job, JobContext}
 
 class BypassPySparkJob(
@@ -25,10 +27,11 @@ class BypassPySparkJob(
 
   override def call(jc: JobContext): Array[Byte] = {
     val resultByteArray = pysparkJobProcessor.processBypassJob(serializedJob)
-    val resultString = new String(resultByteArray, "UTF-8")
-    if (resultString.startsWith("Error job")) {
-      throw new Exception(resultString)
+    val resultString = new String(resultByteArray, StandardCharsets.UTF_8)
+    if (resultString.startsWith("Client job error:")) {
+      throw new PythonJobException(resultString)
     }
     resultByteArray
   }
 }
+

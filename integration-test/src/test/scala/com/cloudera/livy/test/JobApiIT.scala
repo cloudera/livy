@@ -220,7 +220,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     env.put("UPLOAD_FILE_URL", uploadFilePath)
     env.put("UPLOAD_PYFILE_URL", uploadPyFilePath)
 
-    builder.redirectOutput(new File("src/test/resources/pytest_results.txt"))
+    builder.redirectOutput(new File(sys.props("java.io.tmpdir") + "/pytest_results.txt"))
     builder.redirectErrorStream(true)
 
     val process = builder.start()

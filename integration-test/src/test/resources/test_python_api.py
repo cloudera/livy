@@ -70,6 +70,7 @@ def process_job(job, expected_result, is_error_job=False):
     assert poll_response.json()['id'] == job_id
     assert poll_response.status_code == httplib.OK
     if not is_error_job:
+        assert poll_response.json()['error'] is None
         result = poll_response.json()['result']
         b64_decoded = base64.b64decode(result)
         b64_decoded_decoded = base64.b64decode(b64_decoded)
