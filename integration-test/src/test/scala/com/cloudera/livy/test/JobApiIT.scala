@@ -18,20 +18,16 @@
 
 package com.cloudera.livy.test
 
-import java.io.{File, FileOutputStream}
+import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
-import java.nio.file.Files
-import java.util.UUID
+import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.{Future => JFuture, TimeUnit}
-import java.util.jar.JarOutputStream
-import java.util.zip.ZipEntry
 import javax.servlet.http.HttpServletResponse
 
-import scala.util.Try
-
-import org.apache.hadoop.fs.Path
 import org.scalatest.BeforeAndAfterAll
+import scala.collection.JavaConverters._
+import scala.util.Try
 
 import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
 import com.cloudera.livy.client.common.HttpMessages._
@@ -204,6 +200,62 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     sessionId = -1
   }
 
+  pytest("validate Python-API requests") {
+    val addFileContent = "hello from addfile"
+    val addFilePath = createTempFilesForTest("add_file", ".txt", addFileContent, true)
+    val addPyFileContent = "def test_add_pyfile(): return \"hello from addpyfile\""
+    val addPyFilePath = createTempFilesForTest("add_pyfile", ".py", addPyFileContent, true)
+    val uploadFileContent = "hello from uploadfile"
+    val uploadFilePath = createTempFilesForTest("upload_pyfile", ".py", uploadFileContent, false)
+    val uploadPyFileContent = "def test_upload_pyfile(): return \"hello from uploadpyfile\""
+    val uploadPyFilePath = createTempFilesForTest("upload_pyfile", ".py",
+      uploadPyFileContent, false)
+
+    val builder = new ProcessBuilder(Seq("python", createPyTestsForPythonAPI().toString).asJava)
+
+    val env = builder.environment()
+    env.put("LIVY_END_POINT", livyEndpoint)
+    env.put("ADD_FILE_URL", addFilePath)
+    env.put("ADD_PYFILE_URL", addPyFilePath)
+    env.put("UPLOAD_FILE_URL", uploadFilePath)
+    env.put("UPLOAD_PYFILE_URL", uploadPyFilePath)
+
+    builder.redirectOutput(new File(sys.props("java.io.tmpdir") + "/pytest_results.txt"))
+    builder.redirectErrorStream(true)
+
+    val process = builder.start()
+
+    process.waitFor()
+
+    assert(process.exitValue() === 0)
+  }
+
+  private def createPyTestsForPythonAPI(): File = {
+    var source: InputStream = null
+    try {
+      source = getClass.getClassLoader.getResourceAsStream("test_python_api.py")
+      val file = Files.createTempFile("", "").toFile
+      Files.copy(source, file.toPath, StandardCopyOption.REPLACE_EXISTING)
+      file
+    } finally {
+      source.close()
+    }
+  }
+
+  private def createTempFilesForTest(
+      fileName: String,
+      fileExtension: String,
+      fileContent: String,
+      uploadFileToHdfs: Boolean): String = {
+    val path = Files.createTempFile(fileName, fileExtension)
+    Files.write(path, fileContent.getBytes(UTF_8))
+    if (uploadFileToHdfs) {
+      uploadToHdfs(path.toFile())
+    } else {
+      path.toString
+    }
+  }
+
   private def waitFor[T](future: JFuture[T]): T = {
     future.get(30, TimeUnit.SECONDS)
   }
@@ -217,5 +269,4 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
   private def createClient(uri: String): LivyClient = {
     new LivyClientBuilder().setURI(new URI(uri)).build()
   }
-
 }

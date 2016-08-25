@@ -19,6 +19,8 @@ package com.cloudera.livy.rsc.driver;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -41,8 +43,11 @@ import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.ScheduledFuture;
 import org.apache.commons.io.FileUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaFutureAction;
+import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +61,7 @@ import com.cloudera.livy.rsc.Utils;
 import com.cloudera.livy.rsc.rpc.Rpc;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 import com.cloudera.livy.rsc.rpc.RpcServer;
+
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 /**
@@ -299,7 +305,7 @@ public class RSCDriver extends BaseProtocol {
 
       JavaSparkContext sc = initializeContext();
       synchronized (jcLock) {
-        jc = new JobContextImpl(sc, localTmpDir);
+        jc = new JobContextImpl(sc, localTmpDir, this);
         jcLock.notifyAll();
       }
 
@@ -377,7 +383,7 @@ public class RSCDriver extends BaseProtocol {
 
   public void handle(ChannelHandlerContext ctx, BypassJobRequest msg) throws Exception {
     LOG.info("Received bypass job request {}", msg.id);
-    BypassJobWrapper wrapper = new BypassJobWrapper(this, msg.id, msg.serializedJob);
+    BypassJobWrapper wrapper = createWrapper(msg);
     bypassJobs.add(wrapper);
     activeJobs.put(msg.id, wrapper);
     if (msg.synchronous) {
@@ -391,6 +397,10 @@ public class RSCDriver extends BaseProtocol {
     } else {
       submit(wrapper);
     }
+  }
+
+  protected BypassJobWrapper createWrapper(BypassJobRequest msg) throws Exception {
+    return new BypassJobWrapper(this, msg.id, new BypassJob(this.serializer(), msg.serializedJob));
   }
 
   @SuppressWarnings("unchecked")
@@ -432,5 +442,43 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
-}
+  protected void addFile(String path) {
+    jc.sc().addFile(path);
+  }
 
+  protected void addJarOrPyFile(String path) throws Exception {
+    File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
+    File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
+    addLocalFileToClassLoader(localCopy);
+    jc.sc().addJar(path);
+  }
+
+  public void addLocalFileToClassLoader(File localCopy) throws MalformedURLException {
+    MutableClassLoader cl = (MutableClassLoader) Thread.currentThread().getContextClassLoader();
+    cl.addURL(localCopy.toURI().toURL());
+  }
+
+  public File copyFileToLocal(
+      File localCopyDir,
+      String filePath,
+      SparkContext sc) throws Exception {
+    synchronized (jc) {
+      if (!localCopyDir.isDirectory() && !localCopyDir.mkdir()) {
+        throw new IOException("Failed to create directory to add pyFile");
+      }
+    }
+    URI uri = new URI(filePath);
+    String name = uri.getFragment() != null ? uri.getFragment() : uri.getPath();
+    name = new File(name).getName();
+    File localCopy = new File(localCopyDir, name);
+
+    if (localCopy.exists()) {
+      throw new IOException(String.format("A file with name %s has " +
+              "already been uploaded.", name));
+    }
+    Configuration conf = sc.hadoopConfiguration();
+    FileSystem fs = FileSystem.get(uri, conf);
+    fs.copyToLocalFile(new Path(uri), new Path(localCopy.toURI()));
+    return localCopy;
+  }
+}

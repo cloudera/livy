@@ -26,6 +26,10 @@ import traceback
 import base64
 import os
 import re
+import threading
+import tempfile
+import shutil
+import pickle
 
 if sys.version >= '3':
     unicode = str
@@ -37,6 +41,8 @@ logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
 
 global_dict = {}
+job_context = None
+local_tmp_dir_path = None
 
 TOP_FRAME_REGEX = re.compile(r'\s*File "<stdin>".*in <module>')
 
@@ -81,6 +87,88 @@ def execute_reply_internal_error(message, exc_info=None):
         'evalue': message,
         'traceback': [],
     })
+
+
+class JobContextImpl(object):
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.sc = global_dict['sc']
+        self.sql_ctx = global_dict['sqlContext']
+        self.hive_ctx = None
+        self.streaming_ctx = None
+        self.local_tmp_dir_path = local_tmp_dir_path
+
+    def sc(self):
+        return self.sc
+
+    def sql_ctx(self):
+        return self.sql_ctx
+
+    def hive_ctx(self):
+        if self.hive_ctx is None:
+            with self.lock:
+                if self.hive_ctx is None:
+                    if isinstance(self.sql_ctx, global_dict['HiveContext']):
+                        self.hive_ctx = self.sql_ctx
+                    else:
+                        self.hive_ctx = global_dict['HiveContext'](self.sc)
+        return self.hive_ctx
+
+    def create_streaming_ctx(self, batch_duration):
+        with self.lock:
+            if self.streaming_ctx is not None:
+                raise ValueError("Streaming context already exists")
+            self.streaming_ctx = global_dict['StreamingContext'](self.sc, batch_duration)
+
+    def streaming_ctx(self):
+        with self.lock:
+            if self.streaming_ctx is None:
+                raise ValueError("create_streaming_ctx function should be called first")
+        return self.streaming_ctx
+
+    def stop_streaming_ctx(self):
+        with self.lock:
+            if self.streaming_ctx is None:
+                raise ValueError("Cannot stop streaming context. Streaming context is None")
+            self.streaming_ctx.stop()
+            self.streaming_ctx = None
+
+    def get_local_tmp_dir_path(self):
+        return self.local_tmp_dir_path
+
+    def stop(self):
+        with self.lock:
+            if self.streaming_ctx is not None:
+                self.stop_streaming_ctx()
+            if self.sc is not None:
+                self.sc.stop()
+
+
+class PySparkJobProcessorImpl(object):
+    def processBypassJob(self, serialized_job):
+        try:
+            if sys.version >= '3':
+                deserialized_job = pickle.loads(serialized_job, encoding="bytes")
+            else:
+                deserialized_job = pickle.loads(serialized_job)
+            result = deserialized_job(job_context)
+            serialized_result = global_dict['cloudpickle'].dumps(result)
+            response = bytearray(base64.b64encode(serialized_result))
+        except:
+            response = bytearray('Client job error:' + traceback.format_exc(), 'utf-8')
+        return response
+
+    def addFile(self, uri_path):
+        job_context.sc.addFile(uri_path)
+
+    def addPyFile(self, uri_path):
+        job_context.sc.addPyFile(uri_path)
+
+    def getLocalTmpDirPath(self):
+        return os.path.join(job_context.get_local_tmp_dir_path(), '__livy__')
+
+    class Scala:
+        extends = ['com.cloudera.livy.repl.PySparkJobProcessor']
 
 
 class ExecutionError(Exception):
@@ -412,6 +500,7 @@ def clearOutputs():
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
+
 def main():
     sys_stdin = sys.stdin
     sys_stdout = sys.stdout
@@ -426,17 +515,38 @@ def main():
     sys.stderr = UnicodeDecodingStringIO()
 
     try:
+        listening_port = 0
         if os.environ.get("LIVY_TEST") != "true":
-        # Load spark into the context
+            #Load spark into the context
             exec('from pyspark.shell import sc', global_dict)
-            exec('from pyspark.shell import sqlContext',global_dict)
+            exec('from pyspark.shell import sqlContext', global_dict)
+            exec('from pyspark.sql import HiveContext', global_dict)
+            exec('from pyspark.streaming import StreamingContext', global_dict)
+            exec('import pyspark.cloudpickle as cloudpickle', global_dict)
+
+            #Start py4j callback server
+            from py4j.protocol import ENTRY_POINT_OBJECT_ID
+            from py4j.java_gateway import JavaGateway, GatewayClient, CallbackServerParameters
+
+            gateway_client_port = int(os.environ.get("PYSPARK_GATEWAY_PORT"))
+            gateway = JavaGateway(GatewayClient(port=gateway_client_port))
+            gateway.start_callback_server(
+                callback_server_parameters=CallbackServerParameters(port=0))
+            socket_info = gateway._callback_server.server_socket.getsockname()
+            listening_port = socket_info[1]
+            pyspark_job_processor = PySparkJobProcessorImpl()
+            gateway.gateway_property.pool.dict[ENTRY_POINT_OBJECT_ID] = pyspark_job_processor
+
+            global local_tmp_dir_path, job_context
+            local_tmp_dir_path = tempfile.mkdtemp()
+            job_context = JobContextImpl()
 
         print(sys.stdout.getvalue(), file=sys_stderr)
         print(sys.stderr.getvalue(), file=sys_stderr)
 
         clearOutputs()
 
-        print('READY', file=sys_stdout)
+        print('READY(port=' + str(listening_port) + ')', file=sys_stdout)
         sys_stdout.flush()
 
         while True:
@@ -494,6 +604,8 @@ def main():
             sys_stdout.flush()
     finally:
         if os.environ.get("LIVY_TEST") != "true" and 'sc' in global_dict:
+            gateway.shutdown_callback_server()
+            shutil.rmtree(local_tmp_dir_path)
             global_dict['sc'].stop()
 
         sys.stdin = sys_stdin

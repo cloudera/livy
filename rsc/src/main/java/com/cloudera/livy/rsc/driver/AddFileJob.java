@@ -14,29 +14,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.cloudera.livy.rsc.driver;
 
 import com.cloudera.livy.Job;
 import com.cloudera.livy.JobContext;
 
-public class AddJarJob implements Job<Object> {
+public class AddFileJob implements Job<Object> {
 
   private final String path;
 
-  // For serialization.
-  private AddJarJob() {
+  AddFileJob() {
     this(null);
-  }
+}
 
-  public AddJarJob(String path) {
+  public AddFileJob(String path) {
     this.path = path;
-  }
+}
 
   @Override
   public Object call(JobContext jc) throws Exception {
     JobContextImpl jobContextImpl = (JobContextImpl)jc;
-    jobContextImpl.addJarOrPyFile(path);
+    jobContextImpl.addFile(path);
     return null;
   }
 }

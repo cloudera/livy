@@ -31,6 +31,7 @@ import org.scalatra._
 import org.scalatra.servlet.FileUploadSupport
 
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
+import com.cloudera.livy.client.common.HttpMessages
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.sessions._
@@ -177,7 +178,18 @@ class InteractiveSessionServlet(livyConf: LivyConf)
         case Some(file) =>
           lsession.addJar(file.getInputStream, file.name)
         case None =>
-          BadRequest("No jar uploaded!")
+          BadRequest("No jar sent!")
+      }
+    }
+  }
+
+  post("/:id/upload-pyfile") {
+    withSession { lsession =>
+      fileParams.get("file") match {
+        case Some(file) =>
+          lsession.addJar(file.getInputStream, file.name)
+        case None =>
+          BadRequest("No file sent!")
       }
     }
   }
@@ -195,8 +207,16 @@ class InteractiveSessionServlet(livyConf: LivyConf)
 
   jpost[AddResource]("/:id/add-jar") { req =>
     withSession { lsession =>
-      val uri = new URI(req.uri)
-      lsession.addJar(uri)
+      addJarOrPyFile(req, lsession)
+    }
+  }
+
+  jpost[AddResource]("/:id/add-pyfile") { req =>
+    withSession { lsession =>
+      lsession.kind match {
+        case PySpark() | PySpark3() => addJarOrPyFile(req, lsession)
+        case _ => BadRequest("Only supported for pyspark sessions.")
+      }
     }
   }
 
@@ -221,4 +241,8 @@ class InteractiveSessionServlet(livyConf: LivyConf)
     }
   }
 
+  private def addJarOrPyFile(req: HttpMessages.AddResource, session: InteractiveSession): Unit = {
+    val uri = new URI(req.uri)
+    session.addJar(uri)
+  }
 }

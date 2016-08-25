@@ -71,7 +71,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   }
 
   pytest("submit a pyspark application") {
-    val hdfsPath = uploadResource("pytest.py")
+    val hdfsPath = uploadResource("batch.py")
     val output = newOutputPath()
     val result = runScript(hdfsPath, args = List(output))
     assert(result.state === SessionState.Success().toString())

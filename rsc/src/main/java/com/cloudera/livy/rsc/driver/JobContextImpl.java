@@ -40,10 +40,12 @@ class JobContextImpl implements JobContext {
   private volatile SQLContext sqlctx;
   private volatile HiveContext hivectx;
   private volatile JavaStreamingContext streamingctx;
+  private final RSCDriver driver;
 
-  public JobContextImpl(JavaSparkContext sc, File localTmpDir) {
+  public JobContextImpl(JavaSparkContext sc, File localTmpDir, RSCDriver driver) {
     this.sc = sc;
     this.localTmpDir = localTmpDir;
+    this.driver = driver;
   }
 
   @Override
@@ -108,4 +110,11 @@ class JobContextImpl implements JobContext {
     }
   }
 
+  public void addFile(String path) {
+    driver.addFile(path);
+  }
+
+  public void addJarOrPyFile(String path) throws Exception {
+    driver.addJarOrPyFile(path);
+  }
 }

@@ -1,4 +1,5 @@
 sudo: required
+dist: trusty
 language: scala
 
 jdk:
@@ -7,7 +8,7 @@ jdk:
 addons:
   apt:
     sources:
-      r-packages-precise
+      r-packages-trusty
     packages:
       r-base
 
@@ -17,10 +18,17 @@ cache:
     - $HOME/.m2
 
 before_install:
-  - pip install --user codecov
+  - sudo apt-get -y install python3-pip python-dev
+  - pip install --user codecov cloudpickle
+  - pip3 install --user cloudpickle
 
 install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
+
+before_script:
+  - pip install --user requests pytest flaky flake8
+  - pip3 install --user requests pytest flaky
+  - flake8 . --exclude=./target,./resources --ignore=E127,E128
 
 script:
   - mvn verify
