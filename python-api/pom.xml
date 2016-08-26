@@ -21,6 +21,7 @@
            <plugin>
                <groupId>org.codehaus.mojo</groupId>
                <artifactId>exec-maven-plugin</artifactId>
+               <version>1.2.1</version>
                <configuration>
                    <executable>python</executable>
                    <workingDirectory>${basedir}</workingDirectory>
@@ -43,6 +44,19 @@
                        </configuration>
                    </execution>
                    <execution>
+                       <id>python-api generate-sources</id>
+                       <phase>generate-sources</phase>
+                       <goals>
+                           <goal>exec</goal>
+                       </goals>
+                       <configuration>
+                           <arguments>
+                               <argument>build_script.py</argument>
+                               <argument>generate-sources</argument>
+                           </arguments>
+                       </configuration>
+                   </execution>
+                   <execution>
                        <id>python-api install</id>
                        <phase>compile</phase>
                        <goals>
@@ -50,7 +64,7 @@
                        </goals>
                        <configuration>
                            <arguments>
-                               <argument>setup.py</argument>
+                               <argument>build_script.py</argument>
                                <argument>install</argument>
                            </arguments>
                        </configuration>
@@ -79,17 +93,12 @@
                                <argument>setup.py</argument>
                                <argument>register</argument>
                                <argument>sdist</argument>
-                               <argument>upload</argument>
+                               <argument>bdist_wheel</argument>
                            </arguments>
                        </configuration>
                    </execution>
                </executions>
            </plugin>
-
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-            </plugin>
 
            <plugin>
                <groupId>org.apache.maven.plugins</groupId>
@@ -122,6 +131,23 @@
                    <skip>true</skip>
                </configuration>
            </plugin>
+
+           <plugin>
+               <groupId>org.scalastyle</groupId>
+               <artifactId>scalastyle-maven-plugin</artifactId>
+               <configuration>
+                   <skip>true</skip>
+               </configuration>
+           </plugin>
+
+           <plugin>
+               <groupId>org.apache.maven.plugins</groupId>
+               <artifactId>maven-checkstyle-plugin</artifactId>
+               <configuration>
+                   <skip>true</skip>
+               </configuration>
+           </plugin>
+
        </plugins>
     </build>
 

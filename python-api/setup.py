@@ -44,7 +44,8 @@ requirements = [
     'futures>=3.0.5',
     'pytest-runner>=2.9',
     'requests>=2.10.0',
-    'responses>=0.5.1'
+    'responses>=0.5.1',
+    'twine>=1.6.5'
 ]
 
 setup(
