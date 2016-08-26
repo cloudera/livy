@@ -48,6 +48,8 @@ def mock_and_validate_create_new_session(defaults):
     assert client_test._config.get(client_test._CONFIG_SECTION,
         'spark.app.name') == app_name
     if defaults:
+        assert client_test._config.has_option(client_test._CONFIG_SECTION,
+            'spark.config')
         assert client_test._config.get(client_test._CONFIG_SECTION,
             'spark.config') == 'override'
 
@@ -103,6 +105,8 @@ def test_create_new_session_without_default_config():
 
 
 def test_create_new_session_with_default_config():
+    os.environ["LIVY_CLIENT_CONF_DIR"] = \
+        os.path.dirname(os.path.abspath(__file__)) + "/resources"
     mock_and_validate_create_new_session(True)
 
 

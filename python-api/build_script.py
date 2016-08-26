@@ -17,10 +17,25 @@
 #
 import subprocess
 import sys
+import os
+
+
+def remove_version_file(file_path):
+    try:
+        os.remove(file_path)
+    except OSError:
+        pass
 
 arg = sys.argv[1]
 
 if arg == 'install':
-    subprocess.call(["python", "setup.py", "sdist"])
+    return_code = subprocess.call(["python", "setup.py", "sdist"])
+    remove_version_file(os.path.dirname(os.path.abspath(__file__)) +
+        "/src/main/python/livy/_version.py")
+    remove_version_file(os.path.dirname(os.path.abspath(__file__)) +
+        "/versioneer.py")
 elif arg == 'generate-sources':
     subprocess.call(["versioneer", "install"])
+
+
+
