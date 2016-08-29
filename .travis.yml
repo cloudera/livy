@@ -20,6 +20,8 @@ cache:
 before_install:
   - sudo apt-get -y install python3-pip python-dev
   - sudo apt-get -y remove python-setuptools
+  - pip install --user --upgrade pip
+  - pip3 install --user --upgrade pip
   - pip install --user codecov cloudpickle setuptools
   - pip3 install --user cloudpickle setuptools
 
@@ -29,7 +31,7 @@ install:
 before_script:
   - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
-  - flake8 . --exclude=./target,./resources --ignore=E127,E128
+  - flake8 . --exclude=target/,resources/,.eggs/ --ignore=E127,E128
 
 script:
   - mvn verify
