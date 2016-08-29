@@ -19,8 +19,9 @@ cache:
 
 before_install:
   - sudo apt-get -y install python3-pip python-dev
-  - pip install --user codecov cloudpickle
-  - pip3 install --user cloudpickle
+  - sudo apt-get -y remove python-setuptools
+  - pip install --user codecov cloudpickle setuptools
+  - pip3 install --user cloudpickle setuptools
 
 install:
   - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
