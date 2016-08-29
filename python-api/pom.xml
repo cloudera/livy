@@ -46,6 +46,7 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <skip>${skipTests}</skip>
               <arguments>
                 <argument>setup.py</argument>
                 <argument>test</argument>
