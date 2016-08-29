@@ -1,154 +1,122 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main</artifactId>
-        <version>0.3.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
-
+  <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-python-api</artifactId>
+    <artifactId>livy-main</artifactId>
     <version>0.3.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
-    <build>
-       <plugins>
-           <plugin>
-               <groupId>org.codehaus.mojo</groupId>
-               <artifactId>exec-maven-plugin</artifactId>
-               <version>1.2.1</version>
-               <configuration>
-                   <executable>python</executable>
-                   <workingDirectory>${basedir}</workingDirectory>
-                   <environmentVariables>
-                       <VERSION>${project.version}</VERSION>
-                   </environmentVariables>
-               </configuration>
-               <executions>
-                   <execution>
-                       <id>python-api clean</id>
-                       <phase>clean</phase>
-                       <goals>
-                           <goal>exec</goal>
-                       </goals>
-                       <configuration>
-                           <arguments>
-                               <argument>setup.py</argument>
-                               <argument>clean</argument>
-                           </arguments>
-                       </configuration>
-                   </execution>
-                   <execution>
-                       <id>python-api generate-sources</id>
-                       <phase>generate-sources</phase>
-                       <goals>
-                           <goal>exec</goal>
-                       </goals>
-                       <configuration>
-                           <arguments>
-                               <argument>build_script.py</argument>
-                               <argument>generate-sources</argument>
-                           </arguments>
-                       </configuration>
-                   </execution>
-                   <execution>
-                       <id>python-api install</id>
-                       <phase>compile</phase>
-                       <goals>
-                           <goal>exec</goal>
-                       </goals>
-                       <configuration>
-                           <arguments>
-                               <argument>build_script.py</argument>
-                               <argument>install</argument>
-                           </arguments>
-                       </configuration>
-                   </execution>
-                   <execution>
-                       <id>python-api test</id>
-                       <phase>test</phase>
-                       <goals>
-                           <goal>exec</goal>
-                       </goals>
-                       <configuration>
-                           <arguments>
-                               <argument>setup.py</argument>
-                               <argument>test</argument>
-                           </arguments>
-                       </configuration>
-                   </execution>
-                   <execution>
-                       <id>python-api deploy</id>
-                       <phase>deploy</phase>
-                       <goals>
-                           <goal>exec</goal>
-                       </goals>
-                       <configuration>
-                           <arguments>
-                               <argument>setup.py</argument>
-                               <argument>register</argument>
-                               <argument>sdist</argument>
-                               <argument>bdist_wheel</argument>
-                           </arguments>
-                       </configuration>
-                   </execution>
-               </executions>
-           </plugin>
+  <groupId>com.cloudera.livy</groupId>
+  <artifactId>livy-python-api</artifactId>
+  <version>0.3.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
 
-           <plugin>
-               <groupId>org.apache.maven.plugins</groupId>
-               <artifactId>maven-surefire-plugin</artifactId>
-               <configuration>
-                   <skipTests>true</skipTests>
-               </configuration>
-           </plugin>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.2.1</version>
+        <configuration>
+          <executable>python</executable>
+        </configuration>
+        <executions>
+          <execution>
+            <id>python-api install</id>
+            <phase>compile</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <arguments>
+                <argument>setup.py</argument>
+                <argument>sdist</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>python-api test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <arguments>
+                <argument>setup.py</argument>
+                <argument>test</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
-           <plugin>
-               <groupId>org.scalatest</groupId>
-               <artifactId>scalatest-maven-plugin</artifactId>
-               <configuration>
-                   <skipTests>true</skipTests>
-               </configuration>
-           </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <executions>
+          <!-- Cleans up files that tests append to (because we have two test plugins). -->
+          <execution>
+            <id>python-api clean</id>
+            <phase>clean</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <delete file="${project.basedir}/dist" quiet="true" />
+                <delete file="${project.basedir}/.eggs" quiet="true" />
+                <delete file="${project.basedir}/src/main/python/*.egg-info" quiet="true" />
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
 
-           <plugin>
-               <groupId>org.jacoco</groupId>
-               <artifactId>jacoco-maven-plugin</artifactId>
-               <configuration>
-                   <skip>true</skip>
-               </configuration>
-           </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <skipTests>true</skipTests>
+        </configuration>
+      </plugin>
 
-           <plugin>
-               <groupId>org.apache.maven.plugins</groupId>
-               <artifactId>maven-antrun-plugin</artifactId>
-               <configuration>
-                   <skip>true</skip>
-               </configuration>
-           </plugin>
+      <plugin>
+        <groupId>org.scalatest</groupId>
+        <artifactId>scalatest-maven-plugin</artifactId>
+        <configuration>
+          <skipTests>true</skipTests>
+        </configuration>
+      </plugin>
 
-           <plugin>
-               <groupId>org.scalastyle</groupId>
-               <artifactId>scalastyle-maven-plugin</artifactId>
-               <configuration>
-                   <skip>true</skip>
-               </configuration>
-           </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
 
-           <plugin>
-               <groupId>org.apache.maven.plugins</groupId>
-               <artifactId>maven-checkstyle-plugin</artifactId>
-               <configuration>
-                   <skip>true</skip>
-               </configuration>
-           </plugin>
+      <plugin>
+        <groupId>org.scalastyle</groupId>
+        <artifactId>scalastyle-maven-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
 
-       </plugins>
-    </build>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>
