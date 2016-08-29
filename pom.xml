@@ -57,7 +57,7 @@
     <mockito.version>1.9.5</mockito.version>
     <netty.version>4.0.23.Final</netty.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <py4j.version>0.8.2.1</py4j.version>
+    <py4j.version>0.9</py4j.version>
     <scala.binary.version>2.10</scala.binary.version>
     <scala.version>2.10.4</scala.version>
     <scalatest.version>2.2.4</scalatest.version>
@@ -962,5 +962,47 @@
       <name>CDH Snapshots Repository</name>
     </snapshotRepository>
   </distributionManagement>
+
+  <profiles>
+    <!-- Spark version profile -->
+    <profile>
+      <id>spark-1.6</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <spark.version>1.6.2</spark.version>
+        <py4j.version>0.9</py4j.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-2.0</id>
+      <properties>
+        <spark.version>2.0.0</spark.version>
+        <py4j.version>0.10.1</py4j.version>
+      </properties>
+    </profile>
+
+    <!-- Scala version profile -->
+    <profile>
+      <id>scala-2.10</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <scala.version>2.10.4</scala.version>
+        <scala.binary.version>2.10</scala.binary.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>scala-2.11</id>
+      <properties>
+        <scala.version>2.11.8</scala.version>
+        <scala.binary.version>2.11</scala.binary.version>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>

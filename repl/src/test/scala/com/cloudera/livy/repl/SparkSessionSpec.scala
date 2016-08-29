@@ -135,7 +135,7 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     val traceback = resultMap("traceback").extract[Seq[String]]
     traceback should have length 1
-    val frameRegex = """\tat """ + SparkInterpreter.USER_CODE_FRAME_NAME +
+    val frameRegex = """\tat """ + AbstractSparkInterpreter.USER_CODE_FRAME_NAME +
       """\.func1\(<console>:\d+\)"""
     traceback(0) should fullyMatch regex frameRegex
   }
