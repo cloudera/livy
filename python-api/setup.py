@@ -42,8 +42,8 @@ setup(
     version="0.3.0-SNAPSHOT",
     packages=["livy", "livy-tests"],
     package_dir={
-      "": "src/main/python",
-      "livy-tests": "src/test/python/livy-tests",
+        "": "src/main/python",
+        "livy-tests": "src/test/python/livy-tests",
     },
     url='https://github.com/cloudera/livy',
     author_email='livy-user@cloudera.org',

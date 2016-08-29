@@ -26,12 +26,11 @@ before_install:
   - pip3 install --user cloudpickle setuptools
 
 install:
-  - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
+  - mvn install -Dskip -DskipTests -DskipITs -Dmaven.javadoc.skip=true -B -V
 
 before_script:
   - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
-  - flake8 . --exclude=target/,resources/,.eggs/ --ignore=E127,E128
 
 script:
   - mvn verify

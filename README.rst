@@ -42,14 +42,10 @@ MacOS:
   * Python 2.6+
   * R 3.x
 
-Required python packages for:
-
-install:
-  * cloudpickle
-
-tests:
+Required python packages for building Livy:
   * cloudpickle
   * requests
+  * flake8
   * flaky
   * pytest
 

@@ -22,9 +22,6 @@
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
         <version>1.2.1</version>
-        <configuration>
-          <executable>python</executable>
-        </configuration>
         <executions>
           <execution>
             <id>python-api install</id>
@@ -33,6 +30,7 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+            <executable>python</executable>
               <arguments>
                 <argument>setup.py</argument>
                 <argument>sdist</argument>
@@ -46,10 +44,27 @@
               <goal>exec</goal>
             </goals>
             <configuration>
+              <executable>python</executable>
               <skip>${skipTests}</skip>
               <arguments>
                 <argument>setup.py</argument>
                 <argument>test</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
+            <id>python-api verify</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>flake8</executable>
+              <skip>${skip}</skip>
+              <arguments>
+                <argument>--exclude=target,resources,.eggs</argument>
+                <argument>--ignore=E127,E128</argument>
+                <argument>.</argument>
               </arguments>
             </configuration>
           </execution>
