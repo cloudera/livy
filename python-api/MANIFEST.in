@@ -1,0 +1,3 @@
+include versioneer.py
+include livy/_version.py
+include src/main/python/livy/_version.py

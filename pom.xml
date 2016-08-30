@@ -178,6 +178,7 @@
     <module>core</module>
     <module>coverage</module>
     <module>examples</module>
+    <module>python-api</module>
     <module>repl</module>
     <module>rsc</module>
     <module>scala-api</module>
@@ -575,14 +576,13 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-antrun-plugin</artifactId>
-          <version>1.6</version>
+          <version>1.8</version>
         </plugin>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>2.3.2</version>
         </plugin>
-
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-deploy-plugin</artifactId>
@@ -779,7 +779,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
-        <version>1.8</version>
         <executions>
           <!-- Cleans up files that tests append to (because we have two test plugins). -->
           <execution>
