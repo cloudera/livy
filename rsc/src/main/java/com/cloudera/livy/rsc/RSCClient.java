@@ -205,7 +205,7 @@ public class RSCClient implements LivyClient {
         }
       } catch (Exception e) {
         LOG.warn("Exception while waiting for end session reply.", e);
-        throw new RuntimeException("Exception while waiting for end session reply.", e);
+        Utils.propagate(e);
       } finally {
         if (driverRpc.isSuccess()) {
           try {

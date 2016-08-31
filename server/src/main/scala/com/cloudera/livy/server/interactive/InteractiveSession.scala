@@ -200,10 +200,10 @@ class InteractiveSession(
       client.stop(true)
     } catch {
       case _: Exception =>
-        app.foreach({
+        app.foreach {
           warn(s"Failed to stop RSCDriver. Killing it...")
           _.kill()
-        })
+        }
     } finally {
       transition(SessionState.Dead())
     }
