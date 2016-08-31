@@ -26,13 +26,14 @@ import java.nio.file.{Files, Paths}
 import scala.annotation.tailrec
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
+import scala.util.control.NonFatal
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
 import org.json4s.jackson.JsonMethods._
 import org.json4s.jackson.Serialization.write
-import py4j.{Gateway, GatewayServer, Protocol, Py4JException}
+import py4j._
 import py4j.reflection.PythonProxyHandler
 
 import com.cloudera.livy.Logging
@@ -166,10 +167,21 @@ object PythonInterpreter extends Logging {
             throw new Py4JException("Invalid interface name: " + parts(proxy))
           }
         }
-        proxy += 1;
+        proxy += 1
       }
+
+      val pythonProxyHandler = try {
+        classOf[PythonProxyHandler].getConstructor(classOf[String], classOf[Gateway])
+          .newInstance(parts(0), gateway)
+      } catch {
+        case NonFatal(e) =>
+          classOf[PythonProxyHandler].getConstructor(classOf[String],
+            Class.forName("py4j.CallbackClient"), classOf[Gateway])
+            .newInstance(parts(0), gateway.getCallbackClient, gateway)
+      }
+
       Proxy.newProxyInstance(Thread.currentThread.getContextClassLoader,
-        interfaces.toArray, new PythonProxyHandler(parts(0), gateway.getCallbackClient, gateway))
+        interfaces.toArray, pythonProxyHandler.asInstanceOf[PythonProxyHandler])
     }
   }
 }

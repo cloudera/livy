@@ -29,7 +29,6 @@ import java.util.UUID;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.spark.sql.DataFrame;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SQLContext;
 
@@ -63,13 +62,13 @@ public class SQLGetTweets implements Job<List<String>> {
     }
 
     SQLContext sqlctx = useHiveContext ? jc.hivectx() : jc.sqlctx();
-    DataFrame df = sqlctx.jsonFile(input.toString());
-    df.registerTempTable("tweets");
+    sqlctx.jsonFile(input.toString()).registerTempTable("tweets");
 
-    DataFrame topTweets = sqlctx.sql(
-      "SELECT text, retweetCount FROM tweets ORDER BY retweetCount LIMIT 10");
     List<String> tweetList = new ArrayList<>();
-    for (Row r : topTweets.collect()) {
+    Row[] result =
+      (Row[])(sqlctx.sql("SELECT text, retweetCount FROM tweets ORDER BY retweetCount LIMIT 10")
+        .collect());
+    for (Row r : result) {
        tweetList.add(r.toString());
     }
     return tweetList;

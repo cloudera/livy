@@ -59,7 +59,7 @@ public class TestSparkClient {
   private static final Logger LOG = LoggerFactory.getLogger(TestSparkClient.class);
 
   // Timeouts are bad... mmmkay.
-  private static final long TIMEOUT = 40;
+  private static final long TIMEOUT = 100;
 
   private Properties createConf(boolean local) {
     Properties conf = new Properties();

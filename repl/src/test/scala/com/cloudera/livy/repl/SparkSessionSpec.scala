@@ -134,10 +134,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     resultMap("evalue").extract[String] should include ("java.lang.Exception")
 
     val traceback = resultMap("traceback").extract[Seq[String]]
-    traceback should have length 1
-    val frameRegex = """\tat """ + AbstractSparkInterpreter.USER_CODE_FRAME_NAME +
-      """\.func1\(<console>:\d+\)"""
-    traceback(0) should fullyMatch regex frameRegex
+    traceback(0) should include ("func1(<console>:")
   }
 
   it should "access the spark context" in withSession { session =>

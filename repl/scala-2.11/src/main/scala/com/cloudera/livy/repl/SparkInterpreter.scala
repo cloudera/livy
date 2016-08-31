@@ -33,10 +33,10 @@ import org.apache.spark.repl.SparkILoop
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.sql.hive.HiveContext
 
-class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
+class SparkInterpreter(conf: SparkConf)
+  extends AbstractSparkInterpreter with SparkContextInitializer {
 
-  private var sparkContext: SparkContext = _
-  private var sqlContext: SQLContext = _
+  protected var sparkContext: SparkContext = _
   private var sparkILoop: SparkILoop = _
 
   override def start(): SparkContext = {
@@ -44,14 +44,17 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
 
     val rootDir = conf.get("spark.repl.classdir", System.getProperty("java.io.tmpdir"))
     val outputDir = createTempDir(rootDir)
+    conf.set("spark.repl.class.outputDir", outputDir.getAbsolutePath)
 
-    val classServer = createHttpServer(outputDir)
-    invoke[Unit](
-      Class.forName("org.apache.spark.HttpServer"), "start", classServer, Seq.empty, Seq.empty)
-    val uri = invoke[String](Class.forName("org.apache.spark.HttpServer"),
+    // Only required for Spark1
+    Option(createHttpServer(outputDir)).foreach { classServer =>
+      invoke[Unit](
+        Class.forName("org.apache.spark.HttpServer"), "start", classServer, Seq.empty, Seq.empty)
+      val uri = invoke[String](Class.forName("org.apache.spark.HttpServer"),
         "uri", classServer, Seq.empty, Seq.empty)
-    require(uri != null)
-    conf.set("spark.repl.class.uri", uri)
+      require(uri != null)
+      conf.set("spark.repl.class.uri", uri)
+    }
 
     val settings = new Settings()
     settings.processArguments(List("-Yrepl-class-based",
@@ -84,38 +87,7 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
         }
       }
 
-      sparkContext = SparkContext.getOrCreate(conf)
-      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
-        try {
-          val loader = Option(Thread.currentThread().getContextClassLoader)
-            .getOrElse(getClass.getClassLoader)
-          if (loader.getResource("hive-site.xml") == null) {
-            warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
-          }
-          sqlContext = new HiveContext(sparkContext)
-          info("Created sql context (with Hive support).")
-        } catch {
-          case _: java.lang.NoClassDefFoundError =>
-            sqlContext = new SQLContext(sparkContext)
-            info("Created sql context.")
-        }
-      } else {
-        sqlContext = new SQLContext(sparkContext)
-        info("Created sql context.")
-      }
-      sparkILoop.beQuietDuring {
-        sparkILoop.intp.bind(
-          "sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
-      }
-      sparkILoop.beQuietDuring {
-        sparkILoop.intp.bind("sqlContext", sqlContext.getClass.getCanonicalName,
-          sqlContext, List("""@transient"""))
-      }
-
-      execute("import org.apache.spark.SparkContext._")
-      execute("import sqlContext.implicits._")
-      execute("import sqlContext.sql")
-      execute("import org.apache.spark.sql.functions._")
+      createSparkContext(conf)
     }
 
     sparkContext
@@ -131,8 +103,6 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
       sparkILoop.closeInterpreter()
       sparkILoop = null
     }
-
-    sqlContext = null
   }
 
   override def isStarted(): Boolean = {
@@ -144,7 +114,13 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
   }
 
   override def valueOfTerm(name: String): Option[Any] = {
-    sparkILoop.valueOfTerm(name)
+    Option(sparkILoop.lastRequest.lineRep.call("$result"))
+  }
+
+  protected def bind(name: String, tpe: String, value: Object, modifier: List[String]): Unit = {
+    sparkILoop.beQuietDuring {
+      sparkILoop.bind(name, tpe, value, modifier)
+    }
   }
 
   private def createTempDir(rootDir: String): File = {
@@ -160,22 +136,28 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
   }
 
   private def createHttpServer(outputDir: File): Object = {
-    val securityManager = {
-      val constructor = Class.forName("org.apache.spark.SecurityManager")
-        .getConstructor(classOf[SparkConf])
-      constructor.setAccessible(true)
-      constructor.newInstance(conf).asInstanceOf[Object]
+    try {
+      val securityManager = {
+        val constructor = Class.forName("org.apache.spark.SecurityManager")
+          .getConstructor(classOf[SparkConf])
+        constructor.setAccessible(true)
+        constructor.newInstance(conf).asInstanceOf[Object]
+      }
+      val classServerConstructor = Class.forName("org.apache.spark.HttpServer")
+        .getConstructor(classOf[SparkConf],
+          classOf[File],
+          Class.forName("org.apache.spark.SecurityManager"),
+          classOf[Int],
+          classOf[String])
+      classServerConstructor.setAccessible(true)
+      classServerConstructor.newInstance(conf, outputDir, securityManager, new Integer(0),
+        "HTTP server")
+        .asInstanceOf[Object]
+    } catch {
+      // Spark 2.0+ removed HttpServer, so return null instead.
+      case NonFatal(e) =>
+        null
     }
-    val classServerConstructor = Class.forName("org.apache.spark.HttpServer")
-      .getConstructor(classOf[SparkConf],
-        classOf[File],
-        Class.forName("org.apache.spark.SecurityManager"),
-        classOf[Int],
-        classOf[String])
-    classServerConstructor.setAccessible(true)
-    classServerConstructor.newInstance(conf, outputDir, securityManager, new Integer(0),
-      "HTTP server")
-      .asInstanceOf[Object]
   }
 
   private def invoke[T](

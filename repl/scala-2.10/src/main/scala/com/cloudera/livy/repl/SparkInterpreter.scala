@@ -35,11 +35,11 @@ import org.apache.spark.sql.SQLContext
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
+class SparkInterpreter(conf: SparkConf)
+  extends AbstractSparkInterpreter with SparkContextInitializer {
 
   private var sparkIMain: SparkIMain = _
-  private var sparkContext: SparkContext = _
-  private var sqlContext: SQLContext = _
+  protected var sparkContext: SparkContext = _
 
   override def start(): SparkContext = {
     require(sparkIMain == null && sparkContext == null)
@@ -102,38 +102,16 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
         }
       }
 
-      sparkContext = SparkContext.getOrCreate(conf)
-      if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
-        try {
-          val loader = Option(Thread.currentThread().getContextClassLoader)
-            .getOrElse(getClass.getClassLoader)
-          if (loader.getResource("hive-site.xml") == null) {
-            warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
-          }
-          sqlContext = new HiveContext(sparkContext)
-          info("Created sql context (with Hive support).")
-        } catch {
-          case _: java.lang.NoClassDefFoundError =>
-            sqlContext = new SQLContext(sparkContext)
-            info("Created sql context.")
-        }
-      } else {
-        sqlContext = new SQLContext(sparkContext)
-        info("Created sql context.")
-      }
-      sparkIMain.beQuietDuring {
-        sparkIMain.bind("sc", "org.apache.spark.SparkContext", sparkContext, List("""@transient"""))
-      }
-      sparkIMain.beQuietDuring {
-        sparkIMain.bind("sqlContext", sqlContext.getClass.getCanonicalName,
-          sqlContext, List("""@transient"""))
-      }
-      execute("import org.apache.spark.SparkContext._")
-      execute("import sqlContext.implicits._")
-      execute("import sqlContext.sql")
-      execute("import org.apache.spark.sql.functions._")
+      createSparkContext(conf)
     }
+
     sparkContext
+  }
+
+  protected def bind(name: String, tpe: String, value: Object, modifier: List[String]): Unit = {
+    sparkIMain.beQuietDuring {
+      sparkIMain.bind(name, tpe, value, modifier)
+    }
   }
 
   override def close(): Unit = synchronized {
@@ -145,7 +123,6 @@ class SparkInterpreter(conf: SparkConf) extends AbstractSparkInterpreter {
       sparkIMain.close()
       sparkIMain = null
     }
-    sqlContext = null
   }
 
   override def isStarted(): Boolean = {

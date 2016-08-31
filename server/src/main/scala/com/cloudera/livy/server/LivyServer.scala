@@ -265,7 +265,7 @@ class LivyServer extends Logging {
   private[server] def testSparkVersion(version: String): Unit = {
     val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
     // This is exclusive. Version which equals to this will be rejected.
-    val maxVersion = (2, 0)
+    val maxVersion = (3, 0)
     val minVersion = (1, 6)
 
     val supportedVersion = version match {

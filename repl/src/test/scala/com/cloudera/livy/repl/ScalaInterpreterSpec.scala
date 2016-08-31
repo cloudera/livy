@@ -190,7 +190,14 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
     val tripleQuotes = "\"\"\""
     val stringWithComment = s"/*\ncomment\n*/\n//comment"
     response = interpreter.execute(s"val r = $tripleQuotes$stringWithComment$tripleQuotes")
-    response should equal (
-      Interpreter.ExecuteSuccess(TEXT_PLAIN -> s"r: String = \n$stringWithComment"))
+
+    try {
+      response should equal(
+        Interpreter.ExecuteSuccess(TEXT_PLAIN -> s"r: String = \n$stringWithComment"))
+    } catch {
+      case _: Exception =>
+        response should equal(
+          Interpreter.ExecuteSuccess(TEXT_PLAIN -> s"r: String =\n$stringWithComment"))
+    }
   }
 }

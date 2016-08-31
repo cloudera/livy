@@ -38,11 +38,11 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 
   final def kind: String = "spark"
 
-  def isStarted(): Boolean
+  protected def isStarted(): Boolean
 
-  def interpret(code: String): Results.Result
+  protected def interpret(code: String): Results.Result
 
-  def valueOfTerm(name: String): Option[Any]
+  protected def valueOfTerm(name: String): Option[Any]
 
   override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
     require(isStarted())
@@ -259,7 +259,7 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 }
 
 object AbstractSparkInterpreter {
-  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:\tat .+?\n?)*)""".r
+  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:[  |\t].+?\n?)*)""".r
   private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
   val USER_CODE_FRAME_NAME = "<user code>"
