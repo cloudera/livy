@@ -88,10 +88,11 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       "output" -> output)
   }
 
-  private def slice(from: Option[Int], to: Option[Int], size: Option[Int], offset: Option[Int], items: TreeMap[Int, Statement]): TreeMap[Int, Statement] = {
+  private def slice(from: Option[Int], to: Option[Int], size: Option[Int], offset: Option[Int],
+                    items: TreeMap[Int, Statement]): TreeMap[Int, Statement] = {
 
     // Can't slice an empty list
-    if(items.isEmpty) {
+    if (items.isEmpty) {
       return items
     }
 
