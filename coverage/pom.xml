@@ -22,12 +22,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main</artifactId>
+    <artifactId>livy-main_2.10</artifactId>
     <relativePath>../pom.xml</relativePath>
     <version>0.3.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>livy-coverage-report</artifactId>
+  <artifactId>livy-coverage-report_2.10</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
@@ -35,25 +35,25 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-api</artifactId>
+      <artifactId>livy-api_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-client-common</artifactId>
+      <artifactId>livy-client-common_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-client-http</artifactId>
+      <artifactId>livy-client-http_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-core</artifactId>
+      <artifactId>livy-core_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -65,13 +65,13 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-rsc</artifactId>
+      <artifactId>livy-rsc_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-server</artifactId>
+      <artifactId>livy-server_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -83,14 +83,14 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-integration-test</artifactId>
+      <artifactId>livy-integration-test_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-test-lib</artifactId>
+      <artifactId>livy-test-lib_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>

@@ -22,7 +22,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.cloudera.livy</groupId>
-  <artifactId>livy-main</artifactId>
+  <artifactId>livy-main_2.10</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
@@ -596,6 +596,12 @@
         </plugin>
 
         <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>1.10</version>
+        </plugin>
+
+        <plugin>
           <groupId>net.alchim31.maven</groupId>
           <artifactId>scala-maven-plugin</artifactId>
           <version>3.2.2</version>
@@ -974,6 +980,7 @@
         <spark.version>1.6.2</spark.version>
         <py4j.version>0.9</py4j.version>
         <netty.version>4.0.23.Final</netty.version>
+        <json4s.version>3.2.10</json4s.version>
       </properties>
     </profile>
 
@@ -983,6 +990,7 @@
         <spark.version>2.0.0</spark.version>
         <py4j.version>0.10.1</py4j.version>
         <netty.version>4.0.29.Final</netty.version>
+        <json4s.version>3.2.11</json4s.version>
       </properties>
     </profile>
 
@@ -994,7 +1002,6 @@
       </activation>
       <properties>
         <scala.version>2.10.4</scala.version>
-        <scala.binary.version>2.10</scala.binary.version>
       </properties>
     </profile>
 
@@ -1002,7 +1009,6 @@
       <id>scala-2.11</id>
       <properties>
         <scala.version>2.11.8</scala.version>
-        <scala.binary.version>2.11</scala.binary.version>
       </properties>
     </profile>
   </profiles>

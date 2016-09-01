@@ -22,12 +22,12 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main</artifactId>
+        <artifactId>livy-main_2.10</artifactId>
         <relativePath>../pom.xml</relativePath>
         <version>0.3.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>livy-repl_${scala.binary.version}</artifactId>
+    <artifactId>livy-repl_2.10</artifactId>
     <version>0.3.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -41,20 +41,20 @@
 
         <dependency>
             <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-rsc</artifactId>
+            <artifactId>livy-rsc_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>livy-core</artifactId>
+            <groupId>com.cloudera.livy</groupId>
+            <artifactId>livy-core_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
             <exclusions>
               <!-- Provided and shaded by livy-rsc already. -->
               <exclusion>
                 <groupId>com.cloudera.livy</groupId>
-                <artifactId>livy-client-common</artifactId>
+                <artifactId>livy-client-common_${scala.binary.version}</artifactId>
               </exclusion>
             </exclusions>
         </dependency>

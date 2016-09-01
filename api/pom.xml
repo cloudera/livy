@@ -19,12 +19,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main</artifactId>
+    <artifactId>livy-main_2.10</artifactId>
     <version>0.3.0-SNAPSHOT</version>
   </parent>
 
   <groupId>com.cloudera.livy</groupId>
-  <artifactId>livy-api</artifactId>
+  <artifactId>livy-api_2.10</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
