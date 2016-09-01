@@ -39,6 +39,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   extends RSCDriver(conf, livyConf)
   with Logging {
 
+  // Add here to make it compatible with json4s-jackson 3.2.11 JsonMethods#render API.
   private implicit def formats = DefaultFormats
 
   private val jobFutures = mutable.Map[String, JValue]()
