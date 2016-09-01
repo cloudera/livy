@@ -125,15 +125,15 @@ class SparkInterpreter(conf: SparkConf)
     }
   }
 
-  override def isStarted(): Boolean = {
+  override protected def isStarted(): Boolean = {
     sparkContext != null && sparkIMain != null
   }
 
-  override def interpret(code: String): Result = {
+  override protected def interpret(code: String): Result = {
     sparkIMain.interpret(code)
   }
 
-  override def valueOfTerm(name: String): Option[Any] = {
+  override protected def valueOfTerm(name: String): Option[Any] = {
     sparkIMain.valueOfTerm(name)
   }
 }

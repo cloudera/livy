@@ -21,6 +21,10 @@ package com.cloudera.livy.repl
 import com.cloudera.livy.Logging
 import org.apache.spark.{SparkConf, SparkContext}
 
+/**
+ * A mixin trait for Spark entry point creation. This trait exists two different code path
+ * separately for Spark1 and Spark2 depends on whether SparkSession exists or not.
+ */
 trait SparkContextInitializer extends Logging {
   self: SparkInterpreter =>
 

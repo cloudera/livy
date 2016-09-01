@@ -21,6 +21,7 @@ package com.cloudera.livy.repl
 import java.io.ByteArrayOutputStream
 
 import scala.tools.nsc.interpreter.Results
+
 import org.apache.spark.rdd.RDD
 import org.json4s.DefaultFormats
 import org.json4s.Extraction
