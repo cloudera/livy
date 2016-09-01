@@ -109,7 +109,7 @@ class InteractiveSession(
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
-          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive + "#sparkr")
         }
       case _ =>
     }
@@ -292,7 +292,7 @@ class InteractiveSession(
         val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
         val rArchivesFile = new File(path)
         require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
-        rArchivesFile.getAbsolutePath() + "#sparkr"
+        rArchivesFile.getAbsolutePath()
       }
     }
   }
