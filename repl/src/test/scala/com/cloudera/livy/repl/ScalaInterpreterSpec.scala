@@ -19,8 +19,8 @@
 package com.cloudera.livy.repl
 
 import org.apache.spark.SparkConf
-import org.json4s.JsonDSL._
 import org.json4s.{DefaultFormats, JValue}
+import org.json4s.JsonDSL._
 
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 

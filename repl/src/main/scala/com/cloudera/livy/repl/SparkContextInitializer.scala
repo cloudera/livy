@@ -18,8 +18,9 @@
 
 package com.cloudera.livy.repl
 
-import com.cloudera.livy.Logging
 import org.apache.spark.{SparkConf, SparkContext}
+
+import com.cloudera.livy.Logging
 
 /**
  * A mixin trait for Spark entry point creation. This trait exists two different code path
