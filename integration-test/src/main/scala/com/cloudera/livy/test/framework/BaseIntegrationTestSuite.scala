@@ -64,7 +64,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
 
   protected val testLib = sys.props("java.class.path")
     .split(File.pathSeparator)
-    .find(new File(_).getName().startsWith("livy-test-lib"))
+    .find(new File(_).getName().startsWith("livy-test-lib-"))
     .getOrElse(throw new Exception(s"Cannot find test lib in ${sys.props("java.class.path")}"))
 
   protected def getYarnLog(appId: String): String = {

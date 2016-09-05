@@ -47,7 +47,7 @@
         </dependency>
         <dependency>
             <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-scala-api_${scala.binary.version}</artifactId>
+            <artifactId>livy-scala-api</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>

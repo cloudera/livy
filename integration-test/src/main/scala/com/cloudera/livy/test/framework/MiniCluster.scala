@@ -212,7 +212,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   // want tests to explicitly upload this jar when necessary, to test those code paths.
   private val childClasspath = {
     val cp = sys.props("java.class.path").split(File.pathSeparator)
-    val filtered = cp.filter { path => !new File(path).getName().startsWith("livy-test-lib") }
+    val filtered = cp.filter { path => !new File(path).getName().startsWith("livy-test-lib-") }
     assert(cp.size != filtered.size, "livy-test-lib jar not found in classpath!")
     filtered.mkString(File.pathSeparator)
   }
