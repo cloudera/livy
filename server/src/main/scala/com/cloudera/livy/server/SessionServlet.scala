@@ -128,7 +128,7 @@ abstract class SessionServlet[S <: Session](livyConf: LivyConf)
   }
 
   private def getRequestPathInfo(request: HttpServletRequest): String = {
-    if (request.getPathInfo != null && request.getPathInfo != "/") {
+    if (request.getPathInfo != "/") {
       request.getPathInfo
     } else {
       ""

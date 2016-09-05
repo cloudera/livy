@@ -28,7 +28,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
@@ -311,7 +311,7 @@ class InteractiveSession(
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "repl/target/jars"))
+        .getOrElse(new File(home, "repl/scala-2.10/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toList
     }

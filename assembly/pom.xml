@@ -20,12 +20,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main_2.10</artifactId>
+    <artifactId>livy-main</artifactId>
     <version>0.3.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
-  <artifactId>livy-assembly_2.10</artifactId>
+  <artifactId>livy-assembly</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
@@ -33,31 +33,18 @@
     <assembly.name>livy-server-${project.version}</assembly.name>
     <assembly.format>zip</assembly.format>
     <skipDeploy>true</skipDeploy>
+    <repl.dir>repl/scala-2.10</repl.dir>
   </properties>
-
-  <profiles>
-    <profile>
-      <id>targz</id>
-      <properties>
-        <assembly.format>tar.gz</assembly.format>
-      </properties>
-    </profile>
-  </profiles>
 
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-rsc_${scala.binary.version}</artifactId>
+      <artifactId>livy-rsc</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-repl_${scala.binary.version}</artifactId>
-      <version>${project.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>livy-server_${scala.binary.version}</artifactId>
+      <artifactId>livy-server</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
@@ -88,5 +75,42 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>targz</id>
+      <properties>
+        <assembly.format>tar.gz</assembly.format>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>scala-2.10</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.10</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
+      <id>scala-2.11</id>
+      <dependencies>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.11</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+      <properties>
+        <repl.dir>repl/scala-2.11</repl.dir>
+      </properties>
+    </profile>
+  </profiles>
 
 </project>

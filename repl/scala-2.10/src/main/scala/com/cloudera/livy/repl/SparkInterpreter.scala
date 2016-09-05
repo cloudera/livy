@@ -23,14 +23,12 @@ import java.net.URLClassLoader
 import java.nio.file.Paths
 
 import scala.tools.nsc.Settings
-import scala.tools.nsc.interpreter.Results.Result
 import scala.tools.nsc.interpreter.JPrintWriter
+import scala.tools.nsc.interpreter.Results.Result
 import scala.util.{Failure, Success, Try}
 
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.repl.SparkIMain
-import org.apache.spark.sql.hive.HiveContext
-import org.apache.spark.sql.SQLContext
 
 /**
  * This represents a Spark interpreter. It is not thread safe.

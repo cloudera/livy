@@ -70,7 +70,8 @@ class SparkInterpreter(conf: SparkConf)
 
       var classLoader = Thread.currentThread().getContextClassLoader
       while (classLoader != null) {
-        if (classLoader.getClass.getCanonicalName == "org.apache.spark.util.MutableURLClassLoader") {
+        if (classLoader.getClass.getCanonicalName ==
+          "org.apache.spark.util.MutableURLClassLoader") {
           val extraJarPath = classLoader.asInstanceOf[URLClassLoader].getURLs()
             // Check if the file exists. Otherwise an exception will be thrown.
             .filter { u => u.getProtocol == "file" && new File(u.getPath).isFile }

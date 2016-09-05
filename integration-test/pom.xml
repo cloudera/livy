@@ -22,12 +22,12 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-main_2.10</artifactId>
+    <artifactId>livy-main</artifactId>
     <relativePath>../pom.xml</relativePath>
     <version>0.3.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>livy-integration-test_2.10</artifactId>
+  <artifactId>livy-integration-test</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
@@ -45,7 +45,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-assembly_${scala.binary.version}</artifactId>
+      <artifactId>livy-assembly</artifactId>
       <version>${project.version}</version>
       <type>pom</type>
     </dependency>
@@ -58,20 +58,20 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-server_${scala.binary.version}</artifactId>
+      <artifactId>livy-server</artifactId>
       <version>${project.version}</version>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-client-http_${scala.binary.version}</artifactId>
+      <artifactId>livy-client-http</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-test-lib_${scala.binary.version}</artifactId>
+      <artifactId>livy-test-lib</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
