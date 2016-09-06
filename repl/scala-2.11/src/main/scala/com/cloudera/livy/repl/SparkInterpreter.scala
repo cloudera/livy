@@ -48,7 +48,7 @@ class SparkInterpreter(conf: SparkConf)
     val outputDir = createTempDir(rootDir)
     conf.set("spark.repl.class.outputDir", outputDir.getAbsolutePath)
 
-    // Only required for Spark1
+    // Only Spark1 requires to create http server, Spark2 removes HttpServer class.
     Option(startHttpServer(outputDir)).foreach { case (server, uri) =>
       classServer = server
       conf.set("spark.repl.class.uri", uri)

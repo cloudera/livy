@@ -197,6 +197,7 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
     } catch {
       case _: Exception =>
         response should equal(
+          // Scala 2.11 doesn't have a " " after "="
           Interpreter.ExecuteSuccess(TEXT_PLAIN -> s"r: String =\n$stringWithComment"))
     }
   }
