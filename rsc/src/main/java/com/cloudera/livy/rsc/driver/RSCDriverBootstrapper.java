@@ -66,6 +66,7 @@ public final class RSCDriverBootstrapper {
       String value = props.getProperty(key);
       if (key.startsWith(RSCConf.LIVY_SPARK_PREFIX)) {
         livyConf.set(key.substring(RSCConf.LIVY_SPARK_PREFIX.length()), value);
+        props.remove(key);
       } else if (key.startsWith(RSCConf.SPARK_CONF_PREFIX)) {
         conf.set(key, value);
       }
