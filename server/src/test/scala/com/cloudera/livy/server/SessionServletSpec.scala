@@ -87,7 +87,7 @@ class SessionServletSpec
       addServlet(servlet, "/sessions/*")
       jpost[MockSessionView]("/sessions", Map(), headers = aliceHeaders) { res =>
         assert(header("Location") === "/sessions/0")
-        jdelete[Map[String, Any]]("/sessions/0", SC_OK, aliceHeaders)
+        jdelete[Map[String, Any]]("/sessions/0", SC_OK, aliceHeaders) { _ => }
       }
     }
 
