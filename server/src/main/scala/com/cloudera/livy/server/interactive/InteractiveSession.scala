@@ -113,7 +113,7 @@ class InteractiveSession(
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
         sparkRArchive.foreach { archive =>
-          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive)
+          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive + "#sparkr")
         }
       case _ =>
     }
