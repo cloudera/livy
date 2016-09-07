@@ -80,6 +80,17 @@ class SessionServletSpec
 
   describe("SessionServlet") {
 
+    it("should return correct Location in header") {
+      // mount to "/sessions/*" to test. If request URI is "/session", getPathInfo() will
+      // return null, since there's no extra path.
+      // mount to "/*" will always return "/", so that it cannot reflect the issue.
+      addServlet(servlet, "/sessions/*")
+      jpost[MockSessionView]("/sessions", Map(), headers = aliceHeaders) { res =>
+        assert(header("Location") === "/sessions/0")
+        jdelete[Map[String, Any]]("/sessions/0", SC_OK, aliceHeaders)
+      }
+    }
+
     it("should attach owner information to sessions") {
       jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
         assert(res.owner === "alice")
