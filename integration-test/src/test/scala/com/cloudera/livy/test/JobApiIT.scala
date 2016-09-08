@@ -25,11 +25,12 @@ import java.nio.file.{Files, Paths, StandardCopyOption}
 import java.util.concurrent.{Future => JFuture, TimeUnit}
 import javax.servlet.http.HttpServletResponse
 
-import org.scalatest.BeforeAndAfterAll
 import scala.collection.JavaConverters._
 import scala.util.Try
 
-import com.cloudera.livy.{LivyClient, LivyClientBuilder, Logging}
+import org.scalatest.BeforeAndAfterAll
+
+import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
@@ -182,6 +183,23 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
 
     val result = waitFor(client2.submit(new Echo("foo")))
     assert(result === "foo")
+  }
+
+  test("ensure Livy internal configurations are not exposed") {
+    assume(client2 != null, "Client not active.")
+
+    val job = new Job[Boolean] {
+      override def call(jc: JobContext): Boolean = {
+        val sc = jc.sc()
+        val livyConfExisted = sc.getConf.getAll.exists(_._1.startsWith("spark.__livy__."))
+        val livyConfExistedInProps = sys.props.exists(_._1.startsWith("spark.__livy__."))
+
+        livyConfExisted || livyConfExistedInProps
+      }
+    }
+
+    val result = waitFor(client2.submit(job))
+    assert(result === false)
   }
 
   test("destroy the session") {
