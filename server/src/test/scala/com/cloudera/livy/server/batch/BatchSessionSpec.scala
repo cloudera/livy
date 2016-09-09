@@ -27,7 +27,7 @@ import scala.concurrent.duration.Duration
 import org.scalatest.{BeforeAndAfterAll, FunSpec, ShouldMatchers}
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.{LivyConf,LivyTestFixture, Utils}
+import com.cloudera.livy.{LivyConf, LivyTestFixture, Utils}
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.utils.{AppInfo, SparkApp}
 

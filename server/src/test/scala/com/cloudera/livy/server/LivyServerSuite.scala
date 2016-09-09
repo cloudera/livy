@@ -19,6 +19,7 @@
 package com.cloudera.livy.server
 
 import org.scalatest.FunSuite
+
 import com.cloudera.livy.{LivyConf, LivyTestFixture}
 
 class LivyServerSuite extends FunSuite with LivyTestFixture {
