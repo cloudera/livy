@@ -20,12 +20,15 @@ package com.cloudera.livy.scalaapi
 import java.util.Random
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import org.scalatest.FunSuite
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 
-object ScalaClientTestUtils extends FunSuite {
+import org.scalatest.FunSuite
+
+import com.cloudera.livy.LivyTestFixture
+
+object ScalaClientTestUtils extends FunSuite with LivyTestFixture {
 
   val Timeout = 40
 

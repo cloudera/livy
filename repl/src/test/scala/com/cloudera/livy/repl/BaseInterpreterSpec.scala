@@ -20,7 +20,9 @@ package com.cloudera.livy.repl
 
 import org.scalatest.{FlatSpec, Matchers}
 
-abstract class BaseInterpreterSpec extends FlatSpec with Matchers {
+import com.cloudera.livy.LivyTestFixture
+
+abstract class BaseInterpreterSpec extends FlatSpec with Matchers with LivyTestFixture {
 
   def createInterpreter(): Interpreter
 

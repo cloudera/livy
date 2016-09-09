@@ -26,19 +26,21 @@ import java.util.concurrent.CountDownLatch
 import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
-import org.apache.spark.SparkFiles
-import org.apache.spark.launcher.SparkLauncher
-import org.scalatest.{BeforeAndAfter, FunSuite}
-import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
+import org.apache.spark.SparkFiles
+import org.apache.spark.launcher.SparkLauncher
+import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.scalatest.concurrent.ScalaFutures
+
+import com.cloudera.livy.LivyTestFixture
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
-class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter {
+class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter with LivyTestFixture {
 
   import com.cloudera.livy._
 

@@ -19,20 +19,22 @@ package com.cloudera.livy.scalaapi
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-import org.mockito.Matchers._
-import org.mockito.Mockito._
-import org.scalatest.{BeforeAndAfter, FunSuite}
-import org.scalatest.concurrent.ScalaFutures
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
-import com.cloudera.livy.JobHandle
+import org.mockito.Matchers._
+import org.mockito.Mockito._
+import org.scalatest.{BeforeAndAfter, FunSuite}
+import org.scalatest.concurrent.ScalaFutures
+
+import com.cloudera.livy.{JobHandle, LivyTestFixture}
 import com.cloudera.livy.JobHandle.{Listener, State}
 
-class ScalaJobHandleTest extends FunSuite with ScalaFutures with BeforeAndAfter {
+class ScalaJobHandleTest extends FunSuite
+    with ScalaFutures with BeforeAndAfter with LivyTestFixture {
 
   private var mockJobHandle: JobHandle[String] = null
   private var scalaJobHandle: ScalaJobHandle[String] = null

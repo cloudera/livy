@@ -28,12 +28,13 @@ import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.{ExecuteRequest, LivyConf}
+import com.cloudera.livy.{ExecuteRequest, LivyConf, LivyTestFixture}
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions.{PySpark, SessionState}
 import com.cloudera.livy.utils.{AppInfo, SparkApp}
 
-class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
+class InteractiveSessionSpec extends FunSpec
+    with Matchers with BeforeAndAfterAll with LivyTestFixture {
 
   private val livyConf = new LivyConf()
   livyConf.set(InteractiveSession.LivyReplJars, "")

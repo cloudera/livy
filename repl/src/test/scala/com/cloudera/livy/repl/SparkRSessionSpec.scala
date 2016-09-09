@@ -30,7 +30,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
   override protected def withFixture(test: NoArgTest) = {
     assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
-    test()
+    super.withFixture(test)
   }
 
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())

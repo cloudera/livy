@@ -50,7 +50,7 @@ import com.cloudera.livy.utils.AppInfo
  * module, which implements the client session backend. The client servlet has some functionality
  * overridden to avoid creating sub-processes for each seession.
  */
-class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll {
+class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll with LivyTestFixture {
 
   import HttpClientSpec._
 
