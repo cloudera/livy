@@ -35,6 +35,7 @@ import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages.SessionInfo
+import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.utils.AppInfo
@@ -69,11 +70,10 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
         new Answer[Statement]() {
           override def answer(args: InvocationOnMock): Statement = {
             val id = statementCounter.getAndIncrement
-            val executeRequest = args.getArguments()(0).asInstanceOf[ExecuteRequest]
             val statement = new Statement(
               id,
-              executeRequest,
-              Future.successful(JObject(JField("value", JInt(42)))))
+              StatementState.Available,
+              JObject(JField("value", JInt(42))))
 
             statements :+= statement
             statement

@@ -80,7 +80,7 @@ public class RSCDriver extends BaseProtocol {
   // Used to queue up requests while the SparkContext is being created.
   private final List<JobWrapper<?>> jobQueue;
   // Keeps track of connected clients.
-  private final Collection<Rpc> clients;
+  protected final Collection<Rpc> clients;
 
   final Map<String, JobWrapper<?>> activeJobs;
   private final Collection<BypassJobWrapper> bypassJobs;

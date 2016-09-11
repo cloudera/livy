@@ -36,10 +36,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
-    val statement = session.execute("1 + 2")
+    val statement = execute(session, "1 + 2")
     statement.id should equal(0)
 
-    val result = statement.result
+    val result = statement.output
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -52,10 +52,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute `x = 1`, then `y = 2`, then `x + y`" in withSession { session =>
-    var statement = session.execute("x = 1")
+    var statement = execute(session, "x = 1")
     statement.id should equal (0)
 
-    var result = statement.result
+    var result = statement.output
     var expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -66,10 +66,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = session.execute("y = 2")
+    statement = execute(session, "y = 2")
     statement.id should equal (1)
 
-    result = statement.result
+    result = statement.output
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 1,
@@ -80,10 +80,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = session.execute("x + y")
+    statement = execute(session, "x + y")
     statement.id should equal (2)
 
-    result = statement.result
+    result = statement.output
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 2,
@@ -96,10 +96,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout from print" in withSession { session =>
-    val statement = session.execute("""print('Hello World')""")
+    val statement = execute(session, """print('Hello World')""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = statement.output
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -112,10 +112,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout from cat" in withSession { session =>
-    val statement = session.execute("""cat(3)""")
+    val statement = execute(session, """cat(3)""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = statement.output
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -128,10 +128,10 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if accessing an unknown variable" in withSession { session =>
-    val statement = session.execute("""x""")
+    val statement = execute(session, """x""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = statement.output
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,

@@ -22,18 +22,28 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-import org.json4s.DefaultFormats
+import org.json4s._
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
+import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions.SessionState
 
 abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitTestSuite {
 
   implicit val formats = DefaultFormats
 
-  def withSession(testCode: Session => Any): Unit = {
+  protected def execute(session: Session, code: String): Statement = {
+    val id = session.execute(code)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      val s = session.statements(id)
+      s.state shouldBe StatementState.Available
+      s
+    }
+  }
+
+  protected def withSession(testCode: Session => Any): Unit = {
     val session = new Session(createInterpreter())
     try {
       Await.ready(session.start(), 30 seconds)
@@ -44,7 +54,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
     }
   }
 
-  def createInterpreter(): Interpreter
+  protected def createInterpreter(): Interpreter
 
   it should "start in the starting or idle state" in {
     val session = new Session(createInterpreter())

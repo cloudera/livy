@@ -56,10 +56,11 @@ class ReplDriverSuite extends FunSuite with LivyBaseUnitTestSuite {
 
       assert(client.getReplState().get(10, TimeUnit.SECONDS) === "idle")
 
-      val statementId = client.submitReplCode("1 + 1")
+      val statementId = client.submitReplCode("1 + 1").get
       eventually(timeout(30 seconds), interval(100 millis)) {
-        val rawResult = client.getReplJobResult(statementId).get(10, TimeUnit.SECONDS)
-        val result = parse(rawResult)
+        val rawResult =
+          client.getReplJobResults(statementId, 1).get(10, TimeUnit.SECONDS).statements(0)
+        val result = rawResult.output
         assert((result \ Session.STATUS).extract[String] === Session.OK)
       }
     } finally {

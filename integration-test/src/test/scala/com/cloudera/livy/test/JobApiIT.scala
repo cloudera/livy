@@ -76,7 +76,8 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
       assert(list.total === 1)
       val tempSessionId = list.sessions(0).id
 
-      livyClient.connectSession(tempSessionId).verifySessionIdle()
+      val s = livyClient.connectSession(tempSessionId)
+      s.verifySessionIdle()
       waitFor(tempClient.uploadJar(new File(testLib)))
 
       client = tempClient

@@ -18,31 +18,21 @@
 
 package com.cloudera.livy.repl
 
-import scala.collection.mutable
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 import io.netty.channel.ChannelHandlerContext
 import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
-import org.json4s.DefaultFormats
-import org.json4s.JsonAST.JValue
-import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy.Logging
-import com.cloudera.livy.rsc.{BaseProtocol, RSCConf}
+import com.cloudera.livy.rsc.{BaseProtocol, ReplJobResults, RSCConf}
 import com.cloudera.livy.rsc.driver._
 import com.cloudera.livy.sessions._
 
 class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   extends RSCDriver(conf, livyConf)
   with Logging {
-
-  // Add here to make it compatible with json4s-jackson 3.2.11 JsonMethods#render API.
-  private implicit def formats = DefaultFormats
-
-  private val jobFutures = mutable.Map[String, JValue]()
 
   private[repl] var session: Session = _
 
@@ -73,19 +63,28 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     }
   }
 
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Unit = {
-    Future {
-      jobFutures(msg.id) = session.execute(msg.code).result
-    }
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Int = {
+    session.execute(msg.code)
   }
 
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResult): String = {
-    val result = jobFutures.getOrElse(msg.id, null)
-    Option(result).map { r => compact(render(r)) }.orNull
+  /**
+    * Return statement results. Results are sorted by statement id.
+    */
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults = {
+    val stmts = if (msg.allResults) {
+      session.statements.values.toArray
+    } else {
+      assert(msg.from != null)
+      assert(msg.size != null)
+      val until = msg.from + msg.size
+      session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
+    }
+    val state = session.state.toString
+    new ReplJobResults(stmts.sortBy(_.id), state)
   }
 
   def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
-    return session.state.toString
+    session.state.toString
   }
 
   override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
