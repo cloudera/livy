@@ -127,6 +127,8 @@ object Cluster extends Logging {
   }
 
   def get(): Cluster = cluster
+
+  def isRunningOnTravis: Boolean = sys.env.contains("TRAVIS")
 }
 
 trait ClusterUtils {

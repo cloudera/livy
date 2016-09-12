@@ -20,29 +20,20 @@ package com.cloudera.livy.test
 
 import java.io.File
 import java.util.UUID
-import javax.servlet.http.HttpServletResponse._
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.control.Exception.{allCatch, ignoring, Catch}
 
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.yarn.api.records.{ApplicationId, FinalApplicationStatus}
-import org.apache.hadoop.yarn.util.ConverterUtils
+import org.apache.hadoop.yarn.api.records.FinalApplicationStatus
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.concurrent.Eventually._
+import org.scalatest.OptionValues._
 
-import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.apps._
-import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
+import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, LivyRestClient}
 
 class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
-  import com.cloudera.livy.utils.AppInfo._
-  implicit val patienceConfig = PatienceConfig(timeout = 2 minutes, interval = 1 second)
-
   private var testLibPath: String = _
 
   protected override def beforeAll() = {
@@ -52,106 +43,78 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
   test("submit spark app") {
     val output = newOutputPath()
-    val result = runSpark(classOf[SimpleSparkApp], args = List(output))
+    withTestLib(classOf[SimpleSparkApp], List(output)) { s =>
+      s.verifySessionSuccess()
 
-    dumpLogOnFailure(result.id) {
-      assert(result.state === SessionState.Success().toString())
-      assert(cluster.fs.isDirectory(new Path(output)))
-      result.appInfo should contain key DRIVER_LOG_URL_NAME
-      result.appInfo should contain key SPARK_UI_URL_NAME
-      result.appInfo.get(DRIVER_LOG_URL_NAME) should include ("containerlogs")
-      result.appInfo.get(SPARK_UI_URL_NAME) should startWith ("http")
+      // Make sure the test lib has created the test output.
+      cluster.fs.isDirectory(new Path(output)) shouldBe true
+
+      // Make sure appInfo is reported correctly.
+      val state = s.snapshot()
+      state.appInfo.driverLogUrl.value should include ("containerlogs")
+      state.appInfo.sparkUiUrl.value should startWith ("http")
     }
   }
 
   test("submit an app that fails") {
     val output = newOutputPath()
-    val result = runSpark(classOf[FailingApp], args = List(output))
-    // At this point the application has exited. State should be 'dead' instead of 'error'.
-    assert(result.state === SessionState.Dead().toString())
+    withTestLib(classOf[FailingApp], List(output)) { s =>
+      // At this point the application has exited. State should be 'dead' instead of 'error'.
+      s.verifySessionDead()
 
-    // The file is written to make sure the app actually ran, instead of just failing for
-    // some other reason.
-    assert(cluster.fs.isFile(new Path(output)))
+      // The file is written to make sure the app actually ran, instead of just failing for
+      // some other reason.
+      cluster.fs.isFile(new Path(output)) shouldBe true
+    }
   }
 
   pytest("submit a pyspark application") {
-    val hdfsPath = uploadResource("batch.py")
+    val scriptPath = uploadResource("batch.py")
     val output = newOutputPath()
-    val result = runScript(hdfsPath, args = List(output))
-    assert(result.state === SessionState.Success().toString())
-    assert(cluster.fs.isDirectory(new Path(output)))
+    withScript(scriptPath, List(output)) { s =>
+      s.verifySessionSuccess()
+      cluster.fs.isDirectory(new Path(output)) shouldBe true
+    }
   }
 
   // This is disabled since R scripts don't seem to work in yarn-cluster mode. There's a
   // TODO comment in Spark's ApplicationMaster.scala.
   ignore("submit a SparkR application") {
     val hdfsPath = uploadResource("rtest.R")
-    val result = runScript(hdfsPath)
-    assert(result.state === SessionState.Success().toString())
+    withScript(hdfsPath, List.empty) { s =>
+      s.verifySessionSuccess()
+    }
   }
 
   test("deleting a session should kill YARN app") {
     val output = newOutputPath()
-    val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
-
-    dumpLogOnFailure(batchId) {
-      val appId = waitUntilRunning(batchId)
+    withTestLib(classOf[SimpleSparkApp], List(output, "false")) { s =>
+      s.verifySessionState(SessionState.Running())
+      val appId = s.appId()
 
       // Delete the session then verify the YARN app state is KILLED.
-      deleteBatch(batchId)
-      assert(cluster.yarnClient.getApplicationReport(appId)
-        .getFinalApplicationStatus == FinalApplicationStatus.KILLED,
-        "YARN app should be killed.")
+      s.stop()
+      cluster.yarnClient.getApplicationReport(appId).getFinalApplicationStatus shouldBe
+        FinalApplicationStatus.KILLED
     }
   }
 
   test("killing YARN app should change batch state to dead") {
     val output = newOutputPath()
-    val batchId = runSpark(classOf[SimpleSparkApp], List(output, "false"), waitForExit = false).id
-
-    dumpLogOnFailure(batchId) {
-      val appId = waitUntilRunning(batchId)
+    withTestLib(classOf[SimpleSparkApp], List(output, "false")) { s =>
+      s.verifySessionState(SessionState.Running())
+      val appId = s.appId()
 
       // Kill the YARN app and check batch state should be KILLED.
       cluster.yarnClient.killApplication(appId)
-      eventually {
-        assert(cluster.yarnClient.getApplicationReport(appId)
-          .getFinalApplicationStatus == FinalApplicationStatus.KILLED,
-          "YARN app should be killed.")
-        val batchInfo = getBatchSessionInfo(batchId)
-        assert(batchInfo.state == SessionState.Dead().toString(), "Batch state should be dead.")
-        assert(batchInfo.log.contains("Application killed by user."),
-          "Batch log doesn't contain yarn final diagnostics.")
-      }
+      s.verifySessionDead()
+
+      cluster.yarnClient.getApplicationReport(appId).getFinalApplicationStatus shouldBe
+        FinalApplicationStatus.KILLED
+
+      s.snapshot().log should contain ("Application killed by user.")
     }
   }
-
-  private def dumpLogOnFailure[T](batchId: Int, cleanup: Boolean = true)(f: => T): T = {
-    try {
-      f
-    } catch {
-      case e: Throwable =>
-        ignoringAll {
-          info(s"Session log: ${getBatchSessionInfo(batchId).log}")
-          info(s"YARN log: ${getBatchYarnLog(batchId)}")
-        }
-        throw e
-    } finally {
-      ignoringAll { deleteBatch(batchId) }
-    }
-  }
-
-  private def getBatchYarnLog(batchId: Int): String = {
-    allCatch.opt {
-      val appId = getBatchSessionInfo(batchId).appId
-      assert(appId != null, "appId shouldn't be null")
-
-      getYarnLog(appId)
-    }.getOrElse("")
-  }
-
-  private def ignoringAll: Catch[Unit] = ignoring(classOf[Throwable])
 
   private def newOutputPath(): String = {
     cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()
@@ -170,89 +133,17 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     hdfsPath.toUri().getPath()
   }
 
-  private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
-    val request = new CreateBatchRequest()
-    request.file = script
-    request.args = args
-    waitAndDeleteBatch(startBatch(request).id)
+  private def withScript[R]
+    (scriptPath: String, args: List[String], sparkConf: Map[String, String] = Map.empty)
+    (f: (LivyRestClient#BatchSession) => R): R = {
+    val s = livyClient.startBatch(scriptPath, None, args, sparkConf)
+    withSession(s)(f)
   }
 
-  private def runSpark(
-      klass: Class[_],
-      args: List[String] = Nil,
-      waitForExit: Boolean = true): SessionInfo = {
-    val request = new CreateBatchRequest()
-    request.file = testLibPath
-    request.className = Some(klass.getName)
-    request.args = args
-
-    val batchId = startBatch(request)
-    if (waitForExit) waitAndDeleteBatch(batchId.id) else batchId
-  }
-
-  private def getBatchSessionInfo(batchId: Int): SessionInfo = {
-    val r = httpClient.prepareGet(s"$livyEndpoint/batches/$batchId")
-      .execute()
-      .get()
-    assert(r.getStatusCode() === SC_OK)
-    mapper.readValue(r.getResponseBodyAsStream(), classOf[SessionInfo])
-  }
-
-  private def deleteBatch(batchId: Int): Unit = {
-    val r = httpClient.prepareDelete(s"$livyEndpoint/batches/$batchId")
-      .execute()
-      .get()
-    assert(r.getStatusCode() === SC_OK)
-  }
-
-  private def startBatch(request: CreateBatchRequest): SessionInfo = {
-    request.conf = Map("spark.yarn.maxAppAttempts" -> "1")
-
-    val response = httpClient.preparePost(s"$livyEndpoint/batches")
-      .setBody(mapper.writeValueAsString(request))
-      .execute()
-      .get()
-
-    withClue(response) {
-      assert(response.getStatusCode === SC_CREATED)
-    }
-
-    mapper.readValue(response.getResponseBodyAsStream(), classOf[SessionInfo])
-  }
-
-  private def waitUntilRunning(batchId: Int): ApplicationId = {
-    eventually {
-      val batch = getBatchSessionInfo(batchId)
-
-      // If batch state transits to any error state, fail test immediately.
-      if (batch.state == SessionState.Error().toString() ||
-        batch.state == SessionState.Dead().toString()) {
-        fail(s"Session shouldn't be in a terminal state: ${batch.state}")
-      }
-
-      assert(batch.state === SessionState.Running().toString())
-
-      ConverterUtils.toApplicationId(batch.appId)
-    }
-  }
-
-  private def waitAndDeleteBatch(batchId: Int): SessionInfo = {
-    val terminalStates = Set(SessionState.Error(), SessionState.Dead(), SessionState.Success())
-      .map(_.toString())
-
-    var finished = false
-    try {
-      eventually {
-        val r = getBatchSessionInfo(batchId)
-        assert(terminalStates.contains(r.state))
-
-        finished = true
-        r
-      }
-    } finally {
-      if (!finished) {
-        deleteBatch(batchId)
-      }
-    }
+  private def withTestLib[R]
+    (testClass: Class[_], args: List[String], sparkConf: Map[String, String] = Map.empty)
+    (f: (LivyRestClient#BatchSession) => R): R = {
+    val s = livyClient.startBatch(testLibPath, Some(testClass.getName()), args, sparkConf)
+    withSession(s)(f)
   }
 }

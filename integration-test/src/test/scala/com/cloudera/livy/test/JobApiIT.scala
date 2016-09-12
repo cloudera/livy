@@ -21,18 +21,20 @@ package com.cloudera.livy.test
 import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets.UTF_8
-import java.nio.file.{Files, Paths, StandardCopyOption}
+import java.nio.file.{Files, StandardCopyOption}
 import java.util.concurrent.{Future => JFuture, TimeUnit}
 import javax.servlet.http.HttpServletResponse
 
 import scala.collection.JavaConverters._
 import scala.util.Try
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.scalatest.BeforeAndAfterAll
 
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.sessions.SessionKindModule
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 import com.cloudera.livy.test.jobs._
 
@@ -49,6 +51,9 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
   private var client: LivyClient = _
   private var sessionId: Int = _
   private var client2: LivyClient = _
+  private val mapper = new ObjectMapper()
+    .registerModule(DefaultScalaModule)
+    .registerModule(new SessionKindModule())
 
   override def afterAll(): Unit = {
     super.afterAll()
@@ -58,7 +63,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
       }
     }
 
-    livyClient.stopSession(sessionId)
+    livyClient.connectSession(sessionId).stop()
   }
 
   test("create a new session and upload test jar") {
@@ -71,7 +76,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
       assert(list.total === 1)
       val tempSessionId = list.sessions(0).id
 
-      waitTillSessionIdle(tempSessionId)
+      livyClient.connectSession(tempSessionId).verifySessionIdle()
       waitFor(tempClient.uploadJar(new File(testLib)))
 
       client = tempClient
@@ -141,7 +146,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
   }
 
   test("connect to an existing session") {
-    assert(livyClient.getSessionStatus(sessionId) === SessionState.Idle().toString)
+    livyClient.connectSession(sessionId).verifySessionIdle()
     val sessionUri = s"$livyEndpoint/sessions/$sessionId"
     client2 = createClient(sessionUri)
   }

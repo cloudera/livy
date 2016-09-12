@@ -21,218 +21,120 @@ package com.cloudera.livy.test
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 
-import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.control.Exception.allCatch
 
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
-import org.apache.hadoop.yarn.util.ConverterUtils
-import org.scalatest.BeforeAndAfter
-import org.scalatest.concurrent.Eventually._
+import org.scalatest.OptionValues._
 
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, StatementError}
+import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, LivyRestClient}
 
-class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
-  private var sessionId: Int = -1
-
-  after {
-    livyClient.stopSession(sessionId)
-    sessionId = -1
-  }
-
+class InteractiveIT extends BaseIntegrationTestSuite {
   test("basic interactive session") {
-    sessionId = livyClient.startSession(Spark())
-
-    dumpLogOnFailure(sessionId) {
-      matchResult("1+1", "res0: Int = 2")
-      matchResult("""sc.getConf.get("spark.executor.instances")""", "res1: String = 1")
-      matchResult("sqlContext", startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
-      matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
+    withNewSession(Spark()) { s =>
+      s.run("1+1").verifyResult("res0: Int = 2")
+      s.run("sqlContext").verifyResult(startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
+      s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
         startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
 
-      matchError("abcde", evalue = ".*?:[0-9]+: error: not found: value abcde.*")
-      matchError("throw new IllegalStateException()",
-        evalue = ".*java\\.lang\\.IllegalStateException.*")
+      s.run("abcde").verifyError(evalue = ".*?:[0-9]+: error: not found: value abcde.*")
+      s.run("throw new IllegalStateException()")
+        .verifyError(evalue = ".*java\\.lang\\.IllegalStateException.*")
 
       // Make sure appInfo is reported correctly.
-      val result = livyClient.getSessionInfo(sessionId)
-      result should contain key ("appInfo")
-      val appInfo = result("appInfo").asInstanceOf[Map[String, String]]
-      appInfo should contain key ("driverLogUrl")
-      appInfo should contain key ("sparkUiUrl")
-      appInfo("driverLogUrl") should include ("containerlogs")
-      appInfo("sparkUiUrl") should startWith ("http")
+      val state = s.snapshot()
+      state.appInfo.driverLogUrl.value should include ("containerlogs")
+      state.appInfo.sparkUiUrl.value should startWith ("http")
 
       // Stop session and verify the YARN app state is finished.
       // This is important because if YARN app state is killed, Spark history is not archived.
-      val appId = getAppId(sessionId)
-      livyClient.stopSession(sessionId)
-      val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
+      val appId = s.appId()
+      s.stop()
+      val appReport = cluster.yarnClient.getApplicationReport(appId)
       appReport.getYarnApplicationState() shouldEqual YarnApplicationState.FINISHED
     }
   }
 
   pytest("pyspark interactive session") {
-    sessionId = livyClient.startSession(PySpark())
+    withNewSession(PySpark()) { s =>
+      s.run("1+1").verifyResult("2")
+      s.run("sqlContext").verifyResult(startsWith("<pyspark.sql.context.HiveContext"))
+      s.run("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)")
+        .verifyResult("9900")
 
-    matchResult("1+1", "2")
-    matchResult("sqlContext", startsWith("<pyspark.sql.context.HiveContext"))
-    matchResult("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)",
-      "9900")
-
-    matchError("abcde", ename = "NameError", evalue = "name 'abcde' is not defined")
-    matchError("raise KeyError, 'foo'", ename = "KeyError", evalue = "'foo'")
+      s.run("abcde").verifyError(ename = "NameError", evalue = "name 'abcde' is not defined")
+      s.run("raise KeyError, 'foo'").verifyError(ename = "KeyError", evalue = "'foo'")
+    }
   }
 
   rtest("R interactive session") {
-    sessionId = livyClient.startSession(SparkR())
+    withNewSession(SparkR()) { s =>
+      // R's output sometimes includes the count of statements, which makes it annoying to test
+      // things. This helps a bit.
+      val curr = new AtomicInteger()
+      def count: Int = curr.incrementAndGet()
 
-    // R's output sometimes includes the count of statements, which makes it annoying to test
-    // things. This helps a bit.
-    val curr = new AtomicInteger()
-    def count: Int = curr.incrementAndGet()
-
-    matchResult("1+1", startsWith(s"[$count] 2"))
-    matchResult("sqlContext <- sparkRSQL.init(sc)", null)
-    matchResult("hiveContext <- sparkRHive.init(sc)", null)
-    matchResult("""localDF <- data.frame(name=c("John", "Smith", "Sarah"), age=c(19, 23, 18))""",
-      null)
-    matchResult("df <- createDataFrame(sqlContext, localDF)", null)
-    matchResult("printSchema(df)", literal(
-      """|root
-         | |-- name: string (nullable = true)
-         | |-- age: double (nullable = true)""".stripMargin))
+      s.run("1+1").verifyResult(startsWith(s"[$count] 2"))
+      s.run("sqlContext <- sparkRSQL.init(sc)").verifyResult(null)
+      s.run("hiveContext <- sparkRHive.init(sc)").verifyResult(null)
+      s.run("""localDF <- data.frame(name=c("John", "Smith", "Sarah"), age=c(19, 23, 18))""")
+        .verifyResult(null)
+      s.run("df <- createDataFrame(sqlContext, localDF)").verifyResult(null)
+      s.run("printSchema(df)").verifyResult(literal(
+        """|root
+          | |-- name: string (nullable = true)
+          | |-- age: double (nullable = true)""".stripMargin))
+    }
   }
 
   test("application kills session") {
-    sessionId = livyClient.startSession(Spark())
-    dumpLogOnFailure(sessionId) {
-      waitTillSessionIdle(sessionId)
-      livyClient.runStatement(sessionId, "System.exit(0)")
-
-      val expected = Set(SessionState.Dead().toString)
-      eventually(timeout(30 seconds), interval(1 second)) {
-        val state = livyClient.getSessionStatus(sessionId)
-        assert(expected.contains(state))
-      }
+    withNewSession(Spark()) { s =>
+      s.run("System.exit(0)")
+      s.verifySessionState(SessionState.Dead())
     }
   }
 
   test("should kill RSCDriver if it doesn't respond to end session") {
     val testConfName = s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_END_SESSION.key()}"
-    sessionId = livyClient.startSession(Spark(), Map(testConfName -> "true"))
-
-    dumpLogOnFailure(sessionId) {
-      waitTillSessionIdle(sessionId)
-
-      val appId = getAppId(sessionId)
-      livyClient.stopSession(sessionId)
-      val appReport = cluster.yarnClient.getApplicationReport(ConverterUtils.toApplicationId(appId))
-      assert(appReport.getYarnApplicationState() == YarnApplicationState.KILLED)
+    withNewSession(Spark(), Map(testConfName -> "true")) { s =>
+      val appId = s.appId()
+      s.stop()
+      val appReport = cluster.yarnClient.getApplicationReport(appId)
+      appReport.getYarnApplicationState() shouldBe YarnApplicationState.KILLED
     }
   }
 
   test("user jars are properly imported in Scala interactive sessions") {
     // Include a popular Java library to test importing user jars.
-    sessionId = livyClient.startSession(
-      Spark(),
-      Map("spark.jars.packages" -> "org.codehaus.plexus:plexus-utils:3.0.24"))
+    val sparkConf = Map("spark.jars.packages" -> "org.codehaus.plexus:plexus-utils:3.0.24")
+    withNewSession(Spark(), sparkConf) { s =>
+      // Check is the library loaded in JVM in the proper class loader.
+      s.run("Thread.currentThread.getContextClassLoader.loadClass" +
+          """("org.codehaus.plexus.util.FileUtils")""")
+        .verifyResult(".*Class\\[_\\] = class org.codehaus.plexus.util.FileUtils")
 
-    // Check is the library loaded in JVM in the proper class loader.
-    matchResult("Thread.currentThread.getContextClassLoader.loadClass" +
-      """("org.codehaus.plexus.util.FileUtils")""",
-      ".*Class\\[_\\] = class org.codehaus.plexus.util.FileUtils")
+      // Check does Scala interpreter see the library.
+      s.run("import org.codehaus.plexus.util._").verifyResult("import org.codehaus.plexus.util._")
 
-    // Check does Scala interpreter see the library.
-    matchResult("import org.codehaus.plexus.util._", "import org.codehaus.plexus.util._")
-
-    // Check does SparkContext see classes defined by Scala interpreter.
-    matchResult("case class Item(i: Int)", "defined class Item")
-    matchResult(
-      "val rdd = sc.parallelize(Array.fill(10){new Item(scala.util.Random.nextInt(1000))})",
-      "rdd.*")
-    matchResult("rdd.count()", ".*= 10")
-  }
-
-  private def dumpLogOnFailure[T](sessionId: Int)(f: => T): T = {
-    try {
-      f
-    } catch {
-      case e: Throwable =>
-        allCatch {
-          info(s"Session state: ${livyClient.getSessionInfo(sessionId)}")
-          info(s"YARN log: ${getSessionYarnLog(sessionId)}")
-        }
-        throw e
+      // Check does SparkContext see classes defined by Scala interpreter.
+      s.run("case class Item(i: Int)").verifyResult("defined class Item")
+      s.run("val rdd = sc.parallelize(Array.fill(10){new Item(scala.util.Random.nextInt(1000))})")
+        .verifyResult("rdd.*")
+      s.run("rdd.count()").verifyResult(".*= 10")
     }
   }
 
-  private def getAppId(sessionId: Int): String = {
-    val appId = livyClient.getSessionInfo(sessionId)("appId").asInstanceOf[String]
-    assert(appId != null, "appId returned null.")
-    appId
-  }
-
-  private def getSessionYarnLog(sessionId: Int): String = {
-    allCatch.opt {
-      getYarnLog(getAppId(sessionId))
-    }.getOrElse("")
-  }
-
-  private def matchResult(code: String, expected: String): Unit = {
-    runAndValidateStatement(code) match {
-      case Left(result) =>
-        if (expected != null) {
-          matchStrings(result, expected)
-        }
-
-      case Right(error) =>
-        fail(s"Got error from statement $code: ${error.evalue}")
-    }
-  }
-
-  private def matchError(
-      code: String,
-      ename: String = null,
-      evalue: String = null,
-      stackTrace: String = null): Unit = {
-    runAndValidateStatement(code) match {
-      case Left(result) =>
-        fail(s"Statement `$code` expected to fail, but succeeded.")
-
-      case Right(error) =>
-        val remoteStack = Option(error.stackTrace).getOrElse(Nil).mkString("\n")
-        Seq(
-          error.ename -> ename,
-          error.evalue -> evalue,
-          remoteStack -> stackTrace
-        ).foreach { case (actual, expected) =>
-          if (expected != null) {
-            matchStrings(actual, expected)
-          }
-        }
-    }
-  }
-
-  private def matchStrings(actual: String, expected: String): Unit = {
-    val regex = Pattern.compile(expected, Pattern.DOTALL)
-    // Don't use assert to make the error message easier to read.
-    if (!regex.matcher(actual).matches()) {
-      fail(s"$actual did not match regex $expected")
+  private def withNewSession[R]
+    (kind: Kind, sparkConf: Map[String, String] = Map.empty)
+    (f: (LivyRestClient#InteractiveSession) => R): R = {
+    withSession(livyClient.startSession(kind, sparkConf)) { s =>
+      s.verifySessionIdle()
+      f(s)
     }
   }
 
   private def startsWith(result: String): String = Pattern.quote(result) + ".*"
 
   private def literal(result: String): String = Pattern.quote(result)
-
-  private def runAndValidateStatement(code: String): Either[String, StatementError] = {
-    waitTillSessionIdle(sessionId)
-    val stmtId = livyClient.runStatement(sessionId, code)
-    waitTillSessionIdle(sessionId)
-    livyClient.getStatementResult(sessionId, stmtId)
-  }
-
 }
