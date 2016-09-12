@@ -22,6 +22,8 @@ import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.repl.Interpreter.ExecuteError
+
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
@@ -123,6 +125,22 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
     response should equal(Interpreter.ExecuteSuccess(
       TEXT_PLAIN -> "res0: Array[Int] = Array(1, 2)"
     ))
+  }
+
+  it should "cancel spark jobs" in withInterpreter { interpreter =>
+    val jobGroupId = "group_1"
+    new Thread() {
+      override def run(): Unit = {
+        Thread.sleep(1000)
+        interpreter.cancel(jobGroupId)
+      }
+    }.start()
+    val response = interpreter.execute(
+      """sc.parallelize(0 to 10).map { i => { Thread.sleep(10000); i+1} }.collect""".stripMargin,
+      jobGroupId)
+    response shouldBe a[ExecuteError]
+    response.asInstanceOf[ExecuteError].evalue should
+      equal("org.apache.spark.SparkException: Job 0 cancelled part of cancelled job group group_1")
   }
 
   it should "handle statements ending with comments" in withInterpreter { interpreter =>

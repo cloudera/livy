@@ -91,6 +91,10 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     statementId
   }
 
+  def cancel(statementId: String): Unit = {
+    interpreter.cancel(statementId)
+  }
+
   def close(): Unit = {
     executor.shutdown()
     interpreter.close()

@@ -473,12 +473,18 @@ class InteractiveSession(
     stop()
   }
 
-  def executeStatement(content: ExecuteRequest): Statement = {
+  def executeStatement(content: ExecuteRequest): Statement = synchronized {
     ensureRunning()
     recordActivity()
 
     val id = client.get.submitReplCode(content.code).get
     client.get.getReplJobResults(id, 1).get().statements(0)
+  }
+
+  def cancelStatement(statementId: String): Unit = {
+    ensureRunning()
+    recordActivity()
+    client.get.cancelReplCode(statementId)
   }
 
   def runJob(job: Array[Byte]): Long = {
