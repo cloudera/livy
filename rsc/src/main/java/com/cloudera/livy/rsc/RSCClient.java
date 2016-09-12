@@ -274,10 +274,13 @@ public class RSCClient implements LivyClient {
     return contextInfo;
   }
 
-  public String submitReplCode(String code) throws Exception {
-    String id = UUID.randomUUID().toString();
-    deferredCall(new BaseProtocol.ReplJobRequest(code, id), Void.class);
-    return id;
+  public String submitReplCode(String code, String statementId) throws Exception {
+    deferredCall(new BaseProtocol.ReplJobRequest(code, statementId), Void.class);
+    return statementId;
+  }
+
+  public void cancelReplCode(String statementId) throws Exception {
+    deferredCall(new BaseProtocol.CancelReplJobRequest(statementId), Void.class);
   }
 
   public Future<String> getReplJobResult(String id) throws Exception {

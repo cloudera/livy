@@ -29,6 +29,7 @@ import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
+import com.cloudera.livy.repl.Interpreter.ExecuteResponse
 
 object AbstractSparkInterpreter {
   private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:[  |\t].+?\n?)*)""".r
@@ -52,9 +53,8 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 
   protected def valueOfTerm(name: String): Option[Any]
 
-  override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
+  override def internalExecute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
     require(isStarted())
-
     executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
       (TEXT_PLAIN, JString(""))
     )))
