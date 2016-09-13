@@ -116,6 +116,33 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     }
   }
 
+  test("recover batch sessions") {
+    val output1 = newOutputPath()
+    val output2 = newOutputPath()
+    withTestLib(classOf[SimpleSparkApp], List(output1)) { s1 =>
+      s1.stop()
+      withTestLib(classOf[SimpleSparkApp], List(output2, "false")) { s2 =>
+        s2.verifySessionRunning()
+
+        // Restart Livy.
+        cluster.stopLivy()
+        cluster.runLivy()
+
+        // Verify previous active session still appears after restart.
+        s2.verifySessionRunning()
+        // Verify deleted session doesn't show up.
+        s1.verifySessionDoesNotExist()
+
+        s2.stop()
+
+        // Verify new session doesn't reuse old session id.
+        withTestLib(classOf[SimpleSparkApp], List(output2)) { s3 =>
+          s3.id should be > s2.id
+        }
+      }
+    }
+  }
+
   private def newOutputPath(): String = {
     cluster.hdfsScratchDir().toString() + "/" + UUID.randomUUID().toString()
   }

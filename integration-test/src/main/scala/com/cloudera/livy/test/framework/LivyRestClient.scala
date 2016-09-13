@@ -111,6 +111,7 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
 
   class BatchSession(id: Int) extends Session(id, BATCH_TYPE) {
     def verifySessionDead(): Unit = verifySessionState(SessionState.Dead())
+    def verifySessionRunning(): Unit = verifySessionState(SessionState.Running())
     def verifySessionSuccess(): Unit = verifySessionState(SessionState.Success())
   }
 
