@@ -267,6 +267,8 @@ class LivyServer extends Logging {
     // This is exclusive. Version which equals to this will be rejected.
     val maxVersion = (2, 0)
     val minVersion = (1, 5)
+    // Minimum spark version that supports YARN integration
+    val minYarnMasterVersion = (1, 6)
 
     val supportedVersion = version match {
       case versionPattern(major, minor) =>
@@ -275,6 +277,17 @@ class LivyServer extends Logging {
       case _ => false
     }
     require(supportedVersion, s"Unsupported Spark version $version.")
+    
+    // Spark >= 1.6 require for Livy yarn-master mode
+    if (livyConf.get(LIVY_SPARK_MASTER) == "yarn-master") {
+      val supportedVersion = version match {
+        case versionPattern(major, minor) =>
+          val v = (major.toInt, minor.toInt)
+          v >= minYarnMasterVersion
+        case _ => true
+      }
+      require(supportedVersion, s"YARN master mode unsupported in Spark version $version.")
+    }
   }
 
   /**
