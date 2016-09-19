@@ -26,9 +26,9 @@ import scala.concurrent.duration._
 
 import org.scalatest.FunSuite
 
-import com.cloudera.livy.LivyTestFixture
+import com.cloudera.livy.LivyBaseUnitTestSuite
 
-object ScalaClientTestUtils extends FunSuite with LivyTestFixture {
+object ScalaClientTestUtils extends FunSuite with LivyBaseUnitTestSuite {
 
   val Timeout = 40
 

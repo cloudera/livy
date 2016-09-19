@@ -25,9 +25,9 @@ import scala.language.postfixOps
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.{LivyConf, LivyTestFixture}
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 
-class SessionManagerSpec extends FlatSpec with Matchers with LivyTestFixture {
+class SessionManagerSpec extends FlatSpec with Matchers with LivyBaseUnitTestSuite {
 
   it should "garbage collect old sessions" in {
     val livyConf = new LivyConf()

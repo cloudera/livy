@@ -20,7 +20,7 @@ package com.cloudera.livy
 
 import org.scalatest.{Outcome, Suite}
 
-trait LivyTestFixture extends Suite with Logging {
+trait LivyBaseUnitTestSuite extends Suite with Logging {
 
   protected override def withFixture(test: NoArgTest): Outcome = {
     val testName = test.name

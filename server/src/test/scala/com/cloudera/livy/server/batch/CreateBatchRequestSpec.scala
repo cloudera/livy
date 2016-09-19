@@ -21,9 +21,9 @@ package com.cloudera.livy.server.batch
 import com.fasterxml.jackson.databind.{JsonMappingException, ObjectMapper}
 import org.scalatest.FunSpec
 
-import com.cloudera.livy.LivyTestFixture
+import com.cloudera.livy.LivyBaseUnitTestSuite
 
-class CreateBatchRequestSpec extends FunSpec with LivyTestFixture {
+class CreateBatchRequestSpec extends FunSpec with LivyBaseUnitTestSuite {
 
   private val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)

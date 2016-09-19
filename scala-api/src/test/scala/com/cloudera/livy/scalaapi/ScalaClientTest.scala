@@ -37,10 +37,13 @@ import org.apache.spark.launcher.SparkLauncher
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 
-import com.cloudera.livy.LivyTestFixture
+import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.rsc.RSCConf.Entry._
 
-class ScalaClientTest extends FunSuite with ScalaFutures with BeforeAndAfter with LivyTestFixture {
+class ScalaClientTest extends FunSuite
+  with ScalaFutures
+  with BeforeAndAfter
+  with LivyBaseUnitTestSuite {
 
   import com.cloudera.livy._
 

@@ -21,10 +21,10 @@ package com.cloudera.livy.server.interactive
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.scalatest.FunSpec
 
-import com.cloudera.livy.LivyTestFixture
+import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.sessions.{PySpark, SessionKindModule}
 
-class CreateInteractiveRequestSpec extends FunSpec with LivyTestFixture {
+class CreateInteractiveRequestSpec extends FunSpec with LivyBaseUnitTestSuite {
 
   private val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)

@@ -22,9 +22,9 @@ import java.net.URI
 
 import org.scalatest.FunSuite
 
-import com.cloudera.livy.{LivyConf, LivyTestFixture}
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 
-class SessionSpec extends FunSuite with LivyTestFixture {
+class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
 
   test("use default fs in paths") {
     val conf = new LivyConf(false)

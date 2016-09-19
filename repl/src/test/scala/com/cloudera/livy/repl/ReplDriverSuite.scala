@@ -34,7 +34,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions.Spark
 
-class ReplDriverSuite extends FunSuite with LivyTestFixture {
+class ReplDriverSuite extends FunSuite with LivyBaseUnitTestSuite {
 
   private implicit val formats = DefaultFormats
 

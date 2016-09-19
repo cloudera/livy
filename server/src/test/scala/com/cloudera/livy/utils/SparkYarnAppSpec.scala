@@ -34,11 +34,11 @@ import org.mockito.stubbing.Answer
 import org.scalatest.FunSpec
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.{LivyConf, LivyTestFixture}
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.util.LineBufferedProcess
 import com.cloudera.livy.utils.SparkApp._
 
-class SparkYarnAppSpec extends FunSpec with LivyTestFixture {
+class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
   private def cleanupThread(t: Thread)(f: => Unit) = {
     try { f } finally { t.interrupt() }
   }

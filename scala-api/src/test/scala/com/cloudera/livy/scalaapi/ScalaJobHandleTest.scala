@@ -30,11 +30,13 @@ import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.concurrent.ScalaFutures
 
-import com.cloudera.livy.{JobHandle, LivyTestFixture}
+import com.cloudera.livy.{JobHandle, LivyBaseUnitTestSuite}
 import com.cloudera.livy.JobHandle.{Listener, State}
 
 class ScalaJobHandleTest extends FunSuite
-    with ScalaFutures with BeforeAndAfter with LivyTestFixture {
+  with ScalaFutures
+  with BeforeAndAfter
+  with LivyBaseUnitTestSuite {
 
   private var mockJobHandle: JobHandle[String] = null
   private var scalaJobHandle: ScalaJobHandle[String] = null

@@ -25,9 +25,9 @@ import org.json4s.{DefaultFormats, Extraction}
 import org.json4s.JsonAST.JString
 import org.scalatest.{FunSpec, Matchers}
 
-import com.cloudera.livy.{ExecuteRequest, LivyTestFixture}
+import com.cloudera.livy.{ExecuteRequest, LivyBaseUnitTestSuite}
 
-class StatementSpec extends FunSpec with Matchers with LivyTestFixture {
+class StatementSpec extends FunSpec with Matchers with LivyBaseUnitTestSuite {
 
   implicit val formats = DefaultFormats
 
