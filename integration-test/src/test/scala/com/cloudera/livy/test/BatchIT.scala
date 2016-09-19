@@ -40,6 +40,7 @@ import com.cloudera.livy.test.apps._
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 
 class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
+  import com.cloudera.livy.utils.AppInfo._
   implicit val patienceConfig = PatienceConfig(timeout = 2 minutes, interval = 1 second)
 
   private var testLibPath: String = _
@@ -56,10 +57,10 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     dumpLogOnFailure(result.id) {
       assert(result.state === SessionState.Success().toString())
       assert(cluster.fs.isDirectory(new Path(output)))
-      result.appInfo should contain key ("driverLogUrl")
-      result.appInfo should contain key ("sparkUiUrl")
-      result.appInfo.get("driverLogUrl")
-      result.appInfo.get("sparkUiUrl") should startWith ("http")
+      result.appInfo should contain key DRIVER_LOG_URL_NAME
+      result.appInfo should contain key SPARK_UI_URL_NAME
+      result.appInfo.get(DRIVER_LOG_URL_NAME) should include ("containerlogs")
+      result.appInfo.get(SPARK_UI_URL_NAME) should startWith ("http")
     }
   }
 

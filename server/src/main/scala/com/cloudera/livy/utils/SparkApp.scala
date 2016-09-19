@@ -23,9 +23,15 @@ import scala.collection.JavaConverters._
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.util.LineBufferedProcess
 
+object AppInfo {
+  val DRIVER_LOG_URL_NAME = "driverLogUrl"
+  val SPARK_UI_URL_NAME = "sparkUiUrl"
+}
+
 case class AppInfo(var driverLogUrl: Option[String] = None, var sparkUiUrl: Option[String] = None) {
-  def asJavaMap: java.util.Map[String, String]
-    = Map("driverLogUrl" -> driverLogUrl.orNull, "sparkUiUrl" -> sparkUiUrl.orNull).asJava
+  import AppInfo._
+  def asJavaMap: java.util.Map[String, String] =
+    Map(DRIVER_LOG_URL_NAME -> driverLogUrl.orNull, SPARK_UI_URL_NAME -> sparkUiUrl.orNull).asJava
 }
 
 trait SparkAppListener {

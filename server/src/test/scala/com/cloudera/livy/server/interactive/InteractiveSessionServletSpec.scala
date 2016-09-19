@@ -153,8 +153,8 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
     view.proxyUser shouldEqual proxyUser
     view.state shouldEqual state.toString
     view.kind shouldEqual kind.toString
-    view.appInfo should contain (Entry("driverLogUrl", appInfo.driverLogUrl.get))
-    view.appInfo should contain (Entry("sparkUiUrl", appInfo.sparkUiUrl.get))
+    view.appInfo should contain (Entry(AppInfo.DRIVER_LOG_URL_NAME, appInfo.driverLogUrl.get))
+    view.appInfo should contain (Entry(AppInfo.SPARK_UI_URL_NAME, appInfo.sparkUiUrl.get))
     view.log shouldEqual log.asJava
   }
 
