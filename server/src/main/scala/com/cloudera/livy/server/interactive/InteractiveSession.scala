@@ -28,7 +28,7 @@ import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Random, Success, Try}
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s._
