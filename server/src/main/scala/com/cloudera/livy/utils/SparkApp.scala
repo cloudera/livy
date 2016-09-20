@@ -68,7 +68,7 @@ object SparkApp {
       livyConf: LivyConf,
       sparkConf: Map[String, String]): Map[String, String] = {
     if (livyConf.isRunningOnYarn()) {
-      val userYarnTags = sparkConf.get(uniqueAppTag).map("," + _).getOrElse("")
+      val userYarnTags = sparkConf.get(SPARK_YARN_TAG_KEY).map("," + _).getOrElse("")
       val mergedYarnTags = uniqueAppTag + userYarnTags
       sparkConf ++ Map(
         SPARK_YARN_TAG_KEY -> mergedYarnTags,
