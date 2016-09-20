@@ -26,10 +26,12 @@ import org.apache.spark.launcher.SparkLauncher
 import org.json4s.{DefaultFormats, Extraction}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
+import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions.{PySpark, SessionState}
+import com.cloudera.livy.utils.{AppInfo, SparkApp}
 
 class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAll {
 
@@ -40,7 +42,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
 
   private var session: InteractiveSession = null
 
-  private def createSession(): InteractiveSession = {
+  private def createSession(mockApp: Option[SparkApp] = None): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
 
     val req = new CreateInteractiveRequest()
@@ -54,7 +56,7 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
-    new InteractiveSession(0, null, None, livyConf, req)
+    new InteractiveSession(0, null, None, livyConf, req, mockApp)
   }
 
   override def afterAll(): Unit = {
@@ -79,6 +81,19 @@ class InteractiveSessionSpec extends FunSpec with Matchers with BeforeAndAfterAl
     it("should start in the idle state") {
       session = createSession()
       session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
+    }
+
+    it("should update appId and appInfo") {
+      val mockApp = mock[SparkApp]
+      val session = createSession(Some(mockApp))
+
+      val expectedAppId = "APPID"
+      session.appIdKnown(expectedAppId)
+      session.appId shouldEqual Some(expectedAppId)
+
+      val expectedAppInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
+      session.infoChanged(expectedAppInfo)
+      session.appInfo shouldEqual expectedAppInfo
     }
 
     withSession("should execute `1 + 2` == 3") { session =>

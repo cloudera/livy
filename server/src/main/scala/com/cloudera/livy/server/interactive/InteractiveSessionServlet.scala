@@ -53,7 +53,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       createRequest)
   }
 
-  override protected def clientSessionView(
+  override protected[interactive] def clientSessionView(
       session: InteractiveSession,
       req: HttpServletRequest): Any = {
     val logs =
@@ -72,7 +72,7 @@ class InteractiveSessionServlet(livyConf: LivyConf)
       }
 
     new SessionInfo(session.id, session.appId.orNull, session.owner, session.proxyUser.orNull,
-      session.state.toString, session.kind.toString, logs.asJava)
+      session.state.toString, session.kind.toString, session.appInfo.asJavaMap, logs.asJava)
   }
 
   private def statementView(statement: Statement): Any = {

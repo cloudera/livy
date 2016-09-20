@@ -25,9 +25,11 @@ import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 
 import org.scalatest.{BeforeAndAfterAll, FunSpec, ShouldMatchers}
+import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{LivyConf, Utils}
 import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.utils.{AppInfo, SparkApp}
 
 class BatchSessionSpec
   extends FunSpec
@@ -65,6 +67,21 @@ class BatchSessionSpec
       }) should be (true)
 
       batch.logLines() should contain("hello world")
+    }
+
+    it("should update appId and appInfo") {
+      val conf = new LivyConf()
+      val req = new CreateBatchRequest()
+      val mockApp = mock[SparkApp]
+      val batch = new BatchSession(0, null, None, conf, req, Some(mockApp))
+
+      val expectedAppId = "APPID"
+      batch.appIdKnown(expectedAppId)
+      batch.appId shouldEqual Some(expectedAppId)
+
+      val expectedAppInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
+      batch.infoChanged(expectedAppInfo)
+      batch.appInfo shouldEqual expectedAppInfo
     }
   }
 }

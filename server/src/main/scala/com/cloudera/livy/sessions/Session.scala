@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
+import com.cloudera.livy.utils.AppInfo
 
 object Session {
 
@@ -56,6 +57,8 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf) e
   private var stagingDir: Path = null
 
   def appId: Option[String] = _appId
+
+  var appInfo: AppInfo = AppInfo()
 
   def lastActivity: Long = state match {
     case SessionState.Error(time) => time

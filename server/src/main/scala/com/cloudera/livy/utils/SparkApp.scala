@@ -18,8 +18,21 @@
 
 package com.cloudera.livy.utils
 
+import scala.collection.JavaConverters._
+
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.util.LineBufferedProcess
+
+object AppInfo {
+  val DRIVER_LOG_URL_NAME = "driverLogUrl"
+  val SPARK_UI_URL_NAME = "sparkUiUrl"
+}
+
+case class AppInfo(var driverLogUrl: Option[String] = None, var sparkUiUrl: Option[String] = None) {
+  import AppInfo._
+  def asJavaMap: java.util.Map[String, String] =
+    Map(DRIVER_LOG_URL_NAME -> driverLogUrl.orNull, SPARK_UI_URL_NAME -> sparkUiUrl.orNull).asJava
+}
 
 trait SparkAppListener {
   /** Fired when appId is known, even during recovery. */
@@ -27,6 +40,9 @@ trait SparkAppListener {
 
   /** Fired when the app state in the cluster changes. */
   def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {}
+
+  /** Fired when the app info is changed. */
+  def infoChanged(appInfo: AppInfo): Unit = {}
 }
 
 /**

@@ -21,7 +21,8 @@ package com.cloudera.livy.server.interactive
 import java.util.concurrent.atomic.AtomicInteger
 import javax.servlet.http.HttpServletRequest
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.collection.JavaConverters._
+import scala.concurrent.Future
 
 import org.json4s.JsonAST._
 import org.json4s.jackson.Json4sScalaModule
@@ -29,9 +30,13 @@ import org.mockito.Matchers._
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
+import org.scalatest.Entry
+import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.ExecuteRequest
+import com.cloudera.livy.client.common.HttpMessages.SessionInfo
 import com.cloudera.livy.sessions._
+import com.cloudera.livy.utils.AppInfo
 
 class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
@@ -44,9 +49,10 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
     override protected def createSession(req: HttpServletRequest): InteractiveSession = {
       val statementCounter = new AtomicInteger()
 
-      val session = mock(classOf[InteractiveSession])
+      val session = mock[InteractiveSession]
       when(session.kind).thenReturn(Spark())
       when(session.appId).thenReturn(None)
+      when(session.appInfo).thenReturn(AppInfo())
       when(session.logLines()).thenReturn(IndexedSeq())
       when(session.state).thenReturn(SessionState.Idle())
       when(session.stop()).thenReturn(Future.successful(()))
@@ -114,6 +120,42 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
       val session = servlet.sessionManager.get(0)
       session should not be defined
     }
+  }
+
+  it("should show session properties") {
+    val id = 0
+    val appId = "appid"
+    val owner = "owner"
+    val proxyUser = "proxyUser"
+    val state = SessionState.Running()
+    val kind = Spark()
+    val appInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
+    val log = IndexedSeq[String]("log1", "log2")
+
+    val session = mock[InteractiveSession]
+    when(session.id).thenReturn(id)
+    when(session.appId).thenReturn(Some(appId))
+    when(session.owner).thenReturn(owner)
+    when(session.proxyUser).thenReturn(Some(proxyUser))
+    when(session.state).thenReturn(state)
+    when(session.kind).thenReturn(kind)
+    when(session.appInfo).thenReturn(appInfo)
+    when(session.logLines()).thenReturn(log)
+
+    val req = mock[HttpServletRequest]
+
+    val view = servlet.asInstanceOf[InteractiveSessionServlet].clientSessionView(session, req)
+      .asInstanceOf[SessionInfo]
+
+    view.id shouldEqual id
+    view.appId shouldEqual appId
+    view.owner shouldEqual owner
+    view.proxyUser shouldEqual proxyUser
+    view.state shouldEqual state.toString
+    view.kind shouldEqual kind.toString
+    view.appInfo should contain (Entry(AppInfo.DRIVER_LOG_URL_NAME, appInfo.driverLogUrl.get))
+    view.appInfo should contain (Entry(AppInfo.SPARK_UI_URL_NAME, appInfo.sparkUiUrl.get))
+    view.log shouldEqual log.asJava
   }
 
 }
