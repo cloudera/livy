@@ -251,7 +251,7 @@ class LivyServer extends Logging {
    */
   private[server] def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
-      testSparkVersion(sparkSubmitVersion(livyConf))
+      testSparkVersion(sparkSubmitVersion(livyConf), livyConf.get(LIVY_SPARK_MASTER))
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
@@ -262,7 +262,7 @@ class LivyServer extends Logging {
    * Throw an exception if Spark version is not supported.
    * @param version Spark version
    */
-  private[server] def testSparkVersion(version: String): Unit = {
+  private[server] def testSparkVersion(version: String, sparkMaster: String): Unit = {
     val versionPattern = """^(\d)+\.(\d)+(?:\.\d*).*""".r
     // This is exclusive. Version which equals to this will be rejected.
     val maxVersion = (2, 0)
@@ -279,8 +279,7 @@ class LivyServer extends Logging {
     require(supportedVersion, s"Unsupported Spark version $version.")
 
     // Spark >= 1.6 require for Livy yarn-master mode
-    val sparkMaster = livyConf.sparkMaster()
-    if (sparkMaster != null && sparkMaster == "yarn-master") {
+    if (sparkMaster == "yarn-master") {
       val supportedVersion = version match {
         case versionPattern(major, minor) =>
           val v = (major.toInt, minor.toInt)
