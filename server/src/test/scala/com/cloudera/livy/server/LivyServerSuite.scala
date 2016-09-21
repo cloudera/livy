@@ -36,9 +36,9 @@ class LivyServerSuite extends FunSuite {
 
   test("should support Spark 1.6") {
     val s = new LivyServer()
-    s.testSparkVersion("1.6.0")
-    s.testSparkVersion("1.6.1")
-    s.testSparkVersion("1.6.2")
+    s.testSparkVersion("1.6.0", "yarn-master")
+    s.testSparkVersion("1.6.1", "yarn-master")
+    s.testSparkVersion("1.6.2", "yarn-master")
   }
 
   test("should not support Spark older than 1.5") {
