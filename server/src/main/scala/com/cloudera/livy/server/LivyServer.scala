@@ -279,7 +279,8 @@ class LivyServer extends Logging {
     require(supportedVersion, s"Unsupported Spark version $version.")
 
     // Spark >= 1.6 require for Livy yarn-master mode
-    if (livyConf.sparkMaster() == "yarn-master") {
+    val sparkMaster = livyConf.sparkMaster()
+    if (sparkMaster != null && sparkMaster == "yarn-master") {
       val supportedVersion = version match {
         case versionPattern(major, minor) =>
           val v = (major.toInt, minor.toInt)
