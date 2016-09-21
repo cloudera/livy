@@ -284,7 +284,7 @@ class LivyServer extends Logging {
         case versionPattern(major, minor) =>
           val v = (major.toInt, minor.toInt)
           v >= minYarnMasterVersion
-        case _ => true
+        case _ => false
       }
       require(supportedVersion, s"YARN master mode unsupported in Spark version $version.")
     }
