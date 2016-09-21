@@ -39,7 +39,7 @@ class SparkInterpreter(conf: SparkConf)
 
   protected var sparkContext: SparkContext = _
   private var sparkILoop: SparkILoop = _
-  private var classServer: Object = _
+  private var sparkHttpServer: Object = _
 
   override def start(): SparkContext = {
     require(sparkILoop == null)
@@ -49,8 +49,8 @@ class SparkInterpreter(conf: SparkConf)
     conf.set("spark.repl.class.outputDir", outputDir.getAbsolutePath)
 
     // Only Spark1 requires to create http server, Spark2 removes HttpServer class.
-    Option(startHttpServer(outputDir)).foreach { case (server, uri) =>
-      classServer = server
+    startHttpServer(outputDir).foreach { case (server, uri) =>
+      sparkHttpServer = server
       conf.set("spark.repl.class.uri", uri)
     }
 
@@ -93,11 +93,11 @@ class SparkInterpreter(conf: SparkConf)
   }
 
   override def close(): Unit = synchronized {
-    if (classServer != null) {
-      val method = classServer.getClass.getMethod("stop")
+    if (sparkHttpServer != null) {
+      val method = sparkHttpServer.getClass.getMethod("stop")
       method.setAccessible(true)
-      method.invoke(classServer)
-      classServer = null
+      method.invoke(sparkHttpServer)
+      sparkHttpServer = null
     }
     if (sparkContext != null) {
       sparkContext.stop()
@@ -137,29 +137,30 @@ class SparkInterpreter(conf: SparkConf)
       method.invoke(null, rootDir, "spark").asInstanceOf[File]
     } catch {
       case NonFatal(e) =>
-        val file = new File(rootDir, s"spark-${UUID.randomUUID().toString}")
-        file.mkdir()
-        file
+        val dir = new File(rootDir, s"spark-${UUID.randomUUID().toString}")
+        dir.mkdir()
+        dir
     }
   }
 
-  private def startHttpServer(outputDir: File): (Object, String) = {
+  private def startHttpServer(outputDir: File): Option[(Object, String)] = {
     try {
+      val httpServerClass = Class.forName("org.apche.spark.HttpServer")
       val securityManager = {
         val constructor = Class.forName("org.apache.spark.SecurityManager")
           .getConstructor(classOf[SparkConf])
         constructor.setAccessible(true)
         constructor.newInstance(conf).asInstanceOf[Object]
       }
-      val classServerConstructor = Class.forName("org.apache.spark.HttpServer")
+      val httpServerConstructor = httpServerClass
         .getConstructor(classOf[SparkConf],
           classOf[File],
           Class.forName("org.apache.spark.SecurityManager"),
           classOf[Int],
           classOf[String])
-      classServerConstructor.setAccessible(true)
+      httpServerConstructor.setAccessible(true)
       // Create Http Server
-      val server = classServerConstructor
+      val server = httpServerConstructor
         .newInstance(conf, outputDir, securityManager, new Integer(0), "HTTP server")
         .asInstanceOf[Object]
 
@@ -172,11 +173,11 @@ class SparkInterpreter(conf: SparkConf)
       val uriMethod = server.getClass.getMethod("uri")
       uriMethod.setAccessible(true)
       val uri = uriMethod.invoke(server).asInstanceOf[String]
-      (server, uri)
+      Some((server, uri))
     } catch {
       // Spark 2.0+ removed HttpServer, so return null instead.
       case NonFatal(e) =>
-        null
+        None
     }
   }
 }

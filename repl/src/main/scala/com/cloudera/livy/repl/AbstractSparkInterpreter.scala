@@ -30,6 +30,13 @@ import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
 
+object AbstractSparkInterpreter {
+  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:[  |\t].+?\n?)*)""".r
+  private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
+  private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
+  val USER_CODE_FRAME_NAME = "<user code>"
+}
+
 abstract class AbstractSparkInterpreter extends Interpreter with Logging {
   import AbstractSparkInterpreter._
 
@@ -257,11 +264,4 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 
     output
   }
-}
-
-object AbstractSparkInterpreter {
-  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:[  |\t].+?\n?)*)""".r
-  private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
-  private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
-  val USER_CODE_FRAME_NAME = "<user code>"
 }

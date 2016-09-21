@@ -115,6 +115,7 @@ class SparkInterpreter(conf: SparkConf)
   override def close(): Unit = synchronized {
     if (sparkContext != null) {
       sparkContext.stop()
+      sparkContext = null
     }
 
     if (sparkIMain != null) {

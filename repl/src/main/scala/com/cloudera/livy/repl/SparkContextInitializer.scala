@@ -30,7 +30,7 @@ trait SparkContextInitializer extends Logging {
   self: SparkInterpreter =>
 
   def createSparkContext(conf: SparkConf): Unit = {
-    if (isSparkSessionPresent) {
+    if (isSparkSessionPresent()) {
       spark2CreateContext(conf)
     } else {
       spark1CreateContext(conf)
@@ -86,18 +86,22 @@ trait SparkContextInitializer extends Logging {
     var spark: Object = null
     if (conf.get("spark.sql.catalogImplementation", "hive").toLowerCase == "hive") {
       if (sparkClz.getMethod("hiveClassesArePresent").invoke(sparkObj).asInstanceOf[Boolean]) {
+        val loader = Option(Thread.currentThread().getContextClassLoader)
+          .getOrElse(getClass.getClassLoader)
+        if (loader.getResource("hive-site.xml") == null) {
+          warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
+        }
+
         builder.getClass.getMethod("enableHiveSupport").invoke(builder)
         spark = builder.getClass.getMethod("getOrCreate").invoke(builder)
-        info("Created Spark session with Hive support")
+        info("Created Spark session (with Hive support).")
       } else {
-        builder.getClass.getMethod("config", classOf[String], classOf[String])
-          .invoke(builder, "spark.sql.catalogImplementation", "in-memory")
         spark = builder.getClass.getMethod("getOrCreate").invoke(builder)
-        info("Created Spark session")
+        info("Created Spark session.")
       }
     } else {
       spark = builder.getClass.getMethod("getOrCreate").invoke(builder)
-      info("Created Spark session")
+      info("Created Spark session.")
     }
 
     sparkContext = spark.getClass.getMethod("sparkContext").invoke(spark)
@@ -112,7 +116,7 @@ trait SparkContextInitializer extends Logging {
     execute("import org.apache.spark.sql.functions._")
   }
 
-  private def isSparkSessionPresent: Boolean = {
+  private def isSparkSessionPresent(): Boolean = {
     try {
       Class.forName("org.apache.spark.sql.SparkSession")
       true

@@ -16,36 +16,48 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.server
+package com.cloudera.livy.utils
 
 import org.scalatest.FunSuite
 
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
+import com.cloudera.livy.server.LivyServer
 
-class LivyServerSuite extends FunSuite with LivyBaseUnitTestSuite {
+class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
+
+  import LivySparkUtils._
 
   private val livyConf = new LivyConf()
 
   test("check for SPARK_HOME") {
-    new LivyServer().testSparkHome(livyConf)
+    testSparkHome(livyConf)
   }
 
   test("check spark-submit version") {
-    new LivyServer().testSparkSubmit(livyConf)
+    testSparkSubmit(livyConf)
   }
 
   test("should support Spark 1.6") {
-    val s = new LivyServer()
-    s.testSparkVersion("1.6.0")
-    s.testSparkVersion("1.6.1")
-    s.testSparkVersion("1.6.2")
+    testSparkVersion("1.6.0")
+    testSparkVersion("1.6.1")
+    testSparkVersion("1.6.2")
   }
 
-  test("should not support Spark older than 1.6") {
+  test("should support Spark 2.0.x") {
+    testSparkVersion("2.0.0")
+    testSparkVersion("2.0.1")
+    testSparkVersion("2.0.2")
+  }
+
+  test("should not support Spark older than 1.6 or newer than 2.0") {
     val s = new LivyServer()
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.0") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.0") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.1") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.2") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.4.0") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.5.0") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.5.1") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.5.2") }
+
+    intercept[IllegalArgumentException] { testSparkVersion("2.1.0") }
+    intercept[IllegalArgumentException] { testSparkVersion("2.1.2") }
+    intercept[IllegalArgumentException] { testSparkVersion("2.2.1") }
   }
 }
