@@ -41,28 +41,34 @@ class LivyServerSuite extends FunSuite {
     s.testSparkVersion("1.6.2")
   }
 
-  test("should support Spark 1.5") {
-    val s = new LivyServer()
-    s.testSparkVersion("1.5.0")
-    s.testSparkVersion("1.5.1")
-    s.testSparkVersion("1.5.2")
-  }
-
   test("should not support Spark older than 1.5") {
     val s = new LivyServer()
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.0") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.1") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.0", "yarn-master") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.4.1", "yarn-master") }
+  }
+
+  test("should support Spark 1.5 in yarn-client mode") {
+    val s = new LivyServer()
+    s.testSparkVersion("1.5.0", "yarn-client")
+    s.testSparkVersion("1.5.1", "yarn-client")
+    s.testSparkVersion("1.5.2", "yarn-client")
   }
 
   test("should support CDH version of Spark") {
     val s = new LivyServer()
-    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.0-cdh5.5.2") }
+    s.testSparkVersion("1.5.0-cdh5.5.2", "yarn-client")
+    s.testSparkVersion("1.6.0-cdh5.7.3", "yarn-master")
+  }
+
+  test("should not support Spark 1.5 in YARN master mode") {
+    val s = new LivyServer()
+    intercept[IllegalArgumentException] { s.testSparkVersion("1.5.0-cdh5.5.2", "yarn-master") }
   }
 
   test("should not support Spark 2.0+") {
     val s = new LivyServer()
-    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.0") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.1") }
-    intercept[IllegalArgumentException] { s.testSparkVersion("2.1.0") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.0", "yarn-master") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.0.1", "yarn-master") }
+    intercept[IllegalArgumentException] { s.testSparkVersion("2.1.0", "yarn-master") }
   }
 }
