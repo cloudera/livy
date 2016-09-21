@@ -35,8 +35,8 @@ import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
-import com.cloudera.livy.utils.SparkYarnApp
 import com.cloudera.livy.utils.LivySparkUtils._
+import com.cloudera.livy.utils.SparkYarnApp
 
 class LivyServer extends Logging {
 

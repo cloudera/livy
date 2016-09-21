@@ -21,6 +21,7 @@ package com.cloudera.livy.utils
 import java.io.{File, IOException}
 
 import scala.math.Ordering.Implicits._
+
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.util.LineBufferedProcess
 
