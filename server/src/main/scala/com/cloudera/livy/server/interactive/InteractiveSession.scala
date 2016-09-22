@@ -133,7 +133,7 @@ class InteractiveSession(
       SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
       SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
       SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
-      "spark.dynamicAllocation.maxExecutors" -> request.numExecutors.map(_.toString)
+      "spark.executor.instances" -> request.numExecutors.map(_.toString)
     )
 
     userOpts.foreach { case (key, opt) =>
