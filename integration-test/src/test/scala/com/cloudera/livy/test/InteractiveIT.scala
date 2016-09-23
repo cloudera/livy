@@ -47,7 +47,8 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
 
     dumpLogOnFailure(sessionId) {
       matchResult("1+1", "res0: Int = 2")
-      matchResult("sqlContext", startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
+      matchResult("""sc.getConf.get("spark.executor.instances")""", "res1: String = 1")
+      matchResult("sqlContext", startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
         startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
 

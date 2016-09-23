@@ -126,6 +126,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
       val requestBody = new CreateInteractiveRequest()
       requestBody.kind = kind
       requestBody.conf = sparkConf
+      requestBody.numExecutors = Some(1)
 
       val rep = httpClient.preparePost(s"$livyEndpoint/sessions")
         .setBody(mapper.writeValueAsString(requestBody))
