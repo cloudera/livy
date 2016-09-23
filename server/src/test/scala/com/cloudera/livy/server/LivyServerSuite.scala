@@ -20,9 +20,9 @@ package com.cloudera.livy.server
 
 import org.scalatest.FunSuite
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 
-class LivyServerSuite extends FunSuite {
+class LivyServerSuite extends FunSuite with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
 

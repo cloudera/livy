@@ -24,7 +24,9 @@ import org.scalatest.FunSpecLike
 import org.scalatra.ScalatraServlet
 import org.scalatra.test.scalatest.ScalatraSuite
 
-class ApiVersioningSupportSpec extends ScalatraSuite with FunSpecLike {
+import com.cloudera.livy.LivyBaseUnitTestSuite
+
+class ApiVersioningSupportSpec extends ScalatraSuite with FunSpecLike with LivyBaseUnitTestSuite {
   val LatestVersionOutput = "latest"
 
   object FakeApiVersions extends Enumeration {

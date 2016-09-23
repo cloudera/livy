@@ -29,7 +29,7 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   override protected def withFixture(test: NoArgTest): Outcome = {
     assume(!sys.props.getOrElse("skipRTests", "false").toBoolean, "Skipping R tests.")
-    test()
+    super.withFixture(test)
   }
 
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())

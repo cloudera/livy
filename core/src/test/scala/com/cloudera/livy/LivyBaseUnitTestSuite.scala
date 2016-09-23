@@ -16,23 +16,20 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.repl
+package com.cloudera.livy
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.{Outcome, Suite}
 
-import com.cloudera.livy.LivyBaseUnitTestSuite
+trait LivyBaseUnitTestSuite extends Suite with Logging {
 
-abstract class BaseInterpreterSpec extends FlatSpec with Matchers with LivyBaseUnitTestSuite {
-
-  def createInterpreter(): Interpreter
-
-  def withInterpreter(testCode: Interpreter => Any): Unit = {
-    val interpreter = createInterpreter()
+  protected override def withFixture(test: NoArgTest): Outcome = {
+    val testName = test.name
+    val suiteName = this.getClass.getName
     try {
-      interpreter.start()
-      testCode(interpreter)
+      info(s"\n\n==== TEST OUTPUT FOR $suiteName: '$testName' ====\n")
+      test()
     } finally {
-      interpreter.close()
+      info(s"\n\n==== FINISHED $suiteName: '$testName' ====\n")
     }
   }
 }

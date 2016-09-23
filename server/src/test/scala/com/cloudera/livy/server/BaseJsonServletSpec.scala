@@ -25,8 +25,9 @@ import scala.reflect.ClassTag
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.scalatest.FunSpecLike
-import org.scalatra._
 import org.scalatra.test.scalatest.ScalatraSuite
+
+import com.cloudera.livy.LivyBaseUnitTestSuite
 
 /**
  * Base class that enhances ScalatraSuite so that it's easier to test JsonServlet
@@ -37,7 +38,8 @@ import org.scalatra.test.scalatest.ScalatraSuite
  * In case the response is not JSON, the expected type for the test function should be
  * `Unit`, and the `response` object should be checked directly.
  */
-abstract class BaseJsonServletSpec extends ScalatraSuite with FunSpecLike {
+abstract class BaseJsonServletSpec extends ScalatraSuite
+  with FunSpecLike with LivyBaseUnitTestSuite {
 
   protected val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)

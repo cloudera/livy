@@ -26,9 +26,10 @@ import org.json4s.DefaultFormats
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 
+import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.sessions.SessionState
 
-abstract class BaseSessionSpec extends FlatSpec with Matchers {
+abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitTestSuite {
 
   implicit val formats = DefaultFormats
 
