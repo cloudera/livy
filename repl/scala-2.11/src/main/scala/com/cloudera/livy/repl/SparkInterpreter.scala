@@ -145,7 +145,7 @@ class SparkInterpreter(conf: SparkConf)
 
   private def startHttpServer(outputDir: File): Option[(Object, String)] = {
     try {
-      val httpServerClass = Class.forName("org.apche.spark.HttpServer")
+      val httpServerClass = Class.forName("org.apache.spark.HttpServer")
       val securityManager = {
         val constructor = Class.forName("org.apache.spark.SecurityManager")
           .getConstructor(classOf[SparkConf])

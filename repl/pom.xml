@@ -50,17 +50,17 @@
             <artifactId>livy-core_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
             <exclusions>
-              <!-- Provided and shaded by livy-rsc already. -->
-              <exclusion>
-                <groupId>com.cloudera.livy</groupId>
-                <artifactId>livy-client-common</artifactId>
-              </exclusion>
+                <!-- Provided and shaded by livy-rsc already. -->
+                <exclusion>
+                    <groupId>com.cloudera.livy</groupId>
+                    <artifactId>livy-client-common</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>livy-core</artifactId>
+            <artifactId>livy-core_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
@@ -90,9 +90,9 @@
         </dependency>
 
         <dependency>
-          <groupId>log4j</groupId>
-          <artifactId>log4j</artifactId>
-          <scope>provided</scope>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -179,7 +179,7 @@
                 </executions>
             </plugin>
 
-             <plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <configuration>

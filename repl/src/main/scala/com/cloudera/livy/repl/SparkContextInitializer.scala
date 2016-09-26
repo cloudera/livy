@@ -38,9 +38,7 @@ trait SparkContextInitializer extends Logging {
   }
 
   private def spark1CreateContext(conf: SparkConf): Unit = {
-    val sparkClz = classOf[SparkContext]
-    sparkContext = sparkClz.getMethod("getOrCreate", classOf[SparkConf]).invoke(null, conf)
-      .asInstanceOf[SparkContext]
+    sparkContext = SparkContext.getOrCreate(conf)
     var sqlContext: Object = null
 
     if (conf.getBoolean("spark.repl.enableHiveContext", false)) {
