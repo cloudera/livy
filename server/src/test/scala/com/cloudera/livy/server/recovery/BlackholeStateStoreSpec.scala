@@ -30,7 +30,7 @@ class BlackholeStateStoreSpec extends FunSpec {
     }
 
     it("get should return None") {
-      val v = stateStore.get("", classOf[Object])
+      val v = stateStore.get[Object]("")
       v shouldBe None
     }
 

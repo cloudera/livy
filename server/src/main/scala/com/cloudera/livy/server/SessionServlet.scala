@@ -38,7 +38,7 @@ object SessionServlet extends Logging
  *  S: the session type
  */
 abstract class SessionServlet[S <: Session](
-    val sessionManager: SessionManager[S],
+    private[livy] val sessionManager: SessionManager[S],
     livyConf: LivyConf)
   extends JsonServlet
   with ApiVersioningSupport

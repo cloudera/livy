@@ -30,14 +30,12 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     val conf = new LivyConf(false)
     conf.hadoopConf.set("fs.defaultFS", "dummy:///")
 
-    val session = new MockSession(0, null, conf)
-
     val uris = Seq("http://example.com/foo", "hdfs:/bar", "/baz")
     val expected = Seq(uris(0), uris(1), "dummy:///baz")
-    assert(session.resolveURIs(uris) === expected)
+    assert(Session.resolveURIs(uris, conf) === expected)
 
     intercept[IllegalArgumentException] {
-      session.resolveURI(new URI("relative_path"))
+      Session.resolveURI(new URI("relative_path"), conf)
     }
   }
 
@@ -45,15 +43,13 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     val conf = new LivyConf(false)
     conf.set(LivyConf.LOCAL_FS_WHITELIST, "/allowed/,/also_allowed")
 
-    val session = new MockSession(0, null, conf)
-
     Seq("/allowed/file", "/also_allowed/file").foreach { path =>
-      assert(session.resolveURI(new URI(path)) === new URI("file://" + path))
+      assert(Session.resolveURI(new URI(path), conf) === new URI("file://" + path))
     }
 
     Seq("/not_allowed", "/allowed_not_really").foreach { path =>
       intercept[IllegalArgumentException] {
-        session.resolveURI(new URI(path))
+        Session.resolveURI(new URI(path), conf)
       }
     }
   }
@@ -63,31 +59,29 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     conf.hadoopConf.set("fs.defaultFS", "dummy:///")
     conf.set(LivyConf.LOCAL_FS_WHITELIST, "/allowed")
 
-    val session = new MockSession(0, null, conf)
-
     // Test baseline.
-    assert(session.prepareConf(Map(), Nil, Nil, Nil, Nil) === Map("spark.master" -> "local"))
+    assert(Session.prepareConf(Map(), Nil, Nil, Nil, Nil, conf) === Map("spark.master" -> "local"))
 
     // Test validations.
     intercept[IllegalArgumentException] {
-      session.prepareConf(Map("spark.do_not_set" -> "1"), Nil, Nil, Nil, Nil)
+      Session.prepareConf(Map("spark.do_not_set" -> "1"), Nil, Nil, Nil, Nil, conf)
     }
     conf.sparkFileLists.foreach { key =>
       intercept[IllegalArgumentException] {
-        session.prepareConf(Map(key -> "file:/not_allowed"), Nil, Nil, Nil, Nil)
+        Session.prepareConf(Map(key -> "file:/not_allowed"), Nil, Nil, Nil, Nil, conf)
       }
     }
     intercept[IllegalArgumentException] {
-      session.prepareConf(Map(), Seq("file:/not_allowed"), Nil, Nil, Nil)
+      Session.prepareConf(Map(), Seq("file:/not_allowed"), Nil, Nil, Nil, conf)
     }
     intercept[IllegalArgumentException] {
-      session.prepareConf(Map(), Nil, Seq("file:/not_allowed"), Nil, Nil)
+      Session.prepareConf(Map(), Nil, Seq("file:/not_allowed"), Nil, Nil, conf)
     }
     intercept[IllegalArgumentException] {
-      session.prepareConf(Map(), Nil, Nil, Seq("file:/not_allowed"), Nil)
+      Session.prepareConf(Map(), Nil, Nil, Seq("file:/not_allowed"), Nil, conf)
     }
     intercept[IllegalArgumentException] {
-      session.prepareConf(Map(), Nil, Nil, Nil, Seq("file:/not_allowed"))
+      Session.prepareConf(Map(), Nil, Nil, Nil, Seq("file:/not_allowed"), conf)
     }
 
     // Test that file lists are merged and resolved.
@@ -98,8 +92,8 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     val userLists = Seq(LivyConf.SPARK_JARS, LivyConf.SPARK_FILES, LivyConf.SPARK_ARCHIVES,
       LivyConf.SPARK_PY_FILES)
     val baseConf = userLists.map { key => (key -> base) }.toMap
-    val result = session.prepareConf(baseConf, other, other, other, other)
-    userLists.foreach { key => assert(result.get(key) ===  expected) }
+    val result = Session.prepareConf(baseConf, other, other, other, other, conf)
+    userLists.foreach { key => assert(result.get(key) === expected) }
   }
 
 }

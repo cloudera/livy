@@ -18,6 +18,7 @@
 package com.cloudera.livy.server.recovery
 
 import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.retry.RetryNTimes
@@ -42,11 +43,15 @@ class ZooKeeperStateStore(
     CuratorFrameworkFactory.newClient(zkAddress, new RetryNTimes(5, 100))
   }
 
-  Runtime.getRuntime.addShutdownHook(new Thread() {
-    curatorClient.close()
-  })
+  Runtime.getRuntime.addShutdownHook(new Thread(new Runnable {
+    override def run(): Unit = {
+      curatorClient.close()
+    }
+  }))
 
   curatorClient.start()
+  // TODO Make sure ZK path has proper secure permissions so that other users cannot read its
+  // contents.
 
   override def set(key: String, value: Object): Unit = {
     val prefixedKey = prefixKey(key)
@@ -58,12 +63,12 @@ class ZooKeeperStateStore(
     }
   }
 
-  override def get[T](key: String, valueType: Class[T]): Option[T] = {
+  override def get[T: ClassTag](key: String): Option[T] = {
     val prefixedKey = prefixKey(key)
     if (curatorClient.checkExists().forPath(prefixedKey) == null) {
       None
     } else {
-      Option(deserialize(curatorClient.getData().forPath(prefixedKey), valueType))
+      Option(deserialize[T](curatorClient.getData().forPath(prefixedKey)))
     }
   }
 

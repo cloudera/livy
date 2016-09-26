@@ -17,11 +17,14 @@
  */
 package com.cloudera.livy.server.recovery
 
+import scala.reflect._
+
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.SessionKindModule
+import com.cloudera.livy.sessions.SessionManager._
 
 trait StateStoreCompanion {
   def create(livyConf: LivyConf): StateStore
@@ -36,9 +39,11 @@ protected trait JsonMapper {
 
   def serializeToBytes(value: Object): Array[Byte] = mapper.writeValueAsBytes(value)
 
-  def deserialize[T](json: String, valueType: Class[T]): T = mapper.readValue(json, valueType)
+  def deserialize[T: ClassTag](json: String): T =
+    mapper.readValue(json, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
-  def deserialize[T](json: Array[Byte], valueType: Class[T]): T = mapper.readValue(json, valueType)
+  def deserialize[T: ClassTag](json: Array[Byte]): T =
+    mapper.readValue(json, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 }
 
 /**
@@ -60,7 +65,7 @@ abstract class StateStore extends JsonMapper {
    * @return Value if the key exists. None if the key doesn't exist.
    * @throws Exception Throw when deserialization of the stored value fails.
    */
-  def get[T](key: String, valueType: Class[T]): Option[T]
+  def get[T: ClassTag](key: String): Option[T]
 
   /**
    * Treat keys in this state store as a directory tree and
@@ -96,13 +101,14 @@ object StateStore extends Logging {
   // Return the StateStore's companion object from its class name.
   // Using reflection here to avoid static dependency on Apache Curator.
   // scala.reflect.runtime.universe isn't thread safe. Play safe and use Manifest.
+  // TODO Use scala.reflect.runtime.universe after migrating to Scala 2.11.
   private def getCompanionObject[T](name : String)(implicit man: Manifest[T]) : T =
     Class.forName(name).getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
 
   private[recovery] def pickStateStore(livyConf: LivyConf): String = {
     livyConf.get(LivyConf.RECOVERY_MODE) match {
-      case SessionRecoveryMode.OFF => BlackholeStateStore.getClass.getName
-      case SessionRecoveryMode.RECOVERY =>
+      case SESSION_RECOVERY_MODE_OFF => BlackholeStateStore.getClass.getName
+      case SESSION_RECOVERY_MODE_RECOVERY =>
         livyConf.get(LivyConf.RECOVERY_STATE_STORE) match {
           case "filesystem" => FileSystemStateStore.getClass.getName
           case "zookeeper" => ZooKeeperStateStore.getClass.getName

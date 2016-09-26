@@ -44,7 +44,7 @@ class BatchSessionServlet(
     val createRequest = bodyAs[CreateBatchRequest](req)
     val proxyUser = checkImpersonation(createRequest.proxyUser, req)
     BatchSession.create(
-      sessionManager.nextId(), remoteUser(req), proxyUser, livyConf, createRequest, sessionStore)
+      sessionManager.nextId(), createRequest, livyConf, remoteUser(req), proxyUser, sessionStore)
   }
 
   override protected[batch] def clientSessionView(

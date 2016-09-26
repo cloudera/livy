@@ -69,7 +69,7 @@ class BatchSessionSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
-      val batch = BatchSession.create(0, null, None, conf, req, sessionStore)
+      val batch = BatchSession.create(0, req, conf, null, None, sessionStore)
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
       (batch.state match {
@@ -84,7 +84,7 @@ class BatchSessionSpec
       val conf = new LivyConf()
       val req = new CreateBatchRequest()
       val mockApp = mock[SparkApp]
-      val batch = BatchSession.create(0, null, None, conf, req, sessionStore, Some(mockApp))
+      val batch = BatchSession.create(0, req, conf, null, None, sessionStore, Some(mockApp))
 
       val expectedAppId = "APPID"
       batch.appIdKnown(expectedAppId)
@@ -97,41 +97,17 @@ class BatchSessionSpec
       batch.appInfo shouldEqual expectedAppInfo
     }
 
-    it("should update session store on stop") {
+    it("should recover session") {
       val conf = new LivyConf()
       val req = new CreateBatchRequest()
       val mockApp = mock[SparkApp]
-      val batch = BatchSession.create(0, null, None, conf, req, sessionStore, Some(mockApp))
-
-      batch.stopSession()
-      verify(sessionStore).remove(BatchSession.RECOVERY_SESSION_TYPE, batch.id)
-    }
-
-    it("should recover session when appId is unknown") {
-      val conf = new LivyConf()
-      val req = new CreateBatchRequest()
-      val mockApp = mock[SparkApp]
-      val m = BatchRecoveryMetadata(99, "appTag", None, null, None)
+      val m = BatchRecoveryMetadata(99, None, "appTag", null, None)
       val batch = BatchSession.recover(m, conf, sessionStore, Some(mockApp))
 
       batch.state shouldBe a[SessionState.Recovering]
 
       batch.appIdKnown("appId")
       verify(sessionStore, atLeastOnce()).save(
-        Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
-    }
-
-    it("should recover session when appId is known") {
-      val conf = new LivyConf()
-      val req = new CreateBatchRequest()
-      val mockApp = mock[SparkApp]
-      val m = BatchRecoveryMetadata(99, "appTag", Some("appId"), null, None)
-      val batch = BatchSession.recover(m, conf, sessionStore, Some(mockApp))
-
-      batch.state shouldBe a[SessionState.Recovering]
-
-      batch.appIdKnown("appId")
-      verify(sessionStore, never()).save(
         Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
     }
   }

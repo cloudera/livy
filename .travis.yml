@@ -33,7 +33,7 @@ before_script:
   - pip3 install --user requests pytest flaky
 
 script:
-  - mvn verify
+  - mvn verify -e
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

@@ -251,7 +251,7 @@ class SparkYarnApp private[utils] (
         changeState(SparkApp.State.KILLED)
       case e: Throwable =>
         error(s"Error whiling refreshing YARN state: $e")
-        yarnDiagnostics = ArrayBuffer(e.toString)
+        yarnDiagnostics = ArrayBuffer(e.toString, e.getStackTrace().mkString(" "))
         changeState(SparkApp.State.FAILED)
     }
   }

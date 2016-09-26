@@ -22,6 +22,7 @@ import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 
 import com.cloudera.livy.LivyConf
+import com.cloudera.livy.sessions.SessionManager
 
 class StateStoreSpec extends FunSpec {
   describe("StateStore") {
@@ -45,7 +46,7 @@ class StateStoreSpec extends FunSpec {
 
     def createConf(stateStore: String): LivyConf = {
       val conf = new LivyConf()
-      conf.set(LivyConf.RECOVERY_MODE.key, SessionRecoveryMode.RECOVERY)
+      conf.set(LivyConf.RECOVERY_MODE.key, SessionManager.SESSION_RECOVERY_MODE_RECOVERY)
       conf.set(LivyConf.RECOVERY_STATE_STORE.key, stateStore)
       conf
     }

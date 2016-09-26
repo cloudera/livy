@@ -90,7 +90,7 @@ class ZooKeeperStateStoreSpec extends FunSpec {
         when(f.curatorClient.getData()).thenReturn(getDataBuilder)
         when(getDataBuilder.forPath(prefixedKey)).thenReturn(Array[Byte](50))
 
-        val v = f.stateStore.get("key", classOf[Int])
+        val v = f.stateStore.get[Int]("key")
 
         verify(f.curatorClient).start()
         v shouldBe Some(2)
@@ -101,7 +101,7 @@ class ZooKeeperStateStoreSpec extends FunSpec {
       withMock { f =>
         mockExistsBuilder(f.curatorClient, false)
 
-        val v = f.stateStore.get("key", classOf[Int])
+        val v = f.stateStore.get[Int]("key")
 
         verify(f.curatorClient).start()
         v shouldBe None

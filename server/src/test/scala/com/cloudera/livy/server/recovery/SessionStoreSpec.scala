@@ -43,7 +43,6 @@ class SessionStoreSpec extends FunSpec {
 
       val m = TestRecoveryMetadata(99)
       sessionStore.save(sessionType, m)
-      verify(stateStore).set(sessionManagerPath, SessionManagerState(100))
       verify(stateStore).set(s"$sessionPath/99", m)
     }
 
@@ -62,14 +61,14 @@ class SessionStoreSpec extends FunSpec {
         .thenReturn((validMetadata ++ corruptedMetadata).keys.toList)
 
       validMetadata.foreach { case (id, m) =>
-        when(stateStore.get(s"$sessionPath/$id", classOf[TestRecoveryMetadata])).thenReturn(m)
+        when(stateStore.get[TestRecoveryMetadata](s"$sessionPath/$id")).thenReturn(m)
       }
 
       corruptedMetadata.foreach { case (id, ex) =>
-        when(stateStore.get(s"$sessionPath/$id", classOf[TestRecoveryMetadata])).thenThrow(ex)
+        when(stateStore.get[TestRecoveryMetadata](s"$sessionPath/$id")).thenThrow(ex)
       }
 
-      val s = sessionStore.getAllSessions(sessionType, classOf[TestRecoveryMetadata])
+      val s = sessionStore.getAllSessions[TestRecoveryMetadata](sessionType)
       // Verify normal metadata are retrieved.
       s.filter(_.isSuccess) should contain theSameElementsAs
         validMetadata.values.filter(_.isDefined).map(m => Success(m.get))
@@ -82,7 +81,7 @@ class SessionStoreSpec extends FunSpec {
       val sessionStore = new SessionStore(conf, stateStore)
       when(stateStore.getChildren(sessionPath)).thenReturn(Seq.empty)
 
-      val s = sessionStore.getAllSessions(sessionType, classOf[TestRecoveryMetadata])
+      val s = sessionStore.getAllSessions[TestRecoveryMetadata](sessionType)
       s.filter(_.isSuccess) shouldBe empty
     }
 
@@ -90,11 +89,11 @@ class SessionStoreSpec extends FunSpec {
       val stateStore = mock[StateStore]
       val sessionStore = new SessionStore(conf, stateStore)
 
-      when(stateStore.get(sessionManagerPath, classOf[SessionManagerState])).thenReturn(None)
+      when(stateStore.get[SessionManagerState](sessionManagerPath)).thenReturn(None)
       sessionStore.getNextSessionId(sessionType) shouldBe 0
 
       val sms = SessionManagerState(100)
-      when(stateStore.get(sessionManagerPath, classOf[SessionManagerState])).thenReturn(Some(sms))
+      when(stateStore.get[SessionManagerState](sessionManagerPath)).thenReturn(Some(sms))
       sessionStore.getNextSessionId(sessionType) shouldBe sms.nextSessionId
     }
 

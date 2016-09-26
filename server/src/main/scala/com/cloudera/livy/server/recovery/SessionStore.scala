@@ -17,10 +17,10 @@
  */
 package com.cloudera.livy.server.recovery
 
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 import com.cloudera.livy.{LivyConf, Logging}
-import com.cloudera.livy.server.batch.BatchRecoveryMetadata
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 private[recovery] case class SessionManagerState(nextSessionId: Int)
@@ -34,41 +34,39 @@ class SessionStore(
   extends Logging {
 
   private val STORE_VERSION: String = "v1"
-  private var nextSessionId = 0
 
   /**
    * Persist a session to the session state store.
    * @param m RecoveryMetadata for the session.
    */
-  def save(sessionType: String, m: RecoveryMetadata): Unit = synchronized {
-    // Update nextSessionId in SessionManagerState.
-    nextSessionId = Math.max(nextSessionId, m.id + 1)
-    store.set(sessionManagerPath(sessionType), SessionManagerState(nextSessionId))
-
+  def save(sessionType: String, m: RecoveryMetadata): Unit = {
     store.set(sessionPath(sessionType, m.id), m)
+  }
+
+  def saveNextSessionId(sessionType: String, id: Int): Unit = {
+    store.set(sessionManagerPath(sessionType), SessionManagerState(id))
   }
 
   /**
    * Return all sessions stored in the store with specified session type.
    */
-  def getAllSessions[T <: RecoveryMetadata](
-      sessionType: String,
-      metadataType: Class[T]): Seq[Try[T]] = {
+  def getAllSessions[T <: RecoveryMetadata : ClassTag](
+      sessionType: String): Seq[Try[T]] = {
     store.getChildren(sessionPath(sessionType))
-      .flatMap(c => Try(c.toInt).toOption) // Ignore all non numerical keys
-      .map({id =>
+      .flatMap { c => Try(c.toInt).toOption } // Ignore all non numerical keys
+      .map { id =>
         val p = sessionPath(sessionType, id)
-        Try(store.get(p, metadataType)) recover {
+        Try(store.get[T](p)) recover {
           // Add session path to the exception.
           case e: Throwable => throw new Exception(s"Error getting session $p", e)
         }
-      })
-      .flatMap(_ match {
+      }
+      .flatMap {
         case Success(None) => None // Remove None wrapped in Try.
         // Convert Try[Option[T]] to Try[T]
         case Success(Some(session)) => Option(Success(session))
         case Failure(ex) => Option(Failure(ex))
-      })
+      }
   }
 
   /**
@@ -79,7 +77,7 @@ class SessionStore(
    * @throws Exception If SessionManagerState stored is corrupted, it throws an error.
    */
   def getNextSessionId(sessionType: String): Int = {
-    store.get(sessionManagerPath(sessionType), classOf[SessionManagerState])
+    store.get[SessionManagerState](sessionManagerPath(sessionType))
       .map(_.nextSessionId).getOrElse(0)
   }
 

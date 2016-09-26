@@ -17,14 +17,20 @@
  */
 package com.cloudera.livy.server.recovery
 
-import java.io.{ByteArrayOutputStream, FileNotFoundException}
+import java.io.IOException
 import java.net.URI
 import java.util
+import java.util.UUID
 
-import org.apache.hadoop.fs.{CreateFlag, FileContext, FSDataInputStream, Path}
+import scala.reflect.ClassTag
+
+import org.apache.commons.io.IOUtils
+import org.apache.hadoop.fs._
 import org.apache.hadoop.fs.Options.{CreateOpts, Rename}
+import org.apache.hadoop.fs.permission.{FsAction, FsPermission}
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.Utils.usingResource
 
 object FileSystemStateStore extends StateStoreCompanion {
   override def create(livyConf: LivyConf): StateStore = new FileSystemStateStore(livyConf)
@@ -39,34 +45,48 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
 
   private val fileContext: FileContext = FileContext.getFileContext(fsUri)
 
+  {
+    // Only Livy user should have access to state files.
+    fileContext.setUMask(new FsPermission("077"))
+
+    // Create state store dir if it doesn't exist.
+    try {
+      fileContext.mkdir(absPath("."), FsPermission.getDirDefault(), true)
+    } catch {
+      case _: FileAlreadyExistsException =>
+    }
+
+    // Check permission of state store dir.
+    val fileStatus = fileContext.getFileStatus(absPath("."))
+    assert(fileStatus.getPermission.getUserAction() == FsAction.ALL,
+      s"Livy doesn't have permission to access state store: $fsUri.")
+    assert(fileStatus.getPermission.getGroupAction() == FsAction.NONE,
+      s"Group users have permission to access state store: $fsUri. This is insecure.")
+    assert(fileStatus.getPermission.getOtherAction() == FsAction.NONE,
+      s"Other users have permission to access state store: $fsUri. This is insecure.")
+  }
+
   override def set(key: String, value: Object): Unit = {
     // Write to a temp file then rename to avoid file corruption if livy-server crashes
     // in the middle of the write.
     val tmpPath = absPath(s"$key.tmp")
-    val tmpFileOutput = fileContext.create(tmpPath,
-      util.EnumSet.of(CreateFlag.CREATE, CreateFlag.OVERWRITE),
-      CreateOpts.createParent())
+    val createFlag = util.EnumSet.of(CreateFlag.CREATE, CreateFlag.OVERWRITE)
 
-    try {
-      tmpFileOutput.write(serializeToBytes(value))
-    } finally {
-      tmpFileOutput.close()
+    usingResource(fileContext.create(tmpPath, createFlag, CreateOpts.createParent())) { tmpFile =>
+      tmpFile.write(serializeToBytes(value))
+      tmpFile.close()
       // Assume rename is atomic.
       fileContext.rename(tmpPath, absPath(key), Rename.OVERWRITE)
     }
   }
 
-  override def get[T](key: String, valueType: Class[T]): Option[T] = {
+  override def get[T: ClassTag](key: String): Option[T] = {
     try {
-      val is = fileContext.open(absPath(key))
-      try {
-        val b = readAllBytes(is)
-        Option(deserialize(b, valueType))
-      } finally {
-        is.close()
+      usingResource(fileContext.open(absPath(key))) { is =>
+        Option(deserialize[T](IOUtils.toByteArray(is)))
       }
     } catch {
-      case _: FileNotFoundException => None
+      case _: IOException => None
     }
   }
 
@@ -74,7 +94,7 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
     try {
       fileContext.util.listStatus(absPath(key)).map(_.getPath.getName)
     } catch {
-      case _: FileNotFoundException => Seq.empty
+      case _: IOException => Seq.empty
     }
   }
 
@@ -82,17 +102,5 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
     fileContext.delete(absPath(key), false)
   }
 
-  private def absPath(key: String): Path = new Path(s"${fsUri.getPath}/$key")
-
-  private def readAllBytes(is: FSDataInputStream): Array[Byte] = {
-    val wholeBuf = new ByteArrayOutputStream()
-
-    val buf = Array.ofDim[Byte](1024)
-    while(is.available() > 0) {
-      val readByteCount = is.read(buf)
-      wholeBuf.write(buf, 0, readByteCount)
-    }
-
-    wholeBuf.toByteArray
-  }
+  private def absPath(key: String): Path = new Path(fsUri.getPath(), key)
 }

@@ -18,8 +18,6 @@
 
 package com.cloudera.livy.sessions
 
-import java.net.URI
-
 import com.cloudera.livy.LivyConf
 
 class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
@@ -36,17 +34,4 @@ class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, ow
   override val timeout: Long = 0L
 
   override def recoveryMetadata: RecoveryMetadata = RecoveryMetadata(0)
-
-  override def resolveURIs(uris: Seq[String]): Seq[String] = super.resolveURIs(uris)
-
-  override def resolveURI(uri: URI): URI = super.resolveURI(uri)
-
-  override def prepareConf(conf: Map[String, String],
-      jars: Seq[String],
-      files: Seq[String],
-      archives: Seq[String],
-      pyFiles: Seq[String]): Map[String, String] = {
-    super.prepareConf(conf, jars, files, archives, pyFiles)
-  }
-
 }

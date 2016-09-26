@@ -15,7 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.livy.server.recovery
+
+import scala.reflect.ClassTag
 
 import com.cloudera.livy.LivyConf
 
@@ -30,7 +33,7 @@ object BlackholeStateStore extends StateStoreCompanion {
 class BlackholeStateStore extends StateStore {
   def set(key: String, value: Object): Unit = {}
 
-  def get[T](key: String, valueType: Class[T]): Option[T] = None
+  def get[T: ClassTag](key: String): Option[T] = None
 
   def getChildren(key: String): Seq[String] = List.empty[String]
 
