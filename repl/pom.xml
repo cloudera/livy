@@ -25,7 +25,6 @@
         <artifactId>multi-scala-project-root</artifactId>
         <relativePath>../scala/pom.xml</relativePath>
         <version>0.3.0-SNAPSHOT</version>
-        <packaging>pom</packaging>
     </parent>
 
     <artifactId>livy-repl-parent</artifactId>
