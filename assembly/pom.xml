@@ -42,11 +42,7 @@
       <artifactId>livy-rsc</artifactId>
       <version>${project.version}</version>
     </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>livy-repl_${scala.binary.version}</artifactId>
-      <version>${project.version}</version>
-    </dependency>
+
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-server</artifactId>
@@ -90,6 +86,22 @@
     </profile>
 
     <profile>
+      <id>scala-2.10</id>
+      <activation>
+        <property>
+          <name>!scala-2.11</name>
+        </property>
+      </activation>
+      <dependencies>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.10</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
+
+    <profile>
       <id>scala-2.11</id>
       <activation>
         <property>
@@ -99,6 +111,13 @@
       <properties>
         <repl.dir>repl/scala-2.11</repl.dir>
       </properties>
+      <dependencies>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.11</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
     </profile>
   </profiles>
 
