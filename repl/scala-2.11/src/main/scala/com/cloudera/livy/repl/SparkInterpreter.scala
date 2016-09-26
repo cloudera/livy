@@ -20,8 +20,7 @@ package com.cloudera.livy.repl
 
 import java.io.File
 import java.net.URLClassLoader
-import java.nio.file.Paths
-import java.util.UUID
+import java.nio.file.{Files, Paths}
 
 import scala.tools.nsc.Settings
 import scala.tools.nsc.interpreter.JPrintWriter
@@ -45,7 +44,8 @@ class SparkInterpreter(conf: SparkConf)
     require(sparkILoop == null)
 
     val rootDir = conf.get("spark.repl.classdir", System.getProperty("java.io.tmpdir"))
-    val outputDir = createTempDir(rootDir)
+    val outputDir = Files.createTempDirectory(Paths.get(rootDir), "spark").toFile
+    outputDir.deleteOnExit()
     conf.set("spark.repl.class.outputDir", outputDir.getAbsolutePath)
 
     // Only Spark1 requires to create http server, Spark2 removes HttpServer class.
@@ -126,20 +126,6 @@ class SparkInterpreter(conf: SparkConf)
   protected def bind(name: String, tpe: String, value: Object, modifier: List[String]): Unit = {
     sparkILoop.beQuietDuring {
       sparkILoop.bind(name, tpe, value, modifier)
-    }
-  }
-
-  private def createTempDir(rootDir: String): File = {
-    try {
-      val method = Class.forName("org.apache.spark.util.Util")
-        .getMethod("createTempDir", classOf[String], classOf[String])
-      method.setAccessible(true)
-      method.invoke(null, rootDir, "spark").asInstanceOf[File]
-    } catch {
-      case NonFatal(e) =>
-        val dir = new File(rootDir, s"spark-${UUID.randomUUID().toString}")
-        dir.mkdir()
-        dir
     }
   }
 
