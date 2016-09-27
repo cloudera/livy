@@ -146,8 +146,9 @@ class SparkInterpreter(conf: SparkConf)
           classOf[String])
       httpServerConstructor.setAccessible(true)
       // Create Http Server
+      val port = conf.getInt("spark.replClassServer.port", 0)
       val server = httpServerConstructor
-        .newInstance(conf, outputDir, securityManager, new Integer(0), "HTTP server")
+        .newInstance(conf, outputDir, securityManager, new Integer(port), "HTTP server")
         .asInstanceOf[Object]
 
       // Start Http Server

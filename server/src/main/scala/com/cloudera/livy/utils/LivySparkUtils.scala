@@ -28,7 +28,7 @@ import com.cloudera.livy.util.LineBufferedProcess
 object LivySparkUtils {
 
   /**
-   * Sets the spark-submit path if it's not configured in the LivyConf
+   * Test that Spark home is configured and configured Spark home is a directory.
    */
   def testSparkHome(livyConf: LivyConf): Unit = {
     val sparkHome = livyConf.sparkHome().getOrElse {
@@ -99,7 +99,7 @@ object LivySparkUtils {
   }
 
   /**
-    * Return formated Spark version.
+    * Return formatted Spark version.
     * @param version Spark version
     * @return Two element tuple, one is major version and the other is minor version
     */

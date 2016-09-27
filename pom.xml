@@ -58,8 +58,10 @@
     <netty.version>4.0.23.Final</netty.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.9</py4j.version>
+    <scala-2.10.version>2.10.4</scala-2.10.version>
+    <scala-2.11.version>2.11.8</scala-2.11.version>
     <scala.binary.version>2.10</scala.binary.version>
-    <scala.version>2.10.4</scala.version>
+    <scala.version>${scala-2.10.version}</scala.version>
     <scalatest.version>2.2.4</scalatest.version>
     <scalatra.version>2.3.0</scalatra.version>
     <java.version>1.7</java.version>
