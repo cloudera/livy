@@ -66,13 +66,11 @@ class LivyServer extends Logging {
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
 
+    testRecovery(livyConf)
+
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
       Future { SparkYarnApp.yarnClient }
-    } else {
-      // If recovery is turned on but we are not running on YARN, quit.
-      require(livyConf.get(LivyConf.RECOVERY_MODE) == SESSION_RECOVERY_MODE_OFF,
-        "Session recovery requires YARN.")
     }
 
     StateStore.init(livyConf)
@@ -247,7 +245,13 @@ class LivyServer extends Logging {
     _serverUrl.getOrElse(throw new IllegalStateException("Server not yet started."))
   }
 
-
+  private[livy] def testRecovery(livyConf: LivyConf): Unit = {
+    if (!livyConf.isRunningOnYarn()) {
+      // If recovery is turned on but we are not running on YARN, quit.
+      require(livyConf.get(LivyConf.RECOVERY_MODE) == SESSION_RECOVERY_MODE_OFF,
+        "Session recovery requires YARN.")
+    }
+  }
 }
 
 object LivyServer {

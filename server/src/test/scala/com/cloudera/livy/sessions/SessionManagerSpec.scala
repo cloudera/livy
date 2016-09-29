@@ -21,7 +21,7 @@ package com.cloudera.livy.sessions
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
 import scala.language.postfixOps
-import scala.util.Try
+import scala.util.{Failure, Try}
 
 import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.{FunSpec, Matchers}
@@ -82,10 +82,11 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val nextId = 99
 
       val validMetadata = List(makeMetadata(0, "t1"), makeMetadata(77, "t2")).map(Try(_))
+      val invalidMetadata = List(Failure(new Exception("Fake invalid metadata")))
       val sessionStore = mock[SessionStore]
       when(sessionStore.getNextSessionId(sessionType)).thenReturn(nextId)
       when(sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType))
-        .thenReturn(validMetadata)
+        .thenReturn(validMetadata ++ invalidMetadata)
 
       val sm = new BatchSessionManager(conf, sessionStore)
       sm.nextId() shouldBe nextId

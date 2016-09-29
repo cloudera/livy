@@ -18,30 +18,18 @@
 
 package com.cloudera.livy.server.recovery
 
-import org.scalatest.FunSpec
+import scala.reflect.classTag
+
+import org.scalatest.{BeforeAndAfter, FunSpec}
 import org.scalatest.Matchers._
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.sessions.SessionManager
 
-class StateStoreSpec extends FunSpec {
+class StateStoreSpec extends FunSpec with BeforeAndAfter with LivyBaseUnitTestSuite {
   describe("StateStore") {
-    val conf = new LivyConf()
-
-    it("should throw an error on get if it's not initialized") {
-      intercept[AssertionError](StateStore.get)
-    }
-
-    it("should initialize blackhole state store if recovery is disabled") {
-      StateStore.init(conf)
-      StateStore.get shouldBe a[BlackholeStateStore]
-    }
-
-    it("should pick the correct store according to state store config") {
-      StateStore.pickStateStore(createConf("filesystem")) shouldBe
-        FileSystemStateStore.getClass.getName
-      StateStore.pickStateStore(createConf("zookeeper")) shouldBe
-        ZooKeeperStateStore.getClass.getName
+    after {
+      StateStore.cleanup()
     }
 
     def createConf(stateStore: String): LivyConf = {
@@ -49,6 +37,30 @@ class StateStoreSpec extends FunSpec {
       conf.set(LivyConf.RECOVERY_MODE.key, SessionManager.SESSION_RECOVERY_MODE_RECOVERY)
       conf.set(LivyConf.RECOVERY_STATE_STORE.key, stateStore)
       conf
+    }
+
+    it("should throw an error on get if it's not initialized") {
+      intercept[AssertionError] { StateStore.get }
+    }
+
+    it("should initialize blackhole state store if recovery is disabled") {
+      StateStore.init(new LivyConf())
+      StateStore.get shouldBe a[BlackholeStateStore]
+    }
+
+    it("should pick the correct store according to state store config") {
+      StateStore.pickStateStore(createConf("filesystem")) shouldBe classTag[FileSystemStateStore]
+      StateStore.pickStateStore(createConf("zookeeper")) shouldBe classTag[ZooKeeperStateStore]
+    }
+
+    it("should return error if an unknown recovery mode is set") {
+      val conf = new LivyConf()
+      conf.set(LivyConf.RECOVERY_MODE.key, "unknown")
+      intercept[IllegalArgumentException] { StateStore.init(conf) }
+    }
+
+    it("should return error if an unknown state store is set") {
+      intercept[IllegalArgumentException] { StateStore.init(createConf("unknown")) }
     }
   }
 }

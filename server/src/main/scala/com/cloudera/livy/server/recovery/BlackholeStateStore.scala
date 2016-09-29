@@ -22,15 +22,11 @@ import scala.reflect.ClassTag
 
 import com.cloudera.livy.LivyConf
 
-object BlackholeStateStore extends StateStoreCompanion {
-  override def create(livyConf: LivyConf): StateStore = new BlackholeStateStore()
-}
-
 /**
  * This is a blackhole implementation of StateStore.
  * Livy will use this when session recovery is disabled.
  */
-class BlackholeStateStore extends StateStore {
+class BlackholeStateStore(livyConf: LivyConf) extends StateStore(livyConf) {
   def set(key: String, value: Object): Unit = {}
 
   def get[T: ClassTag](key: String): Option[T] = None

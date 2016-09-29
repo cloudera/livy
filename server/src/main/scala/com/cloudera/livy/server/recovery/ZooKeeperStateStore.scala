@@ -26,18 +26,22 @@ import org.apache.curator.retry.RetryNTimes
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.LivyConf.Entry
 
-object ZooKeeperStateStore extends StateStoreCompanion {
+object ZooKeeperStateStore {
   val ZK_KEY_PREFIX_CONF = Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
-
-  override def create(livyConf: LivyConf): StateStore = new ZooKeeperStateStore(livyConf)
 }
 
 class ZooKeeperStateStore(
     livyConf: LivyConf,
     mockCuratorClient: Option[CuratorFramework] = None) // For testing
-  extends StateStore with Logging {
-  private val zkAddress = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL_CONF)
-  require(!zkAddress.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL_CONF.key}.")
+  extends StateStore(livyConf) with Logging {
+
+  // Constructor defined for StateStore factory to new this class using reflection.
+  def this(livyConf: LivyConf) {
+    this(livyConf, None)
+  }
+
+  private val zkAddress = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL)
+  require(!zkAddress.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL.key}.")
   private val zkKeyPrefix = livyConf.get(ZooKeeperStateStore.ZK_KEY_PREFIX_CONF)
   private val curatorClient = mockCuratorClient.getOrElse {
     CuratorFrameworkFactory.newClient(zkAddress, new RetryNTimes(5, 100))

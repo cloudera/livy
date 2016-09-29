@@ -21,9 +21,11 @@ package com.cloudera.livy.server.recovery
 import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 
-class BlackholeStateStoreSpec extends FunSpec {
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
+
+class BlackholeStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("BlackholeStateStore") {
-    val stateStore = new BlackholeStateStore()
+    val stateStore = new BlackholeStateStore(new LivyConf())
 
     it("set should not throw") {
       stateStore.set("", 1.asInstanceOf[Object])

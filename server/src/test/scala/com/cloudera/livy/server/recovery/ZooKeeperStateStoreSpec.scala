@@ -28,13 +28,13 @@ import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 
-class ZooKeeperStateStoreSpec extends FunSpec {
+class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("ZooKeeperStateStore") {
     case class TestFixture(stateStore: ZooKeeperStateStore, curatorClient: CuratorFramework)
     val conf = new LivyConf()
-    conf.set(LivyConf.RECOVERY_STATE_STORE_URL_CONF, "zk://host")
+    conf.set(LivyConf.RECOVERY_STATE_STORE_URL, "host")
     val key = "key"
     val prefixedKey = s"/livy/$key"
 

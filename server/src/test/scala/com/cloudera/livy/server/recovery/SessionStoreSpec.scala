@@ -25,10 +25,10 @@ import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
-class SessionStoreSpec extends FunSpec {
+class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("SessionStore") {
     case class TestRecoveryMetadata(id: Int) extends RecoveryMetadata
 

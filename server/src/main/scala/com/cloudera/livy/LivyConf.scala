@@ -94,7 +94,7 @@ object LivyConf {
    * filesystem that doesn't support atomic rename (e.g. S3). e.g. file:///tmp/livy or hdfs:///.
    * For zookeeper, the address to the Zookeeper servers. e.g. host1:port1,host2:port2
    */
-  val RECOVERY_STATE_STORE_URL_CONF = Entry("livy.server.recovery.state-store.url", null)
+  val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.state-store.url", "")
 
   // If Livy can't find the yarn app within this time, consider it lost.
   val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "30s")

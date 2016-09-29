@@ -17,10 +17,9 @@
  */
 package com.cloudera.livy.server.recovery
 
-import java.io.IOException
+import java.io.{FileNotFoundException, IOException}
 import java.net.URI
 import java.util
-import java.util.UUID
 
 import scala.reflect.ClassTag
 
@@ -32,18 +31,25 @@ import org.apache.hadoop.fs.permission.{FsAction, FsPermission}
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.Utils.usingResource
 
-object FileSystemStateStore extends StateStoreCompanion {
-  override def create(livyConf: LivyConf): StateStore = new FileSystemStateStore(livyConf)
-}
+class FileSystemStateStore(
+    livyConf: LivyConf,
+    mockFileContext: Option[FileContext])
+  extends StateStore(livyConf) with Logging {
 
-class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
+  // Constructor defined for StateStore factory to new this class using reflection.
+  def this(livyConf: LivyConf) {
+    this(livyConf, None)
+  }
+
   private val fsUri = {
-    val fsPath = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL_CONF)
-    require(!fsPath.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL_CONF.key}.")
+    val fsPath = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL)
+    require(!fsPath.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL.key}.")
     new URI(fsPath)
   }
 
-  private val fileContext: FileContext = FileContext.getFileContext(fsUri)
+  private val fileContext: FileContext = mockFileContext.getOrElse {
+    FileContext.getFileContext(fsUri)
+  }
 
   {
     // Only Livy user should have access to state files.
@@ -58,12 +64,12 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
 
     // Check permission of state store dir.
     val fileStatus = fileContext.getFileStatus(absPath("."))
-    assert(fileStatus.getPermission.getUserAction() == FsAction.ALL,
+    require(fileStatus.getPermission.getUserAction() == FsAction.ALL,
       s"Livy doesn't have permission to access state store: $fsUri.")
-    assert(fileStatus.getPermission.getGroupAction() == FsAction.NONE,
+    require(fileStatus.getPermission.getGroupAction() == FsAction.NONE,
       s"Group users have permission to access state store: $fsUri. This is insecure.")
-    assert(fileStatus.getPermission.getOtherAction() == FsAction.NONE,
-      s"Other users have permission to access state store: $fsUri. This is insecure.")
+    require(fileStatus.getPermission.getOtherAction() == FsAction.NONE,
+      s"Other users have permission tose access state store: $fsUri. This is insecure.")
   }
 
   override def set(key: String, value: Object): Unit = {
@@ -86,7 +92,10 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
         Option(deserialize[T](IOUtils.toByteArray(is)))
       }
     } catch {
-      case _: IOException => None
+      case _: FileNotFoundException => None
+      case e: IOException =>
+        warn(s"Failed to read $key from state store.", e)
+        None
     }
   }
 
@@ -94,7 +103,10 @@ class FileSystemStateStore(livyConf: LivyConf) extends StateStore with Logging {
     try {
       fileContext.util.listStatus(absPath(key)).map(_.getPath.getName)
     } catch {
-      case _: IOException => Seq.empty
+      case _: FileNotFoundException => Seq.empty
+      case e: IOException =>
+        warn(s"Failed to list $key from state store.", e)
+        Seq.empty
     }
   }
 

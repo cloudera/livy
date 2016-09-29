@@ -19,6 +19,7 @@ package com.cloudera.livy.server.recovery
 
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
+import scala.util.control.NonFatal
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
@@ -58,7 +59,7 @@ class SessionStore(
         val p = sessionPath(sessionType, id)
         Try(store.get[T](p)) recover {
           // Add session path to the exception.
-          case e: Throwable => throw new Exception(s"Error getting session $p", e)
+          case NonFatal(e) => throw new Exception(s"Error getting session $p", e)
         }
       }
       .flatMap {

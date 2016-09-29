@@ -17,7 +17,7 @@
  */
 package com.cloudera.livy.server.recovery
 
-import scala.reflect._
+import scala.reflect.{classTag, ClassTag}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -26,21 +26,12 @@ import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.SessionKindModule
 import com.cloudera.livy.sessions.SessionManager._
 
-trait StateStoreCompanion {
-  def create(livyConf: LivyConf): StateStore
-}
-
 protected trait JsonMapper {
   protected val mapper = new ObjectMapper()
     .registerModule(DefaultScalaModule)
     .registerModule(new SessionKindModule())
 
-  def serializeToString(value: Object): String = mapper.writeValueAsString(value)
-
   def serializeToBytes(value: Object): Array[Byte] = mapper.writeValueAsBytes(value)
-
-  def deserialize[T: ClassTag](json: String): T =
-    mapper.readValue(json, classTag[T].runtimeClass.asInstanceOf[Class[T]])
 
   def deserialize[T: ClassTag](json: Array[Byte]): T =
     mapper.readValue(json, classTag[T].runtimeClass.asInstanceOf[Class[T]])
@@ -53,7 +44,7 @@ protected trait JsonMapper {
  *
  * Hardcoded to use JSON serialization for now for easier ops. Will add better serialization later.
  */
-abstract class StateStore extends JsonMapper {
+abstract class StateStore(livyConf: LivyConf) extends JsonMapper {
   /**
    * Set a key-value pair to this state store. It overwrites existing value.
    * @throws Exception Throw when persisting the state store fails.
@@ -89,8 +80,16 @@ object StateStore extends Logging {
   private[this] var stateStore: Option[StateStore] = None
 
   def init(livyConf: LivyConf): Unit = synchronized {
-    val stateStoreName = pickStateStore(livyConf)
-    initStateStore(stateStoreName, livyConf)
+    if (stateStore.isEmpty) {
+      val fileStateStoreClassTag = pickStateStore(livyConf)
+      stateStore = Option(fileStateStoreClassTag.runtimeClass
+        .getDeclaredConstructor(classOf[LivyConf]).newInstance(livyConf).asInstanceOf[StateStore])
+      info(s"Using ${stateStore.get.getClass.getSimpleName} for recovery.")
+    }
+  }
+
+  def cleanup(): Unit = synchronized {
+    stateStore = None
   }
 
   def get: StateStore = {
@@ -98,36 +97,16 @@ object StateStore extends Logging {
     stateStore.get
   }
 
-  // Return the StateStore's companion object from its class name.
-  // Using reflection here to avoid static dependency on Apache Curator.
-  // scala.reflect.runtime.universe isn't thread safe. Play safe and use Manifest.
-  // TODO Use scala.reflect.runtime.universe after migrating to Scala 2.11.
-  private def getCompanionObject[T](name : String)(implicit man: Manifest[T]) : T =
-    Class.forName(name).getField("MODULE$").get(man.runtimeClass).asInstanceOf[T]
-
-  private[recovery] def pickStateStore(livyConf: LivyConf): String = {
+  private[recovery] def pickStateStore(livyConf: LivyConf): ClassTag[_] = {
     livyConf.get(LivyConf.RECOVERY_MODE) match {
-      case SESSION_RECOVERY_MODE_OFF => BlackholeStateStore.getClass.getName
+      case SESSION_RECOVERY_MODE_OFF => classTag[BlackholeStateStore]
       case SESSION_RECOVERY_MODE_RECOVERY =>
         livyConf.get(LivyConf.RECOVERY_STATE_STORE) match {
-          case "filesystem" => FileSystemStateStore.getClass.getName
-          case "zookeeper" => ZooKeeperStateStore.getClass.getName
+          case "filesystem" => classTag[FileSystemStateStore]
+          case "zookeeper" => classTag[ZooKeeperStateStore]
           case ss => throw new IllegalArgumentException(s"Unsupported state store $ss")
         }
       case rm => throw new IllegalArgumentException(s"Unsupported recovery mode $rm")
-    }
-  }
-
-  private[recovery] def initStateStore(stateStoreClassName: String, livyConf: LivyConf): Unit = {
-    if (stateStore.isEmpty) {
-      try {
-        val stateStoreCompanion = getCompanionObject[StateStoreCompanion](stateStoreClassName)
-        stateStore = Option(stateStoreCompanion.create(livyConf))
-        info(s"Using ${stateStore.get.getClass.getSimpleName} for recovery.")
-      } catch {
-        case e: Exception =>
-          throw new Exception(s"Failed to create state store $stateStoreClassName", e)
-      }
     }
   }
 }

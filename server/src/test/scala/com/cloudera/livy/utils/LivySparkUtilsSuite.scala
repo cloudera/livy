@@ -60,4 +60,12 @@ class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
     intercept[IllegalArgumentException] { testSparkVersion("2.1.2") }
     intercept[IllegalArgumentException] { testSparkVersion("2.2.1") }
   }
+
+  test("should error out if recovery is turned on but master isn't yarn") {
+    val livyConf = new LivyConf()
+    livyConf.set(LivyConf.LIVY_SPARK_MASTER, "local")
+    livyConf.set(LivyConf.RECOVERY_MODE, "recovery")
+    val s = new LivyServer()
+    intercept[IllegalArgumentException] { s.testRecovery(livyConf) }
+  }
 }
