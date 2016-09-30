@@ -17,6 +17,8 @@
  */
 package com.cloudera.livy.server.recovery
 
+import java.io.IOException
+
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
@@ -51,22 +53,16 @@ class SessionStore(
   /**
    * Return all sessions stored in the store with specified session type.
    */
-  def getAllSessions[T <: RecoveryMetadata : ClassTag](
-      sessionType: String): Seq[Try[T]] = {
+  def getAllSessions[T <: RecoveryMetadata : ClassTag](sessionType: String): Seq[Try[T]] = {
     store.getChildren(sessionPath(sessionType))
       .flatMap { c => Try(c.toInt).toOption } // Ignore all non numerical keys
-      .map { id =>
+      .flatMap { id =>
         val p = sessionPath(sessionType, id)
-        Try(store.get[T](p)) recover {
-          // Add session path to the exception.
-          case NonFatal(e) => throw new Exception(s"Error getting session $p", e)
+        try {
+          store.get[T](p).map(Success(_))
+        } catch {
+          case NonFatal(e) => Some(Failure(new IOException(s"Error getting session $p", e)))
         }
-      }
-      .flatMap {
-        case Success(None) => None // Remove None wrapped in Try.
-        // Convert Try[Option[T]] to Try[T]
-        case Success(Some(session)) => Option(Success(session))
-        case Failure(ex) => Option(Failure(ex))
       }
   }
 

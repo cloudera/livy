@@ -77,7 +77,7 @@ class BatchSessionManager(
     // Retrieve session recovery metadata from state store.
     val sessionMetadata = sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType)
 
-    // Call recoveryFun to recover session from session recovery metadata.
+    // Recover session from session recovery metadata.
     val recoveredSessions = sessionMetadata.flatMap(_.toOption).map(
       BatchSession.recover(_, livyConf, sessionStore))
 

@@ -50,12 +50,12 @@ object Session {
    * - Verify that file URIs don't reference non-whitelisted local resources
    */
   def prepareConf(
-    conf: Map[String, String],
-    jars: Seq[String],
-    files: Seq[String],
-    archives: Seq[String],
-    pyFiles: Seq[String],
-    livyConf: LivyConf): Map[String, String] = {
+      conf: Map[String, String],
+      jars: Seq[String],
+      files: Seq[String],
+      archives: Seq[String],
+      pyFiles: Seq[String],
+      livyConf: LivyConf): Map[String, String] = {
     if (conf == null) {
       return Map()
     }
@@ -246,58 +246,6 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf)
     } finally {
       fs.close()
     }
-  }
-
-  /**
-   * Validates and prepares a user-provided configuration for submission.
-   *
-   * - Verifies that no blacklisted configurations are provided.
-   * - Merges file lists in the configuration with the explicit lists provided in the request
-   * - Resolve file URIs to make sure they reference the default FS
-   * - Verify that file URIs don't reference non-whitelisted local resources
-   */
-  protected def prepareConf(conf: Map[String, String],
-      jars: Seq[String],
-      files: Seq[String],
-      archives: Seq[String],
-      pyFiles: Seq[String]): Map[String, String] = {
-    if (conf == null) {
-      return Map()
-    }
-
-    val errors = conf.keySet.filter(configBlackList.contains)
-    if (errors.nonEmpty) {
-      throw new IllegalArgumentException(
-        "Blacklisted configuration values in session config: " + errors.mkString(", "))
-    }
-
-    val confLists: Map[String, Seq[String]] = livyConf.sparkFileLists
-      .map { key => (key -> Nil) }.toMap
-
-    val userLists = confLists ++ Map(
-      LivyConf.SPARK_JARS -> jars,
-      LivyConf.SPARK_FILES -> files,
-      LivyConf.SPARK_ARCHIVES -> archives,
-      LivyConf.SPARK_PY_FILES -> pyFiles)
-
-    val merged = userLists.flatMap { case (key, list) =>
-      val confList = conf.get(key)
-        .map { list =>
-          resolveURIs(list.split("[, ]+").toSeq, livyConf)
-        }
-        .getOrElse(Nil)
-      val userList = resolveURIs(list, livyConf)
-      if (confList.nonEmpty || userList.nonEmpty) {
-        Some(key -> (userList ++ confList).mkString(","))
-      } else {
-        None
-      }
-    }
-
-    val masterConfList = Map(LivyConf.SPARK_MASTER -> livyConf.sparkMaster()) ++
-      livyConf.sparkDeployMode().map(LivyConf.SPARK_DEPLOY_MODE -> _).toMap
-
-    conf ++ masterConfList ++ merged
   }
 
   private def getStagingDir(fs: FileSystem): Path = synchronized {

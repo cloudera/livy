@@ -72,8 +72,8 @@ class InteractiveSession(
   private val (client: RSCClient, app: Option[SparkApp]) = {
     val uniqueAppTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
 
-    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
-      prepareConf(request.conf, request.jars, request.files, request.archives, request.pyFiles))
+    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf, prepareConf(
+      request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
     val builderProperties = mutable.Map[String, String]()
     builderProperties ++= conf

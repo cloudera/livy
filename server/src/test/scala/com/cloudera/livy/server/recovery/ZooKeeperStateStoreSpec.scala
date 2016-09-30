@@ -22,6 +22,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api._
+import org.apache.curator.framework.listen.Listenable
 import org.apache.zookeeper.data.Stat
 import org.mockito.Mockito._
 import org.scalatest.FunSpec
@@ -40,6 +41,8 @@ class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
 
     def withMock[R](testBody: TestFixture => R): R = {
       val curatorClient = mock[CuratorFramework]
+      when(curatorClient.getUnhandledErrorListenable())
+        .thenReturn(mock[Listenable[UnhandledErrorListener]])
       val stateStore = new ZooKeeperStateStore(conf, Some(curatorClient))
       testBody(TestFixture(stateStore, curatorClient))
     }
@@ -49,6 +52,17 @@ class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       when(curatorClient.checkExists()).thenReturn(existsBuilder)
       if (exists) {
         when(existsBuilder.forPath(prefixedKey)).thenReturn(mock[Stat])
+      }
+    }
+
+    it("should throw on bad config") {
+      withMock { f =>
+        val conf = new LivyConf()
+        intercept[IllegalArgumentException] { new ZooKeeperStateStore(conf) }
+
+        conf.set(LivyConf.RECOVERY_STATE_STORE_URL, "host")
+        conf.set(ZooKeeperStateStore.ZK_RETRY_CONF, "bad")
+        intercept[IllegalArgumentException] { new ZooKeeperStateStore(conf) }
       }
     }
 

@@ -56,10 +56,13 @@ class FileSystemStateStore(
     fileContext.setUMask(new FsPermission("077"))
 
     // Create state store dir if it doesn't exist.
+    val stateStorePath = absPath(".")
     try {
-      fileContext.mkdir(absPath("."), FsPermission.getDirDefault(), true)
+      fileContext.mkdir(stateStorePath, FsPermission.getDirDefault(), true)
     } catch {
       case _: FileAlreadyExistsException =>
+        assert(fileContext.getFileStatus(stateStorePath).isDirectory(),
+          s"$stateStorePath is not a directory.")
     }
 
     // Check permission of state store dir.
@@ -69,7 +72,7 @@ class FileSystemStateStore(
     require(fileStatus.getPermission.getGroupAction() == FsAction.NONE,
       s"Group users have permission to access state store: $fsUri. This is insecure.")
     require(fileStatus.getPermission.getOtherAction() == FsAction.NONE,
-      s"Other users have permission tose access state store: $fsUri. This is insecure.")
+      s"Other users have permission to access state store: $fsUri. This is insecure.")
   }
 
   override def set(key: String, value: Object): Unit = {

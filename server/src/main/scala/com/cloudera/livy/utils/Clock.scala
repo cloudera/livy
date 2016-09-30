@@ -28,12 +28,12 @@ object Clock {
 
   def withSleepMethod(mockSleep: Long => Unit)(f: => Unit): Unit = {
     try {
-      _sleep = sleep
+      _sleep = mockSleep
       f
     } finally {
       _sleep = Thread.sleep
     }
   }
 
-  def sleep(milliseconds: Long): Unit = _sleep
+  def sleep: Long => Unit = _sleep
 }

@@ -82,8 +82,8 @@ object StateStore extends Logging {
   def init(livyConf: LivyConf): Unit = synchronized {
     if (stateStore.isEmpty) {
       val fileStateStoreClassTag = pickStateStore(livyConf)
-      stateStore = Option(fileStateStoreClassTag.runtimeClass
-        .getDeclaredConstructor(classOf[LivyConf]).newInstance(livyConf).asInstanceOf[StateStore])
+      stateStore = Option(fileStateStoreClassTag.getDeclaredConstructor(classOf[LivyConf])
+        .newInstance(livyConf).asInstanceOf[StateStore])
       info(s"Using ${stateStore.get.getClass.getSimpleName} for recovery.")
     }
   }
@@ -97,13 +97,13 @@ object StateStore extends Logging {
     stateStore.get
   }
 
-  private[recovery] def pickStateStore(livyConf: LivyConf): ClassTag[_] = {
+  private[recovery] def pickStateStore(livyConf: LivyConf): Class[_] = {
     livyConf.get(LivyConf.RECOVERY_MODE) match {
-      case SESSION_RECOVERY_MODE_OFF => classTag[BlackholeStateStore]
+      case SESSION_RECOVERY_MODE_OFF => classTag[BlackholeStateStore].runtimeClass
       case SESSION_RECOVERY_MODE_RECOVERY =>
         livyConf.get(LivyConf.RECOVERY_STATE_STORE) match {
-          case "filesystem" => classTag[FileSystemStateStore]
-          case "zookeeper" => classTag[ZooKeeperStateStore]
+          case "filesystem" => classTag[FileSystemStateStore].runtimeClass
+          case "zookeeper" => classTag[ZooKeeperStateStore].runtimeClass
           case ss => throw new IllegalArgumentException(s"Unsupported state store $ss")
         }
       case rm => throw new IllegalArgumentException(s"Unsupported recovery mode $rm")

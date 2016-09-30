@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{Session, SessionState}
-import com.cloudera.livy.sessions.Session.RecoveryMetadata
+import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -42,7 +42,6 @@ case class BatchRecoveryMetadata(
   extends RecoveryMetadata
 
 object BatchSession {
-  import com.cloudera.livy.sessions.Session._
   val RECOVERY_SESSION_TYPE = "batch"
 
   def create(

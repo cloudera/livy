@@ -49,8 +49,8 @@ class StateStoreSpec extends FunSpec with BeforeAndAfter with LivyBaseUnitTestSu
     }
 
     it("should pick the correct store according to state store config") {
-      StateStore.pickStateStore(createConf("filesystem")) shouldBe classTag[FileSystemStateStore]
-      StateStore.pickStateStore(createConf("zookeeper")) shouldBe classTag[ZooKeeperStateStore]
+      StateStore.pickStateStore(createConf("filesystem")) shouldBe classOf[FileSystemStateStore]
+      StateStore.pickStateStore(createConf("zookeeper")) shouldBe classOf[ZooKeeperStateStore]
     }
 
     it("should return error if an unknown recovery mode is set") {
