@@ -93,12 +93,6 @@ class SparkInterpreter(conf: SparkConf)
   }
 
   override def close(): Unit = synchronized {
-    if (sparkHttpServer != null) {
-      val method = sparkHttpServer.getClass.getMethod("stop")
-      method.setAccessible(true)
-      method.invoke(sparkHttpServer)
-      sparkHttpServer = null
-    }
     if (sparkContext != null) {
       sparkContext.stop()
       sparkContext = null
@@ -107,6 +101,13 @@ class SparkInterpreter(conf: SparkConf)
     if (sparkILoop != null) {
       sparkILoop.closeInterpreter()
       sparkILoop = null
+    }
+
+    if (sparkHttpServer != null) {
+      val method = sparkHttpServer.getClass.getMethod("stop")
+      method.setAccessible(true)
+      method.invoke(sparkHttpServer)
+      sparkHttpServer = null
     }
   }
 
