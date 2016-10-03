@@ -40,7 +40,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.sessions._
-import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener}
+import com.cloudera.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener}
 
 object InteractiveSession {
   val LivyReplJars = "livy.repl.jars"
@@ -122,8 +122,17 @@ class InteractiveSession(
 
     mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
-    builderProperties.put("spark.repl.enableHiveContext",
-      livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
+    val sparkMajorVersion =
+      LivySparkUtils.formatSparkVersion(LivySparkUtils.sparkSubmitVersion(livyConf))._1
+
+    if (sparkMajorVersion <= 1) {
+      builderProperties.put("spark.repl.enableHiveContext",
+        livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
+    } else {
+      val confVal = if (enableHiveContext) "hive" else "in-memory"
+      builderProperties.put("spark.sql.catalogImplementation", confVal)
+    }
+
     if (enableHiveContext) {
       mergeHiveSiteAndHiveDeps()
     }
@@ -311,7 +320,7 @@ class InteractiveSession(
       val home = sys.env("LIVY_HOME")
       val jars = Option(new File(home, "repl-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "repl/target/jars"))
+        .getOrElse(new File(home, "repl/scala-2.10/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toList
     }

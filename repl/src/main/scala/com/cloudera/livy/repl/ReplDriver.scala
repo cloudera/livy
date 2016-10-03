@@ -24,8 +24,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 import io.netty.channel.ChannelHandlerContext
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
+import org.json4s.DefaultFormats
 import org.json4s.JsonAST.JValue
 import org.json4s.jackson.JsonMethods._
 
@@ -37,6 +38,9 @@ import com.cloudera.livy.sessions._
 class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   extends RSCDriver(conf, livyConf)
   with Logging {
+
+  // Add here to make it compatible with json4s-jackson 3.2.11 JsonMethods#render API.
+  private implicit def formats = DefaultFormats
 
   private val jobFutures = mutable.Map[String, JValue]()
 

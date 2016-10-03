@@ -18,14 +18,12 @@
 
 package com.cloudera.livy.server
 
-import java.io.{File, IOException}
 import java.util.concurrent._
 import java.util.EnumSet
 import javax.servlet._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
-import scala.math.Ordering.Implicits._
 
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
@@ -37,7 +35,7 @@ import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
-import com.cloudera.livy.util.LineBufferedProcess
+import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
 
 class LivyServer extends Logging {
@@ -233,78 +231,6 @@ class LivyServer extends Logging {
     _serverUrl.getOrElse(throw new IllegalStateException("Server not yet started."))
   }
 
-  /**
-   * Sets the spark-submit path if it's not configured in the LivyConf
-   */
-  private[server] def testSparkHome(livyConf: LivyConf): Unit = {
-    val sparkHome = livyConf.sparkHome().getOrElse {
-      throw new IllegalArgumentException("Livy requires the SPARK_HOME environment variable")
-    }
-
-    require(new File(sparkHome).isDirectory(), "SPARK_HOME path does not exist")
-  }
-
-  /**
-   * Test that the configured `spark-submit` executable exists.
-   *
-   * @param livyConf
-   */
-  private[server] def testSparkSubmit(livyConf: LivyConf): Unit = {
-    try {
-      testSparkVersion(sparkSubmitVersion(livyConf))
-    } catch {
-      case e: IOException =>
-        throw new IOException("Failed to run spark-submit executable", e)
-    }
-  }
-
-  /**
-   * Throw an exception if Spark version is not supported.
-   * @param version Spark version
-   */
-  private[server] def testSparkVersion(version: String): Unit = {
-    val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
-    // This is exclusive. Version which equals to this will be rejected.
-    val maxVersion = (2, 0)
-    val minVersion = (1, 6)
-
-    val supportedVersion = version match {
-      case versionPattern(major, minor) =>
-        val v = (major.toInt, minor.toInt)
-        v >= minVersion && v < maxVersion
-      case _ => false
-    }
-    require(supportedVersion, s"Unsupported Spark version $version.")
-  }
-
-  /**
-   * Return the version of the configured `spark-submit` version.
-   *
-   * @param livyConf
-   * @return the version
-   */
-  private def sparkSubmitVersion(livyConf: LivyConf): String = {
-    val sparkSubmit = livyConf.sparkSubmit()
-    val pb = new ProcessBuilder(sparkSubmit, "--version")
-    pb.redirectErrorStream(true)
-    pb.redirectInput(ProcessBuilder.Redirect.PIPE)
-
-    if (LivyConf.TEST_MODE) {
-      pb.environment().put("LIVY_TEST_CLASSPATH", sys.props("java.class.path"))
-    }
-
-    val process = new LineBufferedProcess(pb.start())
-    val exitCode = process.waitFor()
-    val output = process.inputIterator.mkString("\n")
-
-    val regex = """version (.*)""".r.unanchored
-
-    output match {
-      case regex(version) => version
-      case _ =>
-        throw new IOException(f"Unable to determine spark-submit version [$exitCode]:\n$output")
-    }
-  }
 
 }
 

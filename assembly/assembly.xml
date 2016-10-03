@@ -29,7 +29,7 @@
       </includes>
     </fileSet>
     <fileSet>
-      <directory>${project.parent.basedir}/repl/target/jars</directory>
+      <directory>${project.parent.basedir}/${repl.dir}/target/jars</directory>
       <outputDirectory>${assembly.name}/repl-jars</outputDirectory>
       <includes>
         <include>*</include>

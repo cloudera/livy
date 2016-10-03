@@ -53,7 +53,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
       eventually(timeout(30 seconds), interval(100 millis)) {
         session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
       }
-      Await.ready(future, 30 seconds)
+      Await.ready(future, 60 seconds)
     } finally {
       session.close()
     }
