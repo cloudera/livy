@@ -99,11 +99,11 @@ object StateStore extends Logging {
 
   private[recovery] def pickStateStore(livyConf: LivyConf): Class[_] = {
     livyConf.get(LivyConf.RECOVERY_MODE) match {
-      case SESSION_RECOVERY_MODE_OFF => classTag[BlackholeStateStore].runtimeClass
+      case SESSION_RECOVERY_MODE_OFF => classOf[BlackholeStateStore]
       case SESSION_RECOVERY_MODE_RECOVERY =>
         livyConf.get(LivyConf.RECOVERY_STATE_STORE) match {
-          case "filesystem" => classTag[FileSystemStateStore].runtimeClass
-          case "zookeeper" => classTag[ZooKeeperStateStore].runtimeClass
+          case "filesystem" => classOf[FileSystemStateStore]
+          case "zookeeper" => classOf[ZooKeeperStateStore]
           case ss => throw new IllegalArgumentException(s"Unsupported state store $ss")
         }
       case rm => throw new IllegalArgumentException(s"Unsupported recovery mode $rm")

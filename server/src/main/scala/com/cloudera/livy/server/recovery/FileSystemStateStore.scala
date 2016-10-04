@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.cloudera.livy.server.recovery
 
 import java.io.{FileNotFoundException, IOException}
@@ -61,8 +62,9 @@ class FileSystemStateStore(
       fileContext.mkdir(stateStorePath, FsPermission.getDirDefault(), true)
     } catch {
       case _: FileAlreadyExistsException =>
-        assert(fileContext.getFileStatus(stateStorePath).isDirectory(),
-          s"$stateStorePath is not a directory.")
+        if (!fileContext.getFileStatus(stateStorePath).isDirectory()) {
+          throw new IOException(s"$stateStorePath is not a directory.")
+        }
     }
 
     // Check permission of state store dir.
