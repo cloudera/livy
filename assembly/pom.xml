@@ -119,6 +119,30 @@
         </dependency>
       </dependencies>
     </profile>
+
+    <profile>
+      <id>scala-both</id>
+      <activation>
+        <property>
+          <name>scala-both</name>
+        </property>
+      </activation>
+      <properties>
+        <repl.dir>repl/scala-2.1*</repl.dir>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.10</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>${project.groupId}</groupId>
+          <artifactId>livy-repl_2.11</artifactId>
+          <version>${project.version}</version>
+        </dependency>
+      </dependencies>
+    </profile>
   </profiles>
 
 </project>
