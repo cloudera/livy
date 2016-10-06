@@ -73,6 +73,29 @@ object LivyConf {
   val KINIT_FAIL_THRESHOLD =
     LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
 
+  /**
+   * Recovery mode of Livy. Possible values:
+   * off: Default. Turn off recovery. Every time Livy shuts down, it stops and forgets all sessions.
+   * recovery: Livy persists session info to the state store. When Livy restarts, it recovers
+   *   previous sessions from the state store.
+   * Must set livy.server.recovery.state-store and livy.server.recovery.state-store.url to
+   * configure the state store.
+   */
+  val RECOVERY_MODE = Entry("livy.server.recovery.mode", "off")
+  /**
+   * Where Livy should store state to for recovery. Possible values:
+   * <empty>: Default. State store disabled.
+   * filesystem: Store state on a file system.
+   * zookeeper: Store state in a Zookeeper instance.
+   */
+  val RECOVERY_STATE_STORE = Entry("livy.server.recovery.state-store", null)
+  /**
+   * For filesystem state store, the path of the state store directory. Please don't use a
+   * filesystem that doesn't support atomic rename (e.g. S3). e.g. file:///tmp/livy or hdfs:///.
+   * For zookeeper, the address to the Zookeeper servers. e.g. host1:port1,host2:port2
+   */
+  val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.state-store.url", "")
+
   // If Livy can't find the yarn app within this time, consider it lost.
   val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "30s")
 

@@ -57,6 +57,7 @@ class InteractiveSession(
   extends Session(id, owner, livyConf)
   with SparkAppListener {
 
+  import Session._
   import InteractiveSession._
 
   private implicit def jsonFormats: Formats = DefaultFormats
@@ -71,8 +72,8 @@ class InteractiveSession(
   private val (client: RSCClient, app: Option[SparkApp]) = {
     val uniqueAppTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
 
-    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
-      prepareConf(request.conf, request.jars, request.files, request.archives, request.pyFiles))
+    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf, prepareConf(
+      request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
     val builderProperties = mutable.Map[String, String]()
     builderProperties ++= conf
@@ -163,7 +164,7 @@ class InteractiveSession(
       if (livyConf.isRunningOnYarn()) {
         // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
         // (e.g. Reflect YARN application state to session state).
-        Option(SparkApp.create(uniqueAppTag, None, livyConf, Some(this)))
+        Option(SparkApp.create(uniqueAppTag, None, None, livyConf, Some(this)))
       } else {
         // When Livy is running with other cluster manager, SparkApp doesn't provide any additional
         // benefit over controlling RSCDriver using RSCClient. Don't use it.
@@ -203,6 +204,10 @@ class InteractiveSession(
   private[this] var _statements = IndexedSeq[Statement]()
 
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(IndexedSeq.empty)
+
+  override def recoveryMetadata: RecoveryMetadata = {
+    throw new NotImplementedError("TODO")
+  }
 
   override def state: SessionState = _state
 
@@ -263,12 +268,12 @@ class InteractiveSession(
 
   def addFile(uri: URI): Unit = {
     recordActivity()
-    client.addFile(resolveURI(uri)).get()
+    client.addFile(resolveURI(uri, livyConf)).get()
   }
 
   def addJar(uri: URI): Unit = {
     recordActivity()
-    client.addJar(resolveURI(uri)).get()
+    client.addJar(resolveURI(uri, livyConf)).get()
   }
 
   def jobStatus(id: Long): Any = {

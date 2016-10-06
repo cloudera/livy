@@ -35,6 +35,9 @@ import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
+import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
+import com.cloudera.livy.sessions.BatchSessionManager
+import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
 
@@ -52,6 +55,7 @@ class LivyServer extends Logging {
 
   def start(): Unit = {
     livyConf = new LivyConf().loadFromFile("livy.conf")
+
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
     val multipartConfig = MultipartConfig(
@@ -62,10 +66,16 @@ class LivyServer extends Logging {
     testSparkHome(livyConf)
     testSparkSubmit(livyConf)
 
+    testRecovery(livyConf)
+
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
       Future { SparkYarnApp.yarnClient }
     }
+
+    StateStore.init(livyConf)
+    val sessionStore = new SessionStore(livyConf)
+    val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
@@ -86,8 +96,12 @@ class LivyServer extends Logging {
           try {
             val context = sce.getServletContext()
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
+
             mount(context, new InteractiveSessionServlet(livyConf), "/sessions/*")
-            mount(context, new BatchSessionServlet(livyConf), "/batches/*")
+
+            val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
+            mount(context, batchServlet, "/batches/*")
+
             context.mountMetricsAdminServlet("/")
           } catch {
             case e: Throwable =>
@@ -231,7 +245,13 @@ class LivyServer extends Logging {
     _serverUrl.getOrElse(throw new IllegalStateException("Server not yet started."))
   }
 
-
+  private[livy] def testRecovery(livyConf: LivyConf): Unit = {
+    if (!livyConf.isRunningOnYarn()) {
+      // If recovery is turned on but we are not running on YARN, quit.
+      require(livyConf.get(LivyConf.RECOVERY_MODE) == SESSION_RECOVERY_MODE_OFF,
+        "Session recovery requires YARN.")
+    }
+  }
 }
 
 object LivyServer {

@@ -23,7 +23,8 @@ import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse._
 
 import com.cloudera.livy.LivyConf
-import com.cloudera.livy.sessions.{Session, SessionState}
+import com.cloudera.livy.sessions.{Session, SessionManager, SessionState}
+import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 object SessionServletSpec {
 
@@ -32,7 +33,11 @@ object SessionServletSpec {
   class MockSession(id: Int, owner: String, livyConf: LivyConf)
     extends Session(id, owner, livyConf) {
 
+    case class MockRecoveryMetadata(id: Int) extends RecoveryMetadata()
+
     override val proxyUser = None
+
+    override def recoveryMetadata: RecoveryMetadata = MockRecoveryMetadata(0)
 
     override def state: SessionState = SessionState.Idle()
 
@@ -53,7 +58,8 @@ class SessionServletSpec
 
   override def createServlet(): SessionServlet[Session] = {
     val conf = createConf()
-    new SessionServlet[Session](conf) with RemoteUserOverride {
+    val sessionManager = new SessionManager[Session](conf)
+    new SessionServlet[Session](sessionManager, conf) with RemoteUserOverride {
       override protected def createSession(req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
         checkImpersonation(params.get(PROXY_USER), req)

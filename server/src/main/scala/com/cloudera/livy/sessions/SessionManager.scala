@@ -26,17 +26,79 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
+import com.cloudera.livy.server.recovery.SessionStore
 
 object SessionManager {
+  val SESSION_RECOVERY_MODE_OFF = "off"
+  val SESSION_RECOVERY_MODE_RECOVERY = "recovery"
   val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
 }
 
-class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
+// TODO Replace SessionManager with this class when interactive sessions support recovery.
+class BatchSessionManager(
+    livyConf: LivyConf,
+    sessionStore: SessionStore,
+    mockSessions: Option[Seq[BatchSession]] = None)
+  extends SessionManager[BatchSession](livyConf) {
 
-  private implicit def executor: ExecutionContext = ExecutionContext.global
+  import SessionManager._
 
-  private[this] final val idCounter = new AtomicInteger()
-  private[this] final val sessions = mutable.LinkedHashMap[Int, S]()
+  private val sessionType: String = "batch"
+
+  mockSessions.getOrElse(recover()).foreach(register)
+
+  override def nextId(): Int = synchronized {
+    val id = idCounter.getAndIncrement()
+    sessionStore.saveNextSessionId(sessionType, idCounter.get())
+    id
+  }
+
+  override def delete(session: BatchSession): Future[Unit] = {
+    session.stop().map { case _ =>
+      sessionStore.remove(sessionType, session.id)
+      synchronized {
+        sessions.remove(session.id)
+      }
+    }
+  }
+
+  override def shutdown(): Unit = {
+    val recoveryEnabled = livyConf.get(LivyConf.RECOVERY_MODE) != SESSION_RECOVERY_MODE_OFF
+    if (!recoveryEnabled) {
+      super.shutdown()
+    }
+  }
+
+  private def recover(): Seq[BatchSession] = {
+    // Recover next session id from state store and create SessionManager.
+    idCounter.set(sessionStore.getNextSessionId(sessionType))
+
+    // Retrieve session recovery metadata from state store.
+    val sessionMetadata = sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType)
+
+    // Recover session from session recovery metadata.
+    val recoveredSessions = sessionMetadata.flatMap(_.toOption).map(
+      BatchSession.recover(_, livyConf, sessionStore))
+
+    info(s"Recovered ${recoveredSessions.length} $sessionType sessions." +
+      s" Next session id: $idCounter")
+
+    // Print recovery error.
+    val recoveryFailure = sessionMetadata.filter(_.isFailure).map(_.failed.get)
+    recoveryFailure.foreach(ex => error(ex.getMessage, ex.getCause))
+
+    recoveredSessions
+  }
+}
+
+class SessionManager[S <: Session](private val livyConf: LivyConf)
+  extends Logging {
+
+  protected implicit def executor: ExecutionContext = ExecutionContext.global
+
+  protected[this] final val idCounter = new AtomicInteger(0)
+  protected[this] final val sessions = mutable.LinkedHashMap[Int, S]()
 
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
@@ -72,7 +134,6 @@ class SessionManager[S <: Session](val livyConf: LivyConf) extends Logging {
   }
 
   def shutdown(): Unit = {
-    // TODO: if recovery or HA is available, sessions should not be stopped.
     sessions.values.map(_.stop).foreach { future =>
       Await.ready(future, Duration.Inf)
     }

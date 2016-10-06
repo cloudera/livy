@@ -37,15 +37,14 @@ object SessionServlet extends Logging
  * Type parameters:
  *  S: the session type
  */
-abstract class SessionServlet[S <: Session](livyConf: LivyConf)
+abstract class SessionServlet[S <: Session](
+    private[livy] val sessionManager: SessionManager[S],
+    livyConf: LivyConf)
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
   with UrlGeneratorSupport
 {
-
-  private[livy] val sessionManager = new SessionManager[S](livyConf)
-
   /**
    * Creates a new session based on the current request. The implementation is responsible for
    * parsing the body of the request.

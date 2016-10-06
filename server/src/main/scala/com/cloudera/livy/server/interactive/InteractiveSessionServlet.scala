@@ -39,7 +39,9 @@ import com.cloudera.livy.sessions._
 object InteractiveSessionServlet extends Logging
 
 class InteractiveSessionServlet(livyConf: LivyConf)
-  extends SessionServlet[InteractiveSession](livyConf)
+  extends SessionServlet[InteractiveSession](
+    new SessionManager[InteractiveSession](livyConf),
+    livyConf)
   with FileUploadSupport
 {
 

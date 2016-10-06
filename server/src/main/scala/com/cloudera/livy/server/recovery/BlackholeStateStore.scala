@@ -15,25 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.cloudera.livy.utils
+
+package com.cloudera.livy.server.recovery
+
+import scala.reflect.ClassTag
+
+import com.cloudera.livy.LivyConf
 
 /**
- * A lot of Livy code relies on time related functions like Thread.sleep.
- * To timing effects from unit test, this class is created to mock out time.
- *
- * Code in Livy should not call Thread.sleep() directly. It should call this class instead.
+ * This is a blackhole implementation of StateStore.
+ * Livy will use this when session recovery is disabled.
  */
-object Clock {
-  private var _sleep: Long => Unit = Thread.sleep
+class BlackholeStateStore(livyConf: LivyConf) extends StateStore(livyConf) {
+  def set(key: String, value: Object): Unit = {}
 
-  def withSleepMethod(mockSleep: Long => Unit)(f: => Unit): Unit = {
-    try {
-      _sleep = mockSleep
-      f
-    } finally {
-      _sleep = Thread.sleep
-    }
-  }
+  def get[T: ClassTag](key: String): Option[T] = None
 
-  def sleep: Long => Unit = _sleep
+  def getChildren(key: String): Seq[String] = List.empty[String]
+
+  def remove(key: String): Unit = {}
 }

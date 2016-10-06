@@ -37,6 +37,12 @@ object SessionState {
     override def toString: String = "starting"
   }
 
+  case class Recovering() extends SessionState {
+    override def isActive: Boolean = true
+
+    override def toString: String = "recovering"
+  }
+
   case class Idle() extends SessionState {
     override def isActive: Boolean = true
 

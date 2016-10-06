@@ -15,25 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.cloudera.livy.utils
 
-/**
- * A lot of Livy code relies on time related functions like Thread.sleep.
- * To timing effects from unit test, this class is created to mock out time.
- *
- * Code in Livy should not call Thread.sleep() directly. It should call this class instead.
- */
-object Clock {
-  private var _sleep: Long => Unit = Thread.sleep
+package com.cloudera.livy.server.recovery
 
-  def withSleepMethod(mockSleep: Long => Unit)(f: => Unit): Unit = {
-    try {
-      _sleep = mockSleep
-      f
-    } finally {
-      _sleep = Thread.sleep
+import org.scalatest.FunSpec
+import org.scalatest.Matchers._
+
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
+
+class BlackholeStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
+  describe("BlackholeStateStore") {
+    val stateStore = new BlackholeStateStore(new LivyConf())
+
+    it("set should not throw") {
+      stateStore.set("", 1.asInstanceOf[Object])
+    }
+
+    it("get should return None") {
+      val v = stateStore.get[Object]("")
+      v shouldBe None
+    }
+
+    it("getChildren should return empty list") {
+      val c = stateStore.getChildren("")
+      c shouldBe empty
+    }
+
+    it("remove should not throw") {
+      stateStore.remove("")
     }
   }
-
-  def sleep: Long => Unit = _sleep
 }

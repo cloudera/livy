@@ -23,62 +23,130 @@ import java.lang.ProcessBuilder.Redirect
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.Random
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+
 import com.cloudera.livy.LivyConf
+import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{Session, SessionState}
+import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+case class BatchRecoveryMetadata(
+    id: Int,
+    appId: Option[String],
+    appTag: String,
+    owner: String,
+    proxyUser: Option[String],
+    version: Int = 1)
+  extends RecoveryMetadata
+
+object BatchSession {
+  val RECOVERY_SESSION_TYPE = "batch"
+
+  def create(
+      id: Int,
+      request: CreateBatchRequest,
+      livyConf: LivyConf,
+      owner: String,
+      proxyUser: Option[String],
+      sessionStore: SessionStore,
+      mockApp: Option[SparkApp] = None): BatchSession = {
+    val appTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
+
+    def createSparkApp(s: BatchSession): SparkApp = {
+      val conf = SparkApp.prepareSparkConf(
+        appTag,
+        livyConf,
+        prepareConf(
+          request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
+      require(request.file != null, "File is required.")
+
+      val builder = new SparkProcessBuilder(livyConf)
+      builder.conf(conf)
+
+      proxyUser.foreach(builder.proxyUser)
+      request.className.foreach(builder.className)
+      request.driverMemory.foreach(builder.driverMemory)
+      request.driverCores.foreach(builder.driverCores)
+      request.executorMemory.foreach(builder.executorMemory)
+      request.executorCores.foreach(builder.executorCores)
+      request.numExecutors.foreach(builder.numExecutors)
+      request.queue.foreach(builder.queue)
+      request.name.foreach(builder.name)
+
+      // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
+      livyConf.sparkDeployMode().foreach(builder.deployMode)
+
+      sessionStore.save(BatchSession.RECOVERY_SESSION_TYPE, s.recoveryMetadata)
+
+      builder.redirectOutput(Redirect.PIPE)
+      builder.redirectErrorStream(true)
+
+      val file = resolveURIs(Seq(request.file), livyConf)(0)
+      val sparkSubmit = builder.start(Some(file), request.args)
+
+      SparkApp.create(appTag, None, Option(sparkSubmit), livyConf, Option(s))
+    }
+
+    new BatchSession(
+      id,
+      appTag,
+      SessionState.Starting(),
+      livyConf,
+      owner,
+      proxyUser,
+      sessionStore,
+      mockApp.map { m => (_: BatchSession) => m }.getOrElse(createSparkApp))
+  }
+
+  def recover(
+      m: BatchRecoveryMetadata,
+      livyConf: LivyConf,
+      sessionStore: SessionStore,
+      mockApp: Option[SparkApp] = None): BatchSession = {
+    new BatchSession(
+      m.id,
+      m.appTag,
+      SessionState.Recovering(),
+      livyConf,
+      m.owner,
+      m.proxyUser,
+      sessionStore,
+      mockApp.map { m => (_: BatchSession) => m }.getOrElse { s =>
+        SparkApp.create(m.appTag, m.appId, None, livyConf, Option(s))
+      })
+  }
+}
 
 class BatchSession(
     id: Int,
+    appTag: String,
+    initialState: SessionState,
+    livyConf: LivyConf,
     owner: String,
     override val proxyUser: Option[String],
-    livyConf: LivyConf,
-    request: CreateBatchRequest,
-    mockApp: Option[SparkApp] = None) // For unit test.
+    sessionStore: SessionStore,
+    sparkApp: BatchSession => SparkApp)
   extends Session(id, owner, livyConf) with SparkAppListener {
-
-  private val app = mockApp.getOrElse {
-    val uniqueAppTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
-
-    val conf = SparkApp.prepareSparkConf(uniqueAppTag, livyConf,
-      prepareConf(request.conf, request.jars, request.files, request.archives, request.pyFiles))
-    require(request.file != null, "File is required.")
-
-    val builder = new SparkProcessBuilder(livyConf)
-    builder.conf(conf)
-
-    proxyUser.foreach(builder.proxyUser)
-    request.className.foreach(builder.className)
-    request.driverMemory.foreach(builder.driverMemory)
-    request.driverCores.foreach(builder.driverCores)
-    request.executorMemory.foreach(builder.executorMemory)
-    request.executorCores.foreach(builder.executorCores)
-    request.numExecutors.foreach(builder.numExecutors)
-    request.queue.foreach(builder.queue)
-    request.name.foreach(builder.name)
-
-    // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
-    livyConf.sparkDeployMode().foreach(builder.deployMode)
-
-    builder.redirectOutput(Redirect.PIPE)
-    builder.redirectErrorStream(true)
-
-    val file = resolveURIs(Seq(request.file))(0)
-    val sparkSubmitProcess = builder.start(Some(file), request.args)
-    SparkApp.create(uniqueAppTag, Option(sparkSubmitProcess), livyConf, Some(this))
-  }
+  import BatchSession._
 
   protected implicit def executor: ExecutionContextExecutor = ExecutionContext.global
 
-  private[this] var _state: SessionState = SessionState.Starting()
+  private[this] var _state: SessionState = initialState
+  private val app = sparkApp(this)
 
   override def state: SessionState = _state
 
   override def logLines(): IndexedSeq[String] = app.log()
 
-  override def stopSession(): Unit = app.kill()
+  override def stopSession(): Unit = {
+    app.kill()
+  }
 
   override def appIdKnown(appId: String): Unit = {
     _appId = Option(appId)
+    sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
   }
 
   override def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {
@@ -95,4 +163,7 @@ class BatchSession(
   }
 
   override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
+
+  override def recoveryMetadata: RecoveryMetadata =
+    BatchRecoveryMetadata(id, appId, appTag, owner, proxyUser)
 }

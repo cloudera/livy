@@ -31,7 +31,8 @@ import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.Utils
 import com.cloudera.livy.server.BaseSessionServletSpec
-import com.cloudera.livy.sessions.SessionState
+import com.cloudera.livy.server.recovery.SessionStore
+import com.cloudera.livy.sessions.{SessionManager, SessionState}
 import com.cloudera.livy.utils.AppInfo
 
 class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
@@ -51,7 +52,13 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
     script
   }
 
-  override def createServlet(): BatchSessionServlet = new BatchSessionServlet(createConf())
+  override def createServlet(): BatchSessionServlet = {
+    val livyConf = createConf()
+    new BatchSessionServlet(
+      new SessionManager[BatchSession](livyConf),
+      mock[SessionStore],
+      livyConf)
+  }
 
   describe("Batch Servlet") {
     it("should create and tear down a batch") {

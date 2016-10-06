@@ -146,7 +146,8 @@ object MiniLivyMain extends MiniClusterBase {
   def start(config: MiniClusterConfig, configPath: String): Unit = {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
-      LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster")
+      LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
+      LivyConf.YARN_POLL_INTERVAL.key -> "500ms")
 
     if (BaseIntegrationTestSuite.isRunningOnTravis) {
       livyConf ++= Map("livy.server.yarn.app-lookup-timeout" -> "2m")
