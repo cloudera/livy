@@ -34,13 +34,14 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.server.batch.CreateBatchRequest
 import com.cloudera.livy.sessions.SessionState
 import com.cloudera.livy.test.apps._
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 
 class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
-  import com.cloudera.livy.utils.AppInfo._
+  val DRIVER_LOG_URL_NAME = "driverLogUrl"
+  val SPARK_UI_URL_NAME = "sparkUiUrl"
+
   implicit val patienceConfig = PatienceConfig(timeout = 2 minutes, interval = 1 second)
 
   private var testLibPath: String = _
@@ -61,6 +62,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       result.appInfo should contain key SPARK_UI_URL_NAME
       result.appInfo.get(DRIVER_LOG_URL_NAME) should include ("containerlogs")
       result.appInfo.get(SPARK_UI_URL_NAME) should startWith ("http")
+
     }
   }
 
@@ -170,8 +172,14 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     hdfsPath.toUri().getPath()
   }
 
+  class MockCreateBatchRequest {
+    var file: String = _
+    var args: List[String] = List()
+    var className: Option[String] = None
+    var conf: Map[String, String] = Map()
+  }
   private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
-    val request = new CreateBatchRequest()
+    val request = new MockCreateBatchRequest()
     request.file = script
     request.args = args
     waitAndDeleteBatch(startBatch(request).id)
@@ -181,7 +189,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       klass: Class[_],
       args: List[String] = Nil,
       waitForExit: Boolean = true): SessionInfo = {
-    val request = new CreateBatchRequest()
+    val request = new MockCreateBatchRequest()
     request.file = testLibPath
     request.className = Some(klass.getName)
     request.args = args
@@ -205,7 +213,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     assert(r.getStatusCode() === SC_OK)
   }
 
-  private def startBatch(request: CreateBatchRequest): SessionInfo = {
+  private def startBatch(request: MockCreateBatchRequest): SessionInfo = {
     request.conf = Map("spark.yarn.maxAppAttempts" -> "1")
 
     val response = httpClient.preparePost(s"$livyEndpoint/batches")
