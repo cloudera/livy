@@ -34,14 +34,16 @@ import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.SessionServlet
+import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 
 object InteractiveSessionServlet extends Logging
 
-class InteractiveSessionServlet(livyConf: LivyConf)
-  extends SessionServlet[InteractiveSession](
-    new SessionManager[InteractiveSession](livyConf),
-    livyConf)
+class InteractiveSessionServlet(
+    sessionManager: InteractiveSessionManager,
+    sessionStore: SessionStore,
+    livyConf: LivyConf)
+  extends SessionServlet(sessionManager, livyConf)
   with FileUploadSupport
 {
 
@@ -51,8 +53,13 @@ class InteractiveSessionServlet(livyConf: LivyConf)
   override protected def createSession(req: HttpServletRequest): InteractiveSession = {
     val createRequest = bodyAs[CreateInteractiveRequest](req)
     val proxyUser = checkImpersonation(createRequest.proxyUser, req)
-    new InteractiveSession(sessionManager.nextId(), remoteUser(req), proxyUser, livyConf,
-      createRequest)
+    InteractiveSession.create(
+      sessionManager.nextId(),
+      remoteUser(req),
+      proxyUser,
+      livyConf,
+      createRequest,
+      sessionStore)
   }
 
   override protected[interactive] def clientSessionView(

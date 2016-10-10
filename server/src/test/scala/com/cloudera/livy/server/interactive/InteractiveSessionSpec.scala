@@ -18,26 +18,32 @@
 
 package com.cloudera.livy.server.interactive
 
+import java.net.URI
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s.{DefaultFormats, Extraction}
+import org.mockito.{Matchers => MockitoMatchers}
+import org.mockito.Matchers._
+import org.mockito.Mockito.{atLeastOnce, verify, when}
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.{ExecuteRequest, LivyBaseUnitTestSuite, LivyConf}
-import com.cloudera.livy.rsc.RSCConf
-import com.cloudera.livy.sessions.{PySpark, SessionState}
+import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyBaseUnitTestSuite, LivyConf}
+import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
+import com.cloudera.livy.server.recovery.SessionStore
+import com.cloudera.livy.sessions.{PySpark, SessionState, Spark}
 import com.cloudera.livy.utils.{AppInfo, SparkApp}
 
 class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
-  livyConf.set(InteractiveSession.LivyReplJars, "")
+  livyConf.set(InteractiveSession.LIVY_REPL_JARS, "")
     .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
 
@@ -45,7 +51,9 @@ class InteractiveSessionSpec extends FunSpec
 
   private var session: InteractiveSession = null
 
-  private def createSession(mockApp: Option[SparkApp] = None): InteractiveSession = {
+  private def createSession(
+      sessionStore: SessionStore = mock[SessionStore],
+      mockApp: Option[SparkApp] = None): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
 
     val req = new CreateInteractiveRequest()
@@ -59,7 +67,7 @@ class InteractiveSessionSpec extends FunSpec
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
-    new InteractiveSession(0, null, None, livyConf, req, mockApp)
+    InteractiveSession.create(0, null, None, livyConf, req, sessionStore, mockApp)
   }
 
   override def afterAll(): Unit = {
@@ -74,7 +82,7 @@ class InteractiveSessionSpec extends FunSpec
     it(desc) {
       assume(session != null, "No active session.")
       eventually(timeout(30 seconds), interval(100 millis)) {
-        session.state should be (SessionState.Idle())
+        session.state shouldBe a[SessionState.Idle]
       }
       fn(session)
     }
@@ -83,12 +91,13 @@ class InteractiveSessionSpec extends FunSpec
   describe("A spark session") {
     it("should start in the idle state") {
       session = createSession()
-      session.state should (equal (SessionState.Starting()) or equal (SessionState.Idle()))
+      session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
     }
 
-    it("should update appId and appInfo") {
+    it("should update appId and appInfo and session store") {
       val mockApp = mock[SparkApp]
-      val session = createSession(Some(mockApp))
+      val sessionStore = mock[SessionStore]
+      val session = createSession(sessionStore, Some(mockApp))
 
       val expectedAppId = "APPID"
       session.appIdKnown(expectedAppId)
@@ -97,6 +106,9 @@ class InteractiveSessionSpec extends FunSpec
       val expectedAppInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
       session.infoChanged(expectedAppInfo)
       session.appInfo shouldEqual expectedAppInfo
+
+      verify(sessionStore, atLeastOnce()).save(
+        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
     }
 
     withSession("should execute `1 + 2` == 3") { session =>
@@ -129,7 +141,7 @@ class InteractiveSessionSpec extends FunSpec
       ))
 
       result should equal (expectedResult)
-      session.state should equal (SessionState.Idle())
+      session.state shouldBe a[SessionState.Idle]
     }
 
     withSession("should error out the session if the interpreter dies") { session =>
@@ -142,4 +154,31 @@ class InteractiveSessionSpec extends FunSpec
     }
   }
 
+  describe("recovery") {
+    it("should recover session") {
+      val conf = new LivyConf()
+      val sessionStore = mock[SessionStore]
+      val mockClient = mock[RSCClient]
+      when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
+      val m =
+        InteractiveRecoveryMetadata(78, None, "appTag", Spark(), null, None, Some(URI.create("")))
+      val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
+
+      s.state shouldBe a[SessionState.Recovering]
+
+      s.appIdKnown("appId")
+      verify(sessionStore, atLeastOnce()).save(
+        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
+    it("should recover session to dead state if rscDriverUri is unknown") {
+      val conf = new LivyConf()
+      val sessionStore = mock[SessionStore]
+      val m = InteractiveRecoveryMetadata(78, Some("appId"), "appTag", Spark(), null, None, None)
+      val s = InteractiveSession.recover(m, conf, sessionStore, None)
+
+      s.state shouldBe a[SessionState.Dead]
+      s.logLines().mkString should include("RSCDriver URI is unknown")
+    }
+  }
 }

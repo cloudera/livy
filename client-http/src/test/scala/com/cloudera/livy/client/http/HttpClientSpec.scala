@@ -40,7 +40,8 @@ import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.server.WebServer
 import com.cloudera.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
-import com.cloudera.livy.sessions.{SessionState, Spark}
+import com.cloudera.livy.server.recovery.SessionStore
+import com.cloudera.livy.sessions.{InteractiveSessionManager, SessionState, Spark}
 import com.cloudera.livy.test.jobs.Echo
 import com.cloudera.livy.utils.AppInfo
 
@@ -264,7 +265,10 @@ private class HttpClientTestBootstrap extends LifeCycle {
   private implicit def executor: ExecutionContext = ExecutionContext.global
 
   override def init(context: ServletContext): Unit = {
-    val servlet = new InteractiveSessionServlet(new LivyConf()) {
+    val conf = new LivyConf()
+    val stateStore = mock(classOf[SessionStore])
+    val sessionManager = new InteractiveSessionManager(conf, stateStore, Some(Seq.empty))
+    val servlet = new InteractiveSessionServlet(sessionManager, stateStore, conf) {
       override protected def createSession(req: HttpServletRequest): InteractiveSession = {
         val session = mock(classOf[InteractiveSession])
         val id = sessionManager.nextId()

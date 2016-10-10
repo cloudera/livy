@@ -31,13 +31,19 @@ import org.scalatest.mock.MockitoSugar.mock
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import com.cloudera.livy.server.recovery.SessionStore
+import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuite {
   describe("SessionManager") {
     it("should garbage collect old sessions") {
       val livyConf = new LivyConf()
       livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")
-      val manager = new SessionManager[MockSession](livyConf)
+      val manager = new SessionManager[MockSession, RecoveryMetadata](
+        livyConf,
+        { _ => assert(false).asInstanceOf[MockSession] },
+        mock[SessionStore],
+        "test",
+        Some(Seq.empty))
       val session = manager.register(new MockSession(manager.nextId(), null, livyConf))
       manager.get(session.id).isDefined should be(true)
       eventually(timeout(5 seconds), interval(100 millis)) {

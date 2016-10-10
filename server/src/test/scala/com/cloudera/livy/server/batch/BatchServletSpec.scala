@@ -32,10 +32,10 @@ import org.scalatest.mock.MockitoSugar.mock
 import com.cloudera.livy.Utils
 import com.cloudera.livy.server.BaseSessionServletSpec
 import com.cloudera.livy.server.recovery.SessionStore
-import com.cloudera.livy.sessions.{SessionManager, SessionState}
+import com.cloudera.livy.sessions.{BatchSessionManager, SessionState}
 import com.cloudera.livy.utils.AppInfo
 
-class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
+class BatchServletSpec extends BaseSessionServletSpec[BatchSession, BatchRecoveryMetadata] {
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
@@ -54,9 +54,10 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession] {
 
   override def createServlet(): BatchSessionServlet = {
     val livyConf = createConf()
+    val sessionStore = mock[SessionStore]
     new BatchSessionServlet(
-      new SessionManager[BatchSession](livyConf),
-      mock[SessionStore],
+      new BatchSessionManager(livyConf, sessionStore, Some(Seq.empty)),
+      sessionStore,
       livyConf)
   }
 

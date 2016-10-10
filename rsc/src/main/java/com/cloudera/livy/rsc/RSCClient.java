@@ -57,6 +57,7 @@ public class RSCClient implements LivyClient {
   private final Promise<Rpc> driverRpc;
   private final int executorGroupId;
   private final EventLoopGroup eventLoopGroup;
+  private final Promise<URI> serverUriPromise;
 
   private ContextInfo contextInfo;
   private volatile boolean isAlive;
@@ -71,16 +72,21 @@ public class RSCClient implements LivyClient {
     this.eventLoopGroup = new NioEventLoopGroup(
         conf.getInt(RPC_MAX_THREADS),
         Utils.newDaemonThreadFactory("RSCClient-" + executorGroupId + "-%d"));
+    this.serverUriPromise = ImmediateEventExecutor.INSTANCE.newPromise();
 
     Utils.addListener(this.contextInfoPromise, new FutureListener<ContextInfo>() {
       @Override
       public void onSuccess(ContextInfo info) throws Exception {
         connectToContext(info);
+        String url = String.format("rsc://%s:%s@%s:%d",
+          info.clientId, info.secret, info.remoteAddress, info.remotePort);
+        serverUriPromise.setSuccess(URI.create(url));
       }
 
       @Override
       public void onFailure(Throwable error) {
         connectionError(error);
+        serverUriPromise.setFailure(error);
       }
     });
 
@@ -172,6 +178,10 @@ public class RSCClient implements LivyClient {
       }
     });
     return promise;
+  }
+
+  public Future<URI> getServerUri() {
+    return serverUriPromise;
   }
 
   @Override

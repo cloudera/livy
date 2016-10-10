@@ -22,7 +22,10 @@ package com.cloudera.livy.server
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse._
 
+import org.scalatest.mock.MockitoSugar.mock
+
 import com.cloudera.livy.LivyConf
+import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{Session, SessionManager, SessionState}
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
@@ -52,14 +55,20 @@ object SessionServletSpec {
 }
 
 class SessionServletSpec
-  extends BaseSessionServletSpec[Session] {
+  extends BaseSessionServletSpec[Session, RecoveryMetadata] {
 
   import SessionServletSpec._
 
-  override def createServlet(): SessionServlet[Session] = {
+  override def createServlet(): SessionServlet[Session, RecoveryMetadata] = {
     val conf = createConf()
-    val sessionManager = new SessionManager[Session](conf)
-    new SessionServlet[Session](sessionManager, conf) with RemoteUserOverride {
+    val sessionManager = new SessionManager[Session, RecoveryMetadata](
+      conf,
+      { _ => assert(false).asInstanceOf[Session] },
+      mock[SessionStore],
+      "test",
+      Some(Seq.empty))
+
+    new SessionServlet(sessionManager, conf) with RemoteUserOverride {
       override protected def createSession(req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
         checkImpersonation(params.get(PROXY_USER), req)
