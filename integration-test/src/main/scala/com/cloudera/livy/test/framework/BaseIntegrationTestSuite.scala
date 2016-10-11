@@ -165,7 +165,6 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     def getSessionInfo(sessionId: Int): Map[String, Any] = {
       val rep = httpClient.prepareGet(s"$livyEndpoint/sessions/$sessionId").execute().get()
       withClue(rep.getResponseBody) {
-        println(s"livy endpoint: ${livyEndpoint}")
         rep.getStatusCode should equal(HttpServletResponse.SC_OK)
 
         mapper.readValue(rep.getResponseBodyAsStream, classOf[Map[String, Any]])

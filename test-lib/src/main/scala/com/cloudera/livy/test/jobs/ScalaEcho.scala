@@ -24,10 +24,10 @@ import com.cloudera.livy.{Job, JobContext}
 
 case class ValueHolder[T](value: T)
 
-class ScalaEcho[T: ClassTag](val value: T)(implicit val tag: ClassTag[T]) extends Job[T] {
+class ScalaEcho[T: ClassTag](val value: T) extends Job[T] {
 
   override def call(jc: JobContext): T = {
-    jc.sc().sc.parallelize(Seq(value), 1)(tag).collect()(0)
+    jc.sc().sc.parallelize(Seq(value), 1).collect()(0)
   }
 
 }

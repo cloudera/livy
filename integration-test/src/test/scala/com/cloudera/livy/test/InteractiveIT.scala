@@ -105,22 +105,22 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
          | |-- age: double (nullable = true)""".stripMargin))
   }
 
-//  test("application kills session") {
-//    sessionId = livyClient.startSession(Spark())
-//    dumpLogOnFailure(sessionId) {
-//      waitTillSessionIdle(sessionId)
-//      livyClient.runStatement(sessionId, "System.exit(0)")
-//
-//      val expected = Set(SessionState.Dead().toString)
-//      eventually(timeout(30 seconds), interval(1 second)) {
-//        val state = livyClient.getSessionStatus(sessionId)
-//        assert(expected.contains(state))
-//      }
-//    }
-//  }
+  test("application kills session") {
+    sessionId = livyClient.startSession(Spark())
+    dumpLogOnFailure(sessionId) {
+      waitTillSessionIdle(sessionId)
+      livyClient.runStatement(sessionId, "System.exit(0)")
+
+      val expected = Set(SessionState.Dead().toString)
+      eventually(timeout(30 seconds), interval(1 second)) {
+        val state = livyClient.getSessionStatus(sessionId)
+        assert(expected.contains(state))
+      }
+    }
+  }
 
   test("should kill RSCDriver if it doesn't respond to end session") {
-    val testConfName = "spark.__livy__.test.do_not_use.stuck_end_session"
+    val testConfName = "spark.__livy__.livy.rsc.test.do_not_use.stuck_end_session"
     sessionId = livyClient.startSession(Spark(), Map(testConfName -> "true"))
 
     dumpLogOnFailure(sessionId) {

@@ -152,7 +152,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     assert(result === "hello")
   }
 
-  test("run scala jobs") {
+  ignore("run scala jobs") {
     assume(client2 != null, "Client not active.")
 
     val jobs = Seq(
@@ -175,7 +175,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
 
     try {
       waitFor(client2.submit(new Failure()))
-      fail("Job should have failued.")
+      fail("Job should have failed.")
     } catch {
       case e: Exception =>
         assert(e.getMessage().contains(classOf[Failure.JobFailureException].getName()))

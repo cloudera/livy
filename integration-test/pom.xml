@@ -39,6 +39,7 @@
     -->
     <cluster.spec>default</cluster.spec>
     <skipDeploy>true</skipDeploy>
+    <repl.jars.version>scala-2.10</repl.jars.version>
   </properties>
 
   <dependencies>
@@ -216,6 +217,7 @@
           </environmentVariables>
           <systemProperties>
             <cluster.spec>${cluster.spec}</cluster.spec>
+            <repl.jars.version>${repl.jars.version}</repl.jars.version>
           </systemProperties>
           <skipTests>${skipITs}</skipTests>
         </configuration>
@@ -233,6 +235,20 @@
       </activation>
       <properties>
         <spark.home>${real.spark.home}</spark.home>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>scala-2.11-it</id>
+      <activation>
+        <property>
+          <name>scala-2.11-it</name>
+        </property>
+      </activation>
+      <properties>
+        <scala.version>${scala-2.11.version}</scala.version>
+        <scala.binary.version>2.11</scala.binary.version>
+        <repl.jars.version>scala-2.11</repl.jars.version>
       </properties>
     </profile>
   </profiles>
