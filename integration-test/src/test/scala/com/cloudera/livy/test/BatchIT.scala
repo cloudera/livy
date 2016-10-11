@@ -172,12 +172,14 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     hdfsPath.toUri().getPath()
   }
 
+  // A mock class of CreateBatchRequest to avoid add livy server dependency.
   class MockCreateBatchRequest {
     var file: String = _
     var args: List[String] = List()
     var className: Option[String] = None
     var conf: Map[String, String] = Map()
   }
+
   private def runScript(script: String, args: List[String] = Nil): SessionInfo = {
     val request = new MockCreateBatchRequest()
     request.file = script

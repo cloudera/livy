@@ -119,6 +119,7 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
 
+  // A mock class of CreateInteractiveRequest to avoid add livy server dependency.
   class MockCreateInteractiveRequest {
     var kind: Kind = Spark()
     var conf: Map[String, String] = Map()
