@@ -97,6 +97,7 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-auth</artifactId>
+            <scope>${hadoop.scope}</scope>
         </dependency>
 
         <dependency>
@@ -108,6 +109,7 @@
                     <artifactId>servlet-api</artifactId>
                 </exclusion>
             </exclusions>
+            <scope>${hadoop.scope}</scope>
         </dependency>
 
         <dependency>
