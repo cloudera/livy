@@ -342,7 +342,7 @@ class InteractiveSession(
     }
   }
 
-  private def datanucleusJars(livyConf: LivyConf, sparkMajorVersion:Int): Seq[String] = {
+  private def datanucleusJars(livyConf: LivyConf, sparkMajorVersion: Int): Seq[String] = {
     if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
       // datanucleus jars has already been in classpath in integration test
       Seq.empty
