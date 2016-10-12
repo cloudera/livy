@@ -35,5 +35,11 @@ before_script:
 script:
   - mvn verify -e
 
+install:
+  - mvn install -DskipTests=true -DskipITs=true -Dmaven.javadoc.skip=true -B -V
+
+script:
+  - mvn verify
+
 after_success:
   - bash <(curl -s https://codecov.io/bash)
