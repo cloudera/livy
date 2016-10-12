@@ -48,9 +48,9 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
     dumpLogOnFailure(sessionId) {
       matchResult("1+1", "res0: Int = 2")
       matchResult("""sc.getConf.get("spark.executor.instances")""", "res1: String = 1")
-      matchResult("sqlContext", startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       matchResult("val sql = new org.apache.spark.sql.SQLContext(sc)",
-        startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
+        ".*" + Pattern.quote(
+          "sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext") + ".*")
 
       matchError("abcde", evalue = ".*?:[0-9]+: error: not found: value abcde.*")
       matchError("throw new IllegalStateException()",
