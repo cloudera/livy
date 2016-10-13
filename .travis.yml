@@ -34,6 +34,7 @@ before_script:
 
 script:
   - mvn verify -e
+  - mvn verify -Dscala-2.11-it -e -DskipTests
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

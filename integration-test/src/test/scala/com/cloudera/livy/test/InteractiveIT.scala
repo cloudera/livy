@@ -30,7 +30,6 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest.BeforeAndAfter
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, StatementError}
 
@@ -121,7 +120,7 @@ class InteractiveIT extends BaseIntegrationTestSuite with BeforeAndAfter {
   }
 
   test("should kill RSCDriver if it doesn't respond to end session") {
-    val testConfName = s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_END_SESSION.key()}"
+    val testConfName = "spark.__livy__.livy.rsc.test.do_not_use.stuck_end_session"
     sessionId = livyClient.startSession(Spark(), Map(testConfName -> "true"))
 
     dumpLogOnFailure(sessionId) {

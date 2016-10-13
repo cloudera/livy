@@ -35,7 +35,6 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest._
 import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.server.interactive.CreateInteractiveRequest
 import com.cloudera.livy.sessions._
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -120,10 +119,17 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     livyClient = new LivyRestClient(httpClient, livyEndpoint)
   }
 
+  // A mock class of CreateInteractiveRequest to avoid add livy server dependency.
+  class MockCreateInteractiveRequest {
+    var kind: Kind = Spark()
+    var conf: Map[String, String] = Map()
+    var numExecutors: Option[Int] = None
+  }
+
   class LivyRestClient(httpClient: AsyncHttpClient, livyEndpoint: String) {
 
     def startSession(kind: Kind, sparkConf: Map[String, String] = Map()): Int = {
-      val requestBody = new CreateInteractiveRequest()
+      val requestBody = new MockCreateInteractiveRequest()
       requestBody.kind = kind
       requestBody.conf = sparkConf
       requestBody.numExecutors = Some(1)
