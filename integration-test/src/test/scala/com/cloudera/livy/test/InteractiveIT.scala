@@ -34,7 +34,8 @@ class InteractiveIT extends BaseIntegrationTestSuite {
   test("basic interactive session") {
     withNewSession(Spark()) { s =>
       s.run("1+1").verifyResult("res0: Int = 2")
-      s.run("sqlContext").verifyResult(startsWith("res1: org.apache.spark.sql.hive.HiveContext"))
+      s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res1: String = 1")
+      s.run("sqlContext").verifyResult(startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
         startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
 

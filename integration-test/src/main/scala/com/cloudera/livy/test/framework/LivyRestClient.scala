@@ -129,27 +129,24 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
         newStmt.id
       }
 
-      @tailrec
       final def result(): Either[String, StatementError] = {
-        val r = httpClient.prepareGet(s"$url/statements/$stmtId")
-          .execute()
-          .get()
-        assertStatusCode(r, HttpServletResponse.SC_OK)
+        eventually(timeout(1 minute), interval(1 second)) {
+          val r = httpClient.prepareGet(s"$url/statements/$stmtId")
+            .execute()
+            .get()
+          assertStatusCode(r, HttpServletResponse.SC_OK)
 
-        val newStmt = mapper.readValue(r.getResponseBodyAsStream, classOf[StatementResult])
-        if (newStmt.state == "running") {
-          Thread.sleep(1000)
-          result()
-        } else {
+          val newStmt = mapper.readValue(r.getResponseBodyAsStream, classOf[StatementResult])
+          assert(newStmt.state == "available", s"Statement isn't available: ${newStmt.state}")
+
           val output = newStmt.output
-          output("status") match {
-            case "ok" =>
+          output.get("status") match {
+            case Some("ok") =>
               val data = output("data").asInstanceOf[Map[String, Any]]
               Left(data("text/plain").asInstanceOf[String])
-            case "error" =>
-              Right(mapper.convertValue(output, classOf[StatementError]))
-            case status =>
-              throw new Exception(s"Unknown statement status: $status")
+            case Some("error") => Right(mapper.convertValue(output, classOf[StatementError]))
+            case Some(status) => throw new Exception(s"Unknown statement status: $status")
+            case None => throw new Exception(s"Unknown statement output: $newStmt")
           }
         }
       }
@@ -172,13 +169,10 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
             assert(false, s"Statement `$code` expected to fail, but succeeded.")
           case Right(error) =>
             val remoteStack = Option(error.stackTrace).getOrElse(Nil).mkString("\n")
-            Seq(error.ename -> ename, error.evalue -> evalue, remoteStack -> stackTrace)
-              .foreach {
-                case (actual, expected) =>
-                  if (expected != null) {
-                    matchStrings(actual, expected)
-                  }
-              }
+            Seq(error.ename -> ename, error.evalue -> evalue, remoteStack -> stackTrace).foreach {
+              case (actual, expected) if expected != null => matchStrings(actual, expected)
+              case _ =>
+            }
         }
       }
 

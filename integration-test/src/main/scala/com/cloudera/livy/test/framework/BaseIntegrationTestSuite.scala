@@ -22,6 +22,7 @@ import java.io.File
 import java.util.UUID
 
 import scala.language.postfixOps
+import scala.util.control.NonFatal
 
 import com.ning.http.client.AsyncHttpClient
 import org.apache.hadoop.fs.Path
@@ -82,15 +83,15 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     try {
       f(s)
     } catch {
-      case e: Throwable =>
+      case NonFatal(e) =>
         try {
           val state = s.snapshot()
           info(s"Final session state: $state")
           state.appId.foreach { id => info(s"YARN diagnostics: ${getYarnLog(id)}") }
-        } catch { case _: Throwable => }
+        } catch { case NonFatal(_) => }
         throw e
     } finally {
-      try { s.stop() } catch { case _: Throwable => }
+      try { s.stop() } catch { case NonFatal(_) => }
     }
   }
 
