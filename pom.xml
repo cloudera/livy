@@ -56,7 +56,7 @@
     <kryo.version>2.22</kryo.version>
     <metrics.version>3.1.0</metrics.version>
     <mockito.version>1.9.5</mockito.version>
-    <netty.version>4.0.23.Final</netty.version>
+    <netty.version>4.0.29.Final</netty.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <py4j.version>0.9</py4j.version>
     <scala-2.10.version>2.10.4</scala-2.10.version>
@@ -986,7 +986,6 @@
       <properties>
         <spark.version>1.6.2</spark.version>
         <py4j.version>0.9</py4j.version>
-        <netty.version>4.0.23.Final</netty.version>
         <json4s.version>3.2.10</json4s.version>
       </properties>
     </profile>
@@ -1001,7 +1000,6 @@
       <properties>
         <spark.version>2.0.0</spark.version>
         <py4j.version>0.10.1</py4j.version>
-        <netty.version>4.0.29.Final</netty.version>
         <json4s.version>3.2.11</json4s.version>
       </properties>
     </profile>
