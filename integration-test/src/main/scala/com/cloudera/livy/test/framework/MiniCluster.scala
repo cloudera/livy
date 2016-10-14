@@ -19,6 +19,7 @@
 package com.cloudera.livy.test.framework
 
 import java.io._
+import java.nio.file.{Files, Paths}
 import javax.servlet.http.HttpServletResponse
 
 import scala.concurrent.duration._
@@ -223,9 +224,14 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
 
     // When running a real Spark cluster, don't set the classpath.
     val extraCp = if (!isRealSpark()) {
+      val dummyJar = Files.createTempFile(Paths.get(tempDir.toURI), "dummy", "jar").toFile
       Map(
         SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
-        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath)
+        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
+        // Used for Spark 2.0. Spark 2.0 will upload specified jars to distributed cache in yarn
+        // mode, if not specified it will check jars folder. Here since jars folder is not
+        // existed, so it will throw exception.
+        "spark.yarn.jars" -> dummyJar.getAbsolutePath)
     } else {
       Map()
     }
