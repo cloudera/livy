@@ -19,11 +19,12 @@
 package com.cloudera.livy.utils
 
 import org.scalatest.FunSuite
+import org.scalatest.Matchers
 
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.server.LivyServer
 
-class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
+class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSuite {
 
   import LivySparkUtils._
 
@@ -71,5 +72,21 @@ class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
     livyConf.set(LivyConf.RECOVERY_MODE, "recovery")
     val s = new LivyServer()
     intercept[IllegalArgumentException] { s.testRecovery(livyConf) }
+  }
+
+  test("get correct Scala version") {
+    formatScalaVersion("2.10.8", formatSparkVersion("2.0.0")) should be ((2, 10))
+    formatScalaVersion("2.11.4", formatSparkVersion("1.6.0")) should be ((2, 11))
+    formatScalaVersion("2.10", formatSparkVersion("2.0.0")) should be ((2, 10))
+    formatScalaVersion("2.10.x.x.x.x", formatSparkVersion("2.0.0")) should be ((2, 10))
+
+    // Will pick default Spark Scala version if the input Scala version string is not correct.
+    formatScalaVersion("", formatSparkVersion("2.0.0")) should be ((2, 11))
+    formatScalaVersion("xxx", formatSparkVersion("1.6.1")) should be ((2, 10))
+
+    // Throw exception for unsupported Spark version.
+    intercept[IllegalArgumentException] {
+      formatScalaVersion("xxx", formatSparkVersion("1.5.0"))
+    }
   }
 }
