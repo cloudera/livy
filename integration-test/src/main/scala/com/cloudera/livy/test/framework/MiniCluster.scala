@@ -147,9 +147,12 @@ object MiniLivyMain extends MiniClusterBase {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
-      LivyConf.YARN_POLL_INTERVAL.key -> "500ms")
+      LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
+      LivyConf.RECOVERY_MODE.key -> "recovery",
+      LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
+      LivyConf.RECOVERY_STATE_STORE_URL.key -> s"file://$configPath/state-store")
 
-    if (BaseIntegrationTestSuite.isRunningOnTravis) {
+    if (Cluster.isRunningOnTravis) {
       livyConf ++= Map("livy.server.yarn.app-lookup-timeout" -> "2m")
     }
 
@@ -185,7 +188,7 @@ private case class ProcessInfo(process: Process, logFile: File)
  */
 class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterUtils with Logging {
 
-  private val tempDir = new File(sys.props("java.io.tmpdir"))
+  private val tempDir = new File(s"${sys.props("java.io.tmpdir")}/livy-int-test")
   private var sparkConfDir: File = _
   private var _configDir: File = _
   private var hdfs: Option[ProcessInfo] = None
@@ -219,6 +222,10 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
   }
 
   override def deploy(): Unit = {
+    if (tempDir.exists()) {
+      FileUtils.deleteQuietly(tempDir)
+    }
+    assert(tempDir.mkdir(), "Cannot create temp test dir.")
     sparkConfDir = mkdir("spark-conf")
 
     // When running a real Spark cluster, don't set the classpath.
@@ -283,16 +290,16 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     assert(livy.isDefined)
     livy.foreach(stop)
     livyUrl = null
+    livy = None
   }
 
   def livyEndpoint: String = livyUrl
 
   private def mkdir(name: String, parent: File = tempDir): File = {
     val dir = new File(parent, name)
-    if (dir.isDirectory) {
-      FileUtils.deleteQuietly(dir)
+    if (!dir.exists()) {
+      assert(dir.mkdir(), s"Failed to create directory $name.")
     }
-    assert(dir.mkdir(), "Failed to create directory.")
     dir
   }
 
