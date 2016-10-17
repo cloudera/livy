@@ -116,19 +116,16 @@
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-ast_${scala.binary.version}</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-core_${scala.binary.version}</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.json4s</groupId>
             <artifactId>json4s-jackson_${scala.binary.version}</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
@@ -165,6 +162,46 @@
 
     <build>
         <plugins>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>shade</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.json4s:json4s-ast_${scala.binary.version}</include>
+                                    <include>org.json4s:json4s-core_${scala.binary.version}</include>
+                                    <include>org.json4s:json4s-jackson_${scala.binary.version}</include>
+                                </includes>
+                            </artifactSet>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>*.jar</exclude>
+                                        <exclude>META-INF/maven/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.json4s</pattern>
+                                    <shadedPattern>com.cloudera.livy.shaded.json4s</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
@@ -174,6 +211,15 @@
                         <goals>
                             <goal>copy-dependencies</goal>
                         </goals>
+                        <configuration>
+                            <excludeArtifactIds>
+                                json4s-ast_${scala.binary.version},
+                                json4s-core_${scala.binary.version},
+                                json4s-jackson_${scala.binary.version},
+                                paranamer,
+                                scalap
+                            </excludeArtifactIds>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
