@@ -51,7 +51,6 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
 
       // Make sure appInfo is reported correctly.
       val state = s.snapshot()
-      state.appInfo.driverLogUrl.value should include ("containerlogs")
       state.appInfo.sparkUiUrl.value should startWith ("http")
     }
   }
@@ -90,6 +89,8 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     val output = newOutputPath()
     withTestLib(classOf[SimpleSparkApp], List(output, "false")) { s =>
       s.verifySessionState(SessionState.Running())
+      s.snapshot().appInfo.driverLogUrl.value should include ("containerlogs")
+
       val appId = s.appId()
 
       // Delete the session then verify the YARN app state is KILLED.
