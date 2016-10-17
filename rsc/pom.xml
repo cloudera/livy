@@ -153,6 +153,7 @@
                   <shadedPattern>com.cloudera.livy.shaded.kryo</shadedPattern>
                 </relocation>
               </relocations>
+              <outputFile>${project.build.directory}/jars/${project.artifactId}-${project.version}.jar</outputFile>
             </configuration>
           </execution>
         </executions>
@@ -172,16 +173,10 @@
                 kryo,
                 spark-launcher_${scala.binary.version},
               </excludeArtifactIds>
+              <outputDirectory>${project.build.directory}/jars</outputDirectory>
             </configuration>
           </execution>
         </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <outputDirectory>${project.build.directory}/jars</outputDirectory>
-        </configuration>
       </plugin>
     </plugins>
   </build>
