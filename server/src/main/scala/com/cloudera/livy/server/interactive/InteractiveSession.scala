@@ -90,17 +90,17 @@ class InteractiveSession(
       }
     }
 
-    def mergeHiveSiteAndHiveDeps(): Unit = {
+    def mergeHiveSiteAndHiveDeps(sparkMajorVersion: Int): Unit = {
       val sparkFiles = conf.get("spark.files").map(_.split(",")).getOrElse(Array.empty[String])
       hiveSiteFile(sparkFiles, livyConf) match {
         case (_, true) =>
           debug("Enable HiveContext because hive-site.xml is found in user request.")
-          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+          mergeConfList(datanucleusJars(livyConf, sparkMajorVersion), LivyConf.SPARK_JARS)
         case (Some(file), false) =>
           debug("Enable HiveContext because hive-site.xml is found under classpath, "
             + file.getAbsolutePath)
           mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
-          mergeConfList(datanucleusJars(livyConf), LivyConf.SPARK_JARS)
+          mergeConfList(datanucleusJars(livyConf, sparkMajorVersion), LivyConf.SPARK_JARS)
         case (None, false) =>
           warn("Enable HiveContext but no hive-site.xml found under" +
             " classpath or user request.")
@@ -135,7 +135,7 @@ class InteractiveSession(
     }
 
     if (enableHiveContext) {
-      mergeHiveSiteAndHiveDeps()
+      mergeHiveSiteAndHiveDeps(sparkMajorVersion)
     }
 
     val userOpts: Map[String, Option[String]] = Map(
@@ -342,18 +342,29 @@ class InteractiveSession(
     }
   }
 
-  private def datanucleusJars(livyConf: LivyConf): Seq[String] = {
+  private def datanucleusJars(livyConf: LivyConf, sparkMajorVersion: Int): Seq[String] = {
     if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
       // datanucleus jars has already been in classpath in integration test
       Seq.empty
     } else {
       val sparkHome = livyConf.sparkHome().get
-      val libdir =
-        if (new File(sparkHome, "RELEASE").isFile) {
-          new File(sparkHome, "lib")
-        } else {
-          new File(sparkHome, "lib_managed/jars")
-        }
+      val libdir = sparkMajorVersion match {
+        case 1 =>
+          if (new File(sparkHome, "RELEASE").isFile) {
+            new File(sparkHome, "lib")
+          } else {
+            new File(sparkHome, "lib_managed/jars")
+          }
+        case 2 =>
+          if (new File(sparkHome, "RELEASE").isFile) {
+            new File(sparkHome, "jars")
+          } else if (new File(sparkHome, "assembly/target/scala-2.11/jars").isDirectory) {
+            new File(sparkHome, "assembly/target/scala-2.11/jars")
+          } else {
+            new File(sparkHome, "assembly/target/scala-2.10/jars")
+          }
+        case v => throw new RuntimeException("Unsupported spark major version:" + sparkMajorVersion)
+      }
       val jars = if (!libdir.isDirectory) {
           Seq.empty[String]
         } else {
