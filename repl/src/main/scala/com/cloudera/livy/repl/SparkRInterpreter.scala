@@ -114,7 +114,7 @@ object SparkRInterpreter {
 
       builder.redirectError(Redirect.PIPE)
       val process = builder.start()
-      new SparkRInterpreter(process, backendInstance, backendThread)
+      new SparkRInterpreter(process, backendInstance, backendThread, conf.get("spark.major_version"))
     } catch {
       case e: Exception =>
         if (backendThread != null) {
@@ -125,9 +125,10 @@ object SparkRInterpreter {
   }
 }
 
-class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: Thread)
-  extends ProcessInterpreter(process)
-{
+class SparkRInterpreter(process: Process,
+                        backendInstance: Any,
+                        backendThread: Thread,
+                        sparkMajorVersion: String) extends ProcessInterpreter(process) {
   import SparkRInterpreter._
 
   implicit val formats = DefaultFormats
@@ -143,6 +144,9 @@ class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: T
       sendRequest("library(SparkR)")
       sendRequest("sc <- sparkR.init()")
       sendRequest("sqlContext <- sparkRSQL.init(sc)")
+      if (sparkMajorVersion >= "2") {
+        sendRequest("spark <- SparkR::sparkR.session()")
+      }
     }
 
     isStarted.countDown()

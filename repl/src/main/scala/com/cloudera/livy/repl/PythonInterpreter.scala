@@ -68,7 +68,7 @@ object PythonInterpreter extends Logging {
     env.put("PYTHONUNBUFFERED", "YES")
     env.put("PYSPARK_GATEWAY_PORT", "" + gatewayServer.getListeningPort)
     env.put("SPARK_HOME", sys.env.getOrElse("SPARK_HOME", "."))
-
+    env.put("SPARK_MAJOR_VERSION", conf.get("spark.major_version"))
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
     new PythonInterpreter(process, gatewayServer, kind.toString)
