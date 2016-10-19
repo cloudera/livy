@@ -114,7 +114,8 @@ object SparkRInterpreter {
 
       builder.redirectError(Redirect.PIPE)
       val process = builder.start()
-      new SparkRInterpreter(process, backendInstance, backendThread, conf.get("spark.major_version"))
+      new SparkRInterpreter(process, backendInstance, backendThread,
+        conf.get("spark.major_version", "1"))
     } catch {
       case e: Exception =>
         if (backendThread != null) {
