@@ -47,10 +47,10 @@ class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
     testSparkVersion("2.0.0")
     testSparkVersion("2.0.1")
     testSparkVersion("2.0.2")
+    testSparkVersion("2.0.0.2.5.1.0-56") // LIVY-229
   }
 
   test("should not support Spark older than 1.6 or newer than 2.0") {
-    val s = new LivyServer()
     intercept[IllegalArgumentException] { testSparkVersion("1.4.0") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.0") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.1") }
@@ -59,6 +59,10 @@ class LivySparkUtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
     intercept[IllegalArgumentException] { testSparkVersion("2.1.0") }
     intercept[IllegalArgumentException] { testSparkVersion("2.1.2") }
     intercept[IllegalArgumentException] { testSparkVersion("2.2.1") }
+  }
+
+  test("should fail on bad version") {
+    intercept[IllegalArgumentException] { testSparkVersion("not a version") }
   }
 
   test("should error out if recovery is turned on but master isn't yarn") {

@@ -104,7 +104,7 @@ object LivySparkUtils {
     * @return Two element tuple, one is major version and the other is minor version
     */
   def formatSparkVersion(version: String): (Int, Int) = {
-    val versionPattern = """(\d)+\.(\d)+(?:\.\d*)?""".r
+    val versionPattern = """(\d)+\.(\d)+(?:[\.-]\d*)*""".r
     version match {
       case versionPattern(major, minor) =>
         (major.toInt, minor.toInt)
