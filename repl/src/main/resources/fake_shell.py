@@ -514,6 +514,7 @@ def main():
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
+    spark_major_version = os.getenv("LIVY_SPARK_MAJOR_VERSION")
     try:
         listening_port = 0
         if os.environ.get("LIVY_TEST") != "true":
@@ -523,6 +524,8 @@ def main():
             exec('from pyspark.sql import HiveContext', global_dict)
             exec('from pyspark.streaming import StreamingContext', global_dict)
             exec('import pyspark.cloudpickle as cloudpickle', global_dict)
+            if spark_major_version >= "2":
+                exec('from pyspark.shell import spark', global_dict)
 
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID

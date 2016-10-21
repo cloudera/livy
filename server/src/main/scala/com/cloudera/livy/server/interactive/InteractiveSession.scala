@@ -125,7 +125,8 @@ class InteractiveSession(
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
     val sparkMajorVersion =
       LivySparkUtils.formatSparkVersion(LivySparkUtils.sparkSubmitVersion(livyConf))._1
-
+    // pass spark.livy.spark_major_version to driver
+    builderProperties.put("spark.livy.spark_major_version", sparkMajorVersion.toString)
     if (sparkMajorVersion <= 1) {
       builderProperties.put("spark.repl.enableHiveContext",
         livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
