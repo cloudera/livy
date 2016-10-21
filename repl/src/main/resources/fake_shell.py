@@ -514,7 +514,7 @@ def main():
     sys.stdout = UnicodeDecodingStringIO()
     sys.stderr = UnicodeDecodingStringIO()
 
-    spark_major_version = os.getenv("SPARK_MAJOR_VERSION")
+    spark_major_version = os.getenv("LIVY_SPARK_MAJOR_VERSION")
     try:
         listening_port = 0
         if os.environ.get("LIVY_TEST") != "true":
