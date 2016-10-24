@@ -64,7 +64,16 @@ class LivyServer extends Logging {
 
     // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
     testSparkHome(livyConf)
-    testSparkSubmit(livyConf)
+
+    // Test spark-submit and get Spark Scala version accordingly.
+    val (sparkVersion, scalaVersion) = sparkSubmitVersion(livyConf)
+    testSparkVersion(sparkVersion)
+    // If Spark and Scala version is not set, set into livy configuration, this will be used by
+    // session creation.
+    livyConf.setIfMissing(LIVY_SPARK_VERSION.key,
+      formatSparkVersion(sparkVersion).productIterator.mkString("."))
+    livyConf.setIfMissing(LIVY_SPARK_SCALA_VERSION.key,
+      formatScalaVersion(scalaVersion, formatSparkVersion(sparkVersion)))
 
     testRecovery(livyConf)
 

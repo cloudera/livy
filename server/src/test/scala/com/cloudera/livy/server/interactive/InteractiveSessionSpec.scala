@@ -38,6 +38,8 @@ class InteractiveSessionSpec extends FunSpec
 
   private val livyConf = new LivyConf()
   livyConf.set(InteractiveSession.LivyReplJars, "")
+    .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
+    .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
 
   implicit val formats = DefaultFormats
 

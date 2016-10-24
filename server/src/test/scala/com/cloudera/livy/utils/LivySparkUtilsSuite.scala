@@ -42,6 +42,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     testSparkVersion("1.6.0")
     testSparkVersion("1.6.1")
     testSparkVersion("1.6.2")
+    testSparkVersion("1.6")
   }
 
   test("should support Spark 2.0.x") {
@@ -49,6 +50,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     testSparkVersion("2.0.1")
     testSparkVersion("2.0.2")
     testSparkVersion("2.0.0.2.5.1.0-56") // LIVY-229
+    testSparkVersion("2.0")
   }
 
   test("should not support Spark older than 1.6 or newer than 2.0") {
@@ -75,14 +77,14 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   }
 
   test("get correct Scala version") {
-    formatScalaVersion("2.10.8", formatSparkVersion("2.0.0")) should be ((2, 10))
-    formatScalaVersion("2.11.4", formatSparkVersion("1.6.0")) should be ((2, 11))
-    formatScalaVersion("2.10", formatSparkVersion("2.0.0")) should be ((2, 10))
-    formatScalaVersion("2.10.x.x.x.x", formatSparkVersion("2.0.0")) should be ((2, 10))
+    formatScalaVersion("2.10.8", formatSparkVersion("2.0.0")) should be ("2.10")
+    formatScalaVersion("2.11.4", formatSparkVersion("1.6.0")) should be ("2.11")
+    formatScalaVersion("2.10", formatSparkVersion("2.0.0")) should be ("2.10")
+    formatScalaVersion("2.10.x.x.x.x", formatSparkVersion("2.0.0")) should be ("2.10")
 
     // Will pick default Spark Scala version if the input Scala version string is not correct.
-    formatScalaVersion("", formatSparkVersion("2.0.0")) should be ((2, 11))
-    formatScalaVersion("xxx", formatSparkVersion("1.6.1")) should be ((2, 10))
+    formatScalaVersion("", formatSparkVersion("2.0.0")) should be ("2.11")
+    formatScalaVersion("xxx", formatSparkVersion("1.6.1")) should be ("2.10")
 
     // Throw exception for unsupported Spark version.
     intercept[IllegalArgumentException] {

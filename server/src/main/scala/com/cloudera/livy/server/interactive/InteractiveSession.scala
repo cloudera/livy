@@ -121,13 +121,11 @@ class InteractiveSession(
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
-    val (sparkVersionStr, scalaVersionStr) = LivySparkUtils.sparkSubmitVersion(livyConf)
-    val sparkVersion = LivySparkUtils.formatSparkVersion(sparkVersionStr)
-    val scalaVersion = {
-      request.scalaVersion.map { v =>
-        LivySparkUtils.formatScalaVersion(v, sparkVersion)
-      }.getOrElse(LivySparkUtils.formatScalaVersion(scalaVersionStr, sparkVersion))
-    }
+    require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
+    require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
+
+    val sparkVersion = LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
+    val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
 
     mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
@@ -328,13 +326,12 @@ class InteractiveSession(
     }
   }
 
-  private def livyJars(livyConf: LivyConf, scalaVersion: (Int, Int)): List[String] = {
+  private def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
     Option(livyConf.get(LivyReplJars)).map(_.split(",").toList).getOrElse {
-      val scalaVersionStr = scalaVersion.productIterator.mkString(".")
       val home = sys.env("LIVY_HOME")
-      val jars = Option(new File(home, s"repl_$scalaVersionStr-jars"))
+      val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, s"repl/scala-$scalaVersionStr/target/jars"))
+        .getOrElse(new File(home, s"repl/scala-$scalaVersion/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toList
     }

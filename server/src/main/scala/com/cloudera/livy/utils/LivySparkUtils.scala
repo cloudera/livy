@@ -31,9 +31,10 @@ object LivySparkUtils {
   // version cannot be detected from "spark-submit --version".
   private val defaultSparkScalaVersion = Map(
     // Spark 2.0 + Scala 2.11
-    (2, 0) -> (2, 11),
+    (2, 0) -> "2.11",
     // Spark 1.6 + Scala 2.10
-    (1, 6) -> (2, 10))
+    (1, 6) -> "2.10"
+  )
 
   // Supported Spark version
   private val MIN_VERSION = (1, 6)
@@ -133,18 +134,18 @@ object LivySparkUtils {
   }
 
   /**
-   * Return formatted Scala version, if it cannot be parsed from input version string, it will
+   * Return Scala binary version, if it cannot be parsed from input version string, it will
    * pick default Scala version related to Spark version.
    *
-   * @param version Scala version String
+   * @param version Scala binary version String
    * @param sparkVersion formatted Spark version.
-   * @return Tuple of Scala version, one is major version and the other is minor version.
+   * @return Scala binary version String based on Spark version and livy conf.
    */
-  def formatScalaVersion(version: String, sparkVersion: (Int, Int)): (Int, Int) = {
+  def formatScalaVersion(version: String, sparkVersion: (Int, Int)): String = {
     val versionPattern = """(\d)+\.(\d+)+.*""".r
     version match {
       case versionPattern(major, minor) =>
-        (major.toInt, minor.toInt)
+        major + "." + minor
       case _ =>
         defaultSparkScalaVersion.getOrElse(sparkVersion,
           throw new IllegalArgumentException(s"Fail to get Scala version from Spark $sparkVersion"))

@@ -36,6 +36,5 @@ class CreateInteractiveRequest {
   var queue: Option[String] = None
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
-  var scalaVersion: Option[String] = None
 
 }

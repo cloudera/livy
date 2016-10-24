@@ -41,6 +41,8 @@ object LivyConf {
   val SPARK_HOME = Entry("livy.server.spark-home", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deployMode", null)
+  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scalaVersion", null)
+  val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
 
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
