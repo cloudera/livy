@@ -124,15 +124,16 @@ class InteractiveSession(
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
 
-    val sparkVersion = LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
+    val (sparkMajorVersion, _) =
+      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
     val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
 
     mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
     // pass spark.livy.spark_major_version to driver
-    builderProperties.put("spark.livy.spark_major_version", sparkVersion._1.toString)
+    builderProperties.put("spark.livy.spark_major_version", sparkMajorVersion.toString)
 
-    if (sparkVersion._1 <= 1) {
+    if (sparkMajorVersion <= 1) {
       builderProperties.put("spark.repl.enableHiveContext",
         livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
     } else {
@@ -141,7 +142,7 @@ class InteractiveSession(
     }
 
     if (enableHiveContext) {
-      mergeHiveSiteAndHiveDeps(sparkVersion._1)
+      mergeHiveSiteAndHiveDeps(sparkMajorVersion)
     }
 
     val userOpts: Map[String, Option[String]] = Map(

@@ -137,13 +137,13 @@ object LivySparkUtils {
    * Return Scala binary version, if it cannot be parsed from input version string, it will
    * pick default Scala version related to Spark version.
    *
-   * @param version Scala binary version String
+   * @param scalaVersion Scala binary version String
    * @param sparkVersion formatted Spark version.
    * @return Scala binary version String based on Spark version and livy conf.
    */
-  def formatScalaVersion(version: String, sparkVersion: (Int, Int)): String = {
+  def formatScalaVersion(scalaVersion: String, sparkVersion: (Int, Int)): String = {
     val versionPattern = """(\d)+\.(\d+)+.*""".r
-    version match {
+    scalaVersion match {
       case versionPattern(major, minor) =>
         major + "." + minor
       case _ =>
