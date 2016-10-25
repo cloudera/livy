@@ -178,8 +178,13 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     addOpt("--name", _name)
     addOpt("--class", _className)
     _conf.foreach { case (key, value) =>
-      arguments += "--conf"
-      arguments += f"$key=$value"
+      if (key == "spark.submit.pyFiles") {
+         arguments += "--py-files"
+         arguments += f"$value"
+      } else {
+         arguments += "--conf"
+         arguments += f"$key=$value"
+      }
     }
     addList("--driver-class-path", _driverClassPath)
 
