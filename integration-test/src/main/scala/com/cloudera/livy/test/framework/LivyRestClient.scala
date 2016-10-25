@@ -145,8 +145,10 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
               val data = output("data").asInstanceOf[Map[String, Any]]
               Left(data("text/plain").asInstanceOf[String])
             case Some("error") => Right(mapper.convertValue(output, classOf[StatementError]))
-            case Some(status) => throw new Exception(s"Unknown statement $stmtId status: $status")
-            case None => throw new Exception(s"Unknown statement $stmtId output: $newStmt")
+            case Some(status) =>
+              throw new IllegalStateException(s"Unknown statement $stmtId status: $status")
+            case None =>
+              throw new IllegalStateException(s"Unknown statement $stmtId output: $newStmt")
           }
         }
       }

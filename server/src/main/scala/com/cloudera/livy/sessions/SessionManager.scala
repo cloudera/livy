@@ -45,7 +45,6 @@ class BatchSessionManager(
     mockSessions: Option[Seq[BatchSession]] = None)
   extends SessionManager[BatchSession, BatchRecoveryMetadata] (
     livyConf, BatchSession.recover(_, livyConf, sessionStore), sessionStore, "batch", mockSessions)
-  { }
 
 class InteractiveSessionManager(
   livyConf: LivyConf,
@@ -57,7 +56,6 @@ class InteractiveSessionManager(
     sessionStore,
     "interactive",
     mockSessions)
-  { }
 
 class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     livyConf: LivyConf,
