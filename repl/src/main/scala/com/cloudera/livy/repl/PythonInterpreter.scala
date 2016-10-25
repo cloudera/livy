@@ -276,9 +276,13 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
 
   private def updatePythonGatewayPort(port: Int): Unit = {
     // The python gateway port can be 0 only when LivyConf.TEST_MODE is true
+    // Py4j 0.10 has different API signature for "getCallbackClient", use reflection to handle it.
     if (port != 0) {
-      val callbackClient = gatewayServer.getCallbackClient
-      val field = callbackClient.getClass.getDeclaredField("port")
+      val callbackClient = gatewayServer.getClass
+        .getMethod("getCallbackClient")
+        .invoke(gatewayServer)
+
+      val field = Class.forName("py4j.CallbackClient").getDeclaredField("port")
       field.setAccessible(true)
       field.setInt(callbackClient, port.toInt)
     }

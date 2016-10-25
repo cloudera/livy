@@ -985,8 +985,6 @@
       </activation>
       <properties>
         <spark.version>1.6.2</spark.version>
-        <py4j.version>0.9</py4j.version>
-        <json4s.version>3.2.10</json4s.version>
       </properties>
     </profile>
 
@@ -999,8 +997,6 @@
       </activation>
       <properties>
         <spark.version>2.0.0</spark.version>
-        <py4j.version>0.10.1</py4j.version>
-        <json4s.version>3.2.11</json4s.version>
       </properties>
     </profile>
   </profiles>
