@@ -88,10 +88,13 @@ class LivyServer extends Logging {
         }
     }
 
+    // TODO Create a new class to pass variables from LivyServer to sessions and remove these
+    // internal LivyConfs.
     // Set formatted Spark and Scala version into livy configuration, this will be used by
     // session creation.
     livyConf.set(LIVY_SPARK_VERSION.key, formattedSparkVersion.productIterator.mkString("."))
-    livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
+    // Integration test sets spark scala version.
+    livyConf.setIfMissing(LIVY_SPARK_SCALA_VERSION.key,
       formatScalaVersion(scalaVersion, formattedSparkVersion))
 
     testRecovery(livyConf)

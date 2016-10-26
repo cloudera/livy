@@ -190,23 +190,6 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     assert(result === "foo")
   }
 
-  test("ensure Livy internal configurations are not exposed") {
-    assume(client2 != null, "Client not active.")
-
-    val job = new Job[Boolean] {
-      override def call(jc: JobContext): Boolean = {
-        val sc = jc.sc()
-        val livyConfExisted = sc.getConf.getAll.exists(_._1.startsWith("spark.__livy__."))
-        val livyConfExistedInProps = sys.props.exists(_._1.startsWith("spark.__livy__."))
-
-        livyConfExisted || livyConfExistedInProps
-      }
-    }
-
-    val result = waitFor(client2.submit(job))
-    assert(result === false)
-  }
-
   test("destroy the session") {
     assume(client2 != null, "Client not active.")
     client2.stop(true)

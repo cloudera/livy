@@ -39,6 +39,8 @@
     -->
     <cluster.spec>default</cluster.spec>
     <skipDeploy>true</skipDeploy>
+    <skipITs-2.10>false</skipITs-2.10>
+    <skipITs-2.11>false</skipITs-2.11>
   </properties>
 
   <dependencies>
@@ -47,6 +49,30 @@
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-core_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-repl_2.10</artifactId>
+      <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-repl_2.11</artifactId>
+      <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -63,6 +89,33 @@
     </dependency>
 
     <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-integration-test-minicluster-dependencies_2.10</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-integration-test-minicluster-dependencies_2.11</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
+
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-test-lib</artifactId>
       <version>${project.version}</version>
@@ -207,11 +260,30 @@
             <phase>none</phase>
           </execution>
           <execution>
-            <id>integration-test</id>
+            <id>integration-test-scala-2.10</id>
             <phase>integration-test</phase>
             <goals>
               <goal>test</goal>
             </goals>
+            <configuration>
+              <environmentVariables>
+                <LIVY_SPARK_SCALA_VERSION>2.10</LIVY_SPARK_SCALA_VERSION>
+              </environmentVariables>
+              <skipTests>${skipITs-2.10}</skipTests>
+            </configuration>
+          </execution>
+          <execution>
+            <id>integration-test-scala-2.11</id>
+            <phase>integration-test</phase>
+            <goals>
+              <goal>test</goal>
+            </goals>
+            <configuration>
+              <environmentVariables>
+                <LIVY_SPARK_SCALA_VERSION>2.11</LIVY_SPARK_SCALA_VERSION>
+              </environmentVariables>
+              <skipTests>${skipITs-2.11}</skipTests>
+            </configuration>
           </execution>
         </executions>
         <configuration>
@@ -239,6 +311,19 @@
       </activation>
       <properties>
         <spark.home>${real.spark.home}</spark.home>
+      </properties>
+    </profile>
+    <profile>
+    <id>skip-integration-test</id>
+      <activation>
+        <property>
+          <name>skipITs</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <properties>
+        <skipITs-2.10>true</skipITs-2.10>
+        <skipITs-2.11>true</skipITs-2.11>
       </properties>
     </profile>
   </profiles>

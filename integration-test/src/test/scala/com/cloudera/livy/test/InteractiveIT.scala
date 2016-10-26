@@ -43,6 +43,12 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       s.run("throw new IllegalStateException()")
         .verifyError(evalue = ".*java\\.lang\\.IllegalStateException.*")
 
+      // Verify Livy internal configurations are not exposed.
+      // TODO separate all these checks to different sub tests after merging new IT code.
+      s.run("""sc.getConf.getAll.exists(_._1.startsWith("spark.__livy__."))""")
+        .verifyResult(".*false")
+      s.run("""sys.props.exists(_._1.startsWith("spark.__livy__."))""").verifyResult(".*false")
+
       // Make sure appInfo is reported correctly.
       val state = s.snapshot()
       state.appInfo.driverLogUrl.value should include ("containerlogs")

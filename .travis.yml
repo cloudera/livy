@@ -2,6 +2,10 @@ sudo: required
 dist: trusty
 language: scala
 
+env:
+  - MVN_FLAG=
+  - MVN_FLAG=-Dminicluster-2.10.spark.version=2.0.1 -Dminicluster-2.11.spark.version=1.6.2
+
 jdk:
   - oraclejdk7
 
@@ -33,7 +37,7 @@ before_script:
   - pip3 install --user requests pytest flaky
 
 script:
-  - mvn verify -e
+  - mvn $MVN_FLAG verify -e
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
