@@ -27,6 +27,22 @@ import com.cloudera.livy.util.LineBufferedProcess
 
 object LivySparkUtils {
 
+  // For each Spark version we supported, we need to add this mapping relation in case Scala
+  // version cannot be detected from "spark-submit --version".
+  private val defaultSparkScalaVersion = Map(
+    // Spark 2.0 + Scala 2.11
+    (2, 0) -> "2.11",
+    // Spark 1.6 + Scala 2.10
+    (1, 6) -> "2.10"
+  )
+
+  // Supported Spark version
+  private val MIN_VERSION = (1, 6)
+  private val MAX_VERSION = (2, 1)
+
+  private val sparkVersionRegex = """version (.*)""".r.unanchored
+  private val scalaVersionRegex = """Scala version (.*), Java""".r.unanchored
+
   /**
    * Test that Spark home is configured and configured Spark home is a directory.
    */
@@ -45,7 +61,7 @@ object LivySparkUtils {
    */
    def testSparkSubmit(livyConf: LivyConf): Unit = {
     try {
-      testSparkVersion(sparkSubmitVersion(livyConf))
+      testSparkVersion(sparkSubmitVersion(livyConf)._1)
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
@@ -57,25 +73,21 @@ object LivySparkUtils {
    * @param version Spark version
    */
   def testSparkVersion(version: String): Unit = {
-    // This is exclusive. Version which equals to this will be rejected.
-    val maxVersion = (2, 1)
-    val minVersion = (1, 6)
-
     val supportedVersion = formatSparkVersion(version) match {
       case v: (Int, Int) =>
-        v >= minVersion && v < maxVersion
+        v >= MIN_VERSION && v < MAX_VERSION
       case _ => false
     }
     require(supportedVersion, s"Unsupported Spark version $version.")
   }
 
   /**
-   * Return the version of the configured `spark-submit` version.
+   * Return the Spark and Scala version of the configured `spark-submit` version.
    *
    * @param livyConf
-   * @return the version
+   * @return Tuple with Spark and Scala version
    */
-  def sparkSubmitVersion(livyConf: LivyConf): String = {
+  def sparkSubmitVersion(livyConf: LivyConf): (String, String) = {
     val sparkSubmit = livyConf.sparkSubmit()
     val pb = new ProcessBuilder(sparkSubmit, "--version")
     pb.redirectErrorStream(true)
@@ -89,20 +101,28 @@ object LivySparkUtils {
     val exitCode = process.waitFor()
     val output = process.inputIterator.mkString("\n")
 
-    val regex = """version (.*)""".r.unanchored
-
+    var sparkVersion = ""
     output match {
-      case regex(version) => version
+      case sparkVersionRegex(version) => sparkVersion = version
       case _ =>
         throw new IOException(f"Unable to determine spark-submit version [$exitCode]:\n$output")
     }
+
+    var scalaVersion = ""
+    output match {
+      case scalaVersionRegex(version) => scalaVersion = version
+      case _ =>
+    }
+
+    (sparkVersion, scalaVersion)
   }
 
   /**
-    * Return formatted Spark version.
-    * @param version Spark version
-    * @return Two element tuple, one is major version and the other is minor version
-    */
+   * Return formatted Spark version.
+   *
+   * @param version Spark version
+   * @return Two element tuple, one is major version and the other is minor version
+   */
   def formatSparkVersion(version: String): (Int, Int) = {
     val versionPattern = """(\d)+\.(\d)+(?:[\.-]\d*)*""".r
     version match {
@@ -110,6 +130,25 @@ object LivySparkUtils {
         (major.toInt, minor.toInt)
       case _ =>
         throw new IllegalArgumentException(s"Fail to parse Spark version from $version")
+    }
+  }
+
+  /**
+   * Return Scala binary version, if it cannot be parsed from input version string, it will
+   * pick default Scala version related to Spark version.
+   *
+   * @param scalaVersion Scala binary version String
+   * @param sparkVersion formatted Spark version.
+   * @return Scala binary version String based on Spark version and livy conf.
+   */
+  def formatScalaVersion(scalaVersion: String, sparkVersion: (Int, Int)): String = {
+    val versionPattern = """(\d)+\.(\d+)+.*""".r
+    scalaVersion match {
+      case versionPattern(major, minor) =>
+        major + "." + minor
+      case _ =>
+        defaultSparkScalaVersion.getOrElse(sparkVersion,
+          throw new IllegalArgumentException(s"Fail to get Scala version from Spark $sparkVersion"))
     }
   }
 }

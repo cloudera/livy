@@ -121,12 +121,18 @@ class InteractiveSession(
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
-    mergeConfList(livyJars(livyConf), LivyConf.SPARK_JARS)
+    require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
+    require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
+
+    val (sparkMajorVersion, _) =
+      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
+    val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
+
+    mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
-    val sparkMajorVersion =
-      LivySparkUtils.formatSparkVersion(LivySparkUtils.sparkSubmitVersion(livyConf))._1
     // pass spark.livy.spark_major_version to driver
     builderProperties.put("spark.livy.spark_major_version", sparkMajorVersion.toString)
+
     if (sparkMajorVersion <= 1) {
       builderProperties.put("spark.repl.enableHiveContext",
         livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
@@ -321,12 +327,12 @@ class InteractiveSession(
     }
   }
 
-  private def livyJars(livyConf: LivyConf): List[String] = {
+  private def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
     Option(livyConf.get(LivyReplJars)).map(_.split(",").toList).getOrElse {
       val home = sys.env("LIVY_HOME")
-      val jars = Option(new File(home, "repl-jars"))
+      val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
         .filter(_.isDirectory())
-        .getOrElse(new File(home, "repl/scala-2.10/target/jars"))
+        .getOrElse(new File(home, s"repl/scala-$scalaVersion/target/jars"))
       require(jars.isDirectory(), "Cannot find Livy REPL jars.")
       jars.listFiles().map(_.getAbsolutePath()).toList
     }

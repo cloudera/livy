@@ -33,13 +33,24 @@
     <assembly.name>livy-server-${project.version}</assembly.name>
     <assembly.format>zip</assembly.format>
     <skipDeploy>true</skipDeploy>
-    <repl.dir>repl/scala-2.10</repl.dir>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-rsc</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-repl_2.10</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-repl_2.11</artifactId>
       <version>${project.version}</version>
     </dependency>
 
@@ -83,41 +94,6 @@
       <properties>
         <assembly.format>tar.gz</assembly.format>
       </properties>
-    </profile>
-
-    <profile>
-      <id>scala-2.10</id>
-      <activation>
-        <property>
-          <name>!scala-2.11</name>
-        </property>
-      </activation>
-      <dependencies>
-        <dependency>
-          <groupId>${project.groupId}</groupId>
-          <artifactId>livy-repl_2.10</artifactId>
-          <version>${project.version}</version>
-        </dependency>
-      </dependencies>
-    </profile>
-
-    <profile>
-      <id>scala-2.11</id>
-      <activation>
-        <property>
-          <name>scala-2.11</name>
-        </property>
-      </activation>
-      <properties>
-        <repl.dir>repl/scala-2.11</repl.dir>
-      </properties>
-      <dependencies>
-        <dependency>
-          <groupId>${project.groupId}</groupId>
-          <artifactId>livy-repl_2.11</artifactId>
-          <version>${project.version}</version>
-        </dependency>
-      </dependencies>
     </profile>
   </profiles>
 

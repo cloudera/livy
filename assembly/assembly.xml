@@ -29,8 +29,15 @@
       </includes>
     </fileSet>
     <fileSet>
-      <directory>${project.parent.basedir}/${repl.dir}/target/jars</directory>
-      <outputDirectory>${assembly.name}/repl-jars</outputDirectory>
+      <directory>${project.parent.basedir}/repl/scala-2.10/target/jars</directory>
+      <outputDirectory>${assembly.name}/repl_2.10-jars</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.parent.basedir}/repl/scala-2.11/target/jars</directory>
+      <outputDirectory>${assembly.name}/repl_2.11-jars</outputDirectory>
       <includes>
         <include>*</include>
       </includes>
