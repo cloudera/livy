@@ -23,6 +23,7 @@ import scala.reflect.ClassTag
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
 import org.apache.curator.retry.RetryNTimes
+import org.apache.zookeeper.KeeperException.NoNodeException
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.LivyConf.Entry
@@ -105,7 +106,11 @@ class ZooKeeperStateStore(
   }
 
   override def remove(key: String): Unit = {
-    curatorClient.delete().guaranteed().forPath(prefixKey(key))
+    try {
+      curatorClient.delete().guaranteed().forPath(prefixKey(key))
+    } catch {
+      case _: NoNodeException =>
+    }
   }
 
   private def prefixKey(key: String) = s"/$zkKeyPrefix/$key"

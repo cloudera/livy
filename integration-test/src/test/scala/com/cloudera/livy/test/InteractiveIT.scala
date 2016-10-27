@@ -126,11 +126,42 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     }
   }
 
+  test("recover interactive session") {
+    withNewSession(Spark()) { s =>
+      s.run("1").verifyResult("res0: Int = 1")
+
+      // Restart Livy.
+      cluster.stopLivy()
+      cluster.runLivy()
+
+      // Verify session still exists.
+      s.verifySessionIdle()
+      s.run("2").verifyResult("res1: Int = 2")
+      // TODO, verify previous statement results still exist.
+
+      s.stop()
+
+      // Restart Livy.
+      cluster.stopLivy()
+      cluster.runLivy()
+
+      // Verify deleted session doesn't show up after recovery.
+      s.verifySessionDoesNotExist()
+
+      // Verify new session doesn't reuse old session id.
+      withNewSession(Spark(), Map.empty, false) { s1 =>
+        s1.id should be > s.id
+      }
+    }
+  }
+
   private def withNewSession[R]
-    (kind: Kind, sparkConf: Map[String, String] = Map.empty)
+    (kind: Kind, sparkConf: Map[String, String] = Map.empty, waitForIdle: Boolean = true)
     (f: (LivyRestClient#InteractiveSession) => R): R = {
     withSession(livyClient.startSession(kind, sparkConf)) { s =>
-      s.verifySessionIdle()
+      if (waitForIdle) {
+        s.verifySessionIdle()
+      }
       f(s)
     }
   }

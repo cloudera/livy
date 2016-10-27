@@ -91,7 +91,11 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
         } catch { case NonFatal(_) => }
         throw e
     } finally {
-      try { s.stop() } catch { case NonFatal(_) => }
+      try {
+        s.stop()
+      } catch {
+        case NonFatal(e) => alert(s"Failed to stop session: $e")
+      }
     }
   }
 

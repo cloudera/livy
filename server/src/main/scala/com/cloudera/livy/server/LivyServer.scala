@@ -36,7 +36,7 @@ import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
-import com.cloudera.livy.sessions.BatchSessionManager
+import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
@@ -104,6 +104,7 @@ class LivyServer extends Logging {
     StateStore.init(livyConf)
     val sessionStore = new SessionStore(livyConf)
     val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
+    val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore)
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
@@ -125,7 +126,9 @@ class LivyServer extends Logging {
             val context = sce.getServletContext()
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
 
-            mount(context, new InteractiveSessionServlet(livyConf), "/sessions/*")
+            val interactiveServlet =
+              new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
+            mount(context, interactiveServlet, "/sessions/*")
 
             val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
             mount(context, batchServlet, "/batches/*")

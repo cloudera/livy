@@ -33,8 +33,9 @@ import org.mockito.stubbing.Answer
 import org.scalatest.Entry
 import org.scalatest.mock.MockitoSugar.mock
 
-import com.cloudera.livy.ExecuteRequest
+import com.cloudera.livy.{ExecuteRequest, LivyConf}
 import com.cloudera.livy.client.common.HttpMessages.SessionInfo
+import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.utils.AppInfo
 
@@ -42,7 +43,10 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
   mapper.registerModule(new Json4sScalaModule())
 
-  class MockInteractiveSessionServlet extends InteractiveSessionServlet(createConf()) {
+  class MockInteractiveSessionServlet(
+      sessionManager: InteractiveSessionManager,
+      conf: LivyConf)
+    extends InteractiveSessionServlet(sessionManager, mock[SessionStore], conf) {
 
     private var statements = IndexedSeq[Statement]()
 
@@ -81,7 +85,11 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
   }
 
-  override def createServlet(): InteractiveSessionServlet = new MockInteractiveSessionServlet()
+  override def createServlet(): InteractiveSessionServlet = {
+    val conf = createConf()
+    val sessionManager = new InteractiveSessionManager(conf, mock[SessionStore], Some(Seq.empty))
+    new MockInteractiveSessionServlet(sessionManager, conf)
+  }
 
   it("should setup and tear down an interactive session") {
     jget[Map[String, Any]]("/") { data =>

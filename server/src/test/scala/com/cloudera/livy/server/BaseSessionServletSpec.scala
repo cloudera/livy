@@ -24,6 +24,7 @@ import org.scalatest.BeforeAndAfterAll
 
 import com.cloudera.livy.LivyConf
 import com.cloudera.livy.sessions.Session
+import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 object BaseSessionServletSpec {
 
@@ -32,7 +33,7 @@ object BaseSessionServletSpec {
 
 }
 
-abstract class BaseSessionServletSpec[S <: Session]
+abstract class BaseSessionServletSpec[S <: Session, R <: RecoveryMetadata]
   extends BaseJsonServletSpec
   with BeforeAndAfterAll {
 
@@ -62,7 +63,7 @@ abstract class BaseSessionServletSpec[S <: Session]
     servlet.shutdown()
   }
 
-  def createServlet(): SessionServlet[S]
+  def createServlet(): SessionServlet[S, R]
 
   protected val servlet = createServlet()
 
@@ -73,7 +74,7 @@ abstract class BaseSessionServletSpec[S <: Session]
 }
 
 trait RemoteUserOverride {
-  this: SessionServlet[_] =>
+  this: SessionServlet[_, _] =>
 
   override protected def remoteUser(req: HttpServletRequest): String = {
     req.getHeader(BaseSessionServletSpec.REMOTE_USER_HEADER)

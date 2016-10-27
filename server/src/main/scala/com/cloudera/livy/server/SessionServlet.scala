@@ -27,6 +27,7 @@ import org.scalatra._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
+import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 object SessionServlet extends Logging
 
@@ -37,8 +38,8 @@ object SessionServlet extends Logging
  * Type parameters:
  *  S: the session type
  */
-abstract class SessionServlet[S <: Session](
-    private[livy] val sessionManager: SessionManager[S],
+abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
+    private[livy] val sessionManager: SessionManager[S, R],
     livyConf: LivyConf)
   extends JsonServlet
   with ApiVersioningSupport
