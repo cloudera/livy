@@ -84,13 +84,6 @@ class InteractiveSessionServlet(
       session.state.toString, session.kind.toString, session.appInfo.asJavaMap, logs.asJava)
   }
 
-  private def statementView(statement: Statement): Any = {
-    Map(
-      "id" -> statement.id,
-      "state" -> statement.state.toString,
-      "output" -> statement.output)
-  }
-
   post("/:id/stop") {
     withSession { session =>
       Await.ready(session.stop(), Duration.Inf)
@@ -112,7 +105,7 @@ class InteractiveSessionServlet(
 
       Map(
         "total_statements" -> session.statements.length,
-        "statements" -> session.statements.view(from, from + size).map(statementView)
+        "statements" -> session.statements.view(from, from + size)
       )
     }
   }
@@ -121,11 +114,7 @@ class InteractiveSessionServlet(
     withSession { session =>
       val statementId = params("statementId").toInt
 
-      session.getStatement(statementId) match {
-        case None => NotFound("Statement not found")
-        case Some(statement) =>
-          statementView(statement)
-      }
+      session.getStatement(statementId).getOrElse(NotFound("Statement not found"))
     }
   }
 
@@ -133,7 +122,7 @@ class InteractiveSessionServlet(
     withSession { session =>
       val statement = session.executeStatement(req)
 
-      Created(statementView(statement),
+      Created(statement,
         headers = Map(
           "Location" -> url(getStatement,
             "id" -> session.id.toString,

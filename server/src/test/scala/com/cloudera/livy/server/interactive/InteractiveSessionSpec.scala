@@ -26,6 +26,7 @@ import scala.language.postfixOps
 
 import org.apache.spark.launcher.SparkLauncher
 import org.json4s.{DefaultFormats, Extraction, JValue}
+import org.json4s.jackson.JsonMethods.parse
 import org.mockito.{Matchers => MockitoMatchers}
 import org.mockito.Matchers._
 import org.mockito.Mockito.{atLeastOnce, verify, when}
@@ -76,7 +77,7 @@ class InteractiveSessionSpec extends FunSpec
     eventually(timeout(30 seconds), interval(100 millis)) {
       val s = session.getStatement(id).get
       s.state shouldBe StatementState.Available
-      s.output
+      parse(s.output)
     }
   }
 

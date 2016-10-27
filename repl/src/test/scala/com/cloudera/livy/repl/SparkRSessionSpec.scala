@@ -18,13 +18,9 @@
 
 package com.cloudera.livy.repl
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
-import org.json4s.JsonAST.JValue
-import org.scalatest._
+import org.json4s.jackson.JsonMethods.parse
 
 class SparkRSessionSpec extends BaseSessionSpec {
 
@@ -39,7 +35,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     val statement = execute(session, "1 + 2")
     statement.id should equal(0)
 
-    val result = statement.output
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -55,7 +51,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     var statement = execute(session, "x = 1")
     statement.id should equal (0)
 
-    var result = statement.output
+    var result = parse(statement.output)
     var expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -69,7 +65,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     statement = execute(session, "y = 2")
     statement.id should equal (1)
 
-    result = statement.output
+    result = parse(statement.output)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 1,
@@ -83,7 +79,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     statement = execute(session, "x + y")
     statement.id should equal (2)
 
-    result = statement.output
+    result = parse(statement.output)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 2,
@@ -99,7 +95,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     val statement = execute(session, """print('Hello World')""")
     statement.id should equal (0)
 
-    val result = statement.output
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -115,7 +111,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     val statement = execute(session, """cat(3)""")
     statement.id should equal (0)
 
-    val result = statement.output
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -131,7 +127,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     val statement = execute(session, """x""")
     statement.id should equal (0)
 
-    val result = statement.output
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,

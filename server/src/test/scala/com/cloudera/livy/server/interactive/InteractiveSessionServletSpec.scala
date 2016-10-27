@@ -73,7 +73,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
             val statement = new Statement(
               id,
               StatementState.Available,
-              JObject(JField("value", JInt(42))))
+              "1")
 
             statements :+= statement
             statement
@@ -114,7 +114,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
     jpost[Map[String, Any]]("/0/statements", ExecuteRequest("foo")) { data =>
       data("id") should be (0)
-      data("output") should be (Map("value" -> 42))
+      data("output") shouldBe 1
     }
 
     jget[Map[String, Any]]("/0/statements") { data =>

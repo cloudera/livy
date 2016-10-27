@@ -17,6 +17,8 @@
 
 package com.cloudera.livy.rsc.driver;
 
+import com.fasterxml.jackson.annotation.JsonValue;
+
 public enum StatementState {
   Waiting("waiting"),
   Running("running"),
@@ -28,6 +30,7 @@ public enum StatementState {
       this.state = text;
   }
 
+  @JsonValue
   @Override
   public String toString() {
       return state;

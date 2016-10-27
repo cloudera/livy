@@ -25,7 +25,8 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.apache.spark.SparkContext
-import org.json4s.{DefaultFormats, JValue}
+import org.json4s.jackson.JsonMethods.{compact, render}
+import org.json4s.DefaultFormats
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
@@ -105,11 +106,10 @@ class Session(interpreter: Interpreter)
     _statements.clear()
   }
 
-  private def executeCode(executionCount: Int, code: String) = {
+  private def executeCode(executionCount: Int, code: String): String = {
     _state = SessionState.Busy()
 
-    try {
-
+    val resultInJson = try {
       interpreter.execute(code) match {
         case Interpreter.ExecuteSuccess(data) =>
           _state = SessionState.Idle()
@@ -157,5 +157,7 @@ class Session(interpreter: Interpreter)
         (EVALUE -> e.getMessage) ~
         (TRACEBACK -> List())
     }
+
+    compact(render(resultInJson))
   }
 }
