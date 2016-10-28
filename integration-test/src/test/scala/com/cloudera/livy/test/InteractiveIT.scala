@@ -37,8 +37,8 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res1: String = 1")
       s.run("sqlContext").verifyResult(startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
-        startsWith("sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext"))
-
+        ".*" + Pattern.quote(
+        "sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext") + ".*")
       s.run("abcde").verifyError(evalue = ".*?:[0-9]+: error: not found: value abcde.*")
       s.run("throw new IllegalStateException()")
         .verifyError(evalue = ".*java\\.lang\\.IllegalStateException.*")
