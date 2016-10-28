@@ -57,9 +57,9 @@ sealed trait MiniClusterUtils extends ClusterUtils {
   private val livySparkScalaVersionEnvVarName = "LIVY_SPARK_SCALA_VERSION"
 
   protected def getSparkScalaVersion(): String = {
-    sys.env.get(livySparkScalaVersionEnvVarName).getOrElse {
+    sys.env.getOrElse(livySparkScalaVersionEnvVarName, {
       throw new RuntimeException(s"Please specify env var $livySparkScalaVersionEnvVarName.")
-    }
+    })
   }
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
@@ -249,8 +249,8 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     val extraCp = if (!isRealSpark()) {
       val dummyJar = Files.createTempFile(Paths.get(tempDir.toURI), "dummy", "jar").toFile
       Map(
-        SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
-        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
+        SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sparkClassPath,
+        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sparkClassPath,
         // Used for Spark 2.0. Spark 2.0 will upload specified jars to distributed cache in yarn
         // mode, if not specified it will check jars folder. Here since jars folder is not
         // existed, so it will throw exception.

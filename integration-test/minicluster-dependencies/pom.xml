@@ -29,12 +29,11 @@
     <relativePath>../../scala/pom.xml</relativePath>
     <version>0.3.0-SNAPSHOT</version>
   </parent>
-  <artifactId>livy-integration-test-minicluster-dependencies-parent</artifactId>
+  <artifactId>minicluster-dependencies-parent</artifactId>
   <version>0.3.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <properties>
     <skipDeploy>true</skipDeploy>
-    <minicluster.spark.version></minicluster.spark.version>
   </properties>
   <dependencies>
     <dependency>
@@ -80,32 +79,32 @@
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-sql_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-hive_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-repl_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-yarn_${scala.binary.version}</artifactId>
-      <version>${minicluster.spark.version}</version>
+      <version>${spark.version}</version>
     </dependency>
     <dependency>
       <groupId>org.objenesis</groupId>

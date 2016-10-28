@@ -33,9 +33,9 @@ import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, LivyRestClien
 class InteractiveIT extends BaseIntegrationTestSuite {
   test("basic interactive session") {
     withNewSession(Spark()) { s =>
+      s.run("val sparkVersion = sc.version").result().left.foreach(info(_))
       s.run("1+1").verifyResult("res0: Int = 2")
       s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res1: String = 1")
-      s.run("sqlContext").verifyResult(startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
         ".*" + Pattern.quote(
         "sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext") + ".*")

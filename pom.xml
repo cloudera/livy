@@ -72,10 +72,6 @@
     <execution.root>${user.dir}</execution.root>
     <spark.home>${execution.root}/dev/spark</spark.home>
 
-    <!-- Spark version integration test should use. -->
-    <minicluster-2.10.spark.version>1.6.2</minicluster-2.10.spark.version>
-    <minicluster-2.11.spark.version>2.0.1</minicluster-2.11.spark.version>
-
     <!-- Set this to "true" to skip R tests. -->
     <skipRTests>false</skipRTests>
 
@@ -1002,7 +998,7 @@
         </property>
       </activation>
       <properties>
-        <spark.version>2.0.0</spark.version>
+        <spark.version>2.0.1</spark.version>
       </properties>
     </profile>
   </profiles>

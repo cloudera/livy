@@ -53,30 +53,6 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-repl_2.10</artifactId>
-      <version>${project.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>livy-repl_2.11</artifactId>
-      <version>${project.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>*</groupId>
-          <artifactId>*</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <dependency>
-      <groupId>${project.groupId}</groupId>
       <artifactId>livy-server</artifactId>
       <version>${project.version}</version>
     </dependency>
@@ -90,7 +66,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-integration-test-minicluster-dependencies_2.10</artifactId>
+      <artifactId>minicluster-dependencies_2.10</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
       <exclusions>
@@ -103,7 +79,7 @@
 
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>livy-integration-test-minicluster-dependencies_2.11</artifactId>
+      <artifactId>minicluster-dependencies_2.11</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
       <exclusions>
@@ -115,7 +91,6 @@
     </dependency>
 
     <dependency>
-
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-test-lib</artifactId>
       <version>${project.version}</version>
@@ -313,6 +288,7 @@
         <spark.home>${real.spark.home}</spark.home>
       </properties>
     </profile>
+
     <profile>
     <id>skip-integration-test</id>
       <activation>
