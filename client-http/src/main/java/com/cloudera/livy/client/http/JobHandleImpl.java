@@ -235,9 +235,11 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
 
         switch (status.state) {
           case SUCCEEDED:
-            @SuppressWarnings("unchecked")
-            T localResult = (T) serializer.deserialize(ByteBuffer.wrap(status.result));
-            result = localResult;
+            if (status.result != null) {
+              @SuppressWarnings("unchecked")
+              T localResult = (T) serializer.deserialize(ByteBuffer.wrap(status.result));
+              result = localResult;
+            }
             finished = true;
             break;
 
