@@ -186,7 +186,8 @@
     <module>repl/scala-2.10</module>
     <module>repl/scala-2.11</module>
     <module>rsc</module>
-    <module>scala-api</module>
+    <module>scala-api/scala-2.10</module>
+    <module>scala-api/scala-2.11</module>
     <module>server</module>
     <module>test-lib</module>
     <module>integration-test/minicluster-dependencies/scala-2.10</module>
