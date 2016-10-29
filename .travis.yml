@@ -2,6 +2,10 @@ sudo: required
 dist: trusty
 language: scala
 
+env:
+  - MVN_FLAG=-Pspark-1.6
+  - MVN_FLAG=-Pspark-2.0
+
 jdk:
   - oraclejdk7
 
@@ -26,14 +30,14 @@ before_install:
   - pip3 install --user cloudpickle
 
 install:
-  - mvn install -Dskip -DskipTests -DskipITs -Dmaven.javadoc.skip=true -B -V
+  - mvn $MVN_FLAG install -Dskip -DskipTests -DskipITs -Dmaven.javadoc.skip=true -B -V
 
 before_script:
   - pip install --user requests pytest flaky flake8
   - pip3 install --user requests pytest flaky
 
 script:
-  - mvn verify -e
+  - mvn $MVN_FLAG verify -e
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

@@ -33,15 +33,21 @@ import com.cloudera.livy.test.framework.{BaseIntegrationTestSuite, LivyRestClien
 class InteractiveIT extends BaseIntegrationTestSuite {
   test("basic interactive session") {
     withNewSession(Spark()) { s =>
+      s.run("val sparkVersion = sc.version").result().left.foreach(info(_))
       s.run("1+1").verifyResult("res0: Int = 2")
       s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res1: String = 1")
-      s.run("sqlContext").verifyResult(startsWith("res2: org.apache.spark.sql.hive.HiveContext"))
       s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
         ".*" + Pattern.quote(
         "sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext") + ".*")
       s.run("abcde").verifyError(evalue = ".*?:[0-9]+: error: not found: value abcde.*")
       s.run("throw new IllegalStateException()")
         .verifyError(evalue = ".*java\\.lang\\.IllegalStateException.*")
+
+      // Verify Livy internal configurations are not exposed.
+      // TODO separate all these checks to different sub tests after merging new IT code.
+      s.run("""sc.getConf.getAll.exists(_._1.startsWith("spark.__livy__."))""")
+        .verifyResult(".*false")
+      s.run("""sys.props.exists(_._1.startsWith("spark.__livy__."))""").verifyResult(".*false")
 
       // Make sure appInfo is reported correctly.
       val state = s.snapshot()

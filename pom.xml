@@ -189,6 +189,8 @@
     <module>scala-api</module>
     <module>server</module>
     <module>test-lib</module>
+    <module>integration-test/minicluster-dependencies/scala-2.10</module>
+    <module>integration-test/minicluster-dependencies/scala-2.11</module>
     <module>integration-test</module>
   </modules>
 
@@ -996,7 +998,7 @@
         </property>
       </activation>
       <properties>
-        <spark.version>2.0.0</spark.version>
+        <spark.version>2.0.1</spark.version>
       </properties>
     </profile>
   </profiles>

@@ -66,7 +66,7 @@ class LivyServer extends Logging {
     testSparkHome(livyConf)
 
     // Test spark-submit and get Spark Scala version accordingly.
-    val (sparkVersion, scalaVersion) = sparkSubmitVersion(livyConf)
+    val (sparkVersion, scalaVersionFromSparkSubmit) = sparkSubmitVersion(livyConf)
     testSparkVersion(sparkVersion)
 
     // If Spark and Scala version is set manually, should verify if they're consistent with
@@ -78,21 +78,13 @@ class LivyServer extends Logging {
           "got from spark-submit -version")
     }
 
-    if (!scalaVersion.isEmpty && Option(livyConf.get(LIVY_SPARK_SCALA_VERSION)).isDefined) {
-      Option(livyConf.get(LIVY_SPARK_SCALA_VERSION))
-        .map(s => formatScalaVersion(s, formattedSparkVersion))
-        .foreach { version =>
-          require(version == scalaVersion,
-            s"Configured Scala version $version is not equal to Scala version $scalaVersion got " +
-              "from spark-submit -version")
-        }
-    }
-
     // Set formatted Spark and Scala version into livy configuration, this will be used by
     // session creation.
+    // TODO Create a new class to pass variables from LivyServer to sessions and remove these
+    // internal LivyConfs.
     livyConf.set(LIVY_SPARK_VERSION.key, formattedSparkVersion.productIterator.mkString("."))
     livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
-      formatScalaVersion(scalaVersion, formattedSparkVersion))
+      sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
 
     testRecovery(livyConf)
 

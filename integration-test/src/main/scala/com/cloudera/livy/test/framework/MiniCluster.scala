@@ -19,6 +19,7 @@
 package com.cloudera.livy.test.framework
 
 import java.io._
+import java.nio.charset.Charset
 import java.nio.file.{Files, Paths}
 import javax.servlet.http.HttpServletResponse
 
@@ -53,6 +54,13 @@ private class MiniClusterConfig(val config: Map[String, String]) {
 }
 
 sealed trait MiniClusterUtils extends ClusterUtils {
+  private val livySparkScalaVersionEnvVarName = "LIVY_SPARK_SCALA_VERSION"
+
+  protected def getSparkScalaVersion(): String = {
+    sys.env.getOrElse(livySparkScalaVersionEnvVarName, {
+      throw new RuntimeException(s"Please specify env var $livySparkScalaVersionEnvVarName.")
+    })
+  }
 
   protected def saveConfig(conf: Configuration, dest: File): Unit = {
     val redacted = new Configuration(conf)
@@ -148,6 +156,7 @@ object MiniLivyMain extends MiniClusterBase {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
+      LivyConf.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
@@ -188,7 +197,6 @@ private case class ProcessInfo(process: Process, logFile: File)
  * TODO: add support for MiniKdc.
  */
 class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterUtils with Logging {
-
   private val tempDir = new File(s"${sys.props("java.io.tmpdir")}/livy-int-test")
   private var sparkConfDir: File = _
   private var _configDir: File = _
@@ -229,12 +237,20 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     assert(tempDir.mkdir(), "Cannot create temp test dir.")
     sparkConfDir = mkdir("spark-conf")
 
+    val sparkScalaVersion = getSparkScalaVersion()
+    val classPathFile =
+      new File(s"minicluster-dependencies/scala-$sparkScalaVersion/target/classpath")
+    assert(classPathFile.isFile,
+      s"Cannot read MiniCluster classpath file: ${classPathFile.getCanonicalPath}")
+    val sparkClassPath =
+      FileUtils.readFileToString(classPathFile, Charset.defaultCharset())
+
     // When running a real Spark cluster, don't set the classpath.
     val extraCp = if (!isRealSpark()) {
       val dummyJar = Files.createTempFile(Paths.get(tempDir.toURI), "dummy", "jar").toFile
       Map(
-        SparkLauncher.DRIVER_EXTRA_CLASSPATH -> childClasspath,
-        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> childClasspath,
+        SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sparkClassPath,
+        SparkLauncher.EXECUTOR_EXTRA_CLASSPATH -> sparkClassPath,
         // Used for Spark 2.0. Spark 2.0 will upload specified jars to distributed cache in yarn
         // mode, if not specified it will check jars folder. Here since jars folder is not
         // existed, so it will throw exception.
