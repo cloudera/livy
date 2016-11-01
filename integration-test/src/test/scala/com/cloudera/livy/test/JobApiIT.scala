@@ -190,6 +190,13 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     assert(result === "foo")
   }
 
+  test("return null should not throw NPE") {
+    assume(client2 != null, "Client not active")
+
+    val result = waitFor(client2.submit(new VoidJob()))
+    assert(result === null)
+  }
+
   test("destroy the session") {
     assume(client2 != null, "Client not active.")
     client2.stop(true)
