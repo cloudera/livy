@@ -97,6 +97,7 @@ class JobContextImpl(object):
         self.hive_ctx = None
         self.streaming_ctx = None
         self.local_tmp_dir_path = local_tmp_dir_path
+        self.spark_session = global_dict['spark']
 
     def sc(self):
         return self.sc
@@ -142,6 +143,9 @@ class JobContextImpl(object):
                 self.stop_streaming_ctx()
             if self.sc is not None:
                 self.sc.stop()
+
+    def spark_session(self):
+        return self.spark_session;
 
 
 class PySparkJobProcessorImpl(object):
