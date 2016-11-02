@@ -47,10 +47,6 @@ class SessionStore(
     store.set(sessionPath(sessionType, m.id), m)
   }
 
-  def saveNextSessionId(sessionType: String, id: Int): Unit = {
-    store.set(sessionManagerPath(sessionType), SessionManagerState(id))
-  }
-
   /**
    * Return all sessions stored in the store with specified session type.
    */
@@ -69,14 +65,17 @@ class SessionStore(
 
   /**
    * Return the next unused session id with specified session type.
-   * If checks the SessionManagerState stored and returns the next free session id.
+   * It checks the SessionManagerState stored and returns the next free session id.
    * If no SessionManagerState is stored, it returns 0.
+    * It saves the new session ID to the session store.
    *
    * @throws Exception If SessionManagerState stored is corrupted, it throws an error.
    */
-  def getNextSessionId(sessionType: String): Int = {
-    store.get[SessionManagerState](sessionManagerPath(sessionType))
+  def getNextSessionId(sessionType: String): Int = synchronized {
+    val nextSessionId = store.get[SessionManagerState](sessionManagerPath(sessionType))
       .map(_.nextSessionId).getOrElse(0)
+    store.set(sessionManagerPath(sessionType), SessionManagerState(nextSessionId + 1))
+    nextSessionId
   }
 
   /**
