@@ -106,7 +106,7 @@ class Session(interpreter: Interpreter)
     _statements.clear()
   }
 
-  private def executeCode(executionCount: Int, code: String): String = {
+  private def executeCode(executionCount: Int, code: String): String = synchronized {
     _state = SessionState.Busy()
 
     val resultInJson = try {

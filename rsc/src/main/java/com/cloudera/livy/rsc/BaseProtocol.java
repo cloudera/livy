@@ -194,7 +194,8 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
     public GetReplJobResults() {
       this.allResults = true;
-      from = size = null;
+      from = null;
+      size = null;
     }
   }
 

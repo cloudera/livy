@@ -530,6 +530,7 @@ class InteractiveSession(
 
   private def ensureActive(): Unit = synchronized {
     require(_state.isActive, "Session isn't active.")
+    require(client.isDefined, "Session is active but client hasn't been created.")
   }
 
   private def ensureRunning(): Unit = synchronized {
@@ -541,7 +542,7 @@ class InteractiveSession(
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {
-    ensureRunning()
+    ensureActive()
     recordActivity()
     val future = client.get.bypass(ByteBuffer.wrap(job), sync)
     val opId = operationCounter.incrementAndGet()
