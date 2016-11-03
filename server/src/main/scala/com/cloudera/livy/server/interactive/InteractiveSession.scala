@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.immutable.TreeMap
 import scala.collection.mutable
 import scala.concurrent.{Future, _}
 import scala.util.{Failure, Random, Success, Try}
@@ -400,7 +401,7 @@ class InteractiveSession(
   }
 
   private[this] var _executedStatements = 0
-  private[this] var _statements = IndexedSeq[Statement]()
+  private[this] var _statements = TreeMap[Int, Statement]()
 
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
 
@@ -424,7 +425,7 @@ class InteractiveSession(
     }
   }
 
-  def statements: IndexedSeq[Statement] = _statements
+  def statements: TreeMap[Int, Statement] = _statements
 
   def interrupt(): Future[Unit] = {
     stop()
@@ -443,9 +444,21 @@ class InteractiveSession(
     val statement = new Statement(_executedStatements, content, future)
 
     _executedStatements += 1
-    _statements = _statements :+ statement
+    addStatement(statement)
 
     statement
+  }
+
+  def addStatement(statement: Statement): Unit = {
+    _statements.synchronized {
+      _statements = _statements + (statement.id -> statement)
+    }
+  }
+
+  def removeStatement(statementId: Int): Unit = {
+    _statements.synchronized {
+      _statements = _statements - statementId
+    }
   }
 
   def runJob(job: Array[Byte]): Long = {
