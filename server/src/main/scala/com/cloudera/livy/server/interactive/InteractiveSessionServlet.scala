@@ -84,9 +84,14 @@ class InteractiveSessionServlet(
       session.state.toString, session.kind.toString, session.appInfo.asJavaMap, logs.asJava)
   }
 
-  private def statementView(statement: Statement): Any = {
+  private def statementView(statement: Statement, timeout: Option[Long]): Any = {
     val output = try {
-      Await.result(statement.output(), Duration(100, TimeUnit.MILLISECONDS))
+      val timeoutInMilliseconds = if (timeout.isDefined) {
+        timeout.get
+      } else {
+        livyConf.get(LivyConf.STATEMENT_TIMEOUT).toLong
+      }
+      Await.result(statement.output(), Duration(timeoutInMilliseconds, TimeUnit.MILLISECONDS))
     } catch {
       case _: TimeoutException => null
     }
@@ -114,10 +119,11 @@ class InteractiveSessionServlet(
     withSession { session =>
       val from = params.get("from").map(_.toInt).getOrElse(0)
       val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
+      val timeout = params.get("timeout").map(_.toLong)
 
       Map(
         "total_statements" -> session.statements.length,
-        "statements" -> session.statements.view(from, from + size).map(statementView)
+        "statements" -> session.statements.view(from, from + size).map(statementView(_, timeout))
       )
     }
   }
@@ -127,11 +133,12 @@ class InteractiveSessionServlet(
       val statementId = params("statementId").toInt
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
+      val timeout = params.get("timeout").map(_.toLong)
 
       session.statements.lift(statementId) match {
         case None => NotFound("Statement not found")
         case Some(statement) =>
-          statementView(statement)
+          statementView(statement, timeout)
       }
     }
   }
@@ -139,8 +146,9 @@ class InteractiveSessionServlet(
   jpost[ExecuteRequest]("/:id/statements") { req =>
     withSession { session =>
       val statement = session.executeStatement(req)
+      val timeout = params.get("timeout").map(_.toLong)
 
-      Created(statementView(statement),
+      Created(statementView(statement, timeout),
         headers = Map(
           "Location" -> url(getStatement,
             "id" -> session.id.toString,
