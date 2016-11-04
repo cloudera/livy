@@ -34,7 +34,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
 
   implicit val formats = DefaultFormats
 
-  protected def execute(session: Session, code: String): Statement = {
+  protected def execute(session: Session)(code: String): Statement = {
     val id = session.execute(code)
     eventually(timeout(30 seconds), interval(100 millis)) {
       val s = session.statements(id)

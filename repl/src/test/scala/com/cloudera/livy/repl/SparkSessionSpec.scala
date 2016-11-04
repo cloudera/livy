@@ -28,7 +28,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
-    val statement = execute(session, "1 + 2")
+    val statement = execute(session)("1 + 2")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -44,7 +44,8 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute `x = 1`, then `y = 2`, then `x + y`" in withSession { session =>
-    var statement = execute(session, "val x = 1")
+    val executeWithSession = execute(session)(_)
+    var statement = executeWithSession("val x = 1")
     statement.id should equal (0)
 
     var result = parse(statement.output)
@@ -58,7 +59,7 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = execute(session, "val y = 2")
+    statement = executeWithSession("val y = 2")
     statement.id should equal (1)
 
     result = parse(statement.output)
@@ -72,7 +73,7 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = execute(session, "x + y")
+    statement = executeWithSession("x + y")
     statement.id should equal (2)
 
     result = parse(statement.output)
@@ -88,7 +89,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout" in withSession { session =>
-    val statement = execute(session, """println("Hello World")""")
+    val statement = execute(session)("""println("Hello World")""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -104,7 +105,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if accessing an unknown variable" in withSession { session =>
-    val statement = execute(session, """x""")
+    val statement = execute(session)("""x""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -118,7 +119,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if exception is thrown" in withSession { session =>
-    val statement = execute(session,
+    val statement = execute(session)(
       """def func1() {
         |throw new Exception()
         |}
@@ -139,7 +140,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "access the spark context" in withSession { session =>
-    val statement = execute(session, """sc""")
+    val statement = execute(session)("""sc""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -155,7 +156,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute spark commands" in withSession { session =>
-    val statement = execute(session,
+    val statement = execute(session)(
       """sc.parallelize(0 to 1).map{i => i+1}.collect""".stripMargin)
     statement.id should equal (0)
 
@@ -173,7 +174,7 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "do table magic" in withSession { session =>
-    val statement = execute(session, "val x = List((1, \"a\"), (3, \"b\"))\n%table x")
+    val statement = execute(session)("val x = List((1, \"a\"), (3, \"b\"))\n%table x")
     statement.id should equal (0)
 
     val result = parse(statement.output)

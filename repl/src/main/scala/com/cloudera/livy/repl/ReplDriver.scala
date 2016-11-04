@@ -63,14 +63,15 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     }
   }
 
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Int = {
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Int = synchronized {
     session.execute(msg.code)
   }
 
   /**
-    * Return statement results. Results are sorted by statement id.
-    */
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults = {
+   * Return statement results. Results are sorted by statement id.
+   */
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults =
+    synchronized {
     val stmts = if (msg.allResults) {
       session.statements.values.toArray
     } else {

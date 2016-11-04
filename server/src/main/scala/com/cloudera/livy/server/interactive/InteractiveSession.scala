@@ -355,7 +355,7 @@ class InteractiveSession(
         while (_state.isActive) {
           // State is also updated when we get statement results from repl, not just here.
           setSessionStateFromReplState(client.map(_.getReplState.get()))
-          Thread.sleep(1000)
+          Thread.sleep(30000)
         }
       } catch {
         case _: InterruptedException =>

@@ -32,7 +32,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
   override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
-    val statement = execute(session, "1 + 2")
+    val statement = execute(session)("1 + 2")
     statement.id should equal(0)
 
     val result = parse(statement.output)
@@ -48,7 +48,8 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute `x = 1`, then `y = 2`, then `x + y`" in withSession { session =>
-    var statement = execute(session, "x = 1")
+    val executeWithSession = execute(session)(_)
+    var statement = executeWithSession("x = 1")
     statement.id should equal (0)
 
     var result = parse(statement.output)
@@ -62,7 +63,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = execute(session, "y = 2")
+    statement = executeWithSession("y = 2")
     statement.id should equal (1)
 
     result = parse(statement.output)
@@ -76,7 +77,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = execute(session, "x + y")
+    statement = executeWithSession("x + y")
     statement.id should equal (2)
 
     result = parse(statement.output)
@@ -92,7 +93,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout from print" in withSession { session =>
-    val statement = execute(session, """print('Hello World')""")
+    val statement = execute(session)("""print('Hello World')""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -108,7 +109,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout from cat" in withSession { session =>
-    val statement = execute(session, """cat(3)""")
+    val statement = execute(session)("""cat(3)""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
@@ -124,7 +125,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if accessing an unknown variable" in withSession { session =>
-    val statement = execute(session, """x""")
+    val statement = execute(session)("""x""")
     statement.id should equal (0)
 
     val result = parse(statement.output)
