@@ -66,5 +66,5 @@ public interface JobContext {
   /**
    * Returns SparkSession if it existed, otherwise throws Exception.
    */
-  <E> E sparksession() throws Exception;
+  <E> E sparkSession() throws Exception;
 }

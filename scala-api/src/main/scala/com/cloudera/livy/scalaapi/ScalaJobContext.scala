@@ -46,7 +46,7 @@ class ScalaJobContext private[livy] (context: JobContext) {
   /** Returns the StreamingContext which has already been created. */
   def streamingctx: StreamingContext = context.streamingctx().ssc
 
-  def sparksession[E]: E = context.sparksession()
+  def sparkSession[E]: E = context.sparkSession()
 
   /**
    * Creates the SparkStreaming context.
