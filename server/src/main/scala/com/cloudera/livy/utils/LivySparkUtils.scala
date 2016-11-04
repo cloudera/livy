@@ -20,6 +20,7 @@ package com.cloudera.livy.utils
 
 import java.io.{File, IOException}
 
+import scala.collection.SortedMap
 import scala.math.Ordering.Implicits._
 
 import com.cloudera.livy.{LivyConf, Logging}
@@ -30,7 +31,7 @@ object LivySparkUtils extends Logging {
 
   // For each Spark version we supported, we need to add this mapping relation in case Scala
   // version cannot be detected from "spark-submit --version".
-  private val _defaultSparkScalaVersion = Map(
+  private val _defaultSparkScalaVersion = SortedMap(
     // Spark 2.0 + Scala 2.11
     (2, 0) -> "2.11",
     // Spark 1.6 + Scala 2.10
@@ -74,12 +75,11 @@ object LivySparkUtils extends Logging {
    * @param version Spark version
    */
   def testSparkVersion(version: String): Unit = {
-    val supportedVersion = formatSparkVersion(version) match {
-      case v: (Int, Int) =>
-        v >= MIN_VERSION && v < MAX_VERSION
-      case _ => false
+    val v = formatSparkVersion(version)
+    require(v >= MIN_VERSION, s"Unsupported Spark version $v")
+    if (v >= MAX_VERSION) {
+      warn(s"Current Spark $v is not verified in Livy, please use it carefully")
     }
-    require(supportedVersion, s"Unsupported Spark version $version.")
   }
 
   /**
@@ -175,8 +175,22 @@ object LivySparkUtils extends Logging {
    * @return Scala binary version
    */
   private[utils] def defaultSparkScalaVersion(sparkVersion: (Int, Int)): String = {
-    _defaultSparkScalaVersion.getOrElse(sparkVersion, {
-      throw new IllegalArgumentException(s"Fail to get Scala version from Spark $sparkVersion")
-    })
+    _defaultSparkScalaVersion.get(sparkVersion)
+      .orElse {
+        if (sparkVersion < _defaultSparkScalaVersion.head._1) {
+          throw new IllegalArgumentException(s"Spark version $sparkVersion is less than the " +
+            s"minimum version ${_defaultSparkScalaVersion.head._1} supported by Livy")
+        } else if (sparkVersion > _defaultSparkScalaVersion.last._1) {
+          val (spark, scala) = _defaultSparkScalaVersion.last
+          warn(s"Spark version $sparkVersion is greater then the maximum version " +
+            s"$spark supported by Livy, will choose Scala version $scala instead, " +
+            s"please specify manually if it is the expected Scala version you want")
+          Some(scala)
+        } else {
+          None
+        }
+      }
+      .getOrElse(
+        throw new IllegalArgumentException(s"Fail to get Scala version from Spark $sparkVersion"))
   }
 }
