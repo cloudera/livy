@@ -120,4 +120,10 @@ class FileSystemStateStore(
   }
 
   private def absPath(key: String): Path = new Path(fsUri.getPath(), key)
+
+  override def increment(key: String): Long = synchronized {
+    val incrementedValue = get[Long](key).getOrElse(-1L) + 1
+    set(key, incrementedValue.asInstanceOf[Object])
+    incrementedValue
+  }
 }

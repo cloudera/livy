@@ -27,8 +27,6 @@ import scala.util.control.NonFatal
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
-private[recovery] case class SessionManagerState(nextSessionId: Int)
-
 /**
  * SessionStore provides high level functions to get/save session state from/to StateStore.
  */
@@ -64,18 +62,14 @@ class SessionStore(
   }
 
   /**
-   * Return the next unused session id with specified session type.
-   * It checks the SessionManagerState stored and returns the next free session id.
-   * If no SessionManagerState is stored, it returns 0.
-    * It saves the new session ID to the session store.
+   * Return the next unused session ID from state store with the specified session type.
+   * If no value is stored state store, it returns 0.
+   * It saves the next unused session ID to the session store before returning the current value.
    *
-   * @throws Exception If SessionManagerState stored is corrupted, it throws an error.
+   * @throws Exception If session store is corrupted or unreachable, it throws an error.
    */
-  def getNextSessionId(sessionType: String): Int = synchronized {
-    val nextSessionId = store.get[SessionManagerState](sessionManagerPath(sessionType))
-      .map(_.nextSessionId).getOrElse(0)
-    store.set(sessionManagerPath(sessionType), SessionManagerState(nextSessionId + 1))
-    nextSessionId
+  def getNextSessionId(sessionType: String): Int = {
+    store.increment(sessionManagerPath(sessionType)).toInt
   }
 
   /**
