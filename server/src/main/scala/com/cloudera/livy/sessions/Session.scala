@@ -152,12 +152,7 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf)
 
   var appInfo: AppInfo = AppInfo()
 
-  def lastActivity: Long = state match {
-    case SessionState.Error(time) => time
-    case SessionState.Dead(time) => time
-    case SessionState.Success(time) => time
-    case _ => _lastActivity
-  }
+  def lastActivity: Long = _lastActivity
 
   def logLines(): IndexedSeq[String]
 
