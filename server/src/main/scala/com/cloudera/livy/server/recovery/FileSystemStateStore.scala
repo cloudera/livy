@@ -120,4 +120,10 @@ class FileSystemStateStore(
   }
 
   private def absPath(key: String): Path = new Path(fsUri.getPath(), key)
+
+  def nextBatchSessionId: Int = {
+    val nextId = get[Int]("batchSessionId").getOrElse(0)
+    this.set("batchSessionId", (nextId + 1).asInstanceOf[Object])
+    nextId
+  }
 }

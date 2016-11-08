@@ -15,26 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.cloudera.livy.server.recovery
 
-import scala.reflect.ClassTag
-
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.server.batch.BatchRecoveryMetadata
 
 /**
- * This is a blackhole implementation of StateStore.
- * Livy will use this when session recovery is disabled.
- */
-class BlackholeStateStore(livyConf: LivyConf) extends StateStore(livyConf) {
-  def set(key: String, value: Object): Unit = {}
-
-  def get[T: ClassTag](key: String): Option[T] = None
-
-  def getChildren(key: String): Seq[String] = List.empty[String]
-
-  def remove(key: String): Unit = {}
-
-  def nextBatchSessionId: Int = 0
-
+  * Methods in this trait will be called when a Livy server detects a change in the ZooKeeper server
+  */
+trait SessionManagerListener {
+  def register(recoveryData: BatchRecoveryMetadata): Unit
+  def remove(batchMetadata: BatchRecoveryMetadata): Unit
 }

@@ -30,7 +30,7 @@ import scala.util.control.NonFatal
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import com.cloudera.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
-import com.cloudera.livy.server.recovery.SessionStore
+import com.cloudera.livy.server.recovery.{SessionManagerListener, SessionStore}
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 object SessionManager {
@@ -63,7 +63,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     sessionStore: SessionStore,
     sessionType: String,
     mockSessions: Option[Seq[S]] = None)
-  extends Logging {
+  extends SessionManagerListener with Logging {
 
   import SessionManager._
 
@@ -166,6 +166,41 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       }
     }
 
+  }
+
+  override def register(recoveryData: BatchRecoveryMetadata): Unit = {
+    synchronized {
+      sessions.contains(recoveryData.id) match {
+        case true =>
+          // This session manager added the session. No need to register it
+          logger.info(s"The session manager already has information for $recoveryData")
+        case false =>
+          logger.info(s"The session saw new session $recoveryData from ZooKeeper")
+          recoveryData.appTag match {
+            case null =>
+              // the app is not registered in yarn yet. wait until it is
+              logger.info(s"Session manager cannot find an appTag for $recoveryData from ZooKeeper")
+            case appTag => BatchSession.update(recoveryData, livyConf, sessionStore, None)
+              logger.info(s"Session Manager found new Batch session $recoveryData from ZooKeeper")
+              val session = BatchSession.update(recoveryData, livyConf, sessionStore)
+              register(session.asInstanceOf[S])
+          }
+      }
+    }
+  }
+
+
+  override def remove(recoveryData: BatchRecoveryMetadata): Unit = {
+    synchronized {
+      sessions.contains(recoveryData.id) match {
+        case true =>
+          // This session manager added the session. No need to register it
+          logger.info(s"Removing session $recoveryData")
+          sessions.remove(recoveryData.id)
+        case false =>
+          logger.info(s"The session is not present")
+      }
+    }
   }
 
 }

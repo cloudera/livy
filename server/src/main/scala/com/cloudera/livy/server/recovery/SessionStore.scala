@@ -79,6 +79,12 @@ class SessionStore(
       .map(_.nextSessionId).getOrElse(0)
   }
 
+  def getNextBatchSessionId: Int = {
+    val id = store.nextBatchSessionId
+    logger.info(s"The next batch session id=$id")
+    id
+  }
+
   /**
    * Remove a session from the state store.
    */
@@ -94,4 +100,8 @@ class SessionStore(
 
   private def sessionPath(sessionType: String, id: Int): String =
     s"$STORE_VERSION/$sessionType/$id"
+
+  def setListener(sessionManagerListener: SessionManagerListener): Unit = {
+    store.setListener(sessionManagerListener)
+  }
 }
