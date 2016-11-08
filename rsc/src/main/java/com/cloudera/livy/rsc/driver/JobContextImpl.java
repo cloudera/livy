@@ -57,7 +57,7 @@ class JobContextImpl implements JobContext {
   }
 
   @Override
-  public Object sparksession() throws Exception {
+  public Object sparkSession() throws Exception {
     if (sparksession == null) {
       synchronized (this) {
         if (sparksession == null) {
