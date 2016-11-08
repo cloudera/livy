@@ -131,12 +131,12 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       case SessionState.Dead(_) => true
       case SessionState.Error(_) => true
       case SessionState.Success(_) => true
-      case _  =>
-        if (session.isInstanceOf[InteractiveSession]) {
+      case _ =>
+        if (session.isInstanceOf[BatchSession]) {
+          false
+        } else {
           val currentTime = System.nanoTime()
           currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
-        } else {
-          false
         }
     }
 
