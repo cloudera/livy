@@ -346,10 +346,8 @@ class InteractiveSession(
   private val operationCounter = new AtomicLong(0)
   private var rscDriverUri: Option[URI] = None
   private var sessionLog: IndexedSeq[String] = IndexedSeq.empty
-  private val sessionSaveLock = new Object()
 
   _appId = appIdHint
-  sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
@@ -381,9 +379,7 @@ class InteractiveSession(
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
         rscDriverUri = Option(client.get.getServerUri.get())
-        sessionSaveLock.synchronized {
-          sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
-        }
+        sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
         transition(SessionState.Idle())
       }
 
@@ -553,9 +549,6 @@ class InteractiveSession(
 
   override def appIdKnown(appId: String): Unit = {
     _appId = Option(appId)
-    sessionSaveLock.synchronized {
-      sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
-    }
   }
 
   override def stateChanged(oldState: SparkApp.State, newState: SparkApp.State): Unit = {

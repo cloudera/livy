@@ -94,7 +94,7 @@ class InteractiveSessionSpec extends FunSpec
       session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
     }
 
-    it("should update appId and appInfo and session store") {
+    it("should update appId and appInfo") {
       val mockApp = mock[SparkApp]
       val sessionStore = mock[SessionStore]
       val session = createSession(sessionStore, Some(mockApp))
@@ -106,9 +106,6 @@ class InteractiveSessionSpec extends FunSpec
       val expectedAppInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
       session.infoChanged(expectedAppInfo)
       session.appInfo shouldEqual expectedAppInfo
-
-      verify(sessionStore, atLeastOnce()).save(
-        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
     }
 
     withSession("should execute `1 + 2` == 3") { session =>
@@ -165,10 +162,6 @@ class InteractiveSessionSpec extends FunSpec
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
 
       s.state shouldBe a[SessionState.Recovering]
-
-      s.appIdKnown("appId")
-      verify(sessionStore, atLeastOnce()).save(
-        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
     }
 
     it("should recover session to dead state if rscDriverUri is unknown") {
