@@ -45,4 +45,4 @@ after_success:
 
 after_failure:
   - npm list -g azure-cli --depth=0 || npm install -g azure-cli
-  - ./.travis-upload-logs.sh
+  - ./dev/travis-upload-logs.sh
