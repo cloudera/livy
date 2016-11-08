@@ -22,6 +22,7 @@ import java.io.{FileNotFoundException, IOException}
 import java.net.URI
 import java.util
 
+import scala.util.control.NonFatal
 import scala.reflect.ClassTag
 
 import org.apache.commons.io.IOUtils
@@ -88,6 +89,13 @@ class FileSystemStateStore(
       tmpFile.close()
       // Assume rename is atomic.
       fileContext.rename(tmpPath, absPath(key), Rename.OVERWRITE)
+    }
+
+    try {
+      val crcPath = new Path(tmpPath.getParent, s".${tmpPath.getName}.crc")
+      fileContext.delete(crcPath, false)
+    } catch {
+      case NonFatal(e) => // Swallow the exception.
     }
   }
 
