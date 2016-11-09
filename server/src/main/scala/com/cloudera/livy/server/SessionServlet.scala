@@ -20,13 +20,10 @@ package com.cloudera.livy.server
 
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
-
 import javax.servlet.http.HttpServletRequest
-
+import org.scalatra._
 import scala.concurrent._
 import scala.concurrent.duration._
-
-import org.scalatra._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
