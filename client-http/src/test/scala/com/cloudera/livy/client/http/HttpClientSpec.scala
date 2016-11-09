@@ -89,7 +89,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll with LivyBaseUni
   describe("HTTP client library") {
 
     it("should create clients") {
-      // WebServer does this internally instad of respecting "0.0.0.0", so try to use the same
+      // WebServer does this internally instead of respecting "0.0.0.0", so try to use the same
       // address.
       val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}/"
       client = new LivyClientBuilder(false).setURI(new URI(uri)).build()
