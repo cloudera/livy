@@ -22,8 +22,8 @@ import java.io.{FileNotFoundException, IOException}
 import java.net.URI
 import java.util
 
-import scala.util.control.NonFatal
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs._
