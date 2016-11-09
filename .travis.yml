@@ -20,6 +20,7 @@ cache:
   pip: true
   directories:
     - $HOME/.m2
+    - $(npm config get prefix)
 
 before_install:
   - sudo apt-get -y install python3-pip python-dev
@@ -41,3 +42,7 @@ script:
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
+
+after_failure:
+  - npm list -g azure-cli --depth=0 || npm install -g azure-cli
+  - ./dev/travis-upload-logs.sh
