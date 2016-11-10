@@ -65,6 +65,18 @@ class JsonServletSpec extends BaseJsonServletSpec {
       }
     }
 
+    it("should translate bad param name to BadRequest") {
+      post("/post", """{"value1":"1"}""".getBytes(UTF_8), headers = defaultHeaders) {
+        assert(status === SC_BAD_REQUEST)
+      }
+    }
+
+    it("should translate type mismatch to BadRequest") {
+      post("/postlist", """{"listParam":"1"}""".getBytes(UTF_8), headers = defaultHeaders) {
+        assert(status === SC_BAD_REQUEST)
+      }
+    }
+
     it("should respect user-installed error handlers") {
       post("/error", headers = defaultHeaders) {
         assert(status === SC_SERVICE_UNAVAILABLE)
@@ -86,6 +98,8 @@ private case class MethodArg(value: String)
 
 private case class MethodReturn(value: String)
 
+private case class MethodReturnList(listParam: List[String] = List())
+
 private class TestJsonServlet extends JsonServlet {
 
   before() {
@@ -102,6 +116,10 @@ private class TestJsonServlet extends JsonServlet {
 
   jpost[MethodArg]("/post") { arg =>
     Created(MethodReturn(arg.value))
+  }
+
+  jpost[MethodReturnList]("/postlist") { arg =>
+    Created()
   }
 
   jput[MethodArg]("/put") { arg =>
