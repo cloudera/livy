@@ -102,6 +102,7 @@ class FileSystemStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
 
 
       verify(fileContext).rename(pathEq("/key.tmp"), pathEq("/key"), equal(Rename.OVERWRITE))
+      verify(fileContext).delete(pathEq("/.key.tmp.crc"), equal(false))
     }
 
     it("get should read file") {

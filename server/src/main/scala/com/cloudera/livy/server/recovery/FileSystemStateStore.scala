@@ -23,6 +23,7 @@ import java.net.URI
 import java.util
 
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
 
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs._
@@ -88,6 +89,13 @@ class FileSystemStateStore(
       tmpFile.close()
       // Assume rename is atomic.
       fileContext.rename(tmpPath, absPath(key), Rename.OVERWRITE)
+    }
+
+    try {
+      val crcPath = new Path(tmpPath.getParent, s".${tmpPath.getName}.crc")
+      fileContext.delete(crcPath, false)
+    } catch {
+      case NonFatal(e) => // Swallow the exception.
     }
   }
 
