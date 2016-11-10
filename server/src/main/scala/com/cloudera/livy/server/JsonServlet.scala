@@ -24,7 +24,8 @@ import scala.concurrent.ExecutionContext
 import scala.reflect.ClassTag
 
 import com.fasterxml.jackson.core.JsonParseException
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{JsonMappingException, ObjectMapper}
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException
 import org.scalatra._
 
 /**
@@ -57,6 +58,11 @@ abstract class JsonServlet extends ScalatraServlet with ApiFormats with FutureSu
 
   error {
     case e: JsonParseException => BadRequest(e.getMessage)
+    case e: UnrecognizedPropertyException => BadRequest(e.getMessage)
+    case e: JsonMappingException => BadRequest(e.getMessage)
+    case e =>
+      SessionServlet.error("internal error", e)
+      InternalServerError(e.toString)
   }
 
   protected def jpatch[T: ClassTag](t: RouteTransformer*)(action: T => Any): Route = {

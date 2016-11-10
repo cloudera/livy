@@ -20,10 +20,9 @@ package com.cloudera.livy.server
 
 import javax.servlet.http.HttpServletRequest
 
+import org.scalatra._
 import scala.concurrent._
 import scala.concurrent.duration._
-
-import org.scalatra._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
@@ -137,9 +136,6 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
 
   error {
     case e: IllegalArgumentException => BadRequest(e.getMessage)
-    case e =>
-      SessionServlet.error("internal error", e)
-      InternalServerError(e.toString)
   }
 
   /**
