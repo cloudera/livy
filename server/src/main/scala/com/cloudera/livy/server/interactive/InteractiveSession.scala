@@ -430,22 +430,29 @@ class InteractiveSession(
     stop()
   }
 
-  def executeStatement(content: ExecuteRequest): Statement = {
+  def executeStatement(content: ExecuteRequest): Statement = synchronized {
     ensureRunning()
     _state = SessionState.Busy()
     recordActivity()
 
+    val statementId = _executedStatements
     val future = Future {
-      val id = client.get.submitReplCode(content.code)
+      val id = client.get.submitReplCode(content.code, statementId.toString)
       waitForStatement(id)
     }
 
-    val statement = new Statement(_executedStatements, content, future)
+    val statement = new Statement(statementId, content, future)
 
     _executedStatements += 1
     _statements = _statements :+ statement
 
     statement
+  }
+
+  def cancelStatement(statementId: String): Unit = {
+    ensureRunning()
+    recordActivity()
+    client.get.cancelReplCode(statementId)
   }
 
   def runJob(job: Array[Byte]): Long = {

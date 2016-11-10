@@ -72,11 +72,15 @@ class Session(interpreter: Interpreter)
 
   def history: IndexedSeq[Statement] = _history
 
-  def execute(code: String): Statement = synchronized {
+  def execute(code: String, statementId: String = ""): Statement = synchronized {
     val executionCount = _history.length
-    val statement = Statement(executionCount, executeCode(executionCount, code))
+    val statement = Statement(executionCount, executeCode(executionCount, code, statementId))
     _history :+= statement
     statement
+  }
+
+  def cancel(statementId: String): Unit = {
+    interpreter.cancel(statementId)
   }
 
   def close(): Unit = {
@@ -88,12 +92,12 @@ class Session(interpreter: Interpreter)
     _history = IndexedSeq()
   }
 
-  private def executeCode(executionCount: Int, code: String) = {
+  private def executeCode(executionCount: Int, code: String, statementId: String) = {
     _state = SessionState.Busy()
 
     try {
 
-      interpreter.execute(code) match {
+      interpreter.execute(code, statementId) match {
         case Interpreter.ExecuteSuccess(data) =>
           _state = SessionState.Idle()
 

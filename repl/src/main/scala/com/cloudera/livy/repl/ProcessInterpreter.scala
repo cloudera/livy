@@ -28,6 +28,7 @@ import org.apache.spark.SparkContext
 import org.json4s.JValue
 
 import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.repl.Interpreter.ExecuteResponse
 
 private sealed trait Request
 private case class ExecuteRequest(code: String, promise: Promise[JValue]) extends Request
@@ -47,15 +48,12 @@ abstract class ProcessInterpreter(process: Process)
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
 
-  override def start(): SparkContext = {
+  override def internalStart(): SparkContext = {
     waitUntilReady()
-
-    // At this point there should be an already active SparkContext that can be retrieved
-    // using SparkContext.getOrCreate. But we don't really support running "pre-compiled"
-    // jobs against pyspark or sparkr, so just return null here.
-    null
+    SparkContext.getOrCreate
   }
-  override def execute(code: String): Interpreter.ExecuteResponse = {
+
+  override def internalExecute(code: String): ExecuteResponse = {
     try {
       sendExecuteRequest(code)
     } catch {

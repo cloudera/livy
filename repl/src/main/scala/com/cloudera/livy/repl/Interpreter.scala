@@ -18,8 +18,12 @@
 
 package com.cloudera.livy.repl
 
+import java.util.UUID
+
 import org.apache.spark.SparkContext
 import org.json4s.JObject
+
+import com.cloudera.livy.Logging
 
 object Interpreter {
   abstract class ExecuteResponse
@@ -32,8 +36,10 @@ object Interpreter {
   case class ExecuteAborted(message: String) extends ExecuteResponse
 }
 
-trait Interpreter {
+trait Interpreter extends Logging {
   import Interpreter._
+
+  protected var sparkContext: SparkContext = _
 
   def kind: String
 
@@ -42,13 +48,36 @@ trait Interpreter {
    *
    * @return A SparkContext, which may be null.
    */
-  def start(): SparkContext
+  def start(): SparkContext = {
+    sparkContext = internalStart()
+    sparkContext
+  }
+
+  def internalStart(): SparkContext
+
+  /**
+    * Execute the code and return the result as a Future as it may
+    * take some time to execute. Use UUID as the jobGroupId. This is just for testing. In reality,
+    * The statementId will be used as the JobGroupId.
+    */
+  def execute(code: String): ExecuteResponse = execute(code, UUID.randomUUID().toString)
 
   /**
    * Execute the code and return the result as a Future as it may
-   * take some time to execute.
+   * take some time to execute. Use the statementId as the jobGroupId.
    */
-  def execute(code: String): ExecuteResponse
+  def execute(code: String, statementId: String): ExecuteResponse = {
+    sparkContext.setJobGroup(statementId, s"job group id for statement ${statementId}")
+    internalExecute(code)
+  }
+
+
+  def internalExecute(code: String): ExecuteResponse
+
+  def cancel(statementId: String): Unit = {
+    info(s"Statement: ${statementId} is canceled.")
+    sparkContext.cancelJobGroup(statementId)
+  }
 
   /** Shut down the interpreter. */
   def close(): Unit
