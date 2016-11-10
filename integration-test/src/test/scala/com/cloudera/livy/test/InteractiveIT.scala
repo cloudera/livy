@@ -91,8 +91,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
   test("application kills session") {
     withNewSession(Spark()) { s =>
-      s.run("System.exit(0)")
-      s.verifySessionState(SessionState.Dead())
+      s.runFatalStatement("System.exit(0)")
     }
   }
 

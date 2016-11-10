@@ -397,6 +397,7 @@ class InteractiveSession(
           sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
         }
         transition(SessionState.Idle())
+        stateThread.setDaemon(true)
         stateThread.start()
       }
 

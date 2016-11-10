@@ -79,18 +79,18 @@ class Session(interpreter: Interpreter)
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    _statements.synchronized {
+    synchronized {
       _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
     }
     Future {
-      _statements.synchronized {
+      synchronized {
         _statements(statementId) = new Statement(statementId, StatementState.Running, null)
       }
 
       val statement =
         new Statement(statementId, StatementState.Available, executeCode(statementId, code))
 
-      _statements.synchronized {
+      synchronized {
         _statements(statementId) = statement
       }
     }

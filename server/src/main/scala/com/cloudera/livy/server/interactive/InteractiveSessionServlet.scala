@@ -100,12 +100,13 @@ class InteractiveSessionServlet(
 
   get("/:id/statements") {
     withSession { session =>
+      val statements = session.statements
       val from = params.get("from").map(_.toInt).getOrElse(0)
-      val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
+      val size = params.get("size").map(_.toInt).getOrElse(statements.length)
 
       Map(
-        "total_statements" -> session.statements.length,
-        "statements" -> session.statements.view(from, from + size)
+        "total_statements" -> statements.length,
+        "statements" -> statements.view(from, from + size)
       )
     }
   }
