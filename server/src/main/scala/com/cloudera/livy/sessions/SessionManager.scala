@@ -127,9 +127,17 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   }
 
   def collectGarbage(): Future[Iterable[Unit]] = {
-    def expired(session: Session): Boolean = {
-      val currentTime = System.nanoTime()
-      currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
+    def expired(session: Session): Boolean = session.state match {
+      case SessionState.Dead(_) => true
+      case SessionState.Error(_) => true
+      case SessionState.Success(_) => true
+      case _ =>
+        if (session.isInstanceOf[BatchSession]) {
+          false
+        } else {
+          val currentTime = System.nanoTime()
+          currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
+        }
     }
 
     Future.sequence(all().filter(expired).map(delete))

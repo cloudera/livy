@@ -51,6 +51,25 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
         manager.get(session.id) should be(None)
       }
     }
+
+    it("should garbage non-active session aggressively before session timeout") {
+      val livyConf = new LivyConf()
+      val manager = new SessionManager[MockSession, RecoveryMetadata](
+        livyConf,
+        { _ => assert(false).asInstanceOf[MockSession] },
+        mock[SessionStore],
+        "test",
+        Some(Seq.empty))
+      val session = manager.register(new MockSession(manager.nextId(), null, livyConf))
+      manager.get(session.id).isDefined should be(true)
+
+      // Set the session state to Dead to trigger session garbage collection immediately.
+      session.setState(SessionState.Dead())
+      eventually(timeout(5 seconds), interval(100 millis)) {
+        Await.result(manager.collectGarbage(), Duration.Inf)
+        manager.get(session.id) should be(None)
+      }
+    }
   }
 
   describe("BatchSessionManager") {

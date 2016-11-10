@@ -23,13 +23,19 @@ import com.cloudera.livy.LivyConf
 class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, owner, conf) {
   case class RecoveryMetadata(id: Int) extends Session.RecoveryMetadata()
 
+  private var _state: SessionState = SessionState.Idle()
+
   override val proxyUser = None
 
   override protected def stopSession(): Unit = ()
 
   override def logLines(): IndexedSeq[String] = IndexedSeq()
 
-  override def state: SessionState = SessionState.Idle()
+  override def state: SessionState = _state
+
+  def setState(s: SessionState): Unit = {
+    _state = s
+  }
 
   override val timeout: Long = 0L
 
