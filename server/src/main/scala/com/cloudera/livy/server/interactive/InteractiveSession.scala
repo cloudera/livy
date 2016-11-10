@@ -371,8 +371,6 @@ class InteractiveSession(
   } else {
     val uriFuture = future { client.get.getServerUri.get() }
 
-    info(s"current time: ${System.currentTimeMillis()}")
-
     uriFuture onSuccess { case url =>
       rscDriverUri = Option(url)
       sessionSaveLock.synchronized {
@@ -382,8 +380,6 @@ class InteractiveSession(
     uriFuture onFailure { case e =>
       throw new IllegalStateException("Fail to get rsc uri", e)
     }
-
-    info(s"current time: ${System.currentTimeMillis()}")
 
     // Send a dummy job that will return once the client is ready to be used, and set the
     // state to "idle" at that point.
