@@ -381,7 +381,7 @@ class InteractiveSession(
     info(msg)
     sessionLog = IndexedSeq(msg)
   } else {
-    val uriFuture = future { client.get.getServerUri.get() }
+    val uriFuture = Future { client.get.getServerUri.get() }
 
     uriFuture onSuccess { case url =>
       rscDriverUri = Option(url)
