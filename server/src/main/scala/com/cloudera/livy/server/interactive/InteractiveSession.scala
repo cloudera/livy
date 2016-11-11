@@ -381,6 +381,16 @@ class InteractiveSession(
     info(msg)
     sessionLog = IndexedSeq(msg)
   } else {
+    val uriFuture = future { client.get.getServerUri.get() }
+
+    uriFuture onSuccess { case url =>
+      rscDriverUri = Option(url)
+      sessionSaveLock.synchronized {
+        sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
+      }
+    }
+    uriFuture onFailure { case e => warn("Fail to get rsc uri", e) }
+
     // Send a dummy job that will return once the client is ready to be used, and set the
     // state to "idle" at that point.
     client.get.submit(new PingJob()).addListener(new JobHandle.Listener[Void]() {
@@ -392,10 +402,6 @@ class InteractiveSession(
       override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = errorOut()
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
-        rscDriverUri = Option(client.get.getServerUri.get())
-        sessionSaveLock.synchronized {
-          sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
-        }
         transition(SessionState.Idle())
         stateThread.setDaemon(true)
         stateThread.start()
