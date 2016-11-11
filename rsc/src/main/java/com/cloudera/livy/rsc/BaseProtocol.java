@@ -18,6 +18,7 @@
 package com.cloudera.livy.rsc;
 
 import com.cloudera.livy.Job;
+import com.cloudera.livy.rsc.driver.Statement;
 import com.cloudera.livy.rsc.rpc.RpcDispatcher;
 
 public abstract class BaseProtocol extends RpcDispatcher {
@@ -171,30 +172,31 @@ public abstract class BaseProtocol extends RpcDispatcher {
   public static class ReplJobRequest {
 
     public final String code;
-    public final String id;
 
-    public ReplJobRequest(String code, String id) {
+    public ReplJobRequest(String code) {
       this.code = code;
-      this.id = id;
     }
 
     public ReplJobRequest() {
-      this(null, null);
+      this(null);
     }
   }
 
-  public static class GetReplJobResult {
+  public static class GetReplJobResults {
+    public boolean allResults;
+    public Integer from, size;
 
-    public final String id;
-
-    public GetReplJobResult(String id) {
-      this.id = id;
+    public GetReplJobResults(Integer from, Integer size) {
+      this.allResults = false;
+      this.from = from;
+      this.size = size;
     }
 
-    public GetReplJobResult() {
-      this(null);
+    public GetReplJobResults() {
+      this.allResults = true;
+      from = null;
+      size = null;
     }
-
   }
 
   public static class GetReplState {

@@ -19,7 +19,6 @@
 package com.cloudera.livy.server.interactive
 
 import java.net.URI
-import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
 import scala.collection.JavaConverters._
@@ -33,6 +32,7 @@ import org.scalatra.servlet.FileUploadSupport
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyConf, Logging}
 import com.cloudera.livy.client.common.HttpMessages
 import com.cloudera.livy.client.common.HttpMessages._
+import com.cloudera.livy.rsc.driver.Statement
 import com.cloudera.livy.server.SessionServlet
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
@@ -84,18 +84,6 @@ class InteractiveSessionServlet(
       session.state.toString, session.kind.toString, session.appInfo.asJavaMap, logs.asJava)
   }
 
-  private def statementView(statement: Statement): Any = {
-    val output = try {
-      Await.result(statement.output(), Duration(100, TimeUnit.MILLISECONDS))
-    } catch {
-      case _: TimeoutException => null
-    }
-    Map(
-      "id" -> statement.id,
-      "state" -> statement.state.toString,
-      "output" -> output)
-  }
-
   post("/:id/stop") {
     withSession { session =>
       Await.ready(session.stop(), Duration.Inf)
@@ -112,12 +100,13 @@ class InteractiveSessionServlet(
 
   get("/:id/statements") {
     withSession { session =>
+      val statements = session.statements
       val from = params.get("from").map(_.toInt).getOrElse(0)
-      val size = params.get("size").map(_.toInt).getOrElse(session.statements.length)
+      val size = params.get("size").map(_.toInt).getOrElse(statements.length)
 
       Map(
-        "total_statements" -> session.statements.length,
-        "statements" -> session.statements.view(from, from + size).map(statementView)
+        "total_statements" -> statements.length,
+        "statements" -> statements.view(from, from + size)
       )
     }
   }
@@ -125,14 +114,8 @@ class InteractiveSessionServlet(
   val getStatement = get("/:id/statements/:statementId") {
     withSession { session =>
       val statementId = params("statementId").toInt
-      val from = params.get("from").map(_.toInt)
-      val size = params.get("size").map(_.toInt)
 
-      session.statements.lift(statementId) match {
-        case None => NotFound("Statement not found")
-        case Some(statement) =>
-          statementView(statement)
-      }
+      session.getStatement(statementId).getOrElse(NotFound("Statement not found"))
     }
   }
 
@@ -140,7 +123,7 @@ class InteractiveSessionServlet(
     withSession { session =>
       val statement = session.executeStatement(req)
 
-      Created(statementView(statement),
+      Created(statement,
         headers = Map(
           "Location" -> url(getStatement,
             "id" -> session.id.toString,

@@ -24,21 +24,18 @@ import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.atomic.AtomicLong
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.{Future, _}
-import scala.util.{Failure, Random, Success, Try}
+import scala.concurrent.Future
+import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import org.apache.spark.launcher.SparkLauncher
-import org.json4s._
-import org.json4s.JsonAST.JString
-import org.json4s.jackson.JsonMethods._
 
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
+import com.cloudera.livy.rsc.driver.Statement
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.Session._
@@ -351,6 +348,21 @@ class InteractiveSession(
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
 
+  // TODO Replace this with a Rpc call from repl to server.
+  private val stateThread = new Thread(new Runnable {
+    override def run(): Unit = {
+      try {
+        while (_state.isActive) {
+          // State is also updated when we get statement results from repl, not just here.
+          setSessionStateFromReplState(client.map(_.getReplState.get()))
+          Thread.sleep(30000)
+        }
+      } catch {
+        case _: InterruptedException =>
+      }
+    }
+  })
+
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
       // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
@@ -385,6 +397,8 @@ class InteractiveSession(
           sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
         }
         transition(SessionState.Idle())
+        stateThread.setDaemon(true)
+        stateThread.start()
       }
 
       private def errorOut(): Unit = {
@@ -399,9 +413,6 @@ class InteractiveSession(
     })
   }
 
-  private[this] var _executedStatements = 0
-  private[this] var _statements = IndexedSeq[Statement]()
-
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
 
   override def recoveryMetadata: RecoveryMetadata =
@@ -412,6 +423,11 @@ class InteractiveSession(
   override def stopSession(): Unit = {
     try {
       transition(SessionState.ShuttingDown())
+      if (stateThread.isAlive) {
+        stateThread.interrupt()
+        stateThread.join()
+      }
+      sessionStore.remove(RECOVERY_SESSION_TYPE, id)
       client.foreach { _.stop(true) }
     } catch {
       case _: Exception =>
@@ -424,7 +440,25 @@ class InteractiveSession(
     }
   }
 
-  def statements: IndexedSeq[Statement] = _statements
+  def statements: IndexedSeq[Statement] = {
+    ensureActive()
+    val r = client.get.getReplJobResults().get()
+
+    setSessionStateFromReplState(Option(r.replState))
+    r.statements.toIndexedSeq
+  }
+
+  def getStatement(stmtId: Int): Option[Statement] = {
+    ensureActive()
+    val r = client.get.getReplJobResults(stmtId, 1).get()
+
+    setSessionStateFromReplState(Option(r.replState))
+    if (r.statements.length < 1) {
+      None
+    } else {
+      Option(r.statements(0))
+    }
+  }
 
   def interrupt(): Future[Unit] = {
     stop()
@@ -432,20 +466,11 @@ class InteractiveSession(
 
   def executeStatement(content: ExecuteRequest): Statement = {
     ensureRunning()
-    _state = SessionState.Busy()
+    setSessionStateFromReplState(client.map(_.getReplState.get()))
     recordActivity()
 
-    val future = Future {
-      val id = client.get.submitReplCode(content.code)
-      waitForStatement(id)
-    }
-
-    val statement = new Statement(_executedStatements, content, future)
-
-    _executedStatements += 1
-    _statements = _statements :+ statement
-
-    statement
+    val id = client.get.submitReplCode(content.code).get
+    client.get.getReplJobResults(id, 1).get().statements(0)
   }
 
   def runJob(job: Array[Byte]): Long = {
@@ -465,19 +490,19 @@ class InteractiveSession(
   }
 
   def addFile(uri: URI): Unit = {
-    ensureRunning()
+    ensureActive()
     recordActivity()
     client.get.addFile(resolveURI(uri, livyConf)).get()
   }
 
   def addJar(uri: URI): Unit = {
-    ensureRunning()
+    ensureActive()
     recordActivity()
     client.get.addJar(resolveURI(uri, livyConf)).get()
   }
 
   def jobStatus(id: Long): Any = {
-    ensureRunning()
+    ensureActive()
     val clientJobId = operations(id)
     recordActivity()
     // TODO: don't block indefinitely?
@@ -486,52 +511,27 @@ class InteractiveSession(
   }
 
   def cancelJob(id: Long): Unit = {
-    ensureRunning()
+    ensureActive()
     recordActivity()
     operations.remove(id).foreach { client.get.cancel }
   }
 
-  @tailrec
-  private def waitForStatement(id: String): JValue = {
-    ensureRunning()
-    Try(client.get.getReplJobResult(id).get()) match {
-      case Success(null) =>
-        Thread.sleep(1000)
-        waitForStatement(id)
-
-      case Success(response) =>
-        val result = parse(response)
-        // If the response errored out, it's possible it took down the interpreter. Check if
-        // it's still running.
-        result \ "status" match {
-          case JString("error") =>
-            val state = client.get.getReplState().get() match {
-              case "error" => SessionState.Error()
-              case _ => SessionState.Idle()
-            }
-            transition(state)
-          case _ => transition(SessionState.Idle())
-        }
-        result
-
-
-      case Failure(err) =>
-        // If any other error occurs, it probably means the session died. Transition to
-        // the error state.
-        transition(SessionState.Error())
-        throw err
-    }
-  }
-
-  private def transition(state: SessionState) = synchronized {
+  private def transition(newState: SessionState) = synchronized {
     // When a statement returns an error, the session should transit to error state.
     // If the session crashed because of the error, the session should instead go to dead state.
     // Since these 2 transitions are triggered by different threads, there's a race condition.
     // Make sure we won't transit from dead to error state.
-    if (!_state.isInstanceOf[SessionState.Dead] || !state.isInstanceOf[SessionState.Error]) {
-      debug(s"$this session state change from ${_state} to $state")
-      _state = state
+    val areSameStates = _state.getClass() == newState.getClass()
+    val transitFromInactiveToActive = !_state.isActive && newState.isActive
+    if (!areSameStates && !transitFromInactiveToActive) {
+      debug(s"$this session state change from ${_state} to $newState")
+      _state = newState
     }
+  }
+
+  private def ensureActive(): Unit = synchronized {
+    require(_state.isActive, "Session isn't active.")
+    require(client.isDefined, "Session is active but client hasn't been created.")
   }
 
   private def ensureRunning(): Unit = synchronized {
@@ -543,13 +543,28 @@ class InteractiveSession(
   }
 
   private def performOperation(job: Array[Byte], sync: Boolean): Long = {
-    ensureRunning()
+    ensureActive()
     recordActivity()
     val future = client.get.bypass(ByteBuffer.wrap(job), sync)
     val opId = operationCounter.incrementAndGet()
     operations(opId) = future
     opId
    }
+
+  private def setSessionStateFromReplState(newStateStr: Option[String]): Unit = {
+    val newState = newStateStr match {
+      case Some("starting") => SessionState.Starting()
+      case Some("idle") => SessionState.Idle()
+      case Some("busy") => SessionState.Busy()
+      case Some("error") => SessionState.Error()
+      case Some(s) => // Should not happen.
+        warn(s"Unexpected repl state $s")
+        SessionState.Error()
+      case None =>
+        SessionState.Dead()
+    }
+    transition(newState)
+  }
 
   override def appIdKnown(appId: String): Unit = {
     _appId = Option(appId)

@@ -25,7 +25,8 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 
 import org.apache.spark.launcher.SparkLauncher
-import org.json4s.{DefaultFormats, Extraction}
+import org.json4s.{DefaultFormats, Extraction, JValue}
+import org.json4s.jackson.JsonMethods.parse
 import org.mockito.{Matchers => MockitoMatchers}
 import org.mockito.Matchers._
 import org.mockito.Mockito.{atLeastOnce, verify, when}
@@ -35,6 +36,7 @@ import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{ExecuteRequest, JobHandle, LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
+import com.cloudera.livy.rsc.driver.StatementState
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{PySpark, SessionState, Spark}
 import com.cloudera.livy.utils.{AppInfo, SparkApp}
@@ -68,6 +70,15 @@ class InteractiveSessionSpec extends FunSpec
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
     InteractiveSession.create(0, null, None, livyConf, req, sessionStore, mockApp)
+  }
+
+  private def executeStatement(code: String): JValue = {
+    val id = session.executeStatement(ExecuteRequest(code)).id
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      val s = session.getStatement(id).get
+      s.state shouldBe StatementState.Available
+      parse(s.output)
+    }
   }
 
   override def afterAll(): Unit = {
@@ -112,9 +123,7 @@ class InteractiveSessionSpec extends FunSpec
     }
 
     withSession("should execute `1 + 2` == 3") { session =>
-      val stmt = session.executeStatement(ExecuteRequest("1 + 2"))
-      val result = Await.result(stmt.output(), 30 seconds)
-
+      val result = executeStatement("1 + 2")
       val expectedResult = Extraction.decompose(Map(
         "status" -> "ok",
         "execution_count" -> 0,
@@ -127,8 +136,7 @@ class InteractiveSessionSpec extends FunSpec
     }
 
     withSession("should report an error if accessing an unknown variable") { session =>
-      val stmt = session.executeStatement(ExecuteRequest("x"))
-      val result = Await.result(stmt.output(), 30 seconds)
+      val result = executeStatement("x")
       val expectedResult = Extraction.decompose(Map(
         "status" -> "error",
         "execution_count" -> 1,
@@ -145,12 +153,11 @@ class InteractiveSessionSpec extends FunSpec
     }
 
     withSession("should error out the session if the interpreter dies") { session =>
-      val stmt = session.executeStatement(ExecuteRequest("import os; os._exit(1)"))
-      val result = Await.result(stmt.output(), 30 seconds)
+      executeStatement("import os; os._exit(666)")
       (session.state match {
         case SessionState.Error(_) => true
         case _ => false
-      }) should equal (true)
+      }) should equal(true)
     }
   }
 

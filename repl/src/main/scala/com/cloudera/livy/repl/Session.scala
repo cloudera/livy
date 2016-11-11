@@ -19,15 +19,18 @@
 package com.cloudera.livy.repl
 
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
-import scala.concurrent.{ExecutionContext, Future, TimeoutException}
-import scala.concurrent.duration.Duration
+import scala.collection.mutable
+import scala.concurrent.{ExecutionContext, Future}
 
 import org.apache.spark.SparkContext
-import org.json4s.{DefaultFormats, JValue}
+import org.json4s.jackson.JsonMethods.{compact, render}
+import org.json4s.DefaultFormats
 import org.json4s.JsonDSL._
 
-import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.Logging
+import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions._
 
 object Session {
@@ -51,7 +54,9 @@ class Session(interpreter: Interpreter)
   private implicit val formats = DefaultFormats
 
   private var _state: SessionState = SessionState.NotStarted()
-  private var _history = IndexedSeq[Statement]()
+  private val _statements = mutable.Map[Int, Statement]()
+
+  private val newStatementId = new AtomicInteger(0)
 
   def start(): Future[SparkContext] = {
     val future = Future {
@@ -70,13 +75,26 @@ class Session(interpreter: Interpreter)
 
   def state: SessionState = _state
 
-  def history: IndexedSeq[Statement] = _history
+  def statements: mutable.Map[Int, Statement] = _statements
 
-  def execute(code: String): Statement = synchronized {
-    val executionCount = _history.length
-    val statement = Statement(executionCount, executeCode(executionCount, code))
-    _history :+= statement
-    statement
+  def execute(code: String): Int = {
+    val statementId = newStatementId.getAndIncrement()
+    synchronized {
+      _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
+    }
+    Future {
+      synchronized {
+        _statements(statementId) = new Statement(statementId, StatementState.Running, null)
+      }
+
+      val statement =
+        new Statement(statementId, StatementState.Available, executeCode(statementId, code))
+
+      synchronized {
+        _statements(statementId) = statement
+      }
+    }
+    statementId
   }
 
   def close(): Unit = {
@@ -84,15 +102,14 @@ class Session(interpreter: Interpreter)
     interpreter.close()
   }
 
-  def clearHistory(): Unit = synchronized {
-    _history = IndexedSeq()
+  def clearStatements(): Unit = synchronized {
+    _statements.clear()
   }
 
-  private def executeCode(executionCount: Int, code: String) = {
+  private def executeCode(executionCount: Int, code: String): String = synchronized {
     _state = SessionState.Busy()
 
-    try {
-
+    val resultInJson = try {
       interpreter.execute(code) match {
         case Interpreter.ExecuteSuccess(data) =>
           _state = SessionState.Idle()
@@ -140,7 +157,7 @@ class Session(interpreter: Interpreter)
         (EVALUE -> e.getMessage) ~
         (TRACEBACK -> List())
     }
+
+    compact(render(resultInJson))
   }
 }
-
-case class Statement(id: Int, result: JValue)

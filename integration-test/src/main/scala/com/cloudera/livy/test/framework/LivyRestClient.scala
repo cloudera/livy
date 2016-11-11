@@ -186,6 +186,15 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
 
     def run(code: String): Statement = { new Statement(code) }
 
+    def runFatalStatement(code: String): Unit = {
+      val requestBody = Map("code" -> code)
+      val r = httpClient.preparePost(s"$url/statements")
+        .setBody(mapper.writeValueAsString(requestBody))
+        .execute()
+
+      verifySessionState(SessionState.Dead())
+    }
+
     def verifySessionIdle(): Unit = {
       verifySessionState(SessionState.Idle())
     }

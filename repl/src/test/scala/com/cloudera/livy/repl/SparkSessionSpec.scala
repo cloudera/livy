@@ -20,6 +20,7 @@ package com.cloudera.livy.repl
 
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
+import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
 
 class SparkSessionSpec extends BaseSessionSpec {
@@ -27,10 +28,10 @@ class SparkSessionSpec extends BaseSessionSpec {
   override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
-    val statement = session.execute("1 + 2")
+    val statement = execute(session)("1 + 2")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -43,10 +44,11 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute `x = 1`, then `y = 2`, then `x + y`" in withSession { session =>
-    var statement = session.execute("val x = 1")
+    val executeWithSession = execute(session)(_)
+    var statement = executeWithSession("val x = 1")
     statement.id should equal (0)
 
-    var result = statement.result
+    var result = parse(statement.output)
     var expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -57,10 +59,10 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = session.execute("val y = 2")
+    statement = executeWithSession("val y = 2")
     statement.id should equal (1)
 
-    result = statement.result
+    result = parse(statement.output)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 1,
@@ -71,10 +73,10 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
 
-    statement = session.execute("x + y")
+    statement = executeWithSession("x + y")
     statement.id should equal (2)
 
-    result = statement.result
+    result = parse(statement.output)
     expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 2,
@@ -87,10 +89,10 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "capture stdout" in withSession { session =>
-    val statement = session.execute("""println("Hello World")""")
+    val statement = execute(session)("""println("Hello World")""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
       "execution_count" -> 0,
@@ -103,10 +105,10 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if accessing an unknown variable" in withSession { session =>
-    val statement = session.execute("""x""")
+    val statement = execute(session)("""x""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
 
     def extract(key: String): String = (result \ key).extract[String]
 
@@ -117,14 +119,14 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "report an error if exception is thrown" in withSession { session =>
-    val statement = session.execute(
+    val statement = execute(session)(
       """def func1() {
         |throw new Exception()
         |}
         |func1()""".stripMargin)
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
     val resultMap = result.extract[Map[String, JValue]]
 
     // Manually extract the values since the line numbers in the exception could change.
@@ -138,10 +140,10 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "access the spark context" in withSession { session =>
-    val statement = session.execute("""sc""")
+    val statement = execute(session)("""sc""")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
     val resultMap = result.extract[Map[String, JValue]]
 
     // Manually extract the values since the line numbers in the exception could change.
@@ -154,11 +156,11 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "execute spark commands" in withSession { session =>
-    val statement = session.execute(
+    val statement = execute(session)(
       """sc.parallelize(0 to 1).map{i => i+1}.collect""".stripMargin)
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
 
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
@@ -172,10 +174,10 @@ class SparkSessionSpec extends BaseSessionSpec {
   }
 
   it should "do table magic" in withSession { session =>
-    val statement = session.execute("val x = List((1, \"a\"), (3, \"b\"))\n%table x")
+    val statement = execute(session)("val x = List((1, \"a\"), (3, \"b\"))\n%table x")
     statement.id should equal (0)
 
-    val result = statement.result
+    val result = parse(statement.output)
 
     val expectedResult = Extraction.decompose(Map(
       "status" -> "ok",
