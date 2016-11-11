@@ -342,6 +342,10 @@ class ContextLauncher {
       return this;
     }
 
+    @Override
+    public void onSaslComplete(Rpc client) {
+    }
+
     void dispose() {
       if (client != null) {
         client.close();

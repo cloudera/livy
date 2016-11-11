@@ -382,5 +382,9 @@ public class RSCClient implements LivyClient {
         LOG.warn("Received event for unknown job {}", msg.id);
       }
     }
+
+    private void handle(ChannelHandlerContext ctx, ReplState msg) {
+      LOG.info("Received repl state for {}", msg.state);
+    }
   }
 }

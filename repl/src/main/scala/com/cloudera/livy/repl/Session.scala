@@ -22,6 +22,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.mutable
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.apache.spark.SparkContext
@@ -44,7 +45,7 @@ object Session {
   val TRACEBACK = "traceback"
 }
 
-class Session(interpreter: Interpreter)
+class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => } )
   extends Logging
 {
   import Session._
@@ -54,19 +55,21 @@ class Session(interpreter: Interpreter)
   private implicit val formats = DefaultFormats
 
   private var _state: SessionState = SessionState.NotStarted()
-  private val _statements = mutable.Map[Int, Statement]()
+  private val _statements = TrieMap[Int, Statement]()
 
   private val newStatementId = new AtomicInteger(0)
 
+  stateChangedCallback(_state)
+
   def start(): Future[SparkContext] = {
     val future = Future {
-      _state = SessionState.Starting()
+      changeState(SessionState.Starting())
       val sc = interpreter.start()
-      _state = SessionState.Idle()
+      changeState(SessionState.Idle())
       sc
     }
     future.onFailure { case _ =>
-      _state = SessionState.Error(System.currentTimeMillis())
+      changeState(SessionState.Error(System.currentTimeMillis()))
     }
     future
   }
@@ -79,20 +82,12 @@ class Session(interpreter: Interpreter)
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    synchronized {
-      _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
-    }
+    _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
     Future {
-      synchronized {
-        _statements(statementId) = new Statement(statementId, StatementState.Running, null)
-      }
+      _statements(statementId) = new Statement(statementId, StatementState.Running, null)
 
-      val statement =
+      _statements(statementId) =
         new Statement(statementId, StatementState.Available, executeCode(statementId, code))
-
-      synchronized {
-        _statements(statementId) = statement
-      }
     }
     statementId
   }
@@ -106,20 +101,34 @@ class Session(interpreter: Interpreter)
     _statements.clear()
   }
 
+  private def changeState(newState: SessionState): Unit = {
+    synchronized {
+      _state = newState
+    }
+    stateChangedCallback(newState)
+  }
+
   private def executeCode(executionCount: Int, code: String): String = synchronized {
-    _state = SessionState.Busy()
+    changeState(SessionState.Busy())
+
+    def transitToIdle() = {
+      val executingLastStatement = executionCount == newStatementId.intValue() - 1
+      if (_statements.isEmpty || executingLastStatement) {
+        changeState(SessionState.Idle())
+      }
+    }
 
     val resultInJson = try {
       interpreter.execute(code) match {
         case Interpreter.ExecuteSuccess(data) =>
-          _state = SessionState.Idle()
+          transitToIdle()
 
           (STATUS -> OK) ~
           (EXECUTION_COUNT -> executionCount) ~
           (DATA -> data)
 
         case Interpreter.ExecuteIncomplete() =>
-          _state = SessionState.Idle()
+          transitToIdle()
 
           (STATUS -> ERROR) ~
           (EXECUTION_COUNT -> executionCount) ~
@@ -128,7 +137,7 @@ class Session(interpreter: Interpreter)
           (TRACEBACK -> List())
 
         case Interpreter.ExecuteError(ename, evalue, traceback) =>
-          _state = SessionState.Idle()
+          transitToIdle()
 
           (STATUS -> ERROR) ~
           (EXECUTION_COUNT -> executionCount) ~
@@ -137,7 +146,7 @@ class Session(interpreter: Interpreter)
           (TRACEBACK -> traceback)
 
         case Interpreter.ExecuteAborted(message) =>
-          _state = SessionState.Error(System.nanoTime())
+          changeState(SessionState.Error(System.nanoTime()))
 
           (STATUS -> ERROR) ~
           (EXECUTION_COUNT -> executionCount) ~
@@ -149,7 +158,7 @@ class Session(interpreter: Interpreter)
       case e: Throwable =>
         error("Exception when executing code", e)
 
-        _state = SessionState.Idle()
+        transitToIdle()
 
         (STATUS -> ERROR) ~
         (EXECUTION_COUNT -> executionCount) ~

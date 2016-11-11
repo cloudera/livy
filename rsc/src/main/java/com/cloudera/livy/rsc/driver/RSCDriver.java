@@ -172,6 +172,11 @@ public class RSCDriver extends BaseProtocol {
         registerClient(client);
         return RSCDriver.this;
       }
+
+      @Override
+      public void onSaslComplete(Rpc client) {
+        onClientAuthenticated(client);
+      }
     });
 
     // The RPC library takes care of timing out this.
@@ -241,6 +246,16 @@ public class RSCDriver extends BaseProtocol {
     }
   }
 
+  protected void broadcast(Object msg) {
+    for (Rpc client : clients) {
+      try {
+        client.call(msg);
+      } catch (Exception e) {
+        LOG.warn("Failed to send message to client " + client, e);
+      }
+    }
+  }
+
   /**
    * Initializes the SparkContext used by this driver. This implementation creates a
    * context with the provided configuration. Subclasses can override this behavior,
@@ -254,6 +269,10 @@ public class RSCDriver extends BaseProtocol {
     LOG.info("Spark context finished initialization in {}ms",
       TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t1));
     return sc;
+  }
+
+  protected void onClientAuthenticated(final Rpc client) {
+
   }
 
   /**
@@ -278,16 +297,6 @@ public class RSCDriver extends BaseProtocol {
     }
     for (Rpc client: clients) {
       client.close();
-    }
-  }
-
-  private void broadcast(Object msg) {
-    for (Rpc client : clients) {
-      try {
-        client.call(msg);
-      } catch (Exception e) {
-        LOG.warn("Failed to send message to client " + client, e);
-      }
     }
   }
 

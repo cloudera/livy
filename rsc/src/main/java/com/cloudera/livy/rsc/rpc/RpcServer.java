@@ -21,12 +21,9 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.SecureRandom;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.callback.NameCallback;
@@ -45,9 +42,6 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-import io.netty.util.concurrent.Promise;
 import io.netty.util.concurrent.ScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -194,6 +188,13 @@ public class RpcServer implements Closeable {
      */
     RpcDispatcher onNewClient(Rpc client);
 
+
+    /**
+     * Called when a new client successfully completed SASL authentication.
+     *
+     * @param client The RPC instance for the new client.
+     */
+    void onSaslComplete(Rpc client);
   }
 
   private class SaslServerHandler extends SaslHandler implements CallbackHandler {
@@ -266,6 +267,8 @@ public class RpcServer implements Closeable {
       if (dispatcher != null) {
         rpc.setDispatcher(dispatcher);
       }
+
+      client.callback.onSaslComplete(rpc);
     }
 
     @Override
