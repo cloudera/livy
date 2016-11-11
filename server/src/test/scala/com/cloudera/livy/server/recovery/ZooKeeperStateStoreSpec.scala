@@ -96,6 +96,16 @@ class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       }
     }
 
+    it("get should retrieve retry policy configs") {
+      conf.set(com.cloudera.livy.server.recovery.ZooKeeperStateStore.ZK_RETRY_CONF, "11,77")
+        withMock { f =>
+        mockExistsBuilder(f.curatorClient, true)
+
+        f.stateStore.retryPolicy should not be null
+        f.stateStore.retryPolicy.getN shouldBe 11
+      }
+    }
+
     it("get should retrieve data from curatorClient") {
       withMock { f =>
         mockExistsBuilder(f.curatorClient, true)

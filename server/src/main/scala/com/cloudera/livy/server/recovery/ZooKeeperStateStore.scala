@@ -52,7 +52,7 @@ class ZooKeeperStateStore(
   private val retryValue = livyConf.get(ZK_RETRY_CONF)
   // a regex to match patterns like "m, n" where m and n both are integer values
   private val retryPattern = """\s*(\d+)\s*,\s*(\d+)\s*""".r
-  private val retryPolicy = retryValue match {
+  private[recovery] val retryPolicy = retryValue match {
     case retryPattern(n, sleepMs) => new RetryNTimes(n.toInt, sleepMs.toInt)
     case _ => throw new IllegalArgumentException(
       s"$ZK_KEY_PREFIX_CONF contains bad value: $retryValue. " +
