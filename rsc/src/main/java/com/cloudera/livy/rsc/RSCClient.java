@@ -286,10 +286,6 @@ public class RSCClient implements LivyClient {
     return deferredCall(new BaseProtocol.GetReplJobResults(), ReplJobResults.class);
   }
 
-  public Future<String> getReplState() {
-    return deferredCall(new BaseProtocol.GetReplState(), String.class);
-  }
-
   private class ClientProtocol extends BaseProtocol {
 
     <T> JobHandleImpl<T> submit(Job<T> job) {

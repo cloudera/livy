@@ -213,10 +213,6 @@ public abstract class BaseProtocol extends RpcDispatcher {
 
   }
 
-  public static class GetReplState {
-
-  }
-
   public static class InitializationError {
 
     public final String stackTrace;

@@ -348,21 +348,6 @@ class InteractiveSession(
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
 
-  // TODO Replace this with a Rpc call from repl to server.
-  private val stateThread = new Thread(new Runnable {
-    override def run(): Unit = {
-      try {
-        while (_state.isActive) {
-          // State is also updated when we get statement results from repl, not just here.
-          setSessionStateFromReplState(client.map(_.getReplState.get()))
-          Thread.sleep(30000)
-        }
-      } catch {
-        case _: InterruptedException =>
-      }
-    }
-  })
-
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
       // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
@@ -403,8 +388,6 @@ class InteractiveSession(
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
         transition(SessionState.Idle())
-        stateThread.setDaemon(true)
-        stateThread.start()
       }
 
       private def errorOut(): Unit = {
@@ -429,10 +412,6 @@ class InteractiveSession(
   override def stopSession(): Unit = {
     try {
       transition(SessionState.ShuttingDown())
-      if (stateThread.isAlive) {
-        stateThread.interrupt()
-        stateThread.join()
-      }
       sessionStore.remove(RECOVERY_SESSION_TYPE, id)
       client.foreach { _.stop(true) }
     } catch {
@@ -449,16 +428,12 @@ class InteractiveSession(
   def statements: IndexedSeq[Statement] = {
     ensureActive()
     val r = client.get.getReplJobResults().get()
-
-    setSessionStateFromReplState(Option(r.replState))
     r.statements.toIndexedSeq
   }
 
   def getStatement(stmtId: Int): Option[Statement] = {
     ensureActive()
     val r = client.get.getReplJobResults(stmtId, 1).get()
-
-    setSessionStateFromReplState(Option(r.replState))
     if (r.statements.length < 1) {
       None
     } else {
@@ -472,7 +447,6 @@ class InteractiveSession(
 
   def executeStatement(content: ExecuteRequest): Statement = {
     ensureRunning()
-    setSessionStateFromReplState(client.map(_.getReplState.get()))
     recordActivity()
 
     val id = client.get.submitReplCode(content.code).get

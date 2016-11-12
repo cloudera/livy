@@ -21,7 +21,6 @@ package com.cloudera.livy.repl
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.mutable
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -78,7 +77,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
   def state: SessionState = _state
 
-  def statements: mutable.Map[Int, Statement] = _statements
+  def statements: collection.Map[Int, Statement] = _statements.readOnlySnapshot()
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()

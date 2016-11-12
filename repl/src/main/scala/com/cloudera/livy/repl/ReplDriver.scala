@@ -73,22 +73,16 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   /**
    * Return statement results. Results are sorted by statement id.
    */
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults =
-    session.synchronized {
-      val stmts = if (msg.allResults) {
-        session.statements.values.toArray
-      } else {
-        assert(msg.from != null)
-        assert(msg.size != null)
-        val until = msg.from + msg.size
-        session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
-      }
-      val state = session.state.toString
-      new ReplJobResults(stmts.sortBy(_.id), state)
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults = {
+    val statements = if (msg.allResults) {
+      session.statements.values.toArray
+    } else {
+      assert(msg.from != null)
+      assert(msg.size != null)
+      val until = msg.from + msg.size
+      session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
     }
-
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
-    session.state.toString
+    new ReplJobResults(statements.sortBy(_.id))
   }
 
   override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {

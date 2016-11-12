@@ -20,14 +20,12 @@ import com.cloudera.livy.rsc.driver.Statement;
 
 public class ReplJobResults {
   public final Statement[] statements;
-  public final String replState;
 
-  public ReplJobResults(Statement[] statements, String replState) {
+  public ReplJobResults(Statement[] statements) {
     this.statements = statements;
-    this.replState = replState;
   }
 
   public ReplJobResults() {
-    this(null, null);
+    this(null);
   }
 }
