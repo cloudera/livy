@@ -61,6 +61,7 @@ public class RSCClient implements LivyClient {
 
   private ContextInfo contextInfo;
   private volatile boolean isAlive;
+  private String replState;
 
   RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
     this.conf = conf;
@@ -286,6 +287,13 @@ public class RSCClient implements LivyClient {
     return deferredCall(new BaseProtocol.GetReplJobResults(), ReplJobResults.class);
   }
 
+  /**
+   * @return Return the repl state. If this's not connected to a repl session, it will return null.
+   */
+  public String getReplState() {
+    return replState;
+  }
+
   private class ClientProtocol extends BaseProtocol {
 
     <T> JobHandleImpl<T> submit(Job<T> job) {
@@ -380,7 +388,8 @@ public class RSCClient implements LivyClient {
     }
 
     private void handle(ChannelHandlerContext ctx, ReplState msg) {
-      LOG.info("Received repl state for {}", msg.state);
+      LOG.debug("Received repl state for {}", msg.state);
+      replState = msg.state;
     }
   }
 }

@@ -68,7 +68,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
       sc
     }
     future.onFailure { case _ =>
-      changeState(SessionState.Error(System.currentTimeMillis()))
+      changeState(SessionState.Error())
     }
     future
   }
@@ -145,7 +145,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
           (TRACEBACK -> traceback)
 
         case Interpreter.ExecuteAborted(message) =>
-          changeState(SessionState.Error(System.nanoTime()))
+          changeState(SessionState.Error())
 
           (STATUS -> ERROR) ~
           (EXECUTION_COUNT -> executionCount) ~
