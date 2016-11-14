@@ -45,9 +45,9 @@ trait Interpreter {
   def start(): SparkContext
 
   /**
-    * Execute the code and return the result as a Future as it may
-    * take some time to execute.
-    */
+   * Execute the code and return the result as a Future as it may
+   * take some time to execute.
+   */
   def execute(code: String): ExecuteResponse
 
   /** Shut down the interpreter. */
