@@ -180,6 +180,17 @@ class InteractiveSessionSpec extends FunSpec
       session.state shouldBe a[SessionState.Idle]
     }
 
+    withSession("should cancel the submitted statement") { session =>
+      val result = session.executeStatement(ExecuteRequest(
+        """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin))
+      session.cancelStatement(result.id)
+
+      eventually(timeout(30 seconds), interval(100 millis)) {
+        val s = session.getStatement(result.id)
+        s shouldBe (None)
+      }
+    }
+
     withSession("should error out the session if the interpreter dies") { session =>
       session.executeStatement(ExecuteRequest("import os; os._exit(666)"))
       eventually(timeout(30 seconds), interval(100 millis)) {

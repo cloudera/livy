@@ -68,11 +68,10 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Int = {
     session.execute(msg.code)
+  }
 
   def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.CancelReplJobRequest): Unit = {
-    Future {
-      session.cancel(msg.id)
-    }
+    session.cancel(msg.id)
   }
 
   /**

@@ -127,22 +127,6 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
-  it should "cancel spark jobs" in withInterpreter { interpreter =>
-    val jobGroupId = "group_1"
-    new Thread() {
-      override def run(): Unit = {
-        Thread.sleep(1000)
-        interpreter.cancel(jobGroupId)
-      }
-    }.start()
-    val response = interpreter.execute(
-      """sc.parallelize(0 to 10).map { i => { Thread.sleep(10000); i+1} }.collect""".stripMargin,
-      jobGroupId)
-    response shouldBe a[ExecuteError]
-    response.asInstanceOf[ExecuteError].evalue should
-      equal("org.apache.spark.SparkException: Job 0 cancelled part of cancelled job group group_1")
-  }
-
   it should "handle statements ending with comments" in withInterpreter { interpreter =>
     // Test statements with only comments
     var response = interpreter.execute("""// comment""")

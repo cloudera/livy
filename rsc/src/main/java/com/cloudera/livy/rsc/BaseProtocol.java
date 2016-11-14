@@ -213,14 +213,14 @@ public abstract class BaseProtocol extends RpcDispatcher {
   }
 
   public static class CancelReplJobRequest {
-    public final String id;
+    public final int id;
 
-    public CancelReplJobRequest(String id) {
+    public CancelReplJobRequest(int id) {
       this.id = id;
     }
 
     public CancelReplJobRequest() {
-      this(null);
+      this(-1);
     }
   }
 

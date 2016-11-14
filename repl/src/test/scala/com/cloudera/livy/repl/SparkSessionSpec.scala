@@ -18,10 +18,14 @@
 
 package com.cloudera.livy.repl
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
+import org.scalatest.concurrent.Eventually._
 
 class SparkSessionSpec extends BaseSessionSpec {
 
@@ -193,5 +197,15 @@ class SparkSessionSpec extends BaseSessionSpec {
     ))
 
     result should equal (expectedResult)
+  }
+
+  it should "cancel spark jobs" in withSession { session =>
+    val stmtId = session.execute(
+      """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+    session.cancel(stmtId)
+
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(!session.statements.contains(stmtId))
+    }
   }
 }

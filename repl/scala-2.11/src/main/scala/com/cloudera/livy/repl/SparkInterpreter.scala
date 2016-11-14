@@ -36,10 +36,11 @@ import org.apache.spark.repl.SparkILoop
 class SparkInterpreter(conf: SparkConf)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
+  protected var sparkContext: SparkContext = _
   private var sparkILoop: SparkILoop = _
   private var sparkHttpServer: Object = _
 
-  override def internalStart(): SparkContext = {
+  override def start(): SparkContext = {
     require(sparkILoop == null)
 
     val rootDir = conf.get("spark.repl.classdir", System.getProperty("java.io.tmpdir"))

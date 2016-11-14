@@ -134,7 +134,7 @@ class InteractiveSessionServlet(
   post("/:id/statements/:statementId/cancel") {
     withSession { session =>
       val statementId = params("statementId")
-      session.cancelStatement(statementId)
+      session.cancelStatement(statementId.toInt)
       Ok(Map("msg" -> "canceled"))
     }
   }

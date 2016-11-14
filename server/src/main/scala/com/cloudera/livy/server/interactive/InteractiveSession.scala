@@ -481,7 +481,7 @@ class InteractiveSession(
     client.get.getReplJobResults(id, 1).get().statements(0)
   }
 
-  def cancelStatement(statementId: String): Unit = {
+  def cancelStatement(statementId: Int): Unit = {
     ensureRunning()
     recordActivity()
     client.get.cancelReplCode(statementId)

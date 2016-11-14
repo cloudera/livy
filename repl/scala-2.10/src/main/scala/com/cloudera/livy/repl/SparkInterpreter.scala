@@ -37,8 +37,9 @@ class SparkInterpreter(conf: SparkConf)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
   private var sparkIMain: SparkIMain = _
+  protected var sparkContext: SparkContext = _
 
-  override def internalStart(): SparkContext = {
+  override def start(): SparkContext = {
     require(sparkIMain == null && sparkContext == null)
 
     val settings = new Settings()

@@ -44,14 +44,16 @@ object Session {
   val TRACEBACK = "traceback"
 }
 
-class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => } )
-  extends Logging
-{
+class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => })
+  extends Logging {
   import Session._
 
   private implicit val executor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
+
   private implicit val formats = DefaultFormats
+
+  @volatile private var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
   private val _statements = TrieMap[Int, Statement]()
@@ -67,9 +69,12 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
       changeState(SessionState.Idle())
       sc
     }
+
     future.onFailure { case _ =>
       changeState(SessionState.Error())
     }
+    future.onSuccess { case sc => _sc = Option(sc) }
+
     future
   }
 
@@ -91,8 +96,17 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     statementId
   }
 
-  def cancel(statementId: String): Unit = {
-    interpreter.cancel(statementId)
+  def cancel(statementId: Int): Unit = {
+    val stmt = synchronized {
+      _statements.remove(statementId)
+    }
+
+    stmt.foreach { st =>
+      info(s"Statement $statementId is canceled")
+      if (st.state == StatementState.Running) {
+        _sc.foreach(_.cancelJobGroup(statementId.toString))
+      }
+    }
   }
 
   def close(): Unit = {
