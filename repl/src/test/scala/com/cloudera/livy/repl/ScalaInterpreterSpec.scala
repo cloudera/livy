@@ -22,8 +22,6 @@ import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
-import com.cloudera.livy.repl.Interpreter.ExecuteError
-
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats

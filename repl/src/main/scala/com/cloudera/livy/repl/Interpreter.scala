@@ -21,8 +21,6 @@ package com.cloudera.livy.repl
 import org.apache.spark.SparkContext
 import org.json4s.JObject
 
-import com.cloudera.livy.Logging
-
 object Interpreter {
   abstract class ExecuteResponse
 
@@ -34,7 +32,7 @@ object Interpreter {
   case class ExecuteAborted(message: String) extends ExecuteResponse
 }
 
-trait Interpreter extends Logging {
+trait Interpreter {
   import Interpreter._
 
   def kind: String
@@ -49,9 +47,8 @@ trait Interpreter extends Logging {
   /**
     * Execute the code and return the result as a Future as it may
     * take some time to execute.
-    * The statementId will be used as the JobGroupId.
     */
-  def execute(code: String): ExecuteResponse = execute(code)
+  def execute(code: String): ExecuteResponse
 
   /** Shut down the interpreter. */
   def close(): Unit
