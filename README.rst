@@ -448,6 +448,9 @@ Community
 
  * User group: http://groups.google.com/a/cloudera.org/group/livy-user
  * Dev group: http://groups.google.com/a/cloudera.org/group/livy-dev
+ * Dev slack: https://livy-dev.slack.com.
+
+   To join: http://livy-slack-invite.azurewebsites.net. Invite token: ``I'm not a bot``.
  * JIRA: https://issues.cloudera.org/browse/LIVY
  * Pull requests: https://github.com/cloudera/livy/pulls
 
