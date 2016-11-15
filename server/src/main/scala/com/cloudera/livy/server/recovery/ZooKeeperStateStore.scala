@@ -19,9 +19,13 @@ package com.cloudera.livy.server.recovery
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
+import scala.util.Try
+import scala.util.matching.Regex
 
+import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
+import org.apache.curator.framework.recipes.atomic.{DistributedAtomicLong => DistributedLong}
 import org.apache.curator.retry.RetryNTimes
 import org.apache.zookeeper.KeeperException.NoNodeException
 
@@ -46,18 +50,22 @@ class ZooKeeperStateStore(
   }
 
   private val zkAddress = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL)
+
   require(!zkAddress.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL.key}.")
+
+  private val retryValue = livyConf.get(ZK_RETRY_CONF)
+  private val retryPolicy = Try {
+    // a regex to match patterns like "m, n" where m and m both are integer values
+    val retryPattern = """\s*(\d+)\s*,\s*(\d+)\s*""".r
+    val retryPattern(retryTimes, sleepMsBetweenRetries) = retryValue
+    new RetryNTimes(retryTimes.toInt, sleepMsBetweenRetries.toInt)
+  }.getOrElse { throw new IllegalArgumentException(
+    s"$ZK_RETRY_CONF contains bad value: $retryValue. " +
+      "Correct format is <max retry count>,<sleep ms between retry>. e.g. 5,100")
+  }
+
   private val zkKeyPrefix = livyConf.get(ZK_KEY_PREFIX_CONF)
   private val curatorClient = mockCuratorClient.getOrElse {
-    val retryValue = livyConf.get(ZK_RETRY_CONF)
-    val retryPattern = """\s*(\d+)\s*,\s*(\d+)\s*""".r
-    val retryPolicy = retryValue match {
-      case retryPattern(n, sleepMs) => new RetryNTimes(5, 100)
-      case _ => throw new IllegalArgumentException(
-        s"$ZK_KEY_PREFIX_CONF contains bad value: $retryValue. " +
-          "Correct format is <max retry count>,<sleep ms between retry>. e.g. 5,100")
-    }
-
     CuratorFrameworkFactory.newClient(zkAddress, retryPolicy)
   }
 
@@ -110,6 +118,16 @@ class ZooKeeperStateStore(
       curatorClient.delete().guaranteed().forPath(prefixKey(key))
     } catch {
       case _: NoNodeException =>
+    }
+  }
+
+  override def increment(key: String): Long = {
+    val distributedSessionId = new DistributedLong(curatorClient, key, retryPolicy)
+    distributedSessionId.increment() match {
+      case atomicValue if atomicValue.succeeded() =>
+        atomicValue.postValue()
+      case _ =>
+        throw new java.io.IOException(s"Failed to atomically increment the value for $key")
     }
   }
 

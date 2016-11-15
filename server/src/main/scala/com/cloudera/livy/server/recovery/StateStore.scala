@@ -71,6 +71,13 @@ abstract class StateStore(livyConf: LivyConf) extends JsonMapper {
    * @throws Exception Throw when persisting the state store fails.
    */
   def remove(key: String): Unit
+
+  /**
+    * Gets the Long value for the given key, increments the value, and stores the new value before
+    * returning the value.
+    * @return incremented value
+    */
+  def increment(key: String): Long
 }
 
 /**
