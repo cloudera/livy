@@ -19,6 +19,7 @@ package com.cloudera.livy.server.recovery
 
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
+import scala.util.Try
 
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
@@ -48,16 +49,17 @@ class ZooKeeperStateStore(
   private val zkAddress = livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL)
   require(!zkAddress.isEmpty, s"Please config ${LivyConf.RECOVERY_STATE_STORE_URL.key}.")
   private val zkKeyPrefix = livyConf.get(ZK_KEY_PREFIX_CONF)
-  private val curatorClient = mockCuratorClient.getOrElse {
-    val retryValue = livyConf.get(ZK_RETRY_CONF)
-    val retryPattern = """\s*(\d+)\s*,\s*(\d+)\s*""".r
-    val retryPolicy = retryValue match {
-      case retryPattern(n, sleepMs) => new RetryNTimes(5, 100)
-      case _ => throw new IllegalArgumentException(
-        s"$ZK_KEY_PREFIX_CONF contains bad value: $retryValue. " +
-          "Correct format is <max retry count>,<sleep ms between retry>. e.g. 5,100")
-    }
+  private val retryValue = livyConf.get(ZK_RETRY_CONF)
+  // a regex to match patterns like "m, n" where m and n both are integer values
+  private val retryPattern = """\s*(\d+)\s*,\s*(\d+)\s*""".r
+  private[recovery] val retryPolicy = retryValue match {
+    case retryPattern(n, sleepMs) => new RetryNTimes(n.toInt, sleepMs.toInt)
+    case _ => throw new IllegalArgumentException(
+      s"$ZK_KEY_PREFIX_CONF contains bad value: $retryValue. " +
+        "Correct format is <max retry count>,<sleep ms between retry>. e.g. 5,100")
+  }
 
+  private val curatorClient = mockCuratorClient.getOrElse {
     CuratorFrameworkFactory.newClient(zkAddress, retryPolicy)
   }
 
