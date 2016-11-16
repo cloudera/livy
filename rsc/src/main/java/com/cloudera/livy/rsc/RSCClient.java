@@ -61,7 +61,7 @@ public class RSCClient implements LivyClient {
 
   private ContextInfo contextInfo;
   private volatile boolean isAlive;
-  private String replState;
+  private volatile String replState;
 
   RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
     this.conf = conf;
@@ -388,7 +388,7 @@ public class RSCClient implements LivyClient {
     }
 
     private void handle(ChannelHandlerContext ctx, ReplState msg) {
-      LOG.debug("Received repl state for {}", msg.state);
+      LOG.trace("Received repl state for {}", msg.state);
       replState = msg.state;
     }
   }

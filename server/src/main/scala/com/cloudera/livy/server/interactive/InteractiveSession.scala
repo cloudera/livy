@@ -412,7 +412,7 @@ class InteractiveSession(
       // If session is in running state, return the repl state from RSCClient.
       client
         .flatMap(s => Option(s.getReplState))
-        .map(SessionState.parseString)
+        .map(SessionState(_))
         .getOrElse(SessionState.Busy()) // If repl state is unknown, assume repl is busy.
     } else {
       serverSideState

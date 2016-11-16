@@ -25,7 +25,7 @@ sealed trait SessionState {
 
 object SessionState {
 
-  def parseString(s: String): SessionState = {
+  def apply(s: String): SessionState = {
     s match {
       case "not_started" => NotStarted()
       case "starting" => Starting()

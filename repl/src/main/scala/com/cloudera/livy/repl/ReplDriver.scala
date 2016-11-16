@@ -79,8 +79,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     } else {
       assert(msg.from != null)
       assert(msg.size != null)
-      val until = msg.from + msg.size
-      session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
+      if (msg.size == 1) {
+        session.statements.get(msg.from).toArray
+      } else {
+        val until = msg.from + msg.size
+        session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
+      }
     }
     new ReplJobResults(statements.sortBy(_.id))
   }
