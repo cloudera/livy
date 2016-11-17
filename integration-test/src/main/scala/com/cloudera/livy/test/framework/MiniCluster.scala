@@ -39,6 +39,7 @@ import org.scalatest.concurrent.Eventually._
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.client.common.TestUtils
 import com.cloudera.livy.server.LivyServer
+import com.cloudera.livy.utils.SparkEnvironment
 
 private class MiniClusterConfig(val config: Map[String, String]) {
 
@@ -156,8 +157,8 @@ object MiniLivyMain extends MiniClusterBase {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
-      LivyConf.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
       LivyConf.HEARTBEAT_WATCHDOG_INTERVAL.key -> "1s",
+      SparkEnvironment.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
@@ -171,7 +172,7 @@ object MiniLivyMain extends MiniClusterBase {
 
     val server = new LivyServer()
     server.start()
-    server.livyConf.set(LivyConf.ENABLE_HIVE_CONTEXT, true)
+    server.livyConf.set(SparkEnvironment.ENABLE_HIVE_CONTEXT, true)
     // Write a serverUrl.conf file to the conf directory with the location of the Livy
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.

@@ -20,6 +20,7 @@ package com.cloudera.livy.server.batch
 
 class CreateBatchRequest {
 
+  var sparkEnv: String = "default"
   var file: String = _
   var proxyUser: Option[String] = None
   var args: List[String] = List()

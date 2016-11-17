@@ -185,6 +185,7 @@ object ScalaClientTest {
       conf.put(SparkLauncher.EXECUTOR_EXTRA_CLASSPATH, classpath)
     }
     conf.put(LIVY_JARS.key, "")
+    conf.put(SPARK_HOME.key(), System.getenv("SPARK_HOME"))
     conf
   }
 

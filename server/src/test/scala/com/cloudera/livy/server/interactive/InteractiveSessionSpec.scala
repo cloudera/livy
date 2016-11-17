@@ -45,9 +45,13 @@ class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
   livyConf.set(LivyConf.REPL_JARS, "dummy.jar")
     .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
+=======
+  livyConf.set(LivyConf.LIVY_REPL_JARS, "")
+>>>>>>> Add SparkEnvironment
 
   implicit val formats = DefaultFormats
 

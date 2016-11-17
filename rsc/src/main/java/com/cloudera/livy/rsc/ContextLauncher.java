@@ -66,8 +66,6 @@ class ContextLauncher {
 
   private static final String SPARK_DEPLOY_MODE = "spark.submit.deployMode";
   private static final String SPARK_JARS_KEY = "spark.jars";
-  private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
-  private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
   static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
@@ -124,6 +122,7 @@ class ContextLauncher {
       this.timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
         conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
     } catch (Exception e) {
+      LOG.error("exception: ", e);
       dispose(true);
       throw Utils.propagate(e);
     }
@@ -171,13 +170,6 @@ class ContextLauncher {
       livyJars = Utils.join(jars, ",");
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
-
-    String kind = conf.get(SESSION_KIND);
-    if ("sparkr".equals(kind)) {
-      merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
-    } else if ("pyspark".equals(kind)) {
-      merge(conf, "spark.submit.pyFiles", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES), ",");
-    }
 
     // Disable multiple attempts since the RPC server doesn't yet support multiple
     // connections for the same registered app.
@@ -228,7 +220,7 @@ class ContextLauncher {
         launcher.setDeployMode(deployMode);
       }
 
-      launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
+      launcher.setSparkHome(conf.get(SPARK_HOME));
       launcher.setAppResource("spark-internal");
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
@@ -266,11 +258,7 @@ class ContextLauncher {
     }
 
     // Load the default Spark configuration.
-    String confDir = System.getenv("SPARK_CONF_DIR");
-    if (confDir == null && System.getenv(SPARK_HOME_ENV) != null) {
-      confDir = System.getenv(SPARK_HOME_ENV) + File.separator + "conf";
-    }
-
+    String confDir = conf.get(SPARK_CONF_DIR);
     if (confDir != null) {
       File sparkDefaults = new File(confDir + File.separator + "spark-defaults.conf");
       if (sparkDefaults.isFile()) {

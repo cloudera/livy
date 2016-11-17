@@ -29,7 +29,7 @@ import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{Session, SessionState}
 import com.cloudera.livy.sessions.Session._
-import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
+import com.cloudera.livy.utils._
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class BatchRecoveryMetadata(
@@ -53,6 +53,7 @@ object BatchSession extends Logging {
       sessionStore: SessionStore,
       mockApp: Option[SparkApp] = None): BatchSession = {
     val appTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
+    val sparkEnv = SparkEnvironment.getSparkEnv(livyConf, request.sparkEnv)
 
     def createSparkApp(s: BatchSession): SparkApp = {
       val conf = SparkApp.prepareSparkConf(
@@ -63,7 +64,7 @@ object BatchSession extends Logging {
       require(request.file != null, "File is required.")
 
       val builder = new SparkProcessBuilder(livyConf)
-      builder.conf(conf)
+      builder.conf(conf).executable(sparkEnv.sparkSubmit())
 
       proxyUser.foreach(builder.proxyUser)
       request.className.foreach(builder.className)

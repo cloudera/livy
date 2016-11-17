@@ -21,8 +21,11 @@ package com.cloudera.livy.server.interactive
 import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
 import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
+=======
+>>>>>>> Add SparkEnvironment
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
@@ -44,8 +47,12 @@ import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.sessions.SessionState.Dead
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
 import com.cloudera.livy.util.LineBufferedProcess
 import com.cloudera.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener}
+=======
+import com.cloudera.livy.utils._
+>>>>>>> Add SparkEnvironment
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class InteractiveRecoveryMetadata(
@@ -61,8 +68,11 @@ case class InteractiveRecoveryMetadata(
   extends RecoveryMetadata
 
 object InteractiveSession extends Logging {
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
   private[interactive] val SPARK_YARN_IS_PYTHON = "spark.yarn.isPython"
 
+=======
+>>>>>>> Add SparkEnvironment
   val RECOVERY_SESSION_TYPE = "interactive"
 
   def create(
@@ -75,12 +85,13 @@ object InteractiveSession extends Logging {
       mockApp: Option[SparkApp] = None,
       mockClient: Option[RSCClient] = None): InteractiveSession = {
     val appTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
+    val sparkEnv = SparkEnvironment.getSparkEnv(livyConf, request.sparkEnv)
 
     val client = mockClient.orElse {
       val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
         request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
-      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf)
+      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf, sparkEnv)
 
       val userOpts: Map[String, Option[String]] = Map(
         "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -154,12 +165,14 @@ object InteractiveSession extends Logging {
   private[interactive] def prepareBuilderProp(
     conf: Map[String, String],
     kind: Kind,
-    livyConf: LivyConf): mutable.Map[String, String] = {
+    livyConf: LivyConf,
+    sparkEnv: SparkEnvironment): mutable.Map[String, String] = {
 
     val builderProperties = mutable.Map[String, String]()
     builderProperties ++= conf
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
       Option(livyConf.get(LivyConf.REPL_JARS)).map { jars =>
         val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
         jars.split(",").filter { name => new Path(name).getName match {
@@ -170,6 +183,9 @@ object InteractiveSession extends Logging {
           }
         }.toList
       }.getOrElse {
+=======
+      Option(livyConf.get(LivyConf.LIVY_REPL_JARS)).map(_.split(",").toList).getOrElse {
+>>>>>>> Add SparkEnvironment
         val home = sys.env("LIVY_HOME")
         val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
           .filter(_.isDirectory())
@@ -179,62 +195,13 @@ object InteractiveSession extends Logging {
       }
     }
 
-    def findSparkRArchive(): Option[String] = {
-      Option(livyConf.get(RSCConf.Entry.SPARKR_PACKAGE.key())).orElse {
-        sys.env.get("SPARK_HOME").map { case sparkHome =>
-          val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
-          val rArchivesFile = new File(path)
-          require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
-          rArchivesFile.getAbsolutePath()
-        }
-      }
-    }
-
-    def datanucleusJars(livyConf: LivyConf, sparkMajorVersion: Int): Seq[String] = {
-      if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
-        // datanucleus jars has already been in classpath in integration test
-        Seq.empty
-      } else {
-        val sparkHome = livyConf.sparkHome().get
-        val libdir = sparkMajorVersion match {
-          case 1 =>
-            if (new File(sparkHome, "RELEASE").isFile) {
-              new File(sparkHome, "lib")
-            } else {
-              new File(sparkHome, "lib_managed/jars")
-            }
-          case 2 =>
-            if (new File(sparkHome, "RELEASE").isFile) {
-              new File(sparkHome, "jars")
-            } else if (new File(sparkHome, "assembly/target/scala-2.11/jars").isDirectory) {
-              new File(sparkHome, "assembly/target/scala-2.11/jars")
-            } else {
-              new File(sparkHome, "assembly/target/scala-2.10/jars")
-            }
-          case v =>
-            throw new RuntimeException("Unsupported spark major version:" + sparkMajorVersion)
-        }
-        val jars = if (!libdir.isDirectory) {
-          Seq.empty[String]
-        } else {
-          libdir.listFiles().filter(_.getName.startsWith("datanucleus-"))
-            .map(_.getAbsolutePath).toSeq
-        }
-        if (jars.isEmpty) {
-          warn("datanucleus jars can not be found")
-        }
-        jars
-      }
-    }
-
     /**
      * Look for hive-site.xml (for now just ignore spark.files defined in spark-defaults.conf)
      * 1. First look for hive-site.xml in user request
      * 2. Then look for that under classpath
-     * @param livyConf
      * @return  (hive-site.xml path, whether it is provided by user)
      */
-    def hiveSiteFile(sparkFiles: Array[String], livyConf: LivyConf): (Option[File], Boolean) = {
+    def hiveSiteFile(sparkFiles: Array[String]): (Option[File], Boolean) = {
       if (sparkFiles.exists(_.split("/").last == "hive-site.xml")) {
         (None, true)
       } else {
@@ -245,28 +212,6 @@ object InteractiveSession extends Logging {
           (None, false)
         }
       }
-    }
-
-    def findPySparkArchives(): Seq[String] = {
-      Option(livyConf.get(RSCConf.Entry.PYSPARK_ARCHIVES))
-        .map(_.split(",").toSeq)
-        .getOrElse {
-          sys.env.get("SPARK_HOME") .map { case sparkHome =>
-            val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
-            val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
-            require(pyArchivesFile.exists(),
-              "pyspark.zip not found; cannot run pyspark application in YARN mode.")
-
-            val py4jFile = Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
-              .iterator()
-              .next()
-              .toFile
-
-            require(py4jFile.exists(),
-              "py4j-*-src.zip not found; cannot run pyspark application in YARN mode.")
-            Seq(pyArchivesFile.getAbsolutePath, py4jFile.getAbsolutePath)
-          }.getOrElse(Seq())
-        }
     }
 
     def mergeConfList(list: Seq[String], key: String): Unit = {
@@ -282,16 +227,18 @@ object InteractiveSession extends Logging {
     }
 
     def mergeHiveSiteAndHiveDeps(sparkMajorVersion: Int): Unit = {
-      val sparkFiles = conf.get("spark.files").map(_.split(",")).getOrElse(Array.empty[String])
-      hiveSiteFile(sparkFiles, livyConf) match {
+      val sparkFiles = conf.get(SparkEnvironment.SPARK_FILES)
+        .map(_.split(","))
+        .getOrElse(Array.empty[String])
+      hiveSiteFile(sparkFiles) match {
         case (_, true) =>
           debug("Enable HiveContext because hive-site.xml is found in user request.")
-          mergeConfList(datanucleusJars(livyConf, sparkMajorVersion), LivyConf.SPARK_JARS)
+          mergeConfList(sparkEnv.datanucleusJars(), SparkEnvironment.SPARK_JARS)
         case (Some(file), false) =>
           debug("Enable HiveContext because hive-site.xml is found under classpath, "
             + file.getAbsolutePath)
-          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
-          mergeConfList(datanucleusJars(livyConf, sparkMajorVersion), LivyConf.SPARK_JARS)
+          mergeConfList(List(file.getAbsolutePath), SparkEnvironment.SPARK_FILES)
+          mergeConfList(sparkEnv.datanucleusJars(), SparkEnvironment.SPARK_JARS)
         case (None, false) =>
           warn("Enable HiveContext but no hive-site.xml found under" +
             " classpath or user request.")
@@ -300,18 +247,21 @@ object InteractiveSession extends Logging {
 
     kind match {
       case PySpark() | PySpark3() =>
-        val pySparkFiles = if (!LivyConf.TEST_MODE) findPySparkArchives() else Nil
-        mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
-        builderProperties.put(SPARK_YARN_IS_PYTHON, "true")
+        val pySparkFiles = if (!LivyConf.TEST_MODE) sparkEnv.findPySparkArchives() else Nil
+        mergeConfList(pySparkFiles, SparkEnvironment.SPARK_PY_FILES)
+        builderProperties.put(SparkEnvironment.SPARK_YARN_IS_PYTHON, "true")
       case SparkR() =>
-        val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
+        val sparkRArchive = if (!LivyConf.TEST_MODE) Some(sparkEnv.findSparkRArchive()) else None
         sparkRArchive.foreach { archive =>
-          builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive + "#sparkr")
+          mergeConfList(List(archive + "#sparkr"), SparkEnvironment.SPARK_ARCHIVES)
         }
       case _ =>
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
+    builderProperties.put(RSCConf.Entry.SPARK_HOME.key, sparkEnv.sparkHome())
+    builderProperties.put(RSCConf.Entry.SPARK_CONF_DIR.key, sparkEnv.sparkConfDir())
 
+<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
     // Set Livy.rsc.jars from livy conf to rsc conf, RSC conf will take precedence if both are set.
     Option(livyConf.get(LivyConf.RSC_JARS)).foreach(
       builderProperties.getOrElseUpdate(RSCConf.Entry.LIVY_JARS.key(), _))
@@ -322,18 +272,20 @@ object InteractiveSession extends Logging {
     val (sparkMajorVersion, _) =
       LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
     val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
+=======
+    mergeConfList(livyJars(livyConf, sparkEnv.scalaVersion()), SparkEnvironment.SPARK_JARS)
+>>>>>>> Add SparkEnvironment
 
-    mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
-    val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
+    val enableHiveContext = sparkEnv.getBoolean(SparkEnvironment.ENABLE_HIVE_CONTEXT)
     // pass spark.livy.spark_major_version to driver
-    builderProperties.put("spark.livy.spark_major_version", sparkMajorVersion.toString)
+    val sparkMajorVersion = sparkEnv.sparkVersion()._1
+    builderProperties.put(SparkEnvironment.SPARK_MAJOR_VERSION, sparkMajorVersion.toString)
 
     if (sparkMajorVersion <= 1) {
-      builderProperties.put("spark.repl.enableHiveContext",
-        livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT).toString)
+      builderProperties.put(SparkEnvironment.SPARK_ENABLE_HIVE_CONTEXT, enableHiveContext.toString)
     } else {
       val confVal = if (enableHiveContext) "hive" else "in-memory"
-      builderProperties.put("spark.sql.catalogImplementation", confVal)
+      builderProperties.put(SparkEnvironment.SPARK2_ENABLE_HIVE_CONTEXT, confVal)
     }
 
     if (enableHiveContext) {

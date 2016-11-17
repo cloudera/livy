@@ -76,6 +76,7 @@ public class TestSparkClient {
     }
 
     conf.put(LIVY_JARS.key(), "");
+    conf.put(SPARK_HOME.key(), System.getenv("SPARK_HOME"));
     return conf;
   }
 
