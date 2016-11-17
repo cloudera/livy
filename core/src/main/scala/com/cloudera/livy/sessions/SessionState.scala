@@ -25,6 +25,22 @@ sealed trait SessionState {
 
 object SessionState {
 
+  def apply(s: String): SessionState = {
+    s match {
+      case "not_started" => NotStarted()
+      case "starting" => Starting()
+      case "recovering" => Recovering()
+      case "idle" => Idle()
+      case "running" => Running()
+      case "busy" => Busy()
+      case "shutting_down" => ShuttingDown()
+      case "error" => Error()
+      case "dead" => Dead()
+      case "success" => Success()
+      case _ => throw new IllegalArgumentException(s"Illegal session state: $s")
+    }
+  }
+
   case class NotStarted() extends SessionState {
     override def isActive: Boolean = true
 

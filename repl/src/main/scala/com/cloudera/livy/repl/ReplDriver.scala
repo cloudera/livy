@@ -26,8 +26,10 @@ import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 
 import com.cloudera.livy.Logging
-import com.cloudera.livy.rsc.{BaseProtocol, ReplJobResults, RSCConf}
+import com.cloudera.livy.rsc.BaseProtocol.ReplState
+import com.cloudera.livy.rsc.{BaseProtocol, RSCConf, ReplJobResults}
 import com.cloudera.livy.rsc.driver._
+import com.cloudera.livy.rsc.rpc.Rpc
 import com.cloudera.livy.sessions._
 
 class ReplDriver(conf: SparkConf, livyConf: RSCConf)
@@ -47,7 +49,8 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-    session = new Session(interpreter)
+    session = new Session(interpreter, { s => broadcast(new ReplState(s.toString)) })
+
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
       .orNull
@@ -70,22 +73,20 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   /**
    * Return statement results. Results are sorted by statement id.
    */
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults =
-    session.synchronized {
-      val stmts = if (msg.allResults) {
-        session.statements.values.toArray
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplJobResults): ReplJobResults = {
+    val statements = if (msg.allResults) {
+      session.statements.values.toArray
+    } else {
+      assert(msg.from != null)
+      assert(msg.size != null)
+      if (msg.size == 1) {
+        session.statements.get(msg.from).toArray
       } else {
-        assert(msg.from != null)
-        assert(msg.size != null)
         val until = msg.from + msg.size
         session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
       }
-      val state = session.state.toString
-      new ReplJobResults(stmts.sortBy(_.id), state)
     }
-
-  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.GetReplState): String = {
-    session.state.toString
+    new ReplJobResults(statements.sortBy(_.id))
   }
 
   override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
@@ -106,6 +107,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     interpreter match {
       case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
       case _ => super.addJarOrPyFile(path)
+    }
+  }
+
+  override protected def onClientAuthenticated(client: Rpc): Unit = {
+    if (session != null) {
+      client.call(new ReplState(session.state.toString))
     }
   }
 }

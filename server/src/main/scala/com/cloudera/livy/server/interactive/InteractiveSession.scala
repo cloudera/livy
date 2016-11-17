@@ -337,7 +337,7 @@ class InteractiveSession(
 
   import InteractiveSession._
 
-  private var _state: SessionState = initialState
+  private var serverSideState: SessionState = initialState
 
   private val operations = mutable.Map[Long, String]()
   private val operationCounter = new AtomicLong(0)
@@ -347,21 +347,6 @@ class InteractiveSession(
 
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
-
-  // TODO Replace this with a Rpc call from repl to server.
-  private val stateThread = new Thread(new Runnable {
-    override def run(): Unit = {
-      try {
-        while (_state.isActive) {
-          // State is also updated when we get statement results from repl, not just here.
-          setSessionStateFromReplState(client.map(_.getReplState.get()))
-          Thread.sleep(30000)
-        }
-      } catch {
-        case _: InterruptedException =>
-      }
-    }
-  })
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
@@ -402,16 +387,14 @@ class InteractiveSession(
       override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = errorOut()
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
-        transition(SessionState.Idle())
-        stateThread.setDaemon(true)
-        stateThread.start()
+        transition(SessionState.Running())
       }
 
       private def errorOut(): Unit = {
         // Other code might call stop() to close the RPC channel. When RPC channel is closing,
         // this callback might be triggered. Check and don't call stop() to avoid nested called
         // if the session is already shutting down.
-        if (_state != SessionState.ShuttingDown()) {
+        if (serverSideState != SessionState.ShuttingDown()) {
           transition(SessionState.Error())
           stop()
         }
@@ -424,15 +407,21 @@ class InteractiveSession(
   override def recoveryMetadata: RecoveryMetadata =
     InteractiveRecoveryMetadata(id, appId, appTag, kind, owner, proxyUser, rscDriverUri)
 
-  override def state: SessionState = _state
+  override def state: SessionState = {
+    if (serverSideState.isInstanceOf[SessionState.Running]) {
+      // If session is in running state, return the repl state from RSCClient.
+      client
+        .flatMap(s => Option(s.getReplState))
+        .map(SessionState(_))
+        .getOrElse(SessionState.Busy()) // If repl state is unknown, assume repl is busy.
+    } else {
+      serverSideState
+    }
+  }
 
   override def stopSession(): Unit = {
     try {
       transition(SessionState.ShuttingDown())
-      if (stateThread.isAlive) {
-        stateThread.interrupt()
-        stateThread.join()
-      }
       sessionStore.remove(RECOVERY_SESSION_TYPE, id)
       client.foreach { _.stop(true) }
     } catch {
@@ -449,16 +438,12 @@ class InteractiveSession(
   def statements: IndexedSeq[Statement] = {
     ensureActive()
     val r = client.get.getReplJobResults().get()
-
-    setSessionStateFromReplState(Option(r.replState))
     r.statements.toIndexedSeq
   }
 
   def getStatement(stmtId: Int): Option[Statement] = {
     ensureActive()
     val r = client.get.getReplJobResults(stmtId, 1).get()
-
-    setSessionStateFromReplState(Option(r.replState))
     if (r.statements.length < 1) {
       None
     } else {
@@ -472,7 +457,6 @@ class InteractiveSession(
 
   def executeStatement(content: ExecuteRequest): Statement = {
     ensureRunning()
-    setSessionStateFromReplState(client.map(_.getReplState.get()))
     recordActivity()
 
     val id = client.get.submitReplCode(content.code).get
@@ -527,24 +511,24 @@ class InteractiveSession(
     // If the session crashed because of the error, the session should instead go to dead state.
     // Since these 2 transitions are triggered by different threads, there's a race condition.
     // Make sure we won't transit from dead to error state.
-    val areSameStates = _state.getClass() == newState.getClass()
-    val transitFromInactiveToActive = !_state.isActive && newState.isActive
+    val areSameStates = serverSideState.getClass() == newState.getClass()
+    val transitFromInactiveToActive = !serverSideState.isActive && newState.isActive
     if (!areSameStates && !transitFromInactiveToActive) {
-      debug(s"$this session state change from ${_state} to $newState")
-      _state = newState
+      debug(s"$this session state change from ${serverSideState} to $newState")
+      serverSideState = newState
     }
   }
 
   private def ensureActive(): Unit = synchronized {
-    require(_state.isActive, "Session isn't active.")
+    require(serverSideState.isActive, "Session isn't active.")
     require(client.isDefined, "Session is active but client hasn't been created.")
   }
 
   private def ensureRunning(): Unit = synchronized {
-    _state match {
-      case SessionState.Idle() | SessionState.Busy() =>
+    serverSideState match {
+      case SessionState.Running() =>
       case _ =>
-        throw new IllegalStateException("Session is in state %s" format _state)
+        throw new IllegalStateException("Session is in state %s" format serverSideState)
     }
   }
 
@@ -556,21 +540,6 @@ class InteractiveSession(
     operations(opId) = future
     opId
    }
-
-  private def setSessionStateFromReplState(newStateStr: Option[String]): Unit = {
-    val newState = newStateStr match {
-      case Some("starting") => SessionState.Starting()
-      case Some("idle") => SessionState.Idle()
-      case Some("busy") => SessionState.Busy()
-      case Some("error") => SessionState.Error()
-      case Some(s) => // Should not happen.
-        warn(s"Unexpected repl state $s")
-        SessionState.Error()
-      case None =>
-        SessionState.Dead()
-    }
-    transition(newState)
-  }
 
   override def appIdKnown(appId: String): Unit = {
     _appId = Option(appId)

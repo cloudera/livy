@@ -199,7 +199,17 @@ public abstract class BaseProtocol extends RpcDispatcher {
     }
   }
 
-  public static class GetReplState {
+  protected static class ReplState {
+
+    public final String state;
+
+    public ReplState(String state) {
+      this.state = state;
+    }
+
+    public ReplState() {
+      this(null);
+    }
 
   }
 

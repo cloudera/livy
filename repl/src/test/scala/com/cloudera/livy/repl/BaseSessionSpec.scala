@@ -18,6 +18,8 @@
 
 package com.cloudera.livy.repl
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -44,10 +46,15 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
   }
 
   protected def withSession(testCode: Session => Any): Unit = {
-    val session = new Session(createInterpreter())
+    val stateChangedCalled = new AtomicInteger()
+    val session = new Session(createInterpreter(), { _ => stateChangedCalled.incrementAndGet() })
     try {
+      // Session's constructor should fire an initial state change event.
+      stateChangedCalled.intValue() shouldBe 1
       Await.ready(session.start(), 30 seconds)
       assert(session.state === SessionState.Idle())
+      // There should be at least 1 state change event fired when session transits to idle.
+      stateChangedCalled.intValue() should (be > 1)
       testCode(session)
     } finally {
       session.close()

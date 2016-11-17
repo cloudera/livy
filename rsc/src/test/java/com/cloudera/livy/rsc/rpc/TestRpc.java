@@ -20,8 +20,10 @@ package com.cloudera.livy.rsc.rpc;
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.security.sasl.SaslException;
 
@@ -223,9 +225,10 @@ public class TestRpc {
     Future<Rpc> clientRpcFuture = Rpc.createClient(clientConf, server.getEventLoopGroup(),
         "localhost", server.getPort(), "client", secret, new TestDispatcher());
 
-    synchronized (callback) {
-      callback.wait(TimeUnit.SECONDS.toMillis(10));
-    }
+    assertTrue("onNewClient() wasn't called.",
+      callback.onNewClientCalled.await(10, TimeUnit.SECONDS));
+    assertTrue("onSaslComplete() wasn't called.",
+      callback.onSaslCompleteCalled.await(10, TimeUnit.SECONDS));
     assertNotNull(callback.client);
     Rpc serverRpc = autoClose(callback.client);
     Rpc clientRpc = autoClose(clientRpcFuture.get(10, TimeUnit.SECONDS));
@@ -233,16 +236,20 @@ public class TestRpc {
   }
 
   private static class ServerRpcCallback implements RpcServer.ClientCallback {
-
+    final CountDownLatch onNewClientCalled = new CountDownLatch(1);
+    final CountDownLatch onSaslCompleteCalled = new CountDownLatch(1);
     Rpc client;
 
     @Override
     public RpcDispatcher onNewClient(Rpc client) {
-      synchronized (this) {
-        this.client = client;
-        notifyAll();
-      }
+      this.client = client;
+      onNewClientCalled.countDown();
       return new TestDispatcher();
+    }
+
+    @Override
+    public void onSaslComplete(Rpc client) {
+      onSaslCompleteCalled.countDown();
     }
 
   }
