@@ -397,6 +397,10 @@ class InteractiveSession(
         if (serverSideState != SessionState.ShuttingDown()) {
           transition(SessionState.Error())
           stop()
+          app.foreach { a =>
+            info(s"Failed to ping RSC driver for session $id. Killing application.")
+            a.kill()
+          }
         }
       }
     })
