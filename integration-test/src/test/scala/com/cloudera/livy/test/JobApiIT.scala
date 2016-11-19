@@ -26,7 +26,7 @@ import java.util.concurrent.{Future => JFuture, TimeUnit}
 import javax.servlet.http.HttpServletResponse
 
 import scala.collection.JavaConverters._
-import scala.util.Try
+import scala.util.{Properties, Try}
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -37,6 +37,7 @@ import com.cloudera.livy.client.common.HttpMessages._
 import com.cloudera.livy.sessions.SessionKindModule
 import com.cloudera.livy.test.framework.BaseIntegrationTestSuite
 import com.cloudera.livy.test.jobs._
+import com.cloudera.livy.utils.LivySparkUtils
 
 // Proper type representing the return value of "GET /sessions". At some point we should make
 // SessionServlet use something like this.
@@ -157,7 +158,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     assert(result === "hello")
   }
 
-  test("run scala jobs") {
+  scalaTest("run scala jobs") {
     assume(client2 != null, "Client not active.")
 
     val jobs = Seq(
@@ -172,6 +173,15 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     jobs.foreach { job =>
       val result = waitFor(client2.submit(job))
       assert(result === job.value)
+    }
+  }
+
+  protected def scalaTest(desc: String)(testFn: => Unit): Unit = {
+    test(desc) {
+      assume(sys.env("LIVY_SPARK_SCALA_VERSION") ==
+        LivySparkUtils.formatScalaVersion(Properties.versionNumberString),
+        s"Scala test can only be run with ${Properties.versionString}")
+      testFn
     }
   }
 
