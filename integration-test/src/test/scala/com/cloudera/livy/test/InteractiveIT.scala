@@ -21,10 +21,11 @@ package com.cloudera.livy.test
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 
-import scala.language.postfixOps
-
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
+import org.scalatest.concurrent.Eventually._
 import org.scalatest.OptionValues._
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
@@ -108,6 +109,18 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       s.stop()
       val appReport = cluster.yarnClient.getApplicationReport(appId)
       appReport.getYarnApplicationState() shouldBe YarnApplicationState.KILLED
+    }
+  }
+
+  test("should kill RSCDriver if ping job got error") {
+    val testConfName = s"${RSCConf.Entry.TEST_PING_JOB_ERROR.key()}"
+    withNewSession(Spark(), Map(testConfName -> "true"), false) { s =>
+      eventually(timeout(2 minutes), interval(5 seconds)) {
+        val appId = s.appId()
+        appId should not be null
+        val appReport = cluster.yarnClient.getApplicationReport(appId)
+        appReport.getYarnApplicationState() shouldBe YarnApplicationState.KILLED
+      }
     }
   }
 
