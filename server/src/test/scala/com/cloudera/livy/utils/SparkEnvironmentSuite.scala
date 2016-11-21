@@ -18,8 +18,9 @@
 
 package com.cloudera.livy.utils
 
-import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import org.scalatest.{BeforeAndAfterAll, FunSuite, Matchers}
+
+import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 
 class SparkEnvironmentSuite extends FunSuite
   with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
