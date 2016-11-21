@@ -33,7 +33,7 @@ import org.scalatest.mock.MockitoSugar.mock
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf, Utils}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.SessionState
-import com.cloudera.livy.utils.{AppInfo, SparkApp}
+import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkEnvironment}
 
 class BatchSessionSpec
   extends FunSpec
@@ -61,6 +61,10 @@ class BatchSessionSpec
 
     before {
       sessionStore = mock[SessionStore]
+    }
+
+    after {
+      SparkEnvironment.sparkEnvironments.clear()
     }
 
     it("should create a process") {
@@ -109,6 +113,27 @@ class BatchSessionSpec
       batch.appIdKnown("appId")
       verify(sessionStore, atLeastOnce()).save(
         Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
+    it("should use right Spark environment") {
+      assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
+      val conf = new LivyConf()
+        .set("livy.server.spark-home", sys.env("SPARK_HOME"))
+        .set(SparkEnvironment.SPARK_ENV_PREFIX + ".test." + SparkEnvironment.SPARK_HOME.key,
+          sys.env("SPARK_HOME"))
+
+      val mockApp = mock[SparkApp]
+
+      val req = new CreateBatchRequest()
+      req.sparkEnv = "default"
+      BatchSession.create(0, req, conf, null, None, sessionStore, Some(mockApp))
+
+      val req1 = new CreateBatchRequest()
+      req1.sparkEnv = "test"
+      BatchSession.create(1, req1, conf, null, None, sessionStore, Some(mockApp))
+
+      SparkEnvironment.sparkEnvironments.get("default") should not be (None)
+      SparkEnvironment.sparkEnvironments.get("test") should not be (None)
     }
   }
 }

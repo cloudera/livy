@@ -31,7 +31,7 @@ import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.client.common.ClientConf.ConfEntry
 
-object SparkEnvironment {
+object SparkEnvironment extends Logging {
 
   case class Entry(override val key: String, override val dflt: AnyRef) extends ConfEntry
 
@@ -40,20 +40,30 @@ object SparkEnvironment {
   }
 
   val DEFAULT_ENV_NAME = "default"
+  val SPARK_ENV_PREFIX = "livy.server.spark-env"
 
-  val SPARK_HOME = Entry("livy.server.spark-home", null)
-  val SPARK_CONF_DIR = Entry("livy.server.spark-conf-dir", null)
+  val SPARK_HOME = Entry("spark-home", null)
+  val SPARK_CONF_DIR = Entry("spark-conf-dir", null)
 
-  // Two configurations to specify Spark and related Scala version. These are internal
-  // configurations will be set by LivyServer and used in session creation. It is not required to
+  // This configuration is used to specify Spark's Scala version. It is an internal
+  // configurations will be used in session creation. It is not required to
   // set usually unless running with unofficial Spark + Scala versions
   // (like Spark 2.0 + Scala 2.10, Spark 1.6 + Scala 2.11)
-  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scalaVersion", null)
+  val LIVY_SPARK_SCALA_VERSION = Entry("scalaVersion", null)
 
-  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enableHiveContext", false)
+  val ENABLE_HIVE_CONTEXT = Entry("enableHiveContext", false)
 
-  val SPARKR_PACKAGE = Entry("livy.sparkr.package", null)
-  val PYSPARK_ARCHIVES = Entry("livy.pyspark.archives", null)
+  val SPARKR_PACKAGE = Entry("sparkr.package", null)
+  val PYSPARK_ARCHIVES = Entry("pyspark.archives", null)
+
+  val backwardCompatibleConfs = Map(
+    "livy.server.spark-home" -> SPARK_HOME,
+    "livy.server.spark-conf-dir" -> SPARK_CONF_DIR,
+    "livy.spark.scalaVersion" -> LIVY_SPARK_SCALA_VERSION,
+    "livy.repl.enableHiveContext" -> ENABLE_HIVE_CONTEXT,
+    "livy.sparkr.package" -> SPARKR_PACKAGE,
+    "livy.pyspark.archives" -> PYSPARK_ARCHIVES
+  )
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
@@ -82,7 +92,7 @@ object SparkEnvironment {
   )
 
   @VisibleForTesting
-  private[utils] val sparkEnvironments = new mutable.HashMap[String, SparkEnvironment]
+  private[livy] val sparkEnvironments = new mutable.HashMap[String, SparkEnvironment]
 
   def getSparkEnv(livyConf: LivyConf, env: String): SparkEnvironment = {
     if (sparkEnvironments.contains(env)) {
@@ -102,7 +112,7 @@ object SparkEnvironment {
   }
 
   @VisibleForTesting
-  private[utils] def createSparkEnv(livyConf: LivyConf, env: String): SparkEnvironment = {
+  private[livy] def createSparkEnv(livyConf: LivyConf, env: String): SparkEnvironment = {
     val livySparkConfKeys = getClass.getMethods.filter {
       _.getReturnType.getCanonicalName == classOf[Entry].getCanonicalName
     }.map(_.invoke(this).asInstanceOf[Entry].key).toSet
@@ -110,17 +120,18 @@ object SparkEnvironment {
     val sparkEnv = new SparkEnvironment(env)
     if (env == DEFAULT_ENV_NAME) {
       livyConf.asScala
-        .filter { kv =>
-          livySparkConfKeys.contains(kv.getKey) ||
-            livySparkConfKeys.contains(kv.getKey.stripPrefix(s"$DEFAULT_ENV_NAME."))
-        }
-        .foreach(kv => sparkEnv.set(kv.getKey.stripPrefix(s"$DEFAULT_ENV_NAME."), kv.getValue))
-    } else {
-      livyConf.asScala
-        .filter(kv => livySparkConfKeys.contains(kv.getKey.stripPrefix(s"$env.")))
-        .foreach(kv => sparkEnv.set(kv.getKey.stripPrefix(s"$env."), kv.getValue))
+        .filter { kv => backwardCompatibleConfs.contains(kv.getKey) }
+        .foreach { kv => sparkEnv.set(backwardCompatibleConfs(kv.getKey), kv.getValue) }
     }
 
+    livyConf.asScala
+      .filter { kv => kv.getKey.startsWith(s"$SPARK_ENV_PREFIX.$env.") &&
+        livySparkConfKeys.contains(kv.getKey.stripPrefix(s"$SPARK_ENV_PREFIX.$env.")) }
+      .foreach {
+        kv => sparkEnv.set(kv.getKey.stripPrefix(s"$SPARK_ENV_PREFIX.$env."), kv.getValue)
+      }
+
+    info(s"Created Spark environments $env with configuration ${sparkEnv.asScala.mkString(",")}")
     sparkEnv
   }
 }
@@ -130,25 +141,27 @@ object SparkEnvironment {
  * Livy Can have multiple Spark environments differentiated by name, for example if user
  * configured in Livy conf like:
  *
- * test.livy.server.spark-home = xxx
- * test.livy.server.spark-conf-dir = xxx
+ * livy.server.spark-env.test.spark-home = xxx
+ * livy.server.spark-env.test.spark-conf-dir = xxx
  *
- * production.livy.server.spark-home = yyy
- * production.livy.server.spark-conf-dir = yyy
+ * livy.server.spark-env.production.spark-home = yyy
+ * livy.server.spark-env.production.spark-conf-dir = yyy
  *
  * Livy internally will have two isolated Spark environments "test" and "production". When user
  * create batch or interactive session, they could specify through "sparkEnv" in json body. Livy
  * server will honor this env name and pick right Spark environment. This is used for Livy to
  * support different Spark cluster in runtime.
  *
- * The Default Spark environment is "default" if user configured
+ * The Default Spark environment is "default". If user configured
  *
  * livy.server.spark-home = xxx
  * or:
- * default.livy.server.spark-home = xxx
+ * livy.server.spark-conf-dir = xxx
  *
- * Livy server will treat configuration without prefix to "default" Spark environment to keep
- * backward compatibility.
+ * Livy server will treat configuration to "default" Spark environment to keep
+ * backward compatibility. This is equal to:
+ *
+ * livy.server.spark-env.default.spark-home = xxx
  *
  * Also for environment variable, user's configuration
  *

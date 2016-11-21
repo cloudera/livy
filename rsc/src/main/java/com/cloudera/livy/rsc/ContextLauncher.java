@@ -28,13 +28,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -171,6 +165,12 @@ class ContextLauncher {
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
+    HashMap<String, String> childEnv = new HashMap<>();
+    String kind = conf.get(SESSION_KIND);
+    if ("pyspark".equals(kind) && conf.get(RSCConf.Entry.PYSPARK_ARCHIVES) != null) {
+      childEnv.put("PYSPARK_ARCHIVES_PATH", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES));
+    }
+
     // Disable multiple attempts since the RPC server doesn't yet support multiple
     // connections for the same registered app.
     conf.set("spark.yarn.maxAppAttempts", "1");
@@ -212,7 +212,7 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      final SparkLauncher launcher = new SparkLauncher();
+      final SparkLauncher launcher = new SparkLauncher(childEnv);
 
       // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
       String deployMode = conf.get(SPARK_DEPLOY_MODE);

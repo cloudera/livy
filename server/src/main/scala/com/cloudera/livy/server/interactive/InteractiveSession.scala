@@ -248,7 +248,7 @@ object InteractiveSession extends Logging {
     kind match {
       case PySpark() | PySpark3() =>
         val pySparkFiles = if (!LivyConf.TEST_MODE) sparkEnv.findPySparkArchives() else Nil
-        mergeConfList(pySparkFiles, SparkEnvironment.SPARK_PY_FILES)
+        mergeConfList(pySparkFiles, RSCConf.Entry.PYSPARK_ARCHIVES.key())
         builderProperties.put(SparkEnvironment.SPARK_YARN_IS_PYTHON, "true")
       case SparkR() =>
         val sparkRArchive = if (!LivyConf.TEST_MODE) Some(sparkEnv.findSparkRArchive()) else None

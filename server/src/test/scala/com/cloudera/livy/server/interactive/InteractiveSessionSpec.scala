@@ -30,7 +30,7 @@ import org.json4s.jackson.JsonMethods.parse
 import org.mockito.{Matchers => MockitoMatchers}
 import org.mockito.Matchers._
 import org.mockito.Mockito.{atLeastOnce, verify, when}
-import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
+import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.mock.MockitoSugar.mock
 
@@ -39,10 +39,10 @@ import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
 import com.cloudera.livy.rsc.driver.StatementState
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{PySpark, SessionState, Spark}
-import com.cloudera.livy.utils.{AppInfo, SparkApp}
+import com.cloudera.livy.utils.{AppInfo, SparkApp, SparkEnvironment}
 
 class InteractiveSessionSpec extends FunSpec
-    with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
+    with Matchers with BeforeAndAfterAll with BeforeAndAfter with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
 <<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
@@ -58,12 +58,13 @@ class InteractiveSessionSpec extends FunSpec
   private var session: InteractiveSession = null
 
   private def createSession(
+      livyConf: LivyConf = this.livyConf,
       sessionStore: SessionStore = mock[SessionStore],
-      mockApp: Option[SparkApp] = None): InteractiveSession = {
-    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
-
+      mockApp: Option[SparkApp] = None,
+      sparkEnv: String = "default"): InteractiveSession = {
     val req = new CreateInteractiveRequest()
     req.kind = PySpark()
+    req.sparkEnv = sparkEnv
     req.driverMemory = Some("512m")
     req.driverCores = Some(1)
     req.executorMemory = Some("512m")
@@ -83,6 +84,11 @@ class InteractiveSessionSpec extends FunSpec
       s.state.get() shouldBe StatementState.Available
       parse(s.output)
     }
+  }
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
   }
 
   override def afterAll(): Unit = {
@@ -167,7 +173,7 @@ class InteractiveSessionSpec extends FunSpec
     it("should update appId and appInfo and session store") {
       val mockApp = mock[SparkApp]
       val sessionStore = mock[SessionStore]
-      val session = createSession(sessionStore, Some(mockApp))
+      val session = createSession(sessionStore = sessionStore, mockApp = Some(mockApp))
 
       val expectedAppId = "APPID"
       session.appIdKnown(expectedAppId)
@@ -264,6 +270,49 @@ class InteractiveSessionSpec extends FunSpec
 
       s.state shouldBe a[SessionState.Dead]
       s.logLines().mkString should include("RSCDriver URI is unknown")
+    }
+  }
+
+  describe("multiple Spark environments") {
+    import SparkEnvironment._
+
+    var session: InteractiveSession = null
+
+    after (
+      if (session != null) {
+        Await.ready(session.stop(), 30 seconds)
+        session = null
+        sparkEnvironments.clear()
+      }
+    )
+
+    it("should honor default Spark environment") {
+      val conf = new LivyConf()
+        .set(SPARK_ENV_PREFIX + ".default." + SPARK_HOME.key, sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_REPL_JARS, "")
+      session = createSession(livyConf = conf)
+      session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
+      sparkEnvironments.size should be (1)
+      sparkEnvironments.get("default") should not be (None)
+    }
+
+    it("should use customized Spark environment") {
+      val conf = new LivyConf()
+        .set(SPARK_ENV_PREFIX + ".test." + SPARK_HOME.key, sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_REPL_JARS, "")
+      session = createSession(livyConf = conf, sparkEnv = "test")
+      session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
+      sparkEnvironments.get("test") should not be (None)
+    }
+
+    it("should pick right Spark environment") {
+      val conf = new LivyConf()
+        .set(SPARK_ENV_PREFIX + ".test." + SPARK_HOME.key, sys.env("SPARK_HOME"))
+        .set(SPARK_ENV_PREFIX + ".production." + SPARK_HOME.key, sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_REPL_JARS, "")
+      session = createSession(livyConf = conf, sparkEnv = "production")
+      session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
+      sparkEnvironments.get("production") should not be (None)
     }
   }
 }

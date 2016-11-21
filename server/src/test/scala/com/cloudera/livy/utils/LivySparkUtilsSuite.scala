@@ -33,11 +33,11 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   private val sparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
 
   private val livyConf210 = new LivyConf()
-  livyConf210.set(SparkEnvironment.LIVY_SPARK_SCALA_VERSION, "2.10.6")
+  livyConf210.set("livy.spark.scalaVersion", "2.10.6")
   private val sparkEnv210 = SparkEnvironment.createSparkEnv(livyConf210, "default")
 
   private val livyConf211 = new LivyConf()
-  livyConf211.set(SparkEnvironment.LIVY_SPARK_SCALA_VERSION, "2.11.1")
+  livyConf211.set("livy.spark.scalaVersion", "2.11.1")
   private val sparkEnv211 = SparkEnvironment.createSparkEnv(livyConf211, "default")
 
   test("check for SPARK_HOME") {

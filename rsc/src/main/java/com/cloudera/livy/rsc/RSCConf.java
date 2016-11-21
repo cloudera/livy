@@ -47,6 +47,7 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     LIVY_JARS("jars", null),
 
+    PYSPARK_ARCHIVES("pyspark.archives", null),
     SPARK_HOME("spark_home", null),
     SPARK_CONF_DIR("spark_conf_dir", null),
 
