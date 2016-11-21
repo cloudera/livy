@@ -87,23 +87,35 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
     _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
-    Future {
-      _statements(statementId) = new Statement(statementId, StatementState.Running, null)
 
-      _statements(statementId) =
-        new Statement(statementId, StatementState.Available, executeCode(statementId, code))
+    Future {
+      def stmtState = _statements(statementId).state
+
+      val executeResult =
+        if (stmtState != StatementState.Cancelled) {
+          _statements(statementId) = new Statement(statementId, StatementState.Running, null)
+          _sc.foreach(
+            _.setJobGroup(statementId.toString, s"Job group for statement $statementId"))
+          executeCode(statementId, code)
+        } else {
+          null
+        }
+
+      if (stmtState != StatementState.Cancelled) {
+        _statements(statementId) =
+          new Statement(statementId, StatementState.Available, executeResult)
+      }
     }
     statementId
   }
 
   def cancel(statementId: Int): Unit = {
-    val stmt = synchronized {
-      _statements.remove(statementId)
-    }
-
-    stmt.foreach { st =>
+    if (_statements.contains(statementId)) {
+      val oldStmtState = _statements.put(statementId,
+        new Statement(statementId, StatementState.Cancelled, null))
       info(s"Statement $statementId is canceled")
-      if (st.state == StatementState.Running) {
+
+      if (oldStmtState.get.state == StatementState.Running) {
         _sc.foreach(_.cancelJobGroup(statementId.toString))
       }
     }
@@ -114,7 +126,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     interpreter.close()
   }
 
-  def clearStatements(): Unit = synchronized {
+  def clearStatements(): Unit = {
     _statements.clear()
   }
 
@@ -125,7 +137,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     stateChangedCallback(newState)
   }
 
-  private def executeCode(executionCount: Int, code: String): String = synchronized {
+  private def executeCode(executionCount: Int, code: String): String = {
     changeState(SessionState.Busy())
 
     def transitToIdle() = {

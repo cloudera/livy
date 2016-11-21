@@ -81,7 +81,8 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
       when(session.cancelStatement(anyInt())).thenAnswer(
         new Answer[Unit] {
           override def answer(args: InvocationOnMock): Unit = {
-            statements = statements.filterNot(_.id == 0)
+            statements = IndexedSeq(
+              new Statement(statementCounter.get(), StatementState.Cancelled, null))
           }
         }
       )
@@ -133,8 +134,8 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
     }
 
     jget[Map[String, Any]]("/0/statements") { data =>
-      data("total_statements") should be (0)
-      data("statements").asInstanceOf[Seq[Map[String, Any]]] should be (Seq.empty)
+      data("total_statements") should be (1)
+      data("statements").asInstanceOf[Seq[Map[String, Any]]](0)("state") should be ("cancelled")
     }
 
     jdelete[Map[String, Any]]("/0") { data =>

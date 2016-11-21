@@ -473,7 +473,7 @@ class InteractiveSession(
     stop()
   }
 
-  def executeStatement(content: ExecuteRequest): Statement = synchronized {
+  def executeStatement(content: ExecuteRequest): Statement = {
     ensureRunning()
     recordActivity()
 

@@ -27,6 +27,8 @@ import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
 import org.scalatest.concurrent.Eventually._
 
+import com.cloudera.livy.rsc.driver.StatementState
+
 class SparkSessionSpec extends BaseSessionSpec {
 
   override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
@@ -205,7 +207,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     session.cancel(stmtId)
 
     eventually(timeout(30 seconds), interval(100 millis)) {
-      assert(!session.statements.contains(stmtId))
+      assert(session.statements(stmtId).state == StatementState.Cancelled)
     }
   }
 }
