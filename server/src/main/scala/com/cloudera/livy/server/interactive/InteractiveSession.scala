@@ -31,7 +31,7 @@ import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.google.common.annotations.VisibleForTesting
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.launcher.SparkLauncher
 
 import com.cloudera.livy._
@@ -154,13 +154,24 @@ object InteractiveSession extends Logging {
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
       Option(livyConf.get(LIVY_REPL_JARS)).map { jars =>
         val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
-        jars.split(",").filter { name => new Path(name).getName match {
-              // Filter out unmatched scala jars
-            case regex(ver) => ver == scalaVersion
-              // Keep all the java jars end with ".jar"
-            case _ => name.endsWith(".jar")
+        jars.split(",").flatMap { n =>
+          val trimmed = n.trim
+          if (!trimmed.startsWith("local")) {
+            // expand the glob path for file and hdfs scheme
+            val path = new Path(toURI(trimmed))
+            val pathFs = FileSystem.get(path.toUri, livyConf.hadoopConf)
+            pathFs.globStatus(path).filter(_.isFile).map(_.getPath)
+          } else {
+            Array(new Path(trimmed))
           }
-        }.toList
+        }.filter { p =>
+          p.getName match {
+            // Filter out unmatched scala jars
+            case regex(ver) => ver == scalaVersion
+            // Keep all the java jars end with ".jar"
+            case _ => p.getName.endsWith(".jar")
+          }
+        }.map(_.toString).toList
       }.getOrElse {
         val home = sys.env("LIVY_HOME")
         val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
