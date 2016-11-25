@@ -53,12 +53,13 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
   private implicit val formats = DefaultFormats
 
-  @volatile private var _sc: Option[SparkContext] = None
+  @volatile private[repl] var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
   private val _statements = TrieMap[Int, Statement]()
 
   private val newStatementId = new AtomicInteger(0)
+  private val lock = new Object()
 
   stateChangedCallback(_state)
 
@@ -73,7 +74,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     future.onFailure { case _ =>
       changeState(SessionState.Error())
     }
-    future.onSuccess { case sc => _sc = Option(sc) }
+    future.onSuccess { case sc => _sc = Option(sc).orElse(Some(SparkContext.getOrCreate())) }
 
     future
   }
@@ -91,26 +92,37 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     Future {
       def stmtState = _statements(statementId).state
 
-      val executeResult =
-        if (stmtState != StatementState.Cancelled) {
-          _statements(statementId) = new Statement(statementId, StatementState.Running, null)
-          _sc.foreach(
-            _.setJobGroup(statementId.toString, s"Job group for statement $statementId"))
-          executeCode(statementId, code)
-        } else {
-          null
+      if (stmtState != StatementState.Cancelled) {
+        lock.synchronized {
+          if (stmtState != StatementState.Cancelled) {
+            _statements(statementId) = new Statement(statementId, StatementState.Running, null)
+            _sc.foreach(
+              _.setJobGroup(statementId.toString, s"Job group for statement $statementId"))
+          }
         }
+      }
+
+      val executeResult = if (stmtState != StatementState.Cancelled) {
+        executeCode(statementId, code)
+      } else {
+        null
+      }
 
       if (stmtState != StatementState.Cancelled) {
-        _statements(statementId) =
-          new Statement(statementId, StatementState.Available, executeResult)
+        lock.synchronized {
+          if (stmtState != StatementState.Cancelled) {
+            _statements(statementId) =
+              new Statement(statementId, StatementState.Available, executeResult)
+          }
+        }
       }
     }
+
     statementId
   }
 
   def cancel(statementId: Int): Unit = {
-    if (_statements.contains(statementId)) {
+    if (_statements.contains(statementId)) lock.synchronized {
       val oldStmtState = _statements.put(statementId,
         new Statement(statementId, StatementState.Cancelled, null))
       info(s"Statement $statementId is canceled")

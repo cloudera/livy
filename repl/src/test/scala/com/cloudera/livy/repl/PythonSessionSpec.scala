@@ -18,11 +18,16 @@
 
 package com.cloudera.livy.repl
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 import org.json4s.jackson.JsonMethods.parse
 import org.scalatest._
+import org.scalatest.concurrent.Eventually._
 
+import com.cloudera.livy.rsc.driver.StatementState
 import com.cloudera.livy.sessions._
 
 abstract class PythonSessionSpec extends BaseSessionSpec {
@@ -169,6 +174,23 @@ abstract class PythonSessionSpec extends BaseSessionSpec {
     ))
 
     result should equal (expectedResult)
+  }
+
+  it should "cancel pyspark jobs" in withSession { session =>
+    val stmtId = session.execute(
+      """
+        |def func(i):
+        |  from time import sleep
+        |  sleep(10)
+        |  return i
+        |sc.range(10).map(func).collect()
+      """.stripMargin)
+
+    session.cancel(stmtId)
+
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId).state == StatementState.Cancelled)
+    }
   }
 }
 
