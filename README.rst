@@ -74,9 +74,9 @@ Livy is built using `Apache Maven`_. To check out and build Livy, run:
 
 By default Livy is built against Apache Spark 1.6.2, but the version of Spark used when running
 Livy does not need to match the version used to build Livy. Livy internally uses reflection to
-mitigate the gaps of different Spark versions, also Livy package itself does not
+mitigate the gaps between different Spark versions, also Livy package itself does not
 contain a Spark distribution, so it will work with any supported version of Spark (Spark 1.6+)
-without to rebuild against specific version of Spark.
+without needing to rebuild against specific version of Spark.
 
 .. _Apache Maven: http://maven.apache.org
 
