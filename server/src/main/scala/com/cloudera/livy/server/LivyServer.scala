@@ -28,6 +28,7 @@ import scala.concurrent.Future
 import org.apache.hadoop.security.SecurityUtil
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
+import org.scalatra.GZipSupport
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
@@ -118,11 +119,19 @@ class LivyServer extends Logging {
             val context = sce.getServletContext()
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
 
-            val interactiveServlet =
+            val interactiveServlet = if (livyConf.getBoolean(COMPRESS_SUPPORTED)) {
               new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
+                with GZipSupport
+            } else {
+              new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
+            }
             mount(context, interactiveServlet, "/sessions/*")
 
-            val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
+            val batchServlet = if (livyConf.getBoolean(COMPRESS_SUPPORTED)) {
+              new BatchSessionServlet(batchSessionManager, sessionStore, livyConf) with GZipSupport
+            } else {
+              new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
+            }
             mount(context, batchServlet, "/batches/*")
 
             context.mountMetricsAdminServlet("/")
