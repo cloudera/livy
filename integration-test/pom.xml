@@ -98,6 +98,13 @@
     </dependency>
 
     <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-spark2-test-lib</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>com.decodified</groupId>
       <artifactId>scala-ssh_${scala.binary.version}</artifactId>
       <version>0.7.0</version>
@@ -232,7 +239,7 @@
             </goals>
             <configuration>
               <sources>
-                <source>${project.basedir}/src/test/spark-${spark.majorVersion}/scala</source>
+                <source>${project.basedir}/src/test/spark${spark.majorVersion}/scala</source>
               </sources>
             </configuration>
           </execution>

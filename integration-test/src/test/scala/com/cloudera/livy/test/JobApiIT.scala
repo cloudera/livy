@@ -41,7 +41,7 @@ import com.cloudera.livy.utils.LivySparkUtils
 
 // Proper type representing the return value of "GET /sessions". At some point we should make
 // SessionServlet use something like this.
-private class SessionList {
+class SessionList {
   val from: Int = -1
   val total: Int = -1
   val sessions: List[SessionInfo] = Nil
@@ -130,13 +130,13 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
 
   test("run spark job") {
     assume(client != null, "Client not active.")
-    val result = waitFor(client.submit(new SmallCount(100)));
+    val result = waitFor(client.submit(new SmallCount(100)))
     assert(result === 100)
   }
 
   test("run spark sql job") {
     assume(client != null, "Client not active.")
-    val result = waitFor(client.submit(new SQLGetTweets(false)));
+    val result = waitFor(client.submit(new SQLGetTweets(false)))
     assert(result.size() > 0)
   }
 

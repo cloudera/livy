@@ -41,6 +41,12 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     .find(new File(_).getName().startsWith("livy-test-lib-"))
     .getOrElse(throw new Exception(s"Cannot find test lib in ${sys.props("java.class.path")}"))
 
+  protected val spark2TestLib = sys.props("java.class.path")
+    .split(File.pathSeparator)
+    .find(new File(_).getName().startsWith("livy-spark2-test-lib-"))
+    .getOrElse(
+      throw new Exception(s"Cannot find spark2 test lib in ${sys.props("java.class.path")}"))
+
   protected def getYarnLog(appId: String): String = {
     require(appId != null, "appId shouldn't be null")
 
