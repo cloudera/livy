@@ -18,10 +18,8 @@
 
 package com.cloudera.livy.server
 
-import java.net.{InetAddress, InetSocketAddress}
+import java.net.InetAddress
 import javax.servlet.ServletContextListener
-
-import scala.concurrent.ExecutionContext
 
 import org.eclipse.jetty.server._
 import org.eclipse.jetty.server.handler.{HandlerCollection, RequestLogHandler}
@@ -74,7 +72,7 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   val handlers = new HandlerCollection
   handlers.addHandler(context)
 
-//  configure the access log
+  //  configure the access log
   val requestLogHandler = new RequestLogHandler
   val requestLog = new NCSARequestLog(sys.env.getOrElse("LIVY_LOG_DIR",
     sys.env("LIVY_HOME") + "/logs") + "/jetty-yyyy_mm_dd.request.log")
