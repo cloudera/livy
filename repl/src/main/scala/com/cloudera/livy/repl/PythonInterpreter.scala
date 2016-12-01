@@ -47,8 +47,9 @@ object PythonInterpreter extends Logging {
 
   def apply(conf: SparkConf, kind: Kind): Interpreter = {
     val pythonExec = kind match {
-        case PySpark3() => sys.env.getOrElse("PYSPARK3_DRIVER_PYTHON", "python3")
-        case PySpark() => sys.env.getOrElse("PYSPARK_DRIVER_PYTHON", "python")
+        case PySpark() => sys.env.getOrElse("PYSPARK_PYTHON", "python")
+        case PySpark3() => sys.env.getOrElse("PYSPARK3_PYTHON", "python3")
+        case _ => throw new IllegalArgumentException(s"Unknown kind: $kind")
     }
 
     val gatewayServer = new GatewayServer(null, 0)

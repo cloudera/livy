@@ -125,7 +125,6 @@ The configuration files used by Livy are:
 * ``log4j.properties``: configuration for Livy logging. Defines log levels and where log messages
   will be written to. The default configuration will print log messages to stderr.
 
-
 Upgrade from Livy 0.1
 =====================
 
@@ -734,15 +733,37 @@ Session State
 Session Kind
 ^^^^^^^^^^^^
 
-+---------+----------------------------------+
-| value   | description                      |
-+=========+==================================+
-| spark   | Interactive Scala Spark session  |
-+---------+----------------------------------+
-| pyspark | Interactive Python Spark session |
-+---------+----------------------------------+
-| sparkr  | Interactive R Spark session      |
-+---------+----------------------------------+
++-------------+------------------------------------+
+| value       | description                        |
++=============+====================================+
+| spark       | Interactive Scala  Spark session   |
++-------------+------------------------------------+
+| `pyspark`_  | Interactive Python 2 Spark session |
++-------------+------------------------------------+
+| `pyspark3`_ | Interactive Python 3 Spark session |
++-------------+------------------------------------+
+| sparkr      | Interactive R Spark session        |
++-------------+------------------------------------+
+
+pyspark
+^^^^^^^
+To change the Python executable the session uses, Livy reads the path from environment variable
+``PYSPARK_PYTHON`` (Same as pyspark).
+
+Like pyspark, if Livy is running in ``local`` mode, just set the environment variable.
+If the session is running in ``yarn-cluster`` mode, please set
+``spark.yarn.appMasterEnv.PYSPARK_PYTHON`` in SparkConf so the environment variable is passed to
+the driver.
+
+pyspark3
+^^^^^^^^
+To change the Python executable the session uses, Livy reads the path from environment variable
+``PYSPARK3_PYTHON``.
+
+Like pyspark, if Livy is running in ``local`` mode, just set the environment variable.
+If the session is running in ``yarn-cluster`` mode, please set
+``spark.yarn.appMasterEnv.PYSPARK3_PYTHON`` in SparkConf so the environment variable is passed to
+the driver.
 
 Statement
 ---------
