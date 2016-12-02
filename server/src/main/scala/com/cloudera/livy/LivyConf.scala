@@ -109,10 +109,6 @@ object LivyConf {
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
-  // Http compression is enabled or not, if true the json data transmitted with be
-  // compressed with GZIP.
-  val COMPRESS_SUPPORTED = Entry("livy.server.content_compress.enabled", false)
-
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"

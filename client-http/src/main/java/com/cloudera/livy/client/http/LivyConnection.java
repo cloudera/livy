@@ -71,7 +71,7 @@ class LivyConnection {
     RequestConfig reqConfig = new RequestConfig() {
       @Override
       public int getConnectTimeout() {
-        return (int) config.getTimeAsMs(CONNETION_TIMEOUT);
+        return (int) config.getTimeAsMs(CONNECTION_TIMEOUT);
       }
 
       @Override
@@ -82,6 +82,11 @@ class LivyConnection {
       @Override
       public boolean isAuthenticationEnabled() {
         return true;
+      }
+
+      @Override
+      public boolean isContentCompressionEnabled() {
+        return config.getBoolean(CONTENT_COMPRESS_ENABLE);
       }
     };
 

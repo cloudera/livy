@@ -25,12 +25,14 @@ import com.cloudera.livy.client.common.ClientConf;
 class HttpConf extends ClientConf<HttpConf> {
 
   static enum Entry implements ConfEntry {
-    CONNETION_TIMEOUT("connection.timeout", "10s"),
+    CONNECTION_TIMEOUT("connection.timeout", "10s"),
     CONNECTION_IDLE_TIMEOUT("connection.idle.timeout", "10m"),
     SOCKET_TIMEOUT("connection.socket.timeout", "5m"),
 
     JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "100ms"),
-    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s");
+    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s"),
+
+    CONTENT_COMPRESS_ENABLE("content.compress.enable", true);
 
     private final String key;
     private final Object dflt;
