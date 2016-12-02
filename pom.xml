@@ -71,6 +71,8 @@
     <test.redirectToFile>true</test.redirectToFile>
     <execution.root>${user.dir}</execution.root>
     <spark.home>${execution.root}/dev/spark</spark.home>
+    <!--  used for testing, NCSARequestLog use it for access log  -->
+    <livy.log.dir>${basedir}/target</livy.log.dir>
 
     <!-- Set this to "true" to skip R tests. -->
     <skipRTests>false</skipRTests>
@@ -693,6 +695,7 @@
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${spark.home}</SPARK_HOME>
+              <LIVY_LOG_DIR>${livy.log.dir}</LIVY_LOG_DIR>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
