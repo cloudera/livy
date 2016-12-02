@@ -72,10 +72,10 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   val handlers = new HandlerCollection
   handlers.addHandler(context)
 
-  //  configure the access log
+  // Configure the access log
   val requestLogHandler = new RequestLogHandler
   val requestLog = new NCSARequestLog(sys.env.getOrElse("LIVY_LOG_DIR",
-    sys.env("LIVY_HOME") + "/logs") + "/jetty-yyyy_mm_dd.request.log")
+    sys.env("LIVY_HOME") + "/logs") + "/yyyy_mm_dd.request.log")
   requestLog.setAppend(true)
   requestLog.setExtended(false)
   requestLog.setLogTimeZone("GMT")
