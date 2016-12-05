@@ -82,17 +82,19 @@ object InteractiveSession extends Logging {
         SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
         SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
         SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
-        "spark.executor.instances" -> request.numExecutors.map(_.toString)
+        "spark.executor.instances" -> request.numExecutors.map(_.toString),
+        "spark.app.name" -> request.name.map(_.toString)
       )
 
       userOpts.foreach { case (key, opt) =>
         opt.foreach { value => builderProperties.put(key, value) }
       }
 
+      builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
+
       info(s"Creating LivyClient for sessionId: $id")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
-        .setConf("spark.app.name", s"livy-session-$id")
         .setConf("livy.client.sessionId", id.toString)
         .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
         .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
