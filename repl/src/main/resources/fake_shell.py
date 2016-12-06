@@ -37,6 +37,9 @@ else:
     import cStringIO
     import StringIO
 
+if os.environ.get("LIVY_TEST") != "true":
+    import pyspark.sql.types
+
 logging.basicConfig()
 LOG = logging.getLogger('fake_shell')
 
@@ -402,6 +405,9 @@ def magic_table(name):
     for row in value:
         cols = []
         data.append(cols)
+
+        if os.environ.get("LIVY_TEST") != "true" and isinstance(row, pyspark.sql.types.Row):
+            row = row.asDict()
 
         if not isinstance(row, (list, tuple, dict)):
             row = [row]
