@@ -70,8 +70,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       s.run("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)")
         .verifyResult("9900")
       s.run("x = [Row(age=1, name=u'a'), Row(age=2, name=u'b'), Row(age=3, name=u'c')")
-      s.run("%table x").verifyResult("{'headers': [{'type': 'INT_TYPE', 'name': 'age'}, " +
-        "{'type': 'STRING_TYPE', 'name': 'name'}], 'data': [[1, 'a'], [2, 'b'], [3, 'c']]}")
+      s.run("%table x").verifyResult(".*'headers'.*type.*name.*'data':.*")
       s.run("abcde").verifyError(ename = "NameError", evalue = "name 'abcde' is not defined")
       s.run("raise KeyError, 'foo'").verifyError(ename = "KeyError", evalue = "'foo'")
     }
