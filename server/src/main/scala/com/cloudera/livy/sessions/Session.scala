@@ -92,7 +92,7 @@ object Session {
     val masterConfList = Map(LivyConf.SPARK_MASTER -> livyConf.sparkMaster()) ++
       livyConf.sparkDeployMode().map(LivyConf.SPARK_DEPLOY_MODE -> _).toMap
 
-    conf ++ masterConfList ++ merged
+    masterConfList ++ conf ++ merged
   }
 
   /**
