@@ -145,7 +145,7 @@ class JobContextImpl(object):
                 self.sc.stop()
 
     def spark_session(self):
-        return self.spark_session;
+        return self.spark_session
 
 
 class PySparkJobProcessorImpl(object):
