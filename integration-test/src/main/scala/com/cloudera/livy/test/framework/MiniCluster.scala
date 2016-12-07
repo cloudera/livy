@@ -157,6 +157,7 @@ object MiniLivyMain extends MiniClusterBase {
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
       LivyConf.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
+      LivyConf.HEARTBEAT_WATCHDOG_INTERVAL.key -> "1s",
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",

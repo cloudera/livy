@@ -220,10 +220,14 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
     new BatchSession(id)
   }
 
-  def startSession(kind: Kind, sparkConf: Map[String, String]): InteractiveSession = {
+  def startSession(
+      kind: Kind,
+      sparkConf: Map[String, String],
+      heartbeatTimeoutInSecond: Int): InteractiveSession = {
     val r = new CreateInteractiveRequest()
     r.kind = kind
     r.conf = sparkConf
+    r.heartbeatTimeoutInSecond = heartbeatTimeoutInSecond
 
     val id = start(INTERACTIVE_TYPE, mapper.writeValueAsString(r))
     new InteractiveSession(id)

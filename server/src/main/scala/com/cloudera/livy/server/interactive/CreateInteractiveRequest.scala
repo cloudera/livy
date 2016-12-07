@@ -21,7 +21,6 @@ package com.cloudera.livy.server.interactive
 import com.cloudera.livy.sessions.{Kind, Spark}
 
 class CreateInteractiveRequest {
-
   var kind: Kind = Spark()
   var proxyUser: Option[String] = None
   var jars: List[String] = List()
@@ -36,5 +35,5 @@ class CreateInteractiveRequest {
   var queue: Option[String] = None
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
-
+  var heartbeatTimeoutInSecond: Int = 0
 }
