@@ -143,7 +143,12 @@ class LivyRestClient(val httpClient: AsyncHttpClient, val livyEndpoint: String) 
           output.get("status") match {
             case Some("ok") =>
               val data = output("data").asInstanceOf[Map[String, Any]]
-              Left(data("text/plain").asInstanceOf[String])
+              var rst = data.getOrElse("text/plain", "")
+              val magicRst = data.getOrElse("application/vnd.livy.table.v1+json", null)
+              if (magicRst != null) {
+                rst = mapper.writeValueAsString(magicRst)
+              }
+              Left(rst.asInstanceOf[String])
             case Some("error") => Right(mapper.convertValue(output, classOf[StatementError]))
             case Some(status) =>
               throw new IllegalStateException(s"Unknown statement $stmtId status: $status")
