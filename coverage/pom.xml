@@ -113,13 +113,6 @@
       <scope>test</scope>
     </dependency>
 
-    <dependency>
-      <groupId>com.cloudera.livy</groupId>
-      <artifactId>livy-spark2-test-lib</artifactId>
-      <version>${project.version}</version>
-      <scope>test</scope>
-    </dependency>
-
   </dependencies>
 
   <build>

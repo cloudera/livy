@@ -62,7 +62,7 @@ class Spark2JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll wit
       val tempSessionId = list.sessions(0).id
 
       livyClient.connectSession(tempSessionId).verifySessionIdle()
-      waitFor(tempClient.uploadJar(new File(spark2TestLib)))
+      waitFor(tempClient.uploadJar(new File(testLib)))
 
       client = tempClient
       sessionId = tempSessionId

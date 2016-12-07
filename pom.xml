@@ -190,7 +190,6 @@
     <module>scala-api/scala-2.11</module>
     <module>server</module>
     <module>test-lib</module>
-    <module>spark2-test-lib</module>
     <module>integration-test/minicluster-dependencies/scala-2.10</module>
     <module>integration-test/minicluster-dependencies/scala-2.11</module>
     <module>integration-test</module>

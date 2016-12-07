@@ -88,4 +88,40 @@
     </plugins>
   </build>
 
+  <profiles>
+    <profile>
+      <id>spark-2.0</id>
+      <activation>
+        <property>
+          <name>spark-2.0</name>
+        </property>
+      </activation>
+
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>add-spark2-source-code</id>
+                <phase>process-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>${project.basedir}/src/main/spark2/scala</source>
+                    <source>${project.basedir}/src/main/spark2/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+
+    </profile>
+  </profiles>
+
 </project>
