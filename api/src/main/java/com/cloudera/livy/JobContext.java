@@ -18,9 +18,7 @@
 package com.cloudera.livy;
 
 import java.io.File;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SQLContext;
@@ -46,6 +44,9 @@ public interface JobContext {
 
   /** Returns the JavaStreamingContext which has already been created. */
   JavaStreamingContext streamingctx();
+
+  /** A map to store variables shared across jobs. */
+  ConcurrentHashMap<String, Object> variables();
 
   /**
    * Creates the SparkStreaming context.
