@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.Future
 import scala.util.Random
 
@@ -72,18 +71,11 @@ object InteractiveSession extends Logging {
       mockClient: Option[RSCClient] = None): InteractiveSession = {
     val appTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
 
-    val livyConfWithTestConf = if (request.conf.contains(RSCConf.Entry.TEST_PING_JOB_ERROR.key())) {
-      new LivyConf().setAll(livyConf).set(RSCConf.Entry.TEST_PING_JOB_ERROR.key(), "true")
-    } else {
-      livyConf
-    }
-
     val client = mockClient.orElse {
-      val conf = SparkApp.prepareSparkConf(appTag, livyConfWithTestConf, prepareConf(
-        request.conf, request.jars, request.files, request.archives, request.pyFiles,
-        livyConfWithTestConf))
+      val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
+        request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
-      val builderProperties = prepareBuilderProp(conf, request.kind, livyConfWithTestConf)
+      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf)
 
       val userOpts: Map[String, Option[String]] = Map(
         "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -116,7 +108,7 @@ object InteractiveSession extends Logging {
       client,
       SessionState.Starting(),
       request.kind,
-      livyConfWithTestConf,
+      livyConf,
       owner,
       proxyUser,
       sessionStore,
@@ -386,8 +378,7 @@ class InteractiveSession(
 
     // Send a dummy job that will return once the client is ready to be used, and set the
     // state to "idle" at that point.
-    client.get.submit(new PingJob(livyConf.getBoolean(RSCConf.Entry.TEST_PING_JOB_ERROR))).
-        addListener(new JobHandle.Listener[Void]() {
+    client.get.submit(new PingJob()).addListener(new JobHandle.Listener[Void]() {
       override def onJobQueued(job: JobHandle[Void]): Unit = { }
       override def onJobStarted(job: JobHandle[Void]): Unit = { }
 

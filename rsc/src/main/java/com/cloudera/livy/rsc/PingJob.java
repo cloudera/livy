@@ -23,22 +23,8 @@ import com.cloudera.livy.JobContext;
 /** A job that can be used to check for liveness of the remote context. */
 public class PingJob implements Job<Void> {
 
-  private boolean testAlwaysFail;
-
-  public PingJob(boolean testAlwaysFail) {
-    this.testAlwaysFail = testAlwaysFail;
-  }
-
-  public PingJob() {
-    this(false);
-  }
-
   @Override
   public Void call(JobContext jc) {
-    if (testAlwaysFail) {
-      throw new AssertionError("Test hook enabled. Failing PingJob.");
-    }
-
     return null;
   }
 

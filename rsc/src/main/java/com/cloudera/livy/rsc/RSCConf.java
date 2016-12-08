@@ -72,7 +72,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     SASL_QOP("rpc.sasl.qop", null),
 
     TEST_STUCK_END_SESSION("test.do_not_use.stuck_end_session", false),
-    TEST_PING_JOB_ERROR("test.do_not_use.ping_job_error", false);
+    TEST_STUCK_START_SESSION("test.do_not_use.stuck_start_session", false);
 
     private final String key;
     private final Object dflt;
