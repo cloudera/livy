@@ -155,9 +155,9 @@ object InteractiveSession extends Logging {
       Option(livyConf.get(LIVY_REPL_JARS)).map { jars =>
         val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
         jars.split(",").filter { name => new Path(name).getName match {
-              // Filter out unmatched scala jars
+            // Filter out unmatched scala jars
             case regex(ver) => ver == scalaVersion
-              // Keep all the java jars end with ".jar"
+            // Keep all the java jars end with ".jar"
             case _ => name.endsWith(".jar")
           }
         }.toList
