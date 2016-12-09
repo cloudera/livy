@@ -168,15 +168,18 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
 
     it("can kill spark-submit while it's running") {
       Clock.withSleepMethod(mockSleep) {
+        val livyConf = new LivyConf()
+        livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "0")
+
         val mockYarnClient = mock[YarnClient]
         val mockSparkSubmit = mock[LineBufferedProcess]
-        when(mockSparkSubmit.exitValue()).thenReturn(1)
 
         val sparkSubmitRunningLatch = new CountDownLatch(1)
         // Simulate a running spark-submit
-        when(mockSparkSubmit.inputLines).thenAnswer(new Answer[Unit]() {
-          override def answer(invocation: InvocationOnMock): Unit = {
+        when(mockSparkSubmit.waitFor()).thenAnswer(new Answer[Int]() {
+          override def answer(invocation: InvocationOnMock): Int = {
             sparkSubmitRunningLatch.await()
+            0
           }
         })
 
@@ -190,6 +193,7 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         cleanupThread(app.yarnAppMonitorThread) {
           app.kill()
           verify(mockSparkSubmit, times(1)).destroy()
+          sparkSubmitRunningLatch.countDown()
         }
       }
     }
