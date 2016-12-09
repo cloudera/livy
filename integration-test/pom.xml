@@ -215,7 +215,7 @@
         <executions>
           <execution>
             <id>parse-spark-version</id>
-            <phase>process-test-resources</phase>
+            <phase>process-test-sources</phase>
             <goals>
               <goal>parse-version</goal>
             </goals>
@@ -226,7 +226,7 @@
           </execution>
           <execution>
             <id>add-spark-version-specific-test</id>
-            <phase>process-test-resources</phase>
+            <phase>process-test-sources</phase>
             <goals>
               <goal>add-test-source</goal>
             </goals>
