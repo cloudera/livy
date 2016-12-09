@@ -114,7 +114,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
   test("should kill RSCDriver if it didn't register itself in time") {
     val testConfName =
-      s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_START_SESSION.key()}"
+      s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_START_DRIVER.key()}"
     withNewSession(Spark(), Map(testConfName -> "true"), false) { s =>
       eventually(timeout(2 minutes), interval(5 seconds)) {
         val appId = s.appId()
