@@ -18,9 +18,7 @@
 
 package com.cloudera.livy.server.interactive
 
-import java.io.File
 import java.net.URI
-import java.nio.file.{Files, Paths}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -46,9 +44,8 @@ import com.cloudera.livy.utils.{AppInfo, SparkApp}
 class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
 
-  val dummyJar = Files.createTempFile(Paths.get(sys.props("java.io.tmpdir")), "dummy", "jar")
   private val livyConf = new LivyConf()
-  livyConf.set(InteractiveSession.LIVY_REPL_JARS, dummyJar.toFile.getAbsolutePath)
+  livyConf.set(InteractiveSession.LIVY_REPL_JARS, "dummy.jar")
     .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
 
@@ -105,58 +102,30 @@ class InteractiveSessionSpec extends FunSpec
   describe("A spark session") {
 
     it("should get scala version matched jars with livy.repl.jars") {
-      val tmpDir = Files.createTempDirectory(Paths.get(sys.props("java.io.tmpdir")), "test").toFile
-
       val testedJars = Seq(
-        "test_2.10.jar",
-        "test1_2.10-1.0.jar",
-        "test2_2.11-1.0-SNAPSHOT.jar",
-        "test3.jar",
-        "non-jar")
-      testedJars.foreach(n => new File(tmpDir, n).createNewFile())
-
-      // Test glob path
+        "test_2.10-0.1.jar",
+        "local://dummy-path/test/test1_2.10-1.0.jar",
+        "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "non-jar",
+        "dummy.jar"
+      )
       val livyConf = new LivyConf(false)
-        .set(InteractiveSession.LIVY_REPL_JARS, tmpDir.getAbsolutePath + "/*")
+        .set(InteractiveSession.LIVY_REPL_JARS, testedJars.mkString(","))
         .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
         .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
       val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties(LivyConf.SPARK_JARS).split(",").toSet ===
-        Set(
-          "test_2.10.jar",
-          "test1_2.10-1.0.jar",
-          "test3.jar").map(new File(tmpDir, _).getAbsoluteFile.toURI.toString))
+      assert(properties(LivyConf.SPARK_JARS).split(",").toSet === Set("test_2.10-0.1.jar",
+        "local://dummy-path/test/test1_2.10-1.0.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "dummy.jar"))
 
-      // Test 2.11
       livyConf.set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.11")
       val properties1 = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties1(LivyConf.SPARK_JARS).split(",").toSet ===
-        Set(
-          "test2_2.11-1.0-SNAPSHOT.jar",
-          "test3.jar").map(new File(tmpDir, _).getAbsoluteFile.toURI.toString))
-
-      // Test local scheme
-      val localJars = testedJars.map(new File(tmpDir, _).getAbsoluteFile.toURI).map { i =>
-        new URI("local", i.getHost, i.getPath, i.getFragment)
-      }
-      livyConf.set(InteractiveSession.LIVY_REPL_JARS, localJars.map(_.toString).mkString(","))
-        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
-      val properties2 = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties2(LivyConf.SPARK_JARS).split(",").toSet ===
-        Set(
-          s"local:${tmpDir.getAbsolutePath}/test_2.10.jar",
-          s"local:${tmpDir.getAbsolutePath}/test1_2.10-1.0.jar",
-          s"local:${tmpDir.getAbsolutePath}/test3.jar"))
-
-      // Test without Scheme
-      livyConf.set(InteractiveSession.LIVY_REPL_JARS,
-        testedJars.map(new File(tmpDir, _).getAbsolutePath).mkString(","))
-      val properties3 = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties3(LivyConf.SPARK_JARS).split(",").toSet ===
-        Set(
-          "test_2.10.jar",
-          "test1_2.10-1.0.jar",
-          "test3.jar").map(new File(tmpDir, _).getAbsoluteFile.toURI.toString))
+      assert(properties1(LivyConf.SPARK_JARS).split(",").toSet === Set(
+        "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "dummy.jar"))
     }
 
     it("should start in the idle state") {

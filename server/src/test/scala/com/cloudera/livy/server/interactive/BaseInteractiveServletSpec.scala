@@ -19,7 +19,7 @@
 package com.cloudera.livy.server.interactive
 
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import org.apache.commons.io.FileUtils
 import org.apache.spark.launcher.SparkLauncher
@@ -48,11 +48,9 @@ abstract class BaseInteractiveServletSpec
     if (tempDir == null) {
       tempDir = Files.createTempDirectory("client-test").toFile()
     }
-    val dummyJar =
-      Files.createTempFile(Paths.get(sys.props("java.io.tmpdir")), "dummy", "jar").toFile
     super.createConf()
       .set(LivyConf.SESSION_STAGING_DIR, tempDir.toURI().toString())
-      .set(InteractiveSession.LIVY_REPL_JARS, dummyJar.getAbsolutePath)
+      .set(InteractiveSession.LIVY_REPL_JARS, "dummy.jar")
       .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
       .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
   }
