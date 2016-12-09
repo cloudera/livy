@@ -112,7 +112,7 @@ object SparkRInterpreter {
       env.put("R_PROFILE_USER",
         Seq(packageDir, "SparkR", "profile", "general.R").mkString(File.separator))
 
-      builder.redirectError(Redirect.PIPE)
+      builder.redirectErrorStream(true)
       val process = builder.start()
       new SparkRInterpreter(process, backendInstance, backendThread,
         conf.get("spark.livy.spark_major_version", "1"))
@@ -172,7 +172,7 @@ class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: T
     }
 
     try {
-      var content: JObject = TEXT_PLAIN -> (sendRequest(code) + takeErrorLines())
+      var content: JObject = TEXT_PLAIN -> sendRequest(code)
 
       // If we rendered anything, pass along the last image.
       tempFile.foreach { case file =>
@@ -186,10 +186,9 @@ class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: T
       Interpreter.ExecuteSuccess(content)
     } catch {
       case e: Error =>
-        val message = Seq(e.output, takeErrorLines()).mkString("\n")
-        Interpreter.ExecuteError("Error", message)
+        Interpreter.ExecuteError("Error", e.output)
       case e: Exited =>
-        Interpreter.ExecuteAborted(takeErrorLines())
+        Interpreter.ExecuteAborted(e.getMessage)
     } finally {
       tempFile.foreach(Files.delete)
     }
