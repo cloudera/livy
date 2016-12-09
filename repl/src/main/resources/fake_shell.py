@@ -402,6 +402,9 @@ def magic_table(name):
     for row in value:
         cols = []
         data.append(cols)
+        
+        if 'Row' == row.__class__.__name__:
+            row = row.asDict()
 
         if not isinstance(row, (list, tuple, dict)):
             row = [row]
