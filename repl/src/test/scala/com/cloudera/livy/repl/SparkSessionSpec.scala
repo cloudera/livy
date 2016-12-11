@@ -42,7 +42,7 @@ class SparkSessionSpec extends BaseSessionSpec {
       "status" -> "ok",
       "execution_count" -> 0,
       "data" -> Map(
-        "text/plain" -> "res0: Int = 3"
+        "text/plain" -> "res1: Int = 3"
       )
     ))
 
@@ -87,7 +87,7 @@ class SparkSessionSpec extends BaseSessionSpec {
       "status" -> "ok",
       "execution_count" -> 2,
       "data" -> Map(
-        "text/plain" -> "res0: Int = 3"
+        "text/plain" -> "res3: Int = 3"
       )
     ))
 
@@ -158,7 +158,7 @@ class SparkSessionSpec extends BaseSessionSpec {
 
     val data = resultMap("data").extract[Map[String, JValue]]
     data("text/plain").extract[String] should include (
-      "res0: org.apache.spark.SparkContext = org.apache.spark.SparkContext")
+      "res1: org.apache.spark.SparkContext = org.apache.spark.SparkContext")
   }
 
   it should "execute spark commands" in withSession { session =>
@@ -172,7 +172,7 @@ class SparkSessionSpec extends BaseSessionSpec {
       "status" -> "ok",
       "execution_count" -> 0,
       "data" -> Map(
-        "text/plain" -> "res0: Array[Int] = Array(1, 2)"
+        "text/plain" -> "res1: Array[Int] = Array(1, 2)"
       )
     ))
 
@@ -207,7 +207,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     session.cancel(stmtId)
 
     eventually(timeout(30 seconds), interval(100 millis)) {
-      assert(session.statements(stmtId).state == StatementState.Cancelled)
+      assert(session.statements(stmtId).state.get() == StatementState.Cancelled)
     }
   }
 }

@@ -39,10 +39,15 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
 
   describe("Session") {
     it("should call state changed callbacks in happy path") {
-      val expectedStateTransitions = Array("not_started", "starting", "idle", "busy", "idle")
+      val expectedStateTransitions =
+        Array("not_started", "starting", "idle", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
       val session = new Session(interpreter, { s => actualStateTransitions.add(s.toString) })
 
       session.start()
@@ -55,10 +60,15 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
     }
 
     it("should not transit to idle if there're any pending statements.") {
-      val expectedStateTransitions = Array("not_started", "busy", "busy", "idle")
+      val expectedStateTransitions =
+        Array("not_started", "busy", "busy", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
       val blockFirstExecuteCall = new CountDownLatch(1)
       when(interpreter.execute("")).thenAnswer(new Answer[Interpreter.ExecuteResponse] {
         override def answer(invocation: InvocationOnMock): ExecuteResponse = {

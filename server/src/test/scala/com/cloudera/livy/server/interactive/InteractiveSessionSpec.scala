@@ -76,7 +76,7 @@ class InteractiveSessionSpec extends FunSpec
     val id = session.executeStatement(ExecuteRequest(code)).id
     eventually(timeout(30 seconds), interval(100 millis)) {
       val s = session.getStatement(id).get
-      s.state shouldBe StatementState.Available
+      s.state.get() shouldBe StatementState.Available
       parse(s.output)
     }
   }
@@ -188,7 +188,7 @@ class InteractiveSessionSpec extends FunSpec
       eventually(timeout(30 seconds), interval(100 millis)) {
         val s = session.getStatement(result.id)
         s should not be (None)
-        s.get.state should be (StatementState.Cancelled)
+        s.get.state.get() should be (StatementState.Cancelled)
       }
     }
 

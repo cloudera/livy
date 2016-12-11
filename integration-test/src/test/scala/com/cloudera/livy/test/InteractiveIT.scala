@@ -35,8 +35,8 @@ class InteractiveIT extends BaseIntegrationTestSuite {
   test("basic interactive session") {
     withNewSession(Spark()) { s =>
       s.run("val sparkVersion = sc.version").result().left.foreach(info(_))
-      s.run("1+1").verifyResult("res0: Int = 2")
-      s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res1: String = 1")
+      s.run("1+1").verifyResult("res2: Int = 2")
+      s.run("""sc.getConf.get("spark.executor.instances")""").verifyResult("res4: String = 1")
       s.run("val sql = new org.apache.spark.sql.SQLContext(sc)").verifyResult(
         ".*" + Pattern.quote(
         "sql: org.apache.spark.sql.SQLContext = org.apache.spark.sql.SQLContext") + ".*")
@@ -151,7 +151,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
   test("recover interactive session") {
     withNewSession(Spark()) { s =>
       val stmt1 = s.run("1")
-      stmt1.verifyResult("res0: Int = 1")
+      stmt1.verifyResult("res1: Int = 1")
 
       // Restart Livy.
       cluster.stopLivy()
@@ -159,9 +159,9 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
       // Verify session still exists.
       s.verifySessionIdle()
-      s.run("2").verifyResult("res1: Int = 2")
+      s.run("2").verifyResult("res3: Int = 2")
       // Verify statement result is preserved.
-      stmt1.verifyResult("res0: Int = 1")
+      stmt1.verifyResult("res1: Int = 1")
 
       s.stop()
 

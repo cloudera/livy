@@ -17,17 +17,19 @@
 
 package com.cloudera.livy.rsc.driver;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.fasterxml.jackson.annotation.JsonRawValue;
 
 public class Statement {
   public final Integer id;
-  public final StatementState state;
+  public final AtomicReference<StatementState> state;
   @JsonRawValue
-  public final String output;
+  public String output;
 
   public Statement(Integer id, StatementState state, String output) {
     this.id = id;
-    this.state = state;
+    this.state = new AtomicReference<>(state);
     this.output = output;
   }
 

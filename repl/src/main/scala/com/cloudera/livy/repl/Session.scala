@@ -59,7 +59,6 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
   private val _statements = TrieMap[Int, Statement]()
 
   private val newStatementId = new AtomicInteger(0)
-  private val lock = new Object()
 
   stateChangedCallback(_state)
 
@@ -90,44 +89,28 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
 
     Future {
-      def stmtState = _statements(statementId).state
+      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
 
-      if (stmtState != StatementState.Cancelled) {
-        lock.synchronized {
-          if (stmtState != StatementState.Cancelled) {
-            _statements(statementId) = new Statement(statementId, StatementState.Running, null)
-            _sc.foreach(
-              _.setJobGroup(statementId.toString, s"Job group for statement $statementId"))
-          }
-        }
-      }
-
-      val executeResult = if (stmtState != StatementState.Cancelled) {
-        executeCode(statementId, code)
+      val executeResult = if (_statements(statementId).state.get() != StatementState.Cancelled) {
+        executeWithJobGroup(statementId, code)
       } else {
         null
       }
 
-      if (stmtState != StatementState.Cancelled) {
-        lock.synchronized {
-          if (stmtState != StatementState.Cancelled) {
-            _statements(statementId) =
-              new Statement(statementId, StatementState.Available, executeResult)
-          }
-        }
-      }
+      _statements(statementId).output = executeResult
+      _statements(statementId).state.compareAndSet(StatementState.Running, StatementState.Available)
     }
 
     statementId
   }
 
   def cancel(statementId: Int): Unit = {
-    if (_statements.contains(statementId)) lock.synchronized {
-      val oldStmtState = _statements.put(statementId,
-        new Statement(statementId, StatementState.Cancelled, null))
+    if (_statements.contains(statementId)) {
+      val oldStmtState = _statements(statementId).state.getAndSet(StatementState.Cancelled)
+
       info(s"Statement $statementId is canceled")
 
-      if (oldStmtState.get.state == StatementState.Running) {
+      if (oldStmtState == StatementState.Running) {
         _sc.foreach(_.cancelJobGroup(statementId.toString))
       }
     }
@@ -209,5 +192,19 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     }
 
     compact(render(resultInJson))
+  }
+
+  private def executeWithJobGroup(executionCount: Int, code: String): String = {
+    Kind(interpreter.kind) match {
+      case Spark() | PySpark() | PySpark3() =>
+        val cmd = """sc.setJobGroup(%d, "Job group for statement %d")"""
+          .format(executionCount, executionCount)
+        executeCode(executionCount, cmd)
+      case SparkR() =>
+        // SparkR doesn't support statement cancelling, so doesn't need to set job group
+      case _ =>
+        // Unknown interpreter type.
+    }
+    executeCode(executionCount, code)
   }
 }

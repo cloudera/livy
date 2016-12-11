@@ -40,7 +40,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
     val id = session.execute(code)
     eventually(timeout(30 seconds), interval(100 millis)) {
       val s = session.statements(id)
-      s.state shouldBe StatementState.Available
+      s.state.get() shouldBe StatementState.Available
       s
     }
   }

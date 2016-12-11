@@ -189,7 +189,7 @@ abstract class PythonSessionSpec extends BaseSessionSpec {
     session.cancel(stmtId)
 
     eventually(timeout(30 seconds), interval(100 millis)) {
-      assert(session.statements(stmtId).state == StatementState.Cancelled)
+      assert(session.statements(stmtId).state.get() == StatementState.Cancelled)
     }
   }
 }
