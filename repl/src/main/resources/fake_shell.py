@@ -427,8 +427,8 @@ def magic_table(name):
                 headers[name] = header
             else:
                 # Reject columns that have a different type. (allow none value)
-                if col_type is not "NULL_TYPE" and header['type'] != col_type:
-                    if header['type'] is "NULL_TYPE":
+                if col_type != "NULL_TYPE" and header['type'] != col_type:
+                    if header['type'] == "NULL_TYPE":
                         header['type'] = col_type
                     else:
                         exc_type = Exception
