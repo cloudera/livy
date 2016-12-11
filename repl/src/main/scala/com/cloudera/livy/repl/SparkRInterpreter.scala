@@ -126,8 +126,11 @@ object SparkRInterpreter {
   }
 }
 
-class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: Thread,
-  sparkMajorVersion: String) extends ProcessInterpreter(process) {
+class SparkRInterpreter(process: Process,
+    backendInstance: Any,
+    backendThread: Thread,
+    val sparkMajorVersion: String)
+  extends ProcessInterpreter(process) {
   import SparkRInterpreter._
 
   implicit val formats = DefaultFormats

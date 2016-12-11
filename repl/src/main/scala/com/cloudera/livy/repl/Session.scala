@@ -70,11 +70,8 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
       sc
     }
 
-    future.onFailure { case _ =>
-      changeState(SessionState.Error())
-    }
+    future.onFailure { case _ => changeState(SessionState.Error()) }
     future.onSuccess { case sc => _sc = Option(sc).orElse(Some(SparkContext.getOrCreate())) }
-
     future
   }
 
@@ -195,16 +192,22 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
   }
 
   private def executeWithJobGroup(executionCount: Int, code: String): String = {
-    Kind(interpreter.kind) match {
+    val cmd = Kind(interpreter.kind) match {
       case Spark() | PySpark() | PySpark3() =>
-        val cmd = """sc.setJobGroup(%d, "Job group for statement %d")"""
-          .format(executionCount, executionCount)
-        executeCode(executionCount, cmd)
+        s"""sc.setJobGroup($executionCount, "Job group for statement $executionCount")"""
       case SparkR() =>
-        // SparkR doesn't support statement cancelling, so doesn't need to set job group
-      case _ =>
-        // Unknown interpreter type.
+        interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
+          case "1" =>
+            s"""setJobGroup(sc, $executionCount, "Job group for statement $executionCount", """ +
+              "FALSE)"
+          case "2" =>
+            s"""setJobGroup($executionCount, "Job group for statement $executionCount", FALSE)"""
+        }
     }
+    // Set the job group
+    executeCode(executionCount, cmd)
+
+    // execute the statement
     executeCode(executionCount, code)
   }
 }
