@@ -152,3 +152,23 @@ class JobContext:
             Returns a local tmp dir path specific to the context
         """
         pass
+
+    @abstractproperty
+    def spark_session(self):
+        """
+        The shared SparkSession instance.
+
+        Returns
+        -------
+        sc : pyspark.sql.SparkSession
+            A SparkSession instance
+
+        Examples
+         -------
+
+        >>> def simple_spark_job(context):
+        >>>     session = context.spark_session
+        >>>     df1 = session.read.json('/sample.json')
+        >>>     return df1.dTypes()
+        """
+        pass

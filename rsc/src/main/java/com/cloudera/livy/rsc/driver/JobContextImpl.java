@@ -18,7 +18,9 @@
 package com.cloudera.livy.rsc.driver;
 
 import java.io.File;
+import java.lang.reflect.Method;
 
+import org.apache.spark.SparkContext;
 import org.apache.spark.api.java.JavaFutureAction;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SQLContext;
@@ -41,6 +43,7 @@ class JobContextImpl implements JobContext {
   private volatile HiveContext hivectx;
   private volatile JavaStreamingContext streamingctx;
   private final RSCDriver driver;
+  private volatile Object sparksession;
 
   public JobContextImpl(JavaSparkContext sc, File localTmpDir, RSCDriver driver) {
     this.sc = sc;
@@ -51,6 +54,30 @@ class JobContextImpl implements JobContext {
   @Override
   public JavaSparkContext sc() {
     return sc;
+  }
+
+  @Override
+  public Object sparkSession() throws Exception {
+    if (sparksession == null) {
+      synchronized (this) {
+        if (sparksession == null) {
+          try {
+            Class<?> clz = Class.forName("org.apache.spark.sql.SparkSession$");
+            Object spark = clz.getField("MODULE$").get(null);
+            Method m = clz.getMethod("builder");
+            Object builder = m.invoke(spark);
+            builder.getClass().getMethod("sparkContext", SparkContext.class)
+              .invoke(builder, sc.sc());
+            sparksession = builder.getClass().getMethod("getOrCreate").invoke(builder);
+          } catch (Exception e) {
+            LOG.warn("SparkSession is not supported", e);
+            throw e;
+          }
+        }
+      }
+    }
+
+    return sparksession;
   }
 
   @Override
