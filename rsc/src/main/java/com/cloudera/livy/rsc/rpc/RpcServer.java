@@ -34,6 +34,7 @@ import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -67,11 +68,35 @@ public class RpcServer implements Closeable {
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
 
-  public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
+  @VisibleForTesting
+  RpcServer(RSCConf lconf) throws IOException, InterruptedException {
+    this(lconf, false);
+  }
+
+  public RpcServer(RSCConf lconf, boolean isLauncher) throws IOException, InterruptedException {
     this.config = lconf;
     this.group = new NioEventLoopGroup(
         this.config.getInt(RPC_MAX_THREADS),
         Utils.newDaemonThreadFactory("RPC-Handler-%d"));
+
+    final InetSocketAddress socketAddress;
+    if (isLauncher) {
+      if (lconf.get(LAUNCHER_ADDRESS) != null && lconf.getInt(LAUNCHER_PORT) > 0) {
+        socketAddress =
+          new InetSocketAddress(lconf.get(LAUNCHER_ADDRESS), lconf.getInt(LAUNCHER_PORT));
+      } else if (lconf.getInt(LAUNCHER_PORT) > 0) {
+        socketAddress = new InetSocketAddress(lconf.getInt(LAUNCHER_PORT));
+      } else {
+        socketAddress = new InetSocketAddress(0);
+      }
+    } else {
+      if (lconf.getInt(RPC_SERVER_PORT) > 0) {
+        socketAddress = new InetSocketAddress(lconf.getInt(RPC_SERVER_PORT));
+      } else {
+        socketAddress = new InetSocketAddress(0);
+      }
+    }
+
     this.channel = new ServerBootstrap()
       .group(group)
       .channel(NioServerSocketChannel.class)
@@ -97,15 +122,15 @@ public class RpcServer implements Closeable {
       .option(ChannelOption.SO_BACKLOG, 1)
       .option(ChannelOption.SO_REUSEADDR, true)
       .childOption(ChannelOption.SO_KEEPALIVE, true)
-      .bind(0)
+      .bind(socketAddress)
       .sync()
       .channel();
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
 
-    String address = config.get(RPC_SERVER_ADDRESS);
+    String address = isLauncher ? config.get(LAUNCHER_ADDRESS) : null;
     if (address == null) {
-      address = config.findLocalAddress();
+      address = config.findLocalAddress(isLauncher);
     }
     this.address = address;
   }

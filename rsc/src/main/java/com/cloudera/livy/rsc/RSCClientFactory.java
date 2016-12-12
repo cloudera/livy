@@ -86,7 +86,7 @@ public final class RSCClientFactory implements LivyClientFactory {
     Utils.checkState(server == null, "Server already running but ref count is 0.");
     if (server == null) {
       try {
-        server = new RpcServer(config);
+        server = new RpcServer(config, true);
       } catch (InterruptedException ie) {
         throw Utils.propagate(ie);
       }

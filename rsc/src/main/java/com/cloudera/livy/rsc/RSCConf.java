@@ -60,7 +60,7 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     PROXY_USER("proxy_user", null),
 
-    RPC_SERVER_ADDRESS("rpc.server.address", null),
+    RPC_SERVER_PORT("rpc.server.port", -1),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90s"),
     RPC_CLIENT_CONNECT_TIMEOUT("client.connect.timeout", "10s"),
     RPC_CHANNEL_LOG_LEVEL("channel.log.level", null),
@@ -105,7 +105,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     return opts;
   }
 
-  public String findLocalAddress() throws IOException {
+  public String findLocalAddress(boolean isLauncher) throws IOException {
     InetAddress address = InetAddress.getLocalHost();
     if (address.isLoopbackAddress()) {
       // Address resolves to something like 127.0.1.1, which happens on Debian;
@@ -122,8 +122,10 @@ public class RSCConf extends ClientConf<RSCConf> {
             LOG.warn("Your hostname, {}, resolves to a loopback address; using {} "
                 + " instead (on interface {})", address.getHostName(), addr.getHostAddress(),
                 ni.getName());
-            LOG.warn("Set '{}' if you need to bind to another address.",
-              Entry.RPC_SERVER_ADDRESS.key);
+            if (isLauncher) {
+              LOG.warn("Set '{}' if you need to bind to another address.",
+                Entry.LAUNCHER_ADDRESS.key);
+            }
             return addr.getHostAddress();
           }
         }
@@ -132,8 +134,9 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     LOG.warn("Your hostname, {}, resolves to a loopback address, but we couldn't find "
         + "any external IP address!", address.getCanonicalHostName());
-    LOG.warn("Set {} if you need to bind to another address.",
-      Entry.RPC_SERVER_ADDRESS.key);
+    if (isLauncher) {
+      LOG.warn("Set {} if you need to bind to another address.", Entry.LAUNCHER_ADDRESS.key);
+    }
     return address.getCanonicalHostName();
   }
 

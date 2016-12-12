@@ -157,12 +157,6 @@ public class RSCDriver extends BaseProtocol {
 
     LOG.info("Connecting to: {}:{}", launcherAddress, launcherPort);
 
-    // We need to unset this configuration since it doesn't really apply for the driver side.
-    // If the driver runs on a multi-homed machine, this can lead to issues where the Livy
-    // server cannot connect to the auto-detected address, but since the driver can run anywhere
-    // on the cluster, it would be tricky to solve that problem in a generic way.
-    livyConf.set(RPC_SERVER_ADDRESS, null);
-
     if (livyConf.getBoolean(TEST_STUCK_START_DRIVER)) {
       // Test flag is turned on so we will just infinite loop here. It should cause
       // timeout and we should still see yarn application being cleaned up.
@@ -178,7 +172,7 @@ public class RSCDriver extends BaseProtocol {
 
     // Bring up the RpcServer an register the secret provided by the Livy server as a client.
     LOG.info("Starting RPC server...");
-    this.server = new RpcServer(livyConf);
+    this.server = new RpcServer(livyConf, false);
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
       public RpcDispatcher onNewClient(Rpc client) {
