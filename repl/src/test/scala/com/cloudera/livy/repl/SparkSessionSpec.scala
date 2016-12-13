@@ -209,7 +209,7 @@ class SparkSessionSpec extends BaseSessionSpec {
     }
 
     // Sleep a while to make sure job is running
-    Thread.sleep(1000)
+    Thread.sleep(2000)
     session.cancel(stmtId)
 
     eventually(timeout(30 seconds), interval(100 millis)) {
