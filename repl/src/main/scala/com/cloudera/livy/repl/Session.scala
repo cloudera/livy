@@ -133,7 +133,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
           (EXECUTION_COUNT -> executionCount) ~
           (ENAME -> "Error") ~
           (EVALUE -> "incomplete statement") ~
-          (TRACEBACK -> List())
+          (TRACEBACK -> Seq.empty[String])
 
         case Interpreter.ExecuteError(ename, evalue, traceback) =>
           transitToIdle()
@@ -151,7 +151,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
           (EXECUTION_COUNT -> executionCount) ~
           (ENAME -> "Error") ~
           (EVALUE -> f"Interpreter died:\n$message") ~
-          (TRACEBACK -> List())
+          (TRACEBACK -> Seq.empty[String])
       }
     } catch {
       case e: Throwable =>
@@ -163,7 +163,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
         (EXECUTION_COUNT -> executionCount) ~
         (ENAME -> f"Internal Error: ${e.getClass.getName}") ~
         (EVALUE -> e.getMessage) ~
-        (TRACEBACK -> List())
+        (TRACEBACK -> Seq.empty[String])
     }
 
     compact(render(resultInJson))
