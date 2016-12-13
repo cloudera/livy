@@ -45,7 +45,7 @@ class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
-  livyConf.set(InteractiveSession.LIVY_REPL_JARS, "")
+  livyConf.set(InteractiveSession.LIVY_REPL_JARS, "dummy.jar")
     .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
 
@@ -100,6 +100,34 @@ class InteractiveSessionSpec extends FunSpec
   }
 
   describe("A spark session") {
+
+    it("should get scala version matched jars with livy.repl.jars") {
+      val testedJars = Seq(
+        "test_2.10-0.1.jar",
+        "local://dummy-path/test/test1_2.10-1.0.jar",
+        "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "non-jar",
+        "dummy.jar"
+      )
+      val livyConf = new LivyConf(false)
+        .set(InteractiveSession.LIVY_REPL_JARS, testedJars.mkString(","))
+        .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
+      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
+      assert(properties(LivyConf.SPARK_JARS).split(",").toSet === Set("test_2.10-0.1.jar",
+        "local://dummy-path/test/test1_2.10-1.0.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "dummy.jar"))
+
+      livyConf.set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.11")
+      val properties1 = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
+      assert(properties1(LivyConf.SPARK_JARS).split(",").toSet === Set(
+        "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
+        "hdfs:///dummy-path/test/test3.jar",
+        "dummy.jar"))
+    }
+
     it("should start in the idle state") {
       session = createSession()
       session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))

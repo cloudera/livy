@@ -30,6 +30,8 @@ import scala.concurrent.Future
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.google.common.annotations.VisibleForTesting
+import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
 import com.cloudera.livy._
@@ -142,7 +144,8 @@ object InteractiveSession extends Logging {
       mockApp)
   }
 
-  private def prepareBuilderProp(
+  @VisibleForTesting
+  private[interactive] def prepareBuilderProp(
     conf: Map[String, String],
     kind: Kind,
     livyConf: LivyConf): mutable.Map[String, String] = {
@@ -151,7 +154,16 @@ object InteractiveSession extends Logging {
     builderProperties ++= conf
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
-      Option(livyConf.get(LIVY_REPL_JARS)).map(_.split(",").toList).getOrElse {
+      Option(livyConf.get(LIVY_REPL_JARS)).map { jars =>
+        val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
+        jars.split(",").filter { name => new Path(name).getName match {
+            // Filter out unmatched scala jars
+            case regex(ver) => ver == scalaVersion
+            // Keep all the java jars end with ".jar"
+            case _ => name.endsWith(".jar")
+          }
+        }.toList
+      }.getOrElse {
         val home = sys.env("LIVY_HOME")
         val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
           .filter(_.isDirectory())
