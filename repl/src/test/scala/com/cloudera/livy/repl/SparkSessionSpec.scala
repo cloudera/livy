@@ -218,4 +218,21 @@ class SparkSessionSpec extends BaseSessionSpec {
         "Job 0 cancelled part of cancelled job group 0")
     }
   }
+
+  it should "cancel waiting statement" in withSession { session =>
+    session.execute(
+      """sc.parallelize(0 to 10).map { i => i + 1 }.collect""".stripMargin)
+    val stmtId2 = session.execute(
+      """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+
+    assert(session.statements(stmtId2).state.get() == StatementState.Waiting)
+
+    session.cancel(stmtId2)
+    assert(session.statements(stmtId2).state.get() == StatementState.Cancelling)
+
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId2).state.get() == StatementState.Cancelled)
+      session.statements(stmtId2).output should be (null)
+    }
+  }
 }

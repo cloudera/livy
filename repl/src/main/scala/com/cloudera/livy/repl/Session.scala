@@ -66,12 +66,12 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     val future = Future {
       changeState(SessionState.Starting())
       val sc = interpreter.start()
+      _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
     }
 
     future.onFailure { case _ => changeState(SessionState.Error()) }
-    future.onSuccess { case sc => _sc = Option(sc).orElse(Some(SparkContext.getOrCreate())) }
     future
   }
 
