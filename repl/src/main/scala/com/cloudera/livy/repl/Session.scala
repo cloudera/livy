@@ -88,14 +88,17 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     Future {
       _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
 
-      val executeResult = if (_statements(statementId).state.get() != StatementState.Cancelled) {
-        executeWithJobGroup(statementId, code)
+      setJobGroup(statementId)
+      val executeResult = if (_statements(statementId).state.get() != StatementState.Cancelling) {
+        executeCode(statementId, code)
       } else {
         null
       }
 
       _statements(statementId).output = executeResult
       _statements(statementId).state.compareAndSet(StatementState.Running, StatementState.Available)
+      _statements(statementId).state.compareAndSet(
+        StatementState.Cancelling, StatementState.Cancelled)
     }
 
     statementId
@@ -103,12 +106,14 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
   def cancel(statementId: Int): Unit = {
     if (_statements.contains(statementId)) {
-      val oldStmtState = _statements(statementId).state.getAndSet(StatementState.Cancelled)
+      val oldStmtState = _statements(statementId).state.getAndSet(StatementState.Cancelling)
 
       info(s"Statement $statementId is canceled")
 
       if (oldStmtState == StatementState.Running) {
         _sc.foreach(_.cancelJobGroup(statementId.toString))
+      } else if (oldStmtState == StatementState.Available) {
+        _statements(statementId).state.set(StatementState.Cancelled)
       }
     }
   }
@@ -191,23 +196,20 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     compact(render(resultInJson))
   }
 
-  private def executeWithJobGroup(executionCount: Int, code: String): String = {
+  private def setJobGroup(statementId: Int): String = {
     val cmd = Kind(interpreter.kind) match {
       case Spark() | PySpark() | PySpark3() =>
-        s"""sc.setJobGroup($executionCount, "Job group for statement $executionCount")"""
+        s"""sc.setJobGroup("$statementId", "Job group for statement $statementId")"""
       case SparkR() =>
         interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
           case "1" =>
-            s"""setJobGroup(sc, $executionCount, "Job group for statement $executionCount", """ +
+            s"""setJobGroup(sc, "$statementId", "Job group for statement $statementId", """ +
               "FALSE)"
           case "2" =>
-            s"""setJobGroup($executionCount, "Job group for statement $executionCount", FALSE)"""
+            s"""setJobGroup("$statementId", "Job group for statement $statementId", FALSE)"""
         }
     }
     // Set the job group
-    executeCode(executionCount, cmd)
-
-    // execute the statement
-    executeCode(executionCount, code)
+    executeCode(statementId, cmd)
   }
 }

@@ -175,23 +175,6 @@ abstract class PythonSessionSpec extends BaseSessionSpec {
 
     result should equal (expectedResult)
   }
-
-  it should "cancel pyspark jobs" in withSession { session =>
-    val stmtId = session.execute(
-      """
-        |def func(i):
-        |  from time import sleep
-        |  sleep(10)
-        |  return i
-        |sc.range(10).map(func).collect()
-      """.stripMargin)
-
-    session.cancel(stmtId)
-
-    eventually(timeout(30 seconds), interval(100 millis)) {
-      assert(session.statements(stmtId).state.get() == StatementState.Cancelled)
-    }
-  }
 }
 
 class Python2SessionSpec extends PythonSessionSpec {

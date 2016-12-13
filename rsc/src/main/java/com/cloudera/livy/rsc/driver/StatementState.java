@@ -23,6 +23,7 @@ public enum StatementState {
   Waiting("waiting"),
   Running("running"),
   Available("available"),
+  Cancelling("cancelling"),
   Cancelled("cancelled");
 
   private final String state;

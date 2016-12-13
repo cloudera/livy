@@ -204,10 +204,18 @@ class SparkSessionSpec extends BaseSessionSpec {
   it should "cancel spark jobs" in withSession { session =>
     val stmtId = session.execute(
       """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId).state.get() == StatementState.Running)
+    }
+
+    // Sleep a while to make sure job is running
+    Thread.sleep(1000)
     session.cancel(stmtId)
 
     eventually(timeout(30 seconds), interval(100 millis)) {
       assert(session.statements(stmtId).state.get() == StatementState.Cancelled)
+      session.statements(stmtId).output should include (
+        "Job 0 cancelled part of cancelled job group 0")
     }
   }
 }
