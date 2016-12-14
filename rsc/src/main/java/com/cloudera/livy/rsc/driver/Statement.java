@@ -25,7 +25,7 @@ public class Statement {
   public final Integer id;
   public final AtomicReference<StatementState> state;
   @JsonRawValue
-  public String output;
+  public volatile String output;
 
   public Statement(Integer id, StatementState state, String output) {
     this.id = id;

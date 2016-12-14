@@ -86,9 +86,9 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
 
     Future {
+      setJobGroup(statementId)
       _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
 
-      setJobGroup(statementId)
       val executeResult = if (_statements(statementId).state.get() != StatementState.Cancelling) {
         executeCode(statementId, code)
       } else {
@@ -108,13 +108,20 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     if (_statements.contains(statementId)) {
       val oldStmtState = _statements(statementId).state.getAndSet(StatementState.Cancelling)
 
-      info(s"Statement $statementId is canceled")
+      info(s"Statement $statementId is cancelling")
 
-      if (oldStmtState == StatementState.Running) {
-        _sc.foreach(_.cancelJobGroup(statementId.toString))
-      } else if (oldStmtState == StatementState.Available) {
-        _statements(statementId).state.set(StatementState.Cancelled)
-      }
+      val singleThreadExecutor = ExecutionContext.fromExecutorService(
+        Executors.newSingleThreadExecutor())
+      Future {
+        if (oldStmtState == StatementState.Running) {
+          while (_statements(statementId).state.get() != StatementState.Cancelled) {
+            _sc.foreach(_.cancelJobGroup(statementId.toString))
+            Thread.sleep(100)
+          }
+        } else if (oldStmtState == StatementState.Available) {
+          _statements(statementId).state.set(StatementState.Cancelled)
+        }
+      }(singleThreadExecutor)
     }
   }
 
@@ -198,7 +205,11 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
   private def setJobGroup(statementId: Int): String = {
     val cmd = Kind(interpreter.kind) match {
-      case Spark() | PySpark() | PySpark3() =>
+      case Spark() =>
+        // A dummy value to avoid automatic value binding in scala REPL.
+        s"""val _livyJobGroup$statementId = sc.setJobGroup("$statementId",""" +
+          s""""Job group for statement $statementId")"""
+      case PySpark() | PySpark3() =>
         s"""sc.setJobGroup("$statementId", "Job group for statement $statementId")"""
       case SparkR() =>
         interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
