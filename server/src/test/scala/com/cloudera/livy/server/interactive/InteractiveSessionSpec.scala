@@ -181,11 +181,10 @@ class InteractiveSessionSpec extends FunSpec
     }
 
     withSession("should error out the session if the interpreter dies") { session =>
-      executeStatement("import os; os._exit(666)")
-      (session.state match {
-        case SessionState.Error(_) => true
-        case _ => false
-      }) should equal(true)
+      session.executeStatement(ExecuteRequest("import os; os._exit(666)"))
+      eventually(timeout(30 seconds), interval(100 millis)) {
+        session.state shouldBe a[SessionState.Error]
+      }
     }
   }
 
