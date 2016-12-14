@@ -92,7 +92,7 @@ class LivyConnection {
     };
 
     Credentials credentials;
-    // If user info is not specified in the url, pass them to the CredentialsProvider.
+    // If user info is specified in the url, pass them to the CredentialsProvider.
     if (uri.getUserInfo() != null) {
       String[] userInfo = uri.getUserInfo().split(":");
       if (userInfo.length != 2) {
