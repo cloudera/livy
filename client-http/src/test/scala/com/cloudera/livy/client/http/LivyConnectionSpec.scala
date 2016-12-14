@@ -19,6 +19,7 @@
 package com.cloudera.livy.client.http
 
 import java.net.URLEncoder
+import java.nio.charset.StandardCharsets.UTF_8
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 import org.apache.http.client.utils.URIBuilder
@@ -65,9 +66,8 @@ class LivyConnectionSpec extends FunSpecLike with BeforeAndAfterAll with LivyBas
       }
     }
 
-    it("should support HTTP auth") {
+    def test(password: String): Unit = {
       val username = "user name"
-      val password = "pass:word"
 
       val server = new Server(0)
       val context = new ServletContextHandler(ServletContextHandler.SESSIONS)
@@ -77,8 +77,9 @@ class LivyConnectionSpec extends FunSpecLike with BeforeAndAfterAll with LivyBas
       server.setHandler(context)
       server.start()
 
+      val utf8Name = UTF_8.name()
       val uri = new URIBuilder(server.getURI())
-        .setUserInfo(URLEncoder.encode(username, "UTF-8"), URLEncoder.encode(password, "UTF-8"))
+        .setUserInfo(URLEncoder.encode(username, utf8Name), URLEncoder.encode(password, utf8Name))
         .build()
       info(uri.toString)
       val conn = new LivyConnection(uri, new HttpConf(null))
@@ -90,6 +91,14 @@ class LivyConnectionSpec extends FunSpecLike with BeforeAndAfterAll with LivyBas
 
       server.stop()
       server.join()
+    }
+
+    it("should support HTTP auth with password") {
+      test("pass:word")
+    }
+
+    it("should support HTTP auth with empty password") {
+      test("")
     }
   }
 }

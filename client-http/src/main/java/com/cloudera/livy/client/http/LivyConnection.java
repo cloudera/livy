@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.concurrent.TimeUnit;
 
@@ -95,12 +96,15 @@ class LivyConnection {
     // If user info is specified in the url, pass them to the CredentialsProvider.
     if (uri.getUserInfo() != null) {
       String[] userInfo = uri.getUserInfo().split(":");
-      if (userInfo.length != 2) {
+      if (userInfo.length < 1) {
         throw new IllegalArgumentException("Malformed user info in the url.");
       }
       try {
-        String username = URLDecoder.decode(userInfo[0], "UTF-8");
-        String password = URLDecoder.decode(userInfo[1], "UTF-8");
+        String username = URLDecoder.decode(userInfo[0], StandardCharsets.UTF_8.name());
+        String password = "";
+        if (userInfo.length > 1) {
+          password = URLDecoder.decode(userInfo[1], StandardCharsets.UTF_8.name());
+        }
         credentials = new UsernamePasswordCredentials(username, password);
       } catch (Exception e) {
         throw new IllegalArgumentException("User info in the url contains bad characters.", e);
