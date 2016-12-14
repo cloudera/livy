@@ -142,6 +142,26 @@ abstract class PythonBaseInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
+  it should "do table magic with None type Row" in withInterpreter { interpreter =>
+    val response = interpreter.execute(
+      """x = [{"a":None, "b":None}, {"a":"2", "b":2}]
+        |%table x
+      """.stripMargin)
+
+    response should equal(Interpreter.ExecuteSuccess(
+      APPLICATION_LIVY_TABLE_JSON -> (
+        ("headers" -> List(
+          ("type" -> "STRING_TYPE") ~ ("name" -> "a"),
+          ("type" -> "INT_TYPE") ~ ("name" -> "b")
+        )) ~
+          ("data" -> List(
+            List[JValue](JNull, JNull),
+            List[JValue]("2", 2)
+          ))
+        )
+    ))
+  }
+
   it should "allow magic inside statements" in withInterpreter { interpreter =>
     val response = interpreter.execute(
       """x = [[1, 'a'], [3, 'b']]
