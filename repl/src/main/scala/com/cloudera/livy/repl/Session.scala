@@ -18,11 +18,13 @@
 
 package com.cloudera.livy.repl
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
+
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
 import org.json4s.DefaultFormats
@@ -111,33 +113,41 @@ class Session(
   }
 
   def cancel(statementId: Int): Unit = {
-    if (_statements.contains(statementId)) {
-      val oldStmtState = _statements(statementId).state.getAndSet(StatementState.Cancelling)
+    if (!_statements.contains(statementId)) {
+      return
+    }
 
-      info(s"Statement $statementId is cancelling")
+    if (_statements(statementId).state.get() == StatementState.Available ||
+      _statements(statementId).state.get() == StatementState.Cancelled ||
+      _statements(statementId).state.get() == StatementState.Cancelling) {
+      return
+    } else {
+      _statements(statementId).state.getAndSet(StatementState.Cancelling)
+    }
+
+    info(s"Cancelling statement $statementId...")
 
       Future {
-        if (oldStmtState == StatementState.Running) {
-          val currTime = System.currentTimeMillis()
-          while (_statements(statementId).state.get() != StatementState.Cancelled &&
-            System.currentTimeMillis() - currTime <= TimeUnit.SECONDS.toMillis(30)) {
+        val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
+        while (_statements(statementId).state.get() == StatementState.Cancelling) {
+          if (deadline.isOverdue()) {
+            info(s"Failed to cancel statement $statementId.")
+            _statements(statementId).state.compareAndSet(
+              StatementState.Cancelling, StatementState.Cancelled)
+          } else {
             _sc.foreach(_.cancelJobGroup(statementId.toString))
-            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
           }
-        } else if (oldStmtState == StatementState.Available) {
-          _statements(statementId).state.set(StatementState.Cancelled)
+          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+        }
+        if (_statements(statementId).state.get() == StatementState.Cancelled) {
+          info(s"Statement $statementId cancelled.")
         }
       }(cancelExecutor)
-    }
   }
 
   def close(): Unit = {
     executor.shutdown()
     interpreter.close()
-  }
-
-  def clearStatements(): Unit = {
-    _statements.clear()
   }
 
   private def changeState(newState: SessionState): Unit = {
