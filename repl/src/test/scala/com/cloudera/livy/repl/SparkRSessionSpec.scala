@@ -133,7 +133,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
       "status" -> "ok",
       "execution_count" -> 0,
       "data" -> Map(
-        "text/plain" -> "Error: object 'x' not found"
+        "text/plain" -> "Error in eval(expr, envir, enclos) : object 'x' not found"
       )
     ))
 
