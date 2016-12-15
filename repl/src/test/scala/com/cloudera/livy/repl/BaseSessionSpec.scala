@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.repl
 
+import java.util.Properties
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.Await
@@ -29,12 +30,15 @@ import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions.SessionState
 
 abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitTestSuite {
 
   implicit val formats = DefaultFormats
+
+  private val rscConf = new RSCConf(new Properties())
 
   protected def execute(session: Session)(code: String): Statement = {
     val id = session.execute(code)
@@ -47,7 +51,8 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
 
   protected def withSession(testCode: Session => Any): Unit = {
     val stateChangedCalled = new AtomicInteger()
-    val session = new Session(createInterpreter(), { _ => stateChangedCalled.incrementAndGet() })
+    val session =
+      new Session(rscConf, createInterpreter(), { _ => stateChangedCalled.incrementAndGet() })
     try {
       // Session's constructor should fire an initial state change event.
       stateChangedCalled.intValue() shouldBe 1
@@ -64,7 +69,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
   protected def createInterpreter(): Interpreter
 
   it should "start in the starting or idle state" in {
-    val session = new Session(createInterpreter())
+    val session = new Session(rscConf, createInterpreter())
     val future = session.start()
     try {
       eventually(timeout(30 seconds), interval(100 millis)) {

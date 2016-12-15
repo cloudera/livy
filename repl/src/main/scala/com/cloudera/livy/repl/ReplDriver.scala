@@ -49,7 +49,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-    session = new Session(interpreter, { s => broadcast(new ReplState(s.toString)) })
+    session = new Session(livyConf, interpreter, { s => broadcast(new ReplState(s.toString)) })
 
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))

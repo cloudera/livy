@@ -18,8 +18,8 @@
 
 package com.cloudera.livy.repl
 
+import java.util.Properties
 import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, TimeUnit}
-
 
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
@@ -32,10 +32,13 @@ import org.scalatest.time._
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.repl.Interpreter.ExecuteResponse
+import com.cloudera.livy.rsc.RSCConf
 
 class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
   override implicit val patienceConfig =
     PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(100, Millis)))
+
+  private val rscConf = new RSCConf(new Properties())
 
   describe("Session") {
     it("should call state changed callbacks in happy path") {
@@ -48,7 +51,8 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
         override def answer(invocationOnMock: InvocationOnMock): String = "spark"
       })
 
-      val session = new Session(interpreter, { s => actualStateTransitions.add(s.toString) })
+      val session =
+        new Session(rscConf, interpreter, { s => actualStateTransitions.add(s.toString) })
 
       session.start()
 
@@ -76,7 +80,8 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
           null
         }
       })
-      val session = new Session(interpreter, { s => actualStateTransitions.add(s.toString) })
+      val session =
+        new Session(rscConf, interpreter, { s => actualStateTransitions.add(s.toString) })
 
       for (_ <- 1 to 2) {
         session.execute("")

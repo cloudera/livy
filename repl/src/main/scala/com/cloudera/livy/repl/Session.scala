@@ -18,18 +18,18 @@
 
 package com.cloudera.livy.repl
 
-import java.util.concurrent.Executors
+import java.util.concurrent.{Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
-
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
 import org.json4s.DefaultFormats
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions._
 
@@ -44,11 +44,17 @@ object Session {
   val TRACEBACK = "traceback"
 }
 
-class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => })
+class Session(
+    livyConf: RSCConf,
+    interpreter: Interpreter,
+    stateChangedCallback: SessionState => Unit = { _ => })
   extends Logging {
   import Session._
 
   private implicit val executor = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor())
+
+  private val cancelExecutor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
 
   private implicit val formats = DefaultFormats
@@ -110,18 +116,18 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
       info(s"Statement $statementId is cancelling")
 
-      val singleThreadExecutor = ExecutionContext.fromExecutorService(
-        Executors.newSingleThreadExecutor())
       Future {
         if (oldStmtState == StatementState.Running) {
-          while (_statements(statementId).state.get() != StatementState.Cancelled) {
+          val currTime = System.currentTimeMillis()
+          while (_statements(statementId).state.get() != StatementState.Cancelled &&
+            System.currentTimeMillis() - currTime <= TimeUnit.SECONDS.toMillis(30)) {
             _sc.foreach(_.cancelJobGroup(statementId.toString))
-            Thread.sleep(100)
+            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
           }
         } else if (oldStmtState == StatementState.Available) {
           _statements(statementId).state.set(StatementState.Cancelled)
         }
-      }(singleThreadExecutor)
+      }(cancelExecutor)
     }
   }
 
