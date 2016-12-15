@@ -27,7 +27,7 @@ class SparkInterpreterSpec extends FunSpec with Matchers with LivyBaseUnitTestSu
     val interpreter = new SparkInterpreter(null)
 
     it("should parse Scala compile error.") {
-      // Regression test for LIVY-.
+      // Regression test for LIVY-260.
       val error =
         """<console>:27: error: type mismatch;
           | found   : Int
