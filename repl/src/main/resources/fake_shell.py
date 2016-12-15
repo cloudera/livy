@@ -430,11 +430,14 @@ def magic_table(name):
                 }
                 headers[name] = header
             else:
-                # Reject columns that have a different type.
-                if header['type'] != col_type:
-                    exc_type = Exception
-                    exc_value = 'table rows have different types'
-                    return execute_reply_error(exc_type, exc_value, None)
+                # Reject columns that have a different type. (allow none value)
+                if col_type != "NULL_TYPE" and header['type'] != col_type:
+                    if header['type'] == "NULL_TYPE":
+                        header['type'] = col_type
+                    else:
+                        exc_type = Exception
+                        exc_value = 'table rows have different types'
+                        return execute_reply_error(exc_type, exc_value, None)
 
             cols.append(col)
 
