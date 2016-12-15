@@ -97,7 +97,7 @@ class Session(
       setJobGroup(statementId)
       _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
 
-      val executeResult = if (_statements(statementId).state.get() != StatementState.Cancelling) {
+      val executeResult = if (_statements(statementId).state.get() == StatementState.Running) {
         executeCode(statementId, code)
       } else {
         null
@@ -122,7 +122,13 @@ class Session(
       _statements(statementId).state.get() == StatementState.Cancelling) {
       return
     } else {
-      _statements(statementId).state.getAndSet(StatementState.Cancelling)
+      // statement 1 is running and statement 2 is waiting. User cancels
+      // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
+      // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
+      // state to cancelled when cancelling a waiting statement.
+      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Cancelled)
+      _statements(statementId).state.compareAndSet(
+        StatementState.Running, StatementState.Cancelling)
     }
 
     info(s"Cancelling statement $statementId...")
