@@ -18,16 +18,11 @@
 
 package com.cloudera.livy.repl
 
-import scala.concurrent.duration._
-import scala.language.postfixOps
-
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
 import org.json4s.jackson.JsonMethods.parse
 import org.scalatest._
-import org.scalatest.concurrent.Eventually._
 
-import com.cloudera.livy.rsc.driver.StatementState
 import com.cloudera.livy.sessions._
 
 abstract class PythonSessionSpec extends BaseSessionSpec {
