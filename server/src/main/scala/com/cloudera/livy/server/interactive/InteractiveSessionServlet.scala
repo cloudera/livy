@@ -131,6 +131,13 @@ class InteractiveSessionServlet(
     }
   }
 
+  post("/:id/statements/:statementId/cancel") {
+    withSession { session =>
+      val statementId = params("statementId")
+      session.cancelStatement(statementId.toInt)
+      Ok(Map("msg" -> "canceled"))
+    }
+  }
   // This endpoint is used by the client-http module to "connect" to an existing session and
   // update its last activity time. It performs authorization checks to make sure the caller
   // has access to the session, so even though it returns the same data, it behaves differently

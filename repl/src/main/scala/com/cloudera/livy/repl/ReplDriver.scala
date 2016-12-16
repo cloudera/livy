@@ -27,7 +27,7 @@ import org.apache.spark.api.java.JavaSparkContext
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.rsc.BaseProtocol.ReplState
-import com.cloudera.livy.rsc.{BaseProtocol, RSCConf, ReplJobResults}
+import com.cloudera.livy.rsc.{BaseProtocol, ReplJobResults, RSCConf}
 import com.cloudera.livy.rsc.driver._
 import com.cloudera.livy.rsc.rpc.Rpc
 import com.cloudera.livy.sessions._
@@ -49,7 +49,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-    session = new Session(interpreter, { s => broadcast(new ReplState(s.toString)) })
+    session = new Session(livyConf, interpreter, { s => broadcast(new ReplState(s.toString)) })
 
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
@@ -68,6 +68,10 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.ReplJobRequest): Int = {
     session.execute(msg.code)
+  }
+
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.CancelReplJobRequest): Unit = {
+    session.cancel(msg.id)
   }
 
   /**

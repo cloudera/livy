@@ -279,6 +279,10 @@ public class RSCClient implements LivyClient {
     return deferredCall(new BaseProtocol.ReplJobRequest(code), Integer.class);
   }
 
+  public void cancelReplCode(int statementId) throws Exception {
+    deferredCall(new BaseProtocol.CancelReplJobRequest(statementId), Void.class);
+  }
+
   public Future<ReplJobResults> getReplJobResults(Integer from, Integer size) throws Exception {
     return deferredCall(new BaseProtocol.GetReplJobResults(from, size), ReplJobResults.class);
   }

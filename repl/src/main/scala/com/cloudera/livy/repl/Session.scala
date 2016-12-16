@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
@@ -30,6 +31,7 @@ import org.json4s.DefaultFormats
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions._
 
@@ -44,14 +46,22 @@ object Session {
   val TRACEBACK = "traceback"
 }
 
-class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => } )
-  extends Logging
-{
+class Session(
+    livyConf: RSCConf,
+    interpreter: Interpreter,
+    stateChangedCallback: SessionState => Unit = { _ => })
+  extends Logging {
   import Session._
 
   private implicit val executor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
+
+  private val cancelExecutor = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor())
+
   private implicit val formats = DefaultFormats
+
+  @volatile private[repl] var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
   private val _statements = TrieMap[Int, Statement]()
@@ -64,12 +74,12 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     val future = Future {
       changeState(SessionState.Starting())
       val sc = interpreter.start()
+      _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
     }
-    future.onFailure { case _ =>
-      changeState(SessionState.Error())
-    }
+
+    future.onFailure { case _ => changeState(SessionState.Error()) }
     future
   }
 
@@ -82,22 +92,68 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
     _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
-    Future {
-      _statements(statementId) = new Statement(statementId, StatementState.Running, null)
 
-      _statements(statementId) =
-        new Statement(statementId, StatementState.Available, executeCode(statementId, code))
+    Future {
+      setJobGroup(statementId)
+      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
+
+      val executeResult = if (_statements(statementId).state.get() == StatementState.Running) {
+        executeCode(statementId, code)
+      } else {
+        null
+      }
+
+      _statements(statementId).output = executeResult
+      _statements(statementId).state.compareAndSet(StatementState.Running, StatementState.Available)
+      _statements(statementId).state.compareAndSet(
+        StatementState.Cancelling, StatementState.Cancelled)
     }
+
     statementId
+  }
+
+  def cancel(statementId: Int): Unit = {
+    if (!_statements.contains(statementId)) {
+      return
+    }
+
+    if (_statements(statementId).state.get() == StatementState.Available ||
+      _statements(statementId).state.get() == StatementState.Cancelled ||
+      _statements(statementId).state.get() == StatementState.Cancelling) {
+      return
+    } else {
+      // statement 1 is running and statement 2 is waiting. User cancels
+      // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
+      // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
+      // state to cancelled when cancelling a waiting statement.
+      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Cancelled)
+      _statements(statementId).state.compareAndSet(
+        StatementState.Running, StatementState.Cancelling)
+    }
+
+    info(s"Cancelling statement $statementId...")
+
+      Future {
+        val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
+        while (_statements(statementId).state.get() == StatementState.Cancelling) {
+          if (deadline.isOverdue()) {
+            info(s"Failed to cancel statement $statementId.")
+            _statements(statementId).state.compareAndSet(
+              StatementState.Cancelling, StatementState.Cancelled)
+          } else {
+            _sc.foreach(_.cancelJobGroup(statementId.toString))
+          }
+          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+        }
+        if (_statements(statementId).state.get() == StatementState.Cancelled) {
+          info(s"Statement $statementId cancelled.")
+        }
+      }(cancelExecutor)
   }
 
   def close(): Unit = {
     executor.shutdown()
     interpreter.close()
-  }
-
-  def clearStatements(): Unit = synchronized {
-    _statements.clear()
   }
 
   private def changeState(newState: SessionState): Unit = {
@@ -107,7 +163,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     stateChangedCallback(newState)
   }
 
-  private def executeCode(executionCount: Int, code: String): String = synchronized {
+  private def executeCode(executionCount: Int, code: String): String = {
     changeState(SessionState.Busy())
 
     def transitToIdle() = {
@@ -167,5 +223,26 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     }
 
     compact(render(resultInJson))
+  }
+
+  private def setJobGroup(statementId: Int): String = {
+    val cmd = Kind(interpreter.kind) match {
+      case Spark() =>
+        // A dummy value to avoid automatic value binding in scala REPL.
+        s"""val _livyJobGroup$statementId = sc.setJobGroup("$statementId",""" +
+          s""""Job group for statement $statementId")"""
+      case PySpark() | PySpark3() =>
+        s"""sc.setJobGroup("$statementId", "Job group for statement $statementId")"""
+      case SparkR() =>
+        interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
+          case "1" =>
+            s"""setJobGroup(sc, "$statementId", "Job group for statement $statementId", """ +
+              "FALSE)"
+          case "2" =>
+            s"""setJobGroup("$statementId", "Job group for statement $statementId", FALSE)"""
+        }
+    }
+    // Set the job group
+    executeCode(statementId, cmd)
   }
 }

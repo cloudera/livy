@@ -72,7 +72,10 @@ public class RSCConf extends ClientConf<RSCConf> {
     SASL_QOP("rpc.sasl.qop", null),
 
     TEST_STUCK_END_SESSION("test.do_not_use.stuck_end_session", false),
-    TEST_STUCK_START_DRIVER("test.do_not_use.stuck_start_driver", false);
+    TEST_STUCK_START_DRIVER("test.do_not_use.stuck_start_driver", false),
+
+    JOB_CANCEL_TRIGGER_INTERVAL("job_cancel.trigger_interval", "100ms"),
+    JOB_CANCEL_TIMEOUT("job_cancel.timeout", "30s");
 
     private final String key;
     private final Object dflt;

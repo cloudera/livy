@@ -50,11 +50,9 @@ abstract class ProcessInterpreter(process: Process)
   override def start(): SparkContext = {
     waitUntilReady()
 
-    // At this point there should be an already active SparkContext that can be retrieved
-    // using SparkContext.getOrCreate. But we don't really support running "pre-compiled"
-    // jobs against pyspark or sparkr, so just return null here.
-    null
+    SparkContext.getOrCreate()
   }
+
   override def execute(code: String): Interpreter.ExecuteResponse = {
     try {
       sendExecuteRequest(code)

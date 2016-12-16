@@ -126,14 +126,17 @@ object SparkRInterpreter {
   }
 }
 
-class SparkRInterpreter(process: Process, backendInstance: Any, backendThread: Thread,
-  sparkMajorVersion: String) extends ProcessInterpreter(process) {
+class SparkRInterpreter(process: Process,
+    backendInstance: Any,
+    backendThread: Thread,
+    val sparkMajorVersion: String)
+  extends ProcessInterpreter(process) {
   import SparkRInterpreter._
 
   implicit val formats = DefaultFormats
 
   private[this] var executionCount = 0
-  override def kind: String = "sparkR"
+  override def kind: String = "sparkr"
   private[this] val isStarted = new CountDownLatch(1);
 
   final override protected def waitUntilReady(): Unit = {

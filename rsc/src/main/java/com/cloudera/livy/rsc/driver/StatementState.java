@@ -22,7 +22,9 @@ import com.fasterxml.jackson.annotation.JsonValue;
 public enum StatementState {
   Waiting("waiting"),
   Running("running"),
-  Available("available");
+  Available("available"),
+  Cancelling("cancelling"),
+  Cancelled("cancelled");
 
   private final String state;
 

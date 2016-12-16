@@ -210,7 +210,18 @@ public abstract class BaseProtocol extends RpcDispatcher {
     public ReplState() {
       this(null);
     }
+  }
 
+  public static class CancelReplJobRequest {
+    public final int id;
+
+    public CancelReplJobRequest(int id) {
+      this.id = id;
+    }
+
+    public CancelReplJobRequest() {
+      this(-1);
+    }
   }
 
   public static class InitializationError {
