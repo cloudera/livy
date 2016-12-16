@@ -177,7 +177,9 @@ class InteractiveSessionSpec extends FunSpec
       ))
 
       result should equal (expectedResult)
-      session.state shouldBe a[SessionState.Idle]
+      eventually(timeout(10 seconds), interval(30 millis)) {
+        session.state shouldBe a[SessionState.Idle]
+      }
     }
 
     withSession("should error out the session if the interpreter dies") { session =>
