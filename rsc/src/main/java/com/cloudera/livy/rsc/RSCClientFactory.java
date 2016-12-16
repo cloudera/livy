@@ -34,8 +34,8 @@ import com.cloudera.livy.rsc.rpc.RpcServer;
  */
 public final class RSCClientFactory implements LivyClientFactory {
 
-  private final AtomicInteger refCount = new AtomicInteger();
-  private RpcServer server = null;
+  private static final AtomicInteger refCount = new AtomicInteger();
+  private static RpcServer server = null;
 
   /**
    * Creates a local Livy client if the URI has the "rsc" scheme.
@@ -73,11 +73,11 @@ public final class RSCClientFactory implements LivyClientFactory {
     }
   }
 
-  RpcServer getServer() {
+  static RpcServer getServer() {
     return server;
   }
 
-  private synchronized void ref(RSCConf config) throws IOException {
+  private static synchronized void ref(RSCConf config) throws IOException {
     if (refCount.get() != 0) {
       refCount.incrementAndGet();
       return;
@@ -86,7 +86,8 @@ public final class RSCClientFactory implements LivyClientFactory {
     Utils.checkState(server == null, "Server already running but ref count is 0.");
     if (server == null) {
       try {
-        server = new RpcServer(config, true);
+        server = new RpcServer(config,
+          config.get(RSCConf.Entry.LAUNCHER_ADDRESS), config.getInt(RSCConf.Entry.LAUNCHER_PORT));
       } catch (InterruptedException ie) {
         throw Utils.propagate(ie);
       }
@@ -95,7 +96,7 @@ public final class RSCClientFactory implements LivyClientFactory {
     refCount.incrementAndGet();
   }
 
-  synchronized void unref() {
+  static synchronized void unref() {
     if (refCount.decrementAndGet() == 0) {
       server.close();
       server = null;

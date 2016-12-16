@@ -70,31 +70,21 @@ public class RpcServer implements Closeable {
 
   @VisibleForTesting
   RpcServer(RSCConf lconf) throws IOException, InterruptedException {
-    this(lconf, false);
+    this(lconf, null, 0);
   }
 
-  public RpcServer(RSCConf lconf, boolean isLauncher) throws IOException, InterruptedException {
+  public RpcServer(RSCConf lconf, String address, int port)
+      throws IOException, InterruptedException {
     this.config = lconf;
     this.group = new NioEventLoopGroup(
         this.config.getInt(RPC_MAX_THREADS),
         Utils.newDaemonThreadFactory("RPC-Handler-%d"));
 
     final InetSocketAddress socketAddress;
-    if (isLauncher) {
-      if (lconf.get(LAUNCHER_ADDRESS) != null && lconf.getInt(LAUNCHER_PORT) > 0) {
-        socketAddress =
-          new InetSocketAddress(lconf.get(LAUNCHER_ADDRESS), lconf.getInt(LAUNCHER_PORT));
-      } else if (lconf.getInt(LAUNCHER_PORT) > 0) {
-        socketAddress = new InetSocketAddress(lconf.getInt(LAUNCHER_PORT));
-      } else {
-        socketAddress = new InetSocketAddress(0);
-      }
+    if (address == null || address.trim().isEmpty()) {
+      socketAddress = new InetSocketAddress(port);
     } else {
-      if (lconf.getInt(RPC_SERVER_PORT) > 0) {
-        socketAddress = new InetSocketAddress(lconf.getInt(RPC_SERVER_PORT));
-      } else {
-        socketAddress = new InetSocketAddress(0);
-      }
+      socketAddress = new InetSocketAddress(address, port);
     }
 
     this.channel = new ServerBootstrap()
@@ -128,9 +118,8 @@ public class RpcServer implements Closeable {
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
 
-    String address = isLauncher ? config.get(LAUNCHER_ADDRESS) : null;
     if (address == null) {
-      address = config.findLocalAddress(isLauncher);
+      address = config.findLocalAddress();
     }
     this.address = address;
   }

@@ -172,7 +172,7 @@ public class RSCDriver extends BaseProtocol {
 
     // Bring up the RpcServer an register the secret provided by the Livy server as a client.
     LOG.info("Starting RPC server...");
-    this.server = new RpcServer(livyConf, false);
+    this.server = new RpcServer(livyConf, null, livyConf.getInt(RPC_SERVER_PORT));
     server.registerClient(clientId, secret, new RpcServer.ClientCallback() {
       @Override
       public RpcDispatcher onNewClient(Rpc client) {

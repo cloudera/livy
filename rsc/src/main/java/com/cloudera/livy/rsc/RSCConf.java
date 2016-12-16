@@ -53,14 +53,14 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     // Address for the RSC driver to connect back with it's connection info.
     LAUNCHER_ADDRESS("launcher.address", null),
-    LAUNCHER_PORT("launcher.port", -1),
+    LAUNCHER_PORT("launcher.port", 0),
 
     // How long will the RSC wait for a connection for a Livy server before shutting itself down.
     SERVER_IDLE_TIMEOUT("server.idle_timeout", "10m"),
 
     PROXY_USER("proxy_user", null),
 
-    RPC_SERVER_PORT("rpc.server.port", -1),
+    RPC_SERVER_PORT("rpc.server.port", 0),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90s"),
     RPC_CLIENT_CONNECT_TIMEOUT("client.connect.timeout", "10s"),
     RPC_CHANNEL_LOG_LEVEL("channel.log.level", null),
@@ -105,7 +105,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     return opts;
   }
 
-  public String findLocalAddress(boolean isLauncher) throws IOException {
+  public String findLocalAddress() throws IOException {
     InetAddress address = InetAddress.getLocalHost();
     if (address.isLoopbackAddress()) {
       // Address resolves to something like 127.0.1.1, which happens on Debian;
@@ -122,10 +122,6 @@ public class RSCConf extends ClientConf<RSCConf> {
             LOG.warn("Your hostname, {}, resolves to a loopback address; using {} "
                 + " instead (on interface {})", address.getHostName(), addr.getHostAddress(),
                 ni.getName());
-            if (isLauncher) {
-              LOG.warn("Set '{}' if you need to bind to another address.",
-                Entry.LAUNCHER_ADDRESS.key);
-            }
             return addr.getHostAddress();
           }
         }
@@ -134,9 +130,6 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     LOG.warn("Your hostname, {}, resolves to a loopback address, but we couldn't find "
         + "any external IP address!", address.getCanonicalHostName());
-    if (isLauncher) {
-      LOG.warn("Set {} if you need to bind to another address.", Entry.LAUNCHER_ADDRESS.key);
-    }
     return address.getCanonicalHostName();
   }
 
