@@ -106,18 +106,23 @@ object LivyConf {
   val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.state-store.url", "")
 
   // If Livy can't find the yarn app within this time, consider it lost.
-  val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "30s")
+  val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "60s")
 
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
   // Days to keep Livy server request logs.
   val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)
-
+  
   // REPL related jars separated with comma.
   val REPL_JARS = Entry("livy.repl.jars", null)
   // RSC related jars separated with comma.
   val RSC_JARS = Entry("livy.rsc.jars", null)
+
+  // How long to check livy session leakage
+  val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.app-leakage.check_timeout", "600s")
+  // how often to check livy session leakage
+  val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.app-leakage.check_interval", "60s")
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
