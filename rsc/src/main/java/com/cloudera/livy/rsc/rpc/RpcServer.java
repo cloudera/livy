@@ -70,7 +70,11 @@ public class RpcServer implements Closeable {
 
   @VisibleForTesting
   RpcServer(RSCConf lconf) throws IOException, InterruptedException {
-    this(lconf, null, 0);
+    this(lconf, 0);
+  }
+
+  public RpcServer(RSCConf lconf, int port) throws IOException, InterruptedException {
+    this(lconf, null, port);
   }
 
   public RpcServer(RSCConf lconf, String address, int port)
