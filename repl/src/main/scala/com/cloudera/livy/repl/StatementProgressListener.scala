@@ -24,8 +24,9 @@ import com.google.common.annotations.VisibleForTesting
 import org.apache.spark.scheduler._
 
 import com.cloudera.livy.rsc.RSCConf
+import org.apache.spark.Success
 
-case class TaskCount(var currFinishedTasks: Int, totalTasks: Int)
+case class TaskCount(var currFinishedTasks: Int, var totalTasks: Int)
 case class JobState(jobId: Int, var isCompleted: Boolean)
 
 /**
@@ -102,14 +103,25 @@ class StatementProgressListener(conf: RSCConf) extends SparkListener {
     statementToJobs.put(currentStatementId, jobs)
     jobIdToStatement(jobStart.jobId) = currentStatementId
 
-    statementToJobs.foreach(println)
-
     jobIdToStages(jobStart.jobId) = jobStart.stageInfos.map(_.stageId)
     jobStart.stageInfos.foreach { s => stageIdToTaskCount(s.stageId) = TaskCount(0, s.numTasks) }
   }
 
   override def onTaskEnd(taskEnd: SparkListenerTaskEnd): Unit = synchronized {
-    stageIdToTaskCount.get(taskEnd.stageId).foreach { t => t.currFinishedTasks += 1 }
+    taskEnd.reason match {
+      case Success =>
+        stageIdToTaskCount.get(taskEnd.stageId).foreach { t => t.currFinishedTasks += 1 }
+      case _ =>
+        // If task is failed, it will run again, so don't count it.
+    }
+  }
+
+  override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = synchronized {
+    // If stage is resubmitted, we should reset the task count of this stage.
+    stageIdToTaskCount.get(stageSubmitted.stageInfo.stageId).foreach { t =>
+      t.currFinishedTasks = 0
+      t.totalTasks = stageSubmitted.stageInfo.numTasks
+    }
   }
 
   override def onStageCompleted(stageCompleted: SparkListenerStageCompleted): Unit = synchronized {
