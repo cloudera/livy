@@ -71,6 +71,8 @@ object LivyConf {
   val AUTH_KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
   val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
 
+  val HEARTBEAT_WATCHDOG_INTERVAL = Entry("livy.server.heartbeat-watchdog.interval", "1m")
+
   val LAUNCH_KERBEROS_PRINCIPAL =
     LivyConf.Entry("livy.server.launch.kerberos.principal", null)
   val LAUNCH_KERBEROS_KEYTAB =
