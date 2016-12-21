@@ -125,9 +125,7 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
       withTestLib(classOf[SimpleSparkApp], List(output2, "false")) { s2 =>
         s2.verifySessionRunning()
 
-        // Restart Livy.
-        cluster.stopLivy()
-        cluster.runLivy()
+        restartLivy()
 
         // Verify previous active session still appears after restart.
         s2.verifySessionRunning()

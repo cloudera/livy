@@ -21,6 +21,8 @@ package com.cloudera.livy.test.framework
 import java.io.File
 import java.util.UUID
 
+import scala.concurrent._
+import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.control.NonFatal
 
@@ -30,6 +32,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.scalatest._
 
 abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with BeforeAndAfterAll {
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   var cluster: Cluster = _
   var httpClient: AsyncHttpClient = _
   var livyClient: LivyRestClient = _
@@ -48,6 +52,14 @@ abstract class BaseIntegrationTestSuite extends FunSuite with Matchers with Befo
     assert(appReport != null, "appReport shouldn't be null")
 
     appReport.getDiagnostics()
+  }
+
+  protected def restartLivy(): Unit = {
+    val f = future {
+      cluster.stopLivy()
+      cluster.runLivy()
+    }
+    Await.result(f, 3 minutes)
   }
 
   /** Uploads a file to HDFS and returns just its path. */

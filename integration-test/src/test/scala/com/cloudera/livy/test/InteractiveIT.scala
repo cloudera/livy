@@ -153,9 +153,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       val stmt1 = s.run("1")
       stmt1.verifyResult("res0: Int = 1")
 
-      // Restart Livy.
-      cluster.stopLivy()
-      cluster.runLivy()
+      restartLivy()
 
       // Verify session still exists.
       s.verifySessionIdle()
@@ -165,9 +163,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
       s.stop()
 
-      // Restart Livy.
-      cluster.stopLivy()
-      cluster.runLivy()
+      restartLivy()
 
       // Verify deleted session doesn't show up after recovery.
       s.verifySessionDoesNotExist()
