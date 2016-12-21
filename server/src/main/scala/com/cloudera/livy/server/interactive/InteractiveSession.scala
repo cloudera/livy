@@ -22,11 +22,13 @@ import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -50,6 +52,7 @@ case class InteractiveRecoveryMetadata(
     appId: Option[String],
     appTag: String,
     kind: Kind,
+    heartbeatTimeoutS: Int,
     owner: String,
     proxyUser: Option[String],
     rscDriverUri: Option[URI],
@@ -112,6 +115,7 @@ object InteractiveSession extends Logging {
       client,
       SessionState.Starting(),
       request.kind,
+      request.heartbeatTimeoutInSecond,
       livyConf,
       owner,
       proxyUser,
@@ -137,6 +141,7 @@ object InteractiveSession extends Logging {
       client,
       SessionState.Recovering(),
       metadata.kind,
+      metadata.heartbeatTimeoutS,
       livyConf,
       metadata.owner,
       metadata.proxyUser,
@@ -341,18 +346,24 @@ class InteractiveSession(
     client: Option[RSCClient],
     initialState: SessionState,
     val kind: Kind,
+    heartbeatTimeoutS: Int,
     livyConf: LivyConf,
     owner: String,
     override val proxyUser: Option[String],
     sessionStore: SessionStore,
     mockApp: Option[SparkApp]) // For unit test.
   extends Session(id, owner, livyConf)
+  with SessionHeartbeat
   with SparkAppListener {
 
   import InteractiveSession._
 
   private var serverSideState: SessionState = initialState
 
+  override protected val heartbeatTimeout: FiniteDuration = {
+    val heartbeatTimeoutInSecond = heartbeatTimeoutS
+    Duration(heartbeatTimeoutInSecond, TimeUnit.SECONDS)
+  }
   private val operations = mutable.Map[Long, String]()
   private val operationCounter = new AtomicLong(0)
   private var rscDriverUri: Option[URI] = None
@@ -361,6 +372,7 @@ class InteractiveSession(
 
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
+  heartbeat()
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
@@ -423,7 +435,8 @@ class InteractiveSession(
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
 
   override def recoveryMetadata: RecoveryMetadata =
-    InteractiveRecoveryMetadata(id, appId, appTag, kind, owner, proxyUser, rscDriverUri)
+    InteractiveRecoveryMetadata(
+      id, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt, owner, proxyUser, rscDriverUri)
 
   override def state: SessionState = {
     if (serverSideState.isInstanceOf[SessionState.Running]) {

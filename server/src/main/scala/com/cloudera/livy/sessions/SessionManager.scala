@@ -29,7 +29,7 @@ import scala.util.control.NonFatal
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
-import com.cloudera.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
+import com.cloudera.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession, SessionHeartbeatWatchdog}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
@@ -56,9 +56,13 @@ class InteractiveSessionManager(
     sessionStore,
     "interactive",
     mockSessions)
+  with SessionHeartbeatWatchdog[InteractiveSession, InteractiveRecoveryMetadata]
+  {
+    start()
+  }
 
 class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
-    livyConf: LivyConf,
+    protected val livyConf: LivyConf,
     sessionRecovery: R => S,
     sessionStore: SessionStore,
     sessionType: String,

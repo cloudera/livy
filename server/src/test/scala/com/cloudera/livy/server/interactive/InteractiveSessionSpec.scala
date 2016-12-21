@@ -197,7 +197,8 @@ class InteractiveSessionSpec extends FunSpec
       val mockClient = mock[RSCClient]
       when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
       val m =
-        InteractiveRecoveryMetadata(78, None, "appTag", Spark(), null, None, Some(URI.create("")))
+        InteractiveRecoveryMetadata(
+          78, None, "appTag", Spark(), 0, null, None, Some(URI.create("")))
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
 
       s.state shouldBe a[SessionState.Recovering]
@@ -210,7 +211,8 @@ class InteractiveSessionSpec extends FunSpec
     it("should recover session to dead state if rscDriverUri is unknown") {
       val conf = new LivyConf()
       val sessionStore = mock[SessionStore]
-      val m = InteractiveRecoveryMetadata(78, Some("appId"), "appTag", Spark(), null, None, None)
+      val m = InteractiveRecoveryMetadata(
+        78, Some("appId"), "appTag", Spark(), 0, null, None, None)
       val s = InteractiveSession.recover(m, conf, sessionStore, None)
 
       s.state shouldBe a[SessionState.Dead]
