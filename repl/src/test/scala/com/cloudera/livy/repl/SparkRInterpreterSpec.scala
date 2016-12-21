@@ -82,7 +82,18 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
   it should "report an error if accessing an unknown variable" in withInterpreter { interpreter =>
     val response = interpreter.execute("x")
     response should equal(Interpreter.ExecuteSuccess(
-      TEXT_PLAIN -> "Error: object 'x' not found"
+      TEXT_PLAIN -> "Error in eval(expr, envir, enclos) : object 'x' not found"
+    ))
+  }
+
+
+  it should "not hang when executing incomplete statements" in withInterpreter { interpreter =>
+    val response = interpreter.execute("x[")
+    response should equal(Interpreter.ExecuteSuccess(
+      TEXT_PLAIN ->
+        """Error in parse(text = "x[") : <text>:2:0: unexpected end of input
+          |1: x[
+          |   ^""".stripMargin
     ))
   }
 

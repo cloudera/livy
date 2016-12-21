@@ -199,7 +199,7 @@ class SparkRInterpreter(process: Process,
   }
 
   private def sendRequest(code: String): String = {
-    stdin.println(code)
+    stdin.println(s"""try(eval(parse(text="$code")))""")
     stdin.flush()
 
     stdin.println(PRINT_MARKER)
