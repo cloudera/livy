@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import com.cloudera.livy.{LivyConf, Logging}
+import com.cloudera.livy.server.batch.BatchRecoveryMetadata
 import com.cloudera.livy.sessions.SessionKindModule
 import com.cloudera.livy.sessions.SessionManager._
 
@@ -45,6 +46,9 @@ protected trait JsonMapper {
  * Hardcoded to use JSON serialization for now for easier ops. Will add better serialization later.
  */
 abstract class StateStore(livyConf: LivyConf) extends JsonMapper {
+
+  protected var sessionManagerListener: SessionManagerListener = _
+
   /**
    * Set a key-value pair to this state store. It overwrites existing value.
    * @throws Exception Throw when persisting the state store fails.
@@ -71,6 +75,28 @@ abstract class StateStore(livyConf: LivyConf) extends JsonMapper {
    * @throws Exception Throw when persisting the state store fails.
    */
   def remove(key: String): Unit
+
+  /**
+    *
+    * @return
+    */
+  def nextBatchSessionId: Int
+
+  /**
+    * Called when a batch session is created on another Livy server in HA mode
+    * @param batchMetadata
+    */
+  def register(batchMetadata: BatchRecoveryMetadata): Unit = { }
+
+  /**
+    * Called when a batch session is deleted on another Livy server in HA mode
+    * @param batchMetadata
+    */
+  def remove(batchMetadata: BatchRecoveryMetadata): Unit = { }
+
+  def setListener(sessionManagerListener: SessionManagerListener): Unit = {
+    this.sessionManagerListener = sessionManagerListener
+  }
 }
 
 /**

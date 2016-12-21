@@ -23,7 +23,10 @@ import scala.collection.JavaConverters._
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api._
 import org.apache.curator.framework.listen.Listenable
+import org.apache.curator.framework.state.ConnectionStateListener
+import org.apache.curator.utils.EnsurePath
 import org.apache.zookeeper.data.Stat
+import org.mockito.Matchers.anyString
 import org.mockito.Mockito._
 import org.scalatest.FunSpec
 import org.scalatest.Matchers._
@@ -43,6 +46,16 @@ class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       val curatorClient = mock[CuratorFramework]
       when(curatorClient.getUnhandledErrorListenable())
         .thenReturn(mock[Listenable[UnhandledErrorListener]])
+      when(curatorClient.getConnectionStateListenable())
+        .thenReturn(mock[Listenable[ConnectionStateListener]])
+      when(curatorClient.newNamespaceAwareEnsurePath(anyString()))
+        .thenReturn(mock[EnsurePath])
+
+      val builder: GetChildrenBuilder = mock[GetChildrenBuilder]
+      when(curatorClient.getChildren())
+        .thenReturn(builder)
+      when(builder.forPath(anyString()))
+        .thenReturn(new java.util.LinkedList[String]())
       val stateStore = new ZooKeeperStateStore(conf, Some(curatorClient))
       testBody(TestFixture(stateStore, curatorClient))
     }

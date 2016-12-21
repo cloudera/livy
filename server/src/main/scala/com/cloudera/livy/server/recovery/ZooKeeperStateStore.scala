@@ -17,17 +17,25 @@
  */
 package com.cloudera.livy.server.recovery
 
+import java.io.IOException
+
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.util.Try
 
+import org.apache.curator.RetryPolicy
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
+import org.apache.curator.framework.recipes.atomic.{DistributedAtomicLong => DistributedLong}
+import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
 import org.apache.curator.retry.RetryNTimes
 import org.apache.zookeeper.KeeperException.NoNodeException
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.LivyConf.Entry
+import com.cloudera.livy.server.batch.BatchRecoveryMetadata
 
 object ZooKeeperStateStore {
   val ZK_KEY_PREFIX_CONF = Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
@@ -37,7 +45,7 @@ object ZooKeeperStateStore {
 class ZooKeeperStateStore(
     livyConf: LivyConf,
     mockCuratorClient: Option[CuratorFramework] = None) // For testing
-  extends StateStore(livyConf) with Logging {
+  extends StateStore(livyConf) with PathChildrenCacheListener with Logging {
 
   import ZooKeeperStateStore._
 
@@ -76,6 +84,18 @@ class ZooKeeperStateStore(
     }
   })
   curatorClient.start()
+
+  val batchSessionsCache = new PathChildrenCache(curatorClient, prefixKey("v1/batch"), true)
+
+  batchSessionsCache.getListenable.addListener(this)
+
+  try {
+    batchSessionsCache.start(StartMode.BUILD_INITIAL_CACHE)
+  } catch {
+    case _ : NullPointerException =>
+      throw new IllegalArgumentException("Invalid Zookeeper settings.")
+  }
+
   // TODO Make sure ZK path has proper secure permissions so that other users cannot read its
   // contents.
 
@@ -116,4 +136,99 @@ class ZooKeeperStateStore(
   }
 
   private def prefixKey(key: String) = s"/$zkKeyPrefix/$key"
+
+
+  /**
+    * Increment the distributed value and return the value before increment.
+    * If the increment operation fails, retry until we succeed or run out of retries.
+    *
+    * @param distributedLong
+    * The distributed long value.
+    * @param retryCount
+    * the remaining retry counts
+    * @return
+    * `Some(Long)` if we succeed otherwise `None`
+    */
+  @tailrec
+  private def recursiveTry(distributedLong: DistributedLong, retryCount: Int): Option[Long] = {
+    val updatedValue = distributedLong.increment
+    updatedValue.succeeded match {
+      case _ if retryCount <= 0 =>
+        None
+      case true if retryCount > 0 =>
+        Option(updatedValue.preValue())
+      case _ =>
+        recursiveTry(distributedLong, retryCount - 1)
+    }
+  }
+
+  /**
+    *
+    * @return
+    */
+  def nextBatchSessionId: Int = {
+    val retryPolicy: RetryPolicy = new RetryNTimes(2, 3)
+
+    val zkPath = s"/$zkKeyPrefix/batchSessionId"
+    val distributedSessionId = new DistributedLong(curatorClient, zkPath, retryPolicy)
+
+    recursiveTry(distributedSessionId, 10) match {
+      case Some(sessionId) =>
+        sessionId.toInt
+      case None =>
+        val msg: String = "Failed to get the next session id from Zookeeper"
+        logger.warn(msg)
+        throw new IOException(msg)
+    }
+  }
+
+  override def register(batchRecoveryMetadata: BatchRecoveryMetadata): Unit = {
+    sessionManagerListener.register(batchRecoveryMetadata)
+  }
+
+  override def remove(batchMetadata: BatchRecoveryMetadata): Unit = {
+    sessionManagerListener.remove(batchMetadata)
+  }
+
+  override def childEvent(curator: CuratorFramework, event: PathChildrenCacheEvent): Unit = {
+    event.getType match {
+      case PathChildrenCacheEvent.Type.CHILD_ADDED =>
+        logger.info(s"Type.CHILD_ADDED => ${event.getData.getPath}")
+        if (isNewSessionPath(event)) {
+          // it is an update to a session.
+          val batchMetadata = deserialize[BatchRecoveryMetadata](event.getData().getData)
+          register(batchMetadata)
+        } else {
+          // it is an update to something else
+        }
+
+      case PathChildrenCacheEvent.Type.CHILD_REMOVED if isNewSessionPath(event) =>
+        val batchMetadata = deserialize[BatchRecoveryMetadata](event.getData().getData)
+        val msg = s"${event.getData.getPath}: ${event.getData.getData.map(_.toChar).mkString}"
+        logger.info(s"Type.CHILD_REMOVED => ${msg}")
+        remove(batchMetadata)
+
+      case PathChildrenCacheEvent.Type.CHILD_UPDATED =>
+        logger.info(s"Type.CHILD_UPDATED => ${event.getData.getPath}")
+        val batchSessionData = deserialize[BatchRecoveryMetadata](event.getData().getData)
+      //        register(batchSessionData)
+
+      case PathChildrenCacheEvent.Type.CONNECTION_LOST =>
+        logger.info(s"Type.CONNECTION_LOST=> ${event.getData.getPath}")
+
+      case PathChildrenCacheEvent.Type.CONNECTION_RECONNECTED =>
+        logger.info(s"Type.CONNECTION_RECONNECTED => ${event.getData.getPath}")
+
+      case PathChildrenCacheEvent.Type.CONNECTION_SUSPENDED =>
+        logger.info(s"Type.CONNECTION_SUSPENDED => ${event.getData.getPath}")
+
+      case PathChildrenCacheEvent.Type.INITIALIZED =>
+        logger.info(s"Type.INITIALIZED => ${event.getData.getPath}")
+
+    }
+  }
+
+  private def isNewSessionPath(event: PathChildrenCacheEvent): Boolean = {
+    event.getData.getPath.last.isDigit
+  }
 }

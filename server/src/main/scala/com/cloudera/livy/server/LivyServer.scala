@@ -95,8 +95,8 @@ class LivyServer extends Logging {
 
     StateStore.init(livyConf)
     val sessionStore = new SessionStore(livyConf)
-    val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
     val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore)
+    val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")

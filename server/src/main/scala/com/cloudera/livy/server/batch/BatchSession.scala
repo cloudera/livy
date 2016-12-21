@@ -117,6 +117,18 @@ object BatchSession {
         SparkApp.create(m.appTag, m.appId, None, livyConf, Option(s))
       })
   }
+
+  def update(
+      m: BatchRecoveryMetadata,
+      livyConf: LivyConf,
+      sessionStore: SessionStore,
+      mockApp: Option[SparkApp] = None): BatchSession = {
+    val app = mockApp.map { m => (_: BatchSession) => m }.get /* .getOrElse { s =>
+      SparkApp.create(m.appTag, m.appId, None, livyConf, Option(s))
+    } */
+    new BatchSession(
+      m.id, m.appTag, SessionState.Recovering(), livyConf, m.owner, m.proxyUser, sessionStore, app)
+  }
 }
 
 class BatchSession(
