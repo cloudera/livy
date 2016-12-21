@@ -27,11 +27,13 @@ import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
 import org.scalatest.concurrent.Eventually._
 
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.rsc.driver.StatementState
 
 class SparkSessionSpec extends BaseSessionSpec {
 
-  override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
+  override def createInterpreter(): Interpreter =
+    new SparkInterpreter(new SparkConf(), new StatementProgressListener(new RSCConf()))
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = execute(session)("1 + 2")

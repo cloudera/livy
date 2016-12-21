@@ -209,6 +209,22 @@ class InteractiveSessionSpec extends FunSpec
       }
     }
 
+    withSession("should get statement progress along with statement result") { session =>
+      val code =
+        """
+          |from time import sleep
+          |sleep(3)
+        """.stripMargin
+      val statement = session.executeStatement(ExecuteRequest(code))
+      statement.progress should be (0.0)
+
+      eventually(timeout(10 seconds), interval(100 millis)) {
+        val s = session.getStatement(statement.id).get
+        s.state.get() shouldBe StatementState.Available
+        s.progress should be (1.0)
+      }
+    }
+
     withSession("should error out the session if the interpreter dies") { session =>
       session.executeStatement(ExecuteRequest("import os; os._exit(666)"))
       eventually(timeout(30 seconds), interval(100 millis)) {
