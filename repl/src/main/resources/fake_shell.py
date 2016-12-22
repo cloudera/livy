@@ -97,7 +97,7 @@ class JobContextImpl(object):
         self.hive_ctx = None
         self.streaming_ctx = None
         self.local_tmp_dir_path = local_tmp_dir_path
-        self.spark_session = global_dict['spark']
+        self.spark_session = global_dict.get('spark')
 
     def sc(self):
         return self.sc
