@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.repl
 
-import java.io.{BufferedReader, InputStreamReader, IOException, PrintWriter}
+import java.io.{BufferedReader, IOException, InputStreamReader, PrintWriter}
 import java.util.concurrent.locks.ReentrantLock
 
 import scala.concurrent.Promise
@@ -28,6 +28,7 @@ import org.apache.spark.SparkContext
 import org.json4s.JValue
 
 import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.client.common.ClientConf
 
 private sealed trait Request
 private case class ExecuteRequest(code: String, promise: Promise[JValue]) extends Request
@@ -50,7 +51,11 @@ abstract class ProcessInterpreter(process: Process)
   override def start(): SparkContext = {
     waitUntilReady()
 
-    SparkContext.getOrCreate()
+    if (ClientConf.TEST_MODE) {
+      null.asInstanceOf[SparkContext]
+    } else {
+      SparkContext.getOrCreate()
+    }
   }
 
   override def execute(code: String): Interpreter.ExecuteResponse = {
