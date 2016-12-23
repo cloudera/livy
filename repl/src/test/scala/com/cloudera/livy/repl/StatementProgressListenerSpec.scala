@@ -73,8 +73,6 @@ class StatementProgressListenerSpec extends FlatSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    // Workaround to close SparkContext started by other unit tests.
-    SparkContext.getOrCreate().stop()
     sparkInterpreter = new SparkInterpreter(new SparkConf(), testListener)
     sparkInterpreter.start()
   }
