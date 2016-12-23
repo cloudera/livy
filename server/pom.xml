@@ -266,7 +266,7 @@
                             <!-- Execute the shell script to generate the spark build information. -->
                             <target>
                                 <exec executable="bash">
-                                    <arg value="${project.basedir}/../dev/livy-build-info"/>
+                                    <arg value="${project.basedir}/../dev/livy-build-info.sh"/>
                                     <arg value="${project.build.directory}/extra-resources"/>
                                     <arg value="${project.version}"/>
                                 </exec>
