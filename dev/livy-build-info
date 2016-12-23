@@ -17,10 +17,10 @@
 # limitations under the License.
 #
 
-# This script generates the build info for spark and places it into the spark-version-info.properties file.
+# This script generates the build info for Livy and places it into the livy-version-info.properties file.
 # Arguments:
-#   build_tgt_directory - The target directory where properties file would be created. [./core/target/extra-resources]
-#   spark_version - The current version of spark
+#   build_tgt_directory - The target directory where properties file would be created. [./server/target/extra-resources]
+#   livy_version - The current version of livy
 
 RESOURCE_DIR="$1"
 mkdir -p "$RESOURCE_DIR"
