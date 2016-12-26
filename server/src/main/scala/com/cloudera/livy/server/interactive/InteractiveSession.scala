@@ -374,6 +374,8 @@ class InteractiveSession(
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
   heartbeat()
+  // Register this class to RSCClient as a session state listener
+  client.foreach(_.registerStateListener(this))
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
@@ -402,9 +404,6 @@ class InteractiveSession(
       }
     }
     uriFuture onFailure { case e => warn("Fail to get rsc uri", e) }
-
-    // Register this class to RSCClient as a session state listener
-    client.get.registerStateListener(this)
 
     // Send a dummy job that will return once the client is ready to be used, and set the
     // state to "idle" at that point.
@@ -557,7 +556,7 @@ class InteractiveSession(
 
   private def ensureRunning(): Unit = synchronized {
     _state match {
-      case SessionState.Running() | SessionState.Idle() | SessionState.Busy() => Unit
+      case SessionState.Idle() | SessionState.Busy() => Unit
       case _ =>
         throw new IllegalStateException(s"Session is in state ${_state}")
     }
