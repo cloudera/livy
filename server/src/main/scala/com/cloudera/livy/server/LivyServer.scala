@@ -100,6 +100,20 @@ class LivyServer extends Logging {
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
+
+    val livyVersionServlet = new JsonServlet {
+      before() { contentType = "application/json" }
+
+      get("/") {
+        Map("version" -> LIVY_VERSION,
+          "user" -> LIVY_BUILD_USER,
+          "revision" -> LIVY_REVISION,
+          "branch" -> LIVY_BRANCH,
+          "date" -> LIVY_BUILD_DATE,
+          "url" -> LIVY_REPO_URL)
+      }
+    }
+
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
@@ -126,6 +140,8 @@ class LivyServer extends Logging {
             mount(context, batchServlet, "/batches/*")
 
             context.mountMetricsAdminServlet("/")
+
+            mount(context, livyVersionServlet, "/version/*")
           } catch {
             case e: Throwable =>
               error("Exception thrown when initializing server", e)
