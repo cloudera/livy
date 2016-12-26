@@ -111,6 +111,10 @@ object LivyConf {
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
+  // Address and port configurations for RSC callback server
+  val LAUNCHER_ADDRESS = Entry("livy.launcher_server.address", null)
+  val LAUNCHER_PORT = Entry("livy.launcher_server.port", 0)
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"

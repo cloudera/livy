@@ -311,6 +311,13 @@ object InteractiveSession extends Logging {
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
+    // Set livy callback server address and port configurations to RSCConf if configured.
+    Option(livyConf.get(LivyConf.LAUNCHER_ADDRESS)).foreach(
+      builderProperties.put(RSCConf.Entry.LAUNCHER_ADDRESS.key, _)
+    )
+    builderProperties.put(RSCConf.Entry.LAUNCHER_PORT.key,
+      livyConf.getInt(LivyConf.LAUNCHER_PORT).toString)
+
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
 
