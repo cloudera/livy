@@ -111,6 +111,9 @@ object LivyConf {
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
+  // Days to keep Livy server request logs.
+  val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"

@@ -79,6 +79,7 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   requestLog.setAppend(true)
   requestLog.setExtended(false)
   requestLog.setLogTimeZone("GMT")
+  requestLog.setRetainDays(livyConf.getInt(LivyConf.REQUEST_LOG_RETAIN_DAYS))
   requestLogHandler.setRequestLog(requestLog)
   handlers.addHandler(requestLogHandler)
 
