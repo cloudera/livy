@@ -38,7 +38,7 @@ import org.apache.spark.launcher.SparkLauncher
 
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf}
+import com.cloudera.livy.rsc.{PingJob, RSCClient, RSCConf, SessionStateListener}
 import com.cloudera.livy.rsc.driver.Statement
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
@@ -354,11 +354,12 @@ class InteractiveSession(
     mockApp: Option[SparkApp]) // For unit test.
   extends Session(id, owner, livyConf)
   with SessionHeartbeat
-  with SparkAppListener {
+  with SparkAppListener
+  with SessionStateListener {
 
   import InteractiveSession._
 
-  private var serverSideState: SessionState = initialState
+  @volatile private var _state: SessionState = initialState
 
   override protected val heartbeatTimeout: FiniteDuration = {
     val heartbeatTimeoutInSecond = heartbeatTimeoutS
@@ -373,6 +374,8 @@ class InteractiveSession(
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
   heartbeat()
+  // Register this class to RSCClient as a session state listener
+  client.foreach(_.registerStateListener(this))
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
@@ -413,14 +416,14 @@ class InteractiveSession(
       override def onJobFailed(job: JobHandle[Void], cause: Throwable): Unit = errorOut()
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
-        transition(SessionState.Running())
+        transition(SessionState.Idle())
       }
 
       private def errorOut(): Unit = {
         // Other code might call stop() to close the RPC channel. When RPC channel is closing,
         // this callback might be triggered. Check and don't call stop() to avoid nested called
         // if the session is already shutting down.
-        if (serverSideState != SessionState.ShuttingDown()) {
+        if (_state != SessionState.ShuttingDown()) {
           transition(SessionState.Error())
           stop()
           app.foreach { a =>
@@ -438,17 +441,7 @@ class InteractiveSession(
     InteractiveRecoveryMetadata(
       id, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt, owner, proxyUser, rscDriverUri)
 
-  override def state: SessionState = {
-    if (serverSideState.isInstanceOf[SessionState.Running]) {
-      // If session is in running state, return the repl state from RSCClient.
-      client
-        .flatMap(s => Option(s.getReplState))
-        .map(SessionState(_))
-        .getOrElse(SessionState.Busy()) // If repl state is unknown, assume repl is busy.
-    } else {
-      serverSideState
-    }
-  }
+  override def state: SessionState = _state
 
   override def stopSession(): Unit = {
     try {
@@ -548,24 +541,24 @@ class InteractiveSession(
     // If the session crashed because of the error, the session should instead go to dead state.
     // Since these 2 transitions are triggered by different threads, there's a race condition.
     // Make sure we won't transit from dead to error state.
-    val areSameStates = serverSideState.getClass() == newState.getClass()
-    val transitFromInactiveToActive = !serverSideState.isActive && newState.isActive
+    val areSameStates = _state.getClass() == newState.getClass()
+    val transitFromInactiveToActive = !_state.isActive && newState.isActive
     if (!areSameStates && !transitFromInactiveToActive) {
-      debug(s"$this session state change from ${serverSideState} to $newState")
-      serverSideState = newState
+      debug(s"$this session state change from ${_state} to $newState")
+      _state = newState
     }
   }
 
   private def ensureActive(): Unit = synchronized {
-    require(serverSideState.isActive, "Session isn't active.")
+    require(_state.isActive, "Session isn't active.")
     require(client.isDefined, "Session is active but client hasn't been created.")
   }
 
   private def ensureRunning(): Unit = synchronized {
-    serverSideState match {
-      case SessionState.Running() =>
+    _state match {
+      case SessionState.Idle() | SessionState.Busy() => Unit
       case _ =>
-        throw new IllegalStateException("Session is in state %s" format serverSideState)
+        throw new IllegalStateException(s"Session is in state ${_state}")
     }
   }
 
@@ -597,4 +590,6 @@ class InteractiveSession(
   }
 
   override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
+
+  override def onStateUpdated(state: String): Unit = { transition(SessionState(state)) }
 }
