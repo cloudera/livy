@@ -32,7 +32,13 @@ class HttpConf extends ClientConf<HttpConf> {
     JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "100ms"),
     JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s"),
 
-    CONTENT_COMPRESS_ENABLE("content.compress.enable", true);
+    CONTENT_COMPRESS_ENABLE("content.compress.enable", true),
+
+    // Kerberos related configuration
+    SPNEGO_ENABLED("spnego.enable", false),
+    AUTH_LOGIN_CONFIG("auth.login.config", null),
+    KRB5_DEBUG_ENABLED("krb5.debug", false),
+    KRB5_CONF("krb5.conf", null);
 
     private final String key;
     private final Object dflt;
@@ -51,6 +57,27 @@ class HttpConf extends ClientConf<HttpConf> {
 
   HttpConf(Properties config) {
     super(config);
+
+    if (getBoolean(Entry.SPNEGO_ENABLED)) {
+      if (get(Entry.AUTH_LOGIN_CONFIG ) == null) {
+        throw new IllegalArgumentException(Entry.AUTH_LOGIN_CONFIG.key + " should not be null");
+      }
+
+      if (get(Entry.KRB5_CONF) == null) {
+        throw new IllegalArgumentException(Entry.KRB5_CONF.key + " should not be null");
+      }
+
+      System.setProperty("java.security.auth.login.config", get(Entry.AUTH_LOGIN_CONFIG));
+      System.setProperty("java.security.krb5.conf", get(Entry.KRB5_CONF));
+      System.setProperty(
+        "sun.security.krb5.debug", String.valueOf(getBoolean(Entry.KRB5_DEBUG_ENABLED)));
+      // This is needed to get Kerberos credentials from the environment, instead of
+      // requiring the application to manually obtain the credentials.
+      System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+    }
   }
 
+  boolean shouldEnableSpnego() {
+    return getBoolean(Entry.SPNEGO_ENABLED);
+  }
 }
