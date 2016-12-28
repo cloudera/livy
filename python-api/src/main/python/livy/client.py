@@ -441,7 +441,8 @@ class _LivyConnection(object):
         self._server_url_prefix = uri.geturl() + self._SESSIONS_URI
         self._requests = requests
         self.lock = threading.Lock()
-        self._spnego_enabled = config.getboolean('env', self._SPNEGO_ENABLED_CONF) \
+        self._spnego_enabled = \
+            config.getboolean('env', self._SPNEGO_ENABLED_CONF) \
             if config.has_option('env', self._SPNEGO_ENABLED_CONF) else False
 
     def _spnego_auth(self):
