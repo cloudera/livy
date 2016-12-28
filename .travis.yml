@@ -24,6 +24,7 @@ cache:
 
 before_install:
   - sudo apt-get -y install python3-pip python-dev
+  - sudo apt-get -y install libkrb5-dev
   - sudo apt-get -y remove python-setuptools
   - pip install --user --upgrade pip setuptools
   - pip3 install --user --upgrade pip setuptools
