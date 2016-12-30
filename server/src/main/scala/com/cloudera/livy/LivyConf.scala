@@ -58,6 +58,8 @@ object LivyConf {
 
   val SERVER_HOST = Entry("livy.server.host", "0.0.0.0")
   val SERVER_PORT = Entry("livy.server.port", 8998)
+  val HTTP_REQUEST_HEADER_SIZE = Entry("livy.http.request.header.size", 131072)
+  val HTTP_RESPONSE_HEADER_SIZE = Entry("livy.http.response.header.size", 131072)
   val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf_protection.enabled", false)
 
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
