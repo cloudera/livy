@@ -105,7 +105,9 @@ class ContextLauncher {
         @Override
         public void onFailure(Throwable error) throws Exception {
           // If promise is cancelled or failed, make sure spark-submit is not leaked.
-          child.kill();
+          if (child != null) {
+            child.kill();
+          }
         }
       });
 
@@ -137,10 +139,12 @@ class ContextLauncher {
   private void dispose(boolean forceKill) {
     factory.getServer().unregisterClient(clientId);
     try {
-      if (forceKill) {
-        child.kill();
-      } else {
-        child.detach();
+      if (child != null) {
+        if (forceKill) {
+          child.kill();
+        } else {
+          child.detach();
+        }
       }
     } finally {
       factory.unref();
