@@ -94,6 +94,10 @@ public class RSCClient implements LivyClient {
     isAlive = true;
   }
 
+  public boolean isAlive() {
+    return isAlive;
+  }
+
   private synchronized void connectToContext(final ContextInfo info) throws Exception {
     this.contextInfo = info;
 
