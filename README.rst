@@ -470,7 +470,7 @@ Request Parameters
 +------+-----------------------------------+------+
 | name | description                       | type |
 +======+===================================+======+
-| from | The start session id to fetch     | int  |
+| from | The start index to fetch sessions | int  |
 +------+-----------------------------------+------+
 | size | Number of sessions to fetch       | int  |
 +------+-----------------------------------+------+
@@ -478,15 +478,15 @@ Request Parameters
 Response Body
 ^^^^^^^^^^^^^
 
-+----------+-------------------------------+------+
-| name     | description                   | type |
-+==========+===============================+======+
-| from     | The start session id fetched  | int  |
-+----------+-------------------------------+------+
-| total    | Number of sessions fetched    | int  |
-+----------+-------------------------------+------+
-| sessions | `Session`_ list               | list |
-+----------+-------------------------------+------+
++----------+-------------------------------------+------+
+| name     | description                         | type |
++==========+=====================================+======+
+| from     | The start index of fetched sessions | int  |
++----------+-------------------------------------+------+
+| total    | Number of sessions fetched          | int  |
++----------+-------------------------------------+------+
+| sessions | `Session`_ list                     | list |
++----------+-------------------------------------+------+
 
 
 POST /sessions
@@ -512,13 +512,13 @@ Request Body
 +--------------------------+------------------------------------------------+-----------------+
 | driverMemory             | Amount of memory to use for the driver process | string          |
 +--------------------------+------------------------------------------------+-----------------+
-| driverCores              | Number of cores to use for the driver process  | integer         |
+| driverCores              | Number of cores to use for the driver process  | int             |
 +--------------------------+------------------------------------------------+-----------------+
 | executorMemory           | Amount of memory to use per executor process   | string          |
 +--------------------------+------------------------------------------------+-----------------+
-| executorCores            | Number of cores to use for each executor       | integer         |
+| executorCores            | Number of cores to use for each executor       | int             |
 +--------------------------+------------------------------------------------+-----------------+
-| numExecutors             | Number of executors to launch for this session | integer         |
+| numExecutors             | Number of executors to launch for this session | int             |
 +--------------------------+------------------------------------------------+-----------------+
 | archives                 | Archives to be used in this session            | List of string  |
 +--------------------------+------------------------------------------------+-----------------+
@@ -528,7 +528,7 @@ Request Body
 +--------------------------+------------------------------------------------+-----------------+
 | conf                     | Spark configuration properties                 | Map of key=val  |
 +--------------------------+------------------------------------------------+-----------------+
-| heartbeatTimeoutInSecond | Timeout in second to which session be orphaned | Int             |
+| heartbeatTimeoutInSecond | Timeout in second to which session be orphaned | int             |
 +--------------------------+------------------------------------------------+-----------------+
 
 
@@ -661,7 +661,7 @@ Response Body
 +------+----------------------------+--------+
 | name | description                | type   |
 +======+============================+========+
-| msg  | denote cancelled statement | string |
+| msg  | "cancelled"                | string |
 +------+----------------------------+--------+
 
 
@@ -676,7 +676,7 @@ Request Parameters
 +------+-----------------------------------+------+
 | name | description                       | type |
 +======+===================================+======+
-| from | The start session id to fetch     | int  |
+| from | The start index to fetch sessions | int  |
 +------+-----------------------------------+------+
 | size | Number of sessions to fetch       | int  |
 +------+-----------------------------------+------+
@@ -684,15 +684,15 @@ Request Parameters
 Response Body
 ^^^^^^^^^^^^^
 
-+----------+-------------------------------+------+
-| name     | description                   | type |
-+==========+===============================+======+
-| from     | The start session id fetched  | int  |
-+----------+-------------------------------+------+
-| total    | Number of sessions fetched    | int  |
-+----------+-------------------------------+------+
-| sessions | `Batch`_ list                 | list |
-+----------+-------------------------------+------+
++----------+-------------------------------------+------+
+| name     | description                         | type |
++==========+=====================================+======+
+| from     | The start index of fetched sessions | int  |
++----------+-------------------------------------+------+
+| total    | Number of sessions fetched          | int  |
++----------+-------------------------------------+------+
+| sessions | `Batch`_ list                       | list |
++----------+-------------------------------------+------+
 
 
 POST /batches
@@ -720,13 +720,13 @@ Request Body
 +----------------+---------------------------------------------------+-----------------+
 | driverMemory   | Amount of memory to use for the driver process    | string          |
 +----------------+---------------------------------------------------+-----------------+
-| driverCores    | Number of cores to use for the driver process     | integer         |
+| driverCores    | Number of cores to use for the driver process     | int             |
 +----------------+---------------------------------------------------+-----------------+
 | executorMemory | Amount of memory to use per executor process      | string          |
 +----------------+---------------------------------------------------+-----------------+
-| executorCores  | Number of cores to use for each executor          | integer         |
+| executorCores  | Number of cores to use for each executor          | int             |
 +----------------+---------------------------------------------------+-----------------+
-| numExecutors   | Number of executors to launch for this session    | integer         |
+| numExecutors   | Number of executors to launch for this session    | int             |
 +----------------+---------------------------------------------------+-----------------+
 | archives       | Archives to be used in this session               | List of string  |
 +----------------+---------------------------------------------------+-----------------+
@@ -923,7 +923,7 @@ Statement State
 +------------+----------------------------------+
 | error      | Statement failed                 |
 +------------+----------------------------------+
-| cancelling | Statement is cancelling          |
+| cancelling | Statement is being cancelling    |
 +------------+----------------------------------+
 | cancelled  | Statement is cancelled           |
 +------------+----------------------------------+
