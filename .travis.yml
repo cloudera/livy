@@ -3,8 +3,10 @@ dist: trusty
 language: scala
 
 env:
-  - MVN_FLAG=-Pspark-1.6
-  - MVN_FLAG=-Pspark-2.0
+  - MVN_FLAG='-Pspark-1.6 -DskipTests'
+  - MVN_FLAG='-Pspark-2.0 -DskipTests'
+  - MVN_FLAG='-Pspark-1.6 -DskipITs'
+  - MVN_FLAG='-Pspark-2.0 -DskipITs'
 
 jdk:
   - oraclejdk7
