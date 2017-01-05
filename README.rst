@@ -661,7 +661,7 @@ Response Body
 +------+----------------------------+--------+
 | name | description                | type   |
 +======+============================+========+
-| msg  | "cancelled"                | string |
+| msg  | is always "cancelled"      | string |
 +------+----------------------------+--------+
 
 
