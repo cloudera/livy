@@ -195,7 +195,8 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
 
   override def kind: String = pyKind
 
-  private val pysparkJobProcessor = PythonInterpreter.initiatePy4jCallbackGateway(gatewayServer)
+  private[repl] val pysparkJobProcessor =
+    PythonInterpreter.initiatePy4jCallbackGateway(gatewayServer)
 
   override def close(): Unit = {
     try {
@@ -255,11 +256,6 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     Option(stdout.readLine()).map { case line =>
       parse(line)
     }
-  }
-
-  def createWrapper(driver: ReplDriver, msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    new BypassJobWrapper(driver, msg.id,
-      new BypassPySparkJob(msg.serializedJob, pysparkJobProcessor))
   }
 
   def addFile(path: String): Unit = {

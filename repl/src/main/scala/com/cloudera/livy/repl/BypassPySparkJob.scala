@@ -23,10 +23,14 @@ import com.cloudera.livy.{Job, JobContext}
 
 class BypassPySparkJob(
     serializedJob: Array[Byte],
-    pysparkJobProcessor: PySparkJobProcessor) extends Job[Array[Byte]] {
+    replDriver: ReplDriver) extends Job[Array[Byte]] {
 
   override def call(jc: JobContext): Array[Byte] = {
-    val resultByteArray = pysparkJobProcessor.processBypassJob(serializedJob)
+    val interpreter = replDriver.interpreter
+    require(interpreter != null && interpreter.isInstanceOf[PythonInterpreter])
+    val pi = interpreter.asInstanceOf[PythonInterpreter]
+
+    val resultByteArray = pi.pysparkJobProcessor.processBypassJob(serializedJob)
     val resultString = new String(resultByteArray, StandardCharsets.UTF_8)
     if (resultString.startsWith("Client job error:")) {
       throw new PythonJobException(resultString)
