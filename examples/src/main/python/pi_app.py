@@ -1,4 +1,3 @@
-from __future__ import print_function
 #
 # Licensed to Cloudera, Inc. under one
 # or more contributor license agreements.  See the NOTICE file
@@ -17,6 +16,8 @@ from __future__ import print_function
 # limitations under the License.
 #
 
+from __future__ import print_function
+
 import sys
 from random import random
 from operator import add
@@ -25,8 +26,18 @@ from livy.client import HttpClient
 
 if __name__ == "__main__":
     """
-        Usage: PiJob [livy url] [slices]
+        Usage: pi_app [livy url] [slices]
+
+        To run this Python script you need to install livy-python-api-*version*.tar.gz with
+        easy_install first.
+
+        python /pathTo/pi_app.py http://<livy-server>:8998 2
     """
+
+    if len(sys.argv) != 3:
+        print("Usage: pi_app <livy url> <slices>", file=sys.stderr)
+        exit(-1)
+
     slices = int(sys.argv[2])
     samples = 100000 * slices
 
