@@ -41,8 +41,9 @@ object SparkYarnApp extends Logging {
   def init(livyConf: LivyConf): Unit = {
     sessionLeakageCheckInterval = livyConf.getTimeAsMs(LivyConf.YARN_APP_LEAKAGE_CHECK_INTERVAL)
     sessionLeakageCheckTimeout = livyConf.getTimeAsMs(LivyConf.YARN_APP_LEAKAGE_CHECK_TIMEOUT)
-    leakagedAppGCThread.setDaemon(true)
-    leakagedAppGCThread.start()
+    leakedAppsGCThread.setDaemon(true)
+    leakedAppsGCThread.setName("LeakedAppsGCThread")
+    leakedAppsGCThread.start()
   }
 
   // YarnClient is thread safe. Create once, share it across threads.
@@ -61,26 +62,26 @@ object SparkYarnApp extends Logging {
 
   private val appType = Set("SPARK").asJava
 
-  private val leakagedAppTags = new java.util.concurrent.ConcurrentHashMap[String, Long]()
+  private val leakedAppTags = new java.util.concurrent.ConcurrentHashMap[String, Long]()
 
   private var sessionLeakageCheckTimeout: Long = _
 
   private var sessionLeakageCheckInterval: Long = _
 
-  private val leakagedAppGCThread = new Thread() {
+  private val leakedAppsGCThread = new Thread() {
     override def run(): Unit = {
       while (true) {
-        if (!leakagedAppTags.isEmpty) {
+        if (!leakedAppTags.isEmpty) {
           // kill the app if found it and remove it if exceeding a threashold
-          val iter = leakagedAppTags.entrySet().iterator()
+          val iter = leakedAppTags.entrySet().iterator()
           var isRemoved = false
           val now = System.currentTimeMillis()
+          val apps = yarnClient.getApplications(appType).asScala
           while(iter.hasNext) {
             val entry = iter.next()
-            yarnClient.getApplications(appType).asScala
-              .find(_.getApplicationTags.contains(entry.getKey))
+            apps.find(_.getApplicationTags.contains(entry.getKey))
               .foreach(e => {
-                info(s"Kill leakage app ${e.getApplicationId}")
+                info(s"Kill leaked app ${e.getApplicationId}")
                 yarnClient.killApplication(e.getApplicationId)
                 iter.remove()
                 isRemoved = true
@@ -88,7 +89,7 @@ object SparkYarnApp extends Logging {
             if (!isRemoved) {
               if ((entry.getValue - now) > sessionLeakageCheckTimeout) {
                 iter.remove()
-                info(s"Remove leakage yarn app tag ${entry.getKey}")
+                info(s"Remove leaked yarn app tag ${entry.getKey}")
               }
             }
           }
@@ -177,7 +178,7 @@ class SparkYarnApp private[utils] (
       case None =>
         if (deadline.isOverdue) {
           process.foreach(_.destroy())
-          leakagedAppTags.put(appTag, System.currentTimeMillis())
+          leakedAppTags.put(appTag, System.currentTimeMillis())
           throw new Exception(s"No YARN application is found with tag $appTagLowerCase in " +
             livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT)/1000 + " seconds. " +
             "Please check your cluster status, it is may be very busy.")
