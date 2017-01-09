@@ -80,7 +80,7 @@ object SparkYarnApp extends Logging {
           while(iter.hasNext) {
             val entry = iter.next()
             apps.find(_.getApplicationTags.contains(entry.getKey))
-              .foreach(e => {
+              .foreach({ e =>
                 info(s"Kill leaked app ${e.getApplicationId}")
                 yarnClient.killApplication(e.getApplicationId)
                 iter.remove()

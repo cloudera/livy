@@ -113,7 +113,7 @@ object LivyConf {
 
   // Days to keep Livy server request logs.
   val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)
-  
+
   // REPL related jars separated with comma.
   val REPL_JARS = Entry("livy.repl.jars", null)
   // RSC related jars separated with comma.
