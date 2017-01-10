@@ -377,7 +377,8 @@ class InteractiveSession(
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
-      val driverProcess = client.map(client => Some(new LineBufferedProcess(client.getDriverProcess))).getOrElse(None)
+      val driverProcess = client.map(client => Some(new LineBufferedProcess(
+        client.getDriverProcess))).getOrElse(None)
       // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
       // (e.g. Reflect YARN application state to session state).
       Option(SparkApp.create(appTag, appId, driverProcess, livyConf, Some(this)))
