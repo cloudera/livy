@@ -44,6 +44,7 @@ import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.sessions.SessionState.Dead
+import com.cloudera.livy.util.LineBufferedProcess
 import com.cloudera.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -376,9 +377,17 @@ class InteractiveSession(
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
+      val driverProcess = client.map { client =>
+        if (client.getDriverProcess == null) {
+          None
+        }
+        else {
+          Some(new LineBufferedProcess(client.getDriverProcess))
+        }
+      }.getOrElse(None)
       // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
       // (e.g. Reflect YARN application state to session state).
-      Option(SparkApp.create(appTag, appId, None, livyConf, Some(this)))
+      Option(SparkApp.create(appTag, appId, driverProcess, livyConf, Some(this)))
     } else {
       // When Livy is running with other cluster manager, SparkApp doesn't provide any
       // additional benefit over controlling RSCDriver using RSCClient. Don't use it.

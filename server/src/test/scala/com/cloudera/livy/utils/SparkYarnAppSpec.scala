@@ -137,7 +137,9 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val mockYarnClient = mock[YarnClient]
         val mockSparkSubmit = mock[LineBufferedProcess]
         val sparkSubmitLog = IndexedSeq("SPARK-SUBMIT", "LOG")
+        val sparkSubmitErrorLog = IndexedSeq()
         when(mockSparkSubmit.inputLines).thenReturn(sparkSubmitLog)
+        when(mockSparkSubmit.errorLines).thenReturn(sparkSubmitErrorLog)
         val waitForCalledLatch = new CountDownLatch(1)
         when(mockSparkSubmit.waitFor()).thenAnswer(new Answer[Int]() {
           override def answer(invocation: InvocationOnMock): Int = {
