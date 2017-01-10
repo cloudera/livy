@@ -38,6 +38,7 @@ import py4j.reflection.PythonProxyHandler
 
 import com.cloudera.livy.Logging
 import com.cloudera.livy.client.common.ClientConf
+import com.cloudera.livy.repl.Interpreter.{ExecuteAborted, ExecuteError, ExecuteIncomplete, ExecuteSuccess}
 import com.cloudera.livy.rsc.BaseProtocol
 import com.cloudera.livy.rsc.driver.BypassJobWrapper
 import com.cloudera.livy.sessions._
@@ -72,7 +73,7 @@ object PythonInterpreter extends Logging {
     env.put("LIVY_SPARK_MAJOR_VERSION", conf.get("spark.livy.spark_major_version", "1"))
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
-    new PythonInterpreter(process, gatewayServer, kind.toString)
+    new PythonInterpreter(process, gatewayServer, kind.toString, conf)
   }
 
   private def findPySparkArchives(): Seq[String] = {
@@ -187,7 +188,8 @@ object PythonInterpreter extends Logging {
   }
 }
 
-private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, pyKind: String)
+private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, pyKind: String,
+                                conf: SparkConf)
   extends ProcessInterpreter(process)
   with Logging
 {
@@ -205,13 +207,37 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
   }
 
-  @tailrec
   final override protected def waitUntilReady(): Unit = {
+    waitForGateway()
+    // LIVY-294, need to check whether HiveContext can work properly, fallback to SQLContext if
+    // HiveContext can not be initialized successfully. Only for spark-1.
+    val code =
+      """
+        |import py4j
+        |from pyspark.sql import SQLContext
+        |try:
+        |  sqlContext.tables()
+        |except py4j.protocol.Py4JError:
+        |    sqlContext = SQLContext(sc)
+      """.stripMargin
+    if (conf.get("spark.livy.spark_major_version", "1") == "1" ) {
+      sendExecuteRequest(code) match {
+        case ExecuteSuccess(e) => info("Initialize SQLContext/HiveContext successfully")
+        case Interpreter.ExecuteError(ename, evalue, traceback) => error("Fail to initialize " +
+          "SQLContext/HiveContext :" + ename + ", " + evalue + ", " + traceback)
+        case ExecuteIncomplete() => error("ExecuteIncomplete")
+        case ExecuteAborted(msg) => error("ExecuteAborted:" + msg)
+      }
+    }
+  }
+
+  @tailrec
+  private def waitForGateway(): Unit = {
     val READY_REGEX = "READY\\(port=([0-9]+)\\)".r
     stdout.readLine() match {
       case null =>
       case READY_REGEX(port) => updatePythonGatewayPort(port.toInt)
-      case _ => waitUntilReady()
+      case _ => waitForGateway()
     }
   }
 
