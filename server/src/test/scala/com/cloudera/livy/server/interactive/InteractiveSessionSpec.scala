@@ -45,7 +45,7 @@ class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
-  livyConf.set(InteractiveSession.LIVY_REPL_JARS, "dummy.jar")
+  livyConf.set(LivyConf.REPL_JARS, "dummy.jar")
     .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
 
@@ -111,7 +111,7 @@ class InteractiveSessionSpec extends FunSpec
         "dummy.jar"
       )
       val livyConf = new LivyConf(false)
-        .set(InteractiveSession.LIVY_REPL_JARS, testedJars.mkString(","))
+        .set(LivyConf.REPL_JARS, testedJars.mkString(","))
         .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
         .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
       val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
@@ -126,6 +126,33 @@ class InteractiveSessionSpec extends FunSpec
         "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
         "hdfs:///dummy-path/test/test3.jar",
         "dummy.jar"))
+    }
+
+
+    it("should set rsc jars through livy conf") {
+      val rscJars = Set(
+        "dummy.jar",
+        "local:///dummy-path/dummy1.jar",
+        "file:///dummy-path/dummy2.jar",
+        "hdfs:///dummy-path/dummy3.jar")
+      val livyConf = new LivyConf(false)
+        .set(LivyConf.REPL_JARS, "dummy.jar")
+        .set(LivyConf.RSC_JARS, rscJars.mkString(","))
+        .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
+      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
+      // if livy.rsc.jars is configured in LivyConf, it should be passed to RSCConf.
+      properties(RSCConf.Entry.LIVY_JARS.key()).split(",").toSet === rscJars
+
+      val rscJars1 = Set(
+        "foo.jar",
+        "local:///dummy-path/foo1.jar",
+        "file:///dummy-path/foo2.jar",
+        "hdfs:///dummy-path/foo3.jar")
+      val properties1 = InteractiveSession.prepareBuilderProp(
+        Map(RSCConf.Entry.LIVY_JARS.key() -> rscJars1.mkString(",")), Spark(), livyConf)
+      // if rsc jars are configured both in LivyConf and RSCConf, RSCConf should take precedence.
+      properties1(RSCConf.Entry.LIVY_JARS.key()).split(",").toSet === rscJars1
     }
 
     it("should start in the idle state") {
