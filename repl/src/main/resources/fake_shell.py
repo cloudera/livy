@@ -30,6 +30,7 @@ import threading
 import tempfile
 import shutil
 import pickle
+import textwrap
 
 if sys.version >= '3':
     unicode = str
@@ -541,12 +542,13 @@ def main():
                 # LIVY-294, need to check whether HiveContext can work properly,
                 # fallback to SQLContext if HiveContext can not be initialized successfully.
                 # Only for spark-1.
-                code = """import py4j
-from pyspark.sql import SQLContext
-try:
-  sqlContext.tables()
-except py4j.protocol.Py4JError:
-  sqlContext = SQLContext(sc)"""
+                code = textwrap.dedent("""
+                    import py4j
+                    from pyspark.sql import SQLContext
+                    try:
+                      sqlContext.tables()
+                    except py4j.protocol.Py4JError:
+                      sqlContext = SQLContext(sc)""")
                 exec(code, global_dict)
 
             #Start py4j callback server
