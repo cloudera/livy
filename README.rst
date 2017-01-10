@@ -45,6 +45,7 @@ MacOS:
 Required python packages for building Livy:
   * cloudpickle
   * requests
+  * requests-kerberos
   * flake8
   * flaky
   * pytest

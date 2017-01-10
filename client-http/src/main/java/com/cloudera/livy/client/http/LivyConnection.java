@@ -142,7 +142,7 @@ class LivyConnection {
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
 
-    if (config.shouldEnableSpnego()) {
+    if (config.isSpnegoEnabled()) {
       Registry<AuthSchemeProvider> authSchemeProviderRegistry =
         RegistryBuilder.<AuthSchemeProvider>create()
           .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())

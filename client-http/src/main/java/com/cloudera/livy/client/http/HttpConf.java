@@ -77,7 +77,7 @@ class HttpConf extends ClientConf<HttpConf> {
     }
   }
 
-  boolean shouldEnableSpnego() {
+  boolean isSpnegoEnabled() {
     return getBoolean(Entry.SPNEGO_ENABLED);
   }
 }
