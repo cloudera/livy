@@ -78,7 +78,7 @@ class SparkYarnApp private[utils] (
   private var yarnDiagnostics: IndexedSeq[String] = IndexedSeq.empty[String]
 
   override def log(): IndexedSeq[String] =
-    process.map(_.inputLines).getOrElse(ArrayBuffer.empty[String]) ++ yarnDiagnostics
+    process.map(_.inputLines).getOrElse(ArrayBuffer.empty[String]) ++ yarnDiagnostics ++ process.map(_.errorLines).getOrElse(ArrayBuffer.empty[String])
 
   override def kill(): Unit = synchronized {
     if (isRunning) {
