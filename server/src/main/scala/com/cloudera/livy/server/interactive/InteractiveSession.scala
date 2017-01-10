@@ -60,7 +60,6 @@ case class InteractiveRecoveryMetadata(
   extends RecoveryMetadata
 
 object InteractiveSession extends Logging {
-  private[interactive] val LIVY_REPL_JARS = "livy.repl.jars"
   private[interactive] val SPARK_YARN_IS_PYTHON = "spark.yarn.isPython"
 
   val RECOVERY_SESSION_TYPE = "interactive"
@@ -159,7 +158,7 @@ object InteractiveSession extends Logging {
     builderProperties ++= conf
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
-      Option(livyConf.get(LIVY_REPL_JARS)).map { jars =>
+      Option(livyConf.get(LivyConf.REPL_JARS)).map { jars =>
         val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
         jars.split(",").filter { name => new Path(name).getName match {
             // Filter out unmatched scala jars
@@ -310,6 +309,10 @@ object InteractiveSession extends Logging {
       case _ =>
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
+
+    // Set Livy.rsc.jars from livy conf to rsc conf, RSC conf will take precedence if both are set.
+    Option(livyConf.get(LivyConf.RSC_JARS)).foreach(
+      builderProperties.getOrElseUpdate(RSCConf.Entry.LIVY_JARS.key(), _))
 
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
