@@ -30,17 +30,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
+import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.*;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.NoConnectionReuseStrategy;
+import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -123,10 +128,6 @@ class LivyConnection {
       };
     }
 
-    // This is needed to get Kerberos credentials from the environment, instead of
-    // requiring the application to manually obtain the credentials.
-    System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
-
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
     credsProvider.setCredentials(AuthScope.ANY, credentials);
 
@@ -140,6 +141,14 @@ class LivyConnection {
       .setMaxConnTotal(1)
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
+
+    if (config.isSpnegoEnabled()) {
+      Registry<AuthSchemeProvider> authSchemeProviderRegistry =
+        RegistryBuilder.<AuthSchemeProvider>create()
+          .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
+          .build();
+      builder.setDefaultAuthSchemeRegistry(authSchemeProviderRegistry);
+    }
 
     this.server = uri;
     this.client = builder.build();
