@@ -90,6 +90,7 @@ class LivyServer extends Logging {
 
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
+      SparkYarnApp.init(livyConf)
       Future { SparkYarnApp.yarnClient }
     }
 
