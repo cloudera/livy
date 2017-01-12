@@ -30,6 +30,7 @@ import scala.reflect.runtime.universe
 import org.apache.commons.codec.binary.Base64
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.util.{ChildFirstURLClassLoader, MutableURLClassLoader, Utils}
+import org.apache.commons.lang.StringEscapeUtils
 import org.json4s._
 import org.json4s.JsonDSL._
 
@@ -199,7 +200,7 @@ class SparkRInterpreter(process: Process,
   }
 
   private def sendRequest(code: String): String = {
-    stdin.println(s"""try(eval(parse(text="$code")))""")
+    stdin.println(s"""try(eval(parse(text="${StringEscapeUtils.escapeJava(code)}")))""")
     stdin.flush()
 
     stdin.println(PRINT_MARKER)
