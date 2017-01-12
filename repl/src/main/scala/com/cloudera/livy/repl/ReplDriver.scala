@@ -94,13 +94,15 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    interpreter match {
-      case pi: PythonInterpreter => pi.createWrapper(this, msg)
+    kind match {
+      case PySpark() | PySpark3() => new BypassJobWrapper(this, msg.id,
+        new BypassPySparkJob(msg.serializedJob, this))
       case _ => super.createWrapper(msg)
     }
   }
 
   override protected def addFile(path: String): Unit = {
+    require(interpreter != null)
     interpreter match {
       case pi: PythonInterpreter => pi.addFile(path)
       case _ => super.addFile(path)
@@ -108,6 +110,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override protected def addJarOrPyFile(path: String): Unit = {
+    require(interpreter != null)
     interpreter match {
       case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
       case _ => super.addJarOrPyFile(path)
