@@ -97,4 +97,11 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
     ))
   }
 
+  it should "escape the statement" in withInterpreter { interpreter =>
+    val response = interpreter.execute("print(\"a\")")
+    response should equal(Interpreter.ExecuteSuccess(
+      TEXT_PLAIN -> "[1] \"a\""
+    ))
+  }
+
 }
