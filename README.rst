@@ -915,19 +915,21 @@ A statement represents the result of an execution statement.
 Statement State
 ^^^^^^^^^^^^^^^
 
-+------------+----------------------------------+
-| value      | description                      |
-+============+==================================+
-| running    | Statement is currently running   |
-+------------+----------------------------------+
-| available  | Statement has a response ready   |
-+------------+----------------------------------+
-| error      | Statement failed                 |
-+------------+----------------------------------+
-| cancelling | Statement is being cancelling    |
-+------------+----------------------------------+
-| cancelled  | Statement is cancelled           |
-+------------+----------------------------------+
++------------+----------------------------------------------------+
+| value      | description                                        |
++============+====================================================+
+| waiting    | Statement is enqueued but execution hasn't started |
++------------+----------------------------------------------------+
+| running    | Statement is currently running                     |
++------------+----------------------------------------------------+
+| available  | Statement has a response ready                     |
++------------+----------------------------------------------------+
+| error      | Statement failed                                   |
++------------+----------------------------------------------------+
+| cancelling | Statement is being cancelling                      |
++------------+----------------------------------------------------+
+| cancelled  | Statement is cancelled                             |
++------------+----------------------------------------------------+
 
 Statement Output
 ^^^^^^^^^^^^^^^^
