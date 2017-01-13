@@ -136,7 +136,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       currentTime - session.lastActivity > sessionTimeout
       session.state match {
         case SessionState.Success(_) | SessionState.Dead(_) | SessionState.Error(_) => true
-        case _  =>
+        case _ =>
           if (!sessionTimeoutCheck) {
             false
           } else if (session.isInstanceOf[BatchSession]) {
