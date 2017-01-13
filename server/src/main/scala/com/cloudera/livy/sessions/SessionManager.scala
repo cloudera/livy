@@ -135,7 +135,10 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       val currentTime = System.nanoTime()
       currentTime - session.lastActivity > sessionTimeout
       session.state match {
-        case SessionState.Success(_) | SessionState.Dead(_) | SessionState.Error(_) => true
+        case SessionState.Success(_) | SessionState.Dead(_) | SessionState.Error(_) =>
+          // don't gc finished session in integration test, because we need to check the session
+          // state after it is finished.
+          !sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean
         case _ =>
           if (!sessionTimeoutCheck) {
             false
