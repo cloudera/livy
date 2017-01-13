@@ -124,6 +124,12 @@ object LivyConf {
   // how often to check livy session leakage
   val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.app-leakage.check_interval", "60s")
 
+  // Whether session timeout should be checked, by default it will be checked, which means inactive
+  // session will be stopped after "livy.server.session.timeout"
+  val SESSION_TIMEOUT_CHECK = Entry("livy.server.session.timeout-check", true)
+  // How long will an inactive session be gc-ed.
+  val SESSION_TIMEOUT = Entry("livy.server.session.timeout", "1h")
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"

@@ -36,7 +36,6 @@ import com.cloudera.livy.sessions.Session.RecoveryMetadata
 object SessionManager {
   val SESSION_RECOVERY_MODE_OFF = "off"
   val SESSION_RECOVERY_MODE_RECOVERY = "recovery"
-  val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
 }
 
 class BatchSessionManager(
@@ -76,8 +75,9 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   protected[this] final val idCounter = new AtomicInteger(0)
   protected[this] final val sessions = mutable.LinkedHashMap[Int, S]()
 
+  private[this] final val sessionTimeoutCheck = livyConf.getBoolean(LivyConf.SESSION_TIMEOUT_CHECK)
   private[this] final val sessionTimeout =
-    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_TIMEOUT))
 
   mockSessions.getOrElse(recover()).foreach(register)
   new GarbageCollector().start()
@@ -134,6 +134,18 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     def expired(session: Session): Boolean = {
       val currentTime = System.nanoTime()
       currentTime - session.lastActivity > sessionTimeout
+      session.state match {
+        case SessionState.Success(_) | SessionState.Dead(_) | SessionState.Error(_) => true
+        case _  =>
+          if (!sessionTimeoutCheck) {
+            false
+          } else if (session.isInstanceOf[BatchSession]) {
+            false
+          } else {
+            val currentTime = System.nanoTime()
+            currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
+          }
+      }
     }
 
     Future.sequence(all().filter(expired).map(delete))
