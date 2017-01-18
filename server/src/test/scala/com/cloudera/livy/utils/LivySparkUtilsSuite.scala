@@ -50,7 +50,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     testSparkVersion("1.6.1-SNAPSHOT")
     testSparkVersion("1.6.2")
     testSparkVersion("1.6")
-    testSparkVersion("1.6.3.2.5.0-12")    
+    testSparkVersion("1.6.3.2.5.0-12")
   }
 
   test("should support Spark 2.0.x") {
