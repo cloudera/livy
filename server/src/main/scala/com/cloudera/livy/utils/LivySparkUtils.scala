@@ -145,11 +145,11 @@ object LivySparkUtils extends Logging {
    * @return Two element tuple, one is major version and the other is minor version
    */
   def formatSparkVersion(version: String): (Int, Int) = {
-    val versionPattern = """(\d)+\.(\d)+(?:[\.-]\d*)*""".r
-    version match {
-      case versionPattern(major, minor) =>
-        (major.toInt, minor.toInt)
-      case _ =>
+    val versionPattern = """^(\d+)\.(\d+)(\..*)?$""".r
+    versionPattern.findFirstMatchIn(version) match {
+      case Some(m) =>
+        (m.group(1).toInt, m.group(2).toInt)
+      case None =>
         throw new IllegalArgumentException(s"Fail to parse Spark version from $version")
     }
   }
