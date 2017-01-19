@@ -47,6 +47,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   test("should support Spark 1.6") {
     testSparkVersion("1.6.0")
     testSparkVersion("1.6.1")
+    testSparkVersion("1.6.1-SNAPSHOT")
     testSparkVersion("1.6.2")
     testSparkVersion("1.6")
     testSparkVersion("1.6.3.2.5.0-12")
@@ -56,6 +57,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     testSparkVersion("2.0.0")
     testSparkVersion("2.0.1")
     testSparkVersion("2.0.2")
+    testSparkVersion("2.0.3-SNAPSHOT")
     testSparkVersion("2.0.0.2.5.1.0-56") // LIVY-229
     testSparkVersion("2.0")
     testSparkVersion("2.1.0")
@@ -67,6 +69,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     intercept[IllegalArgumentException] { testSparkVersion("1.5.0") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.1") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.2") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.5.0-cdh5.6.1") }
   }
 
   test("should fail on bad version") {
