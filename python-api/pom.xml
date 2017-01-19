@@ -7,13 +7,13 @@
   <parent>
     <groupId>com.cloudera.livy</groupId>
     <artifactId>livy-main</artifactId>
-    <version>0.3.0</version>
+    <version>0.3.1-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <groupId>com.cloudera.livy</groupId>
   <artifactId>livy-python-api</artifactId>
-  <version>0.3.0</version>
+  <version>0.3.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <build>
