@@ -92,5 +92,36 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
         actualStateTransitions.toArray shouldBe expectedStateTransitions
       }
     }
+
+    it("should remove old statements when reaching threshold") {
+      val interpreter = mock[Interpreter]
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
+      rscConf.set(RSCConf.Entry.RETAINED_STATEMENT_NUMBER, 2)
+      val session = new Session(rscConf, interpreter)
+      session.start()
+
+      session.statements.size should be (0)
+      session.execute("")
+      session.statements.size should be (1)
+      session.statements.map(_._1).toSet should be (Set(0))
+      session.execute("")
+      session.statements.size should be (2)
+      session.statements.map(_._1).toSet should be (Set(0, 1))
+      session.execute("")
+      eventually {
+        session.statements.size should be (2)
+        session.statements.map(_._1).toSet should be (Set(1, 2))
+      }
+
+      // Continue submitting statements, total statements in memory should be 2.
+      session.execute("")
+      eventually {
+        session.statements.size should be (2)
+        session.statements.map(_._1).toSet should be (Set(2, 3))
+      }
+    }
   }
 }

@@ -36,4 +36,21 @@ public class Statement {
   public Statement() {
     this(null, null, null);
   }
+
+  public boolean compareAndTransition(final StatementState from, final StatementState to) {
+    if (state.compareAndSet(from, to)) {
+      StatementState.validate(from, to);
+      return true;
+    }
+    return false;
+  }
+
+  public boolean checkStateAndExecute(final StatementState s, final Runnable runnable) {
+    if (state.get() == s) {
+      runnable.run();
+      return true;
+    } else {
+      return false;
+    }
+  }
 }

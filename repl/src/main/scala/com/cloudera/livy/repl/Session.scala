@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.util.control.NonFatal
 
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
@@ -53,7 +54,7 @@ class Session(
   extends Logging {
   import Session._
 
-  private implicit val executor = ExecutionContext.fromExecutorService(
+  private val executor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
 
   private val cancelExecutor = ExecutionContext.fromExecutorService(
@@ -68,6 +69,9 @@ class Session(
 
   private val newStatementId = new AtomicInteger(0)
 
+  // Number of statements kept in driver's memory
+  private val numRetainedStatements =livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+
   stateChangedCallback(_state)
 
   def start(): Future[SparkContext] = {
@@ -77,9 +81,9 @@ class Session(
       _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
-    }
+    }(executor)
 
-    future.onFailure { case _ => changeState(SessionState.Error()) }
+    future.onFailure { case _ => changeState(SessionState.Error()) }(executor)
     future
   }
 
@@ -95,19 +99,23 @@ class Session(
 
     Future {
       setJobGroup(statementId)
-      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
+      _statements(statementId).compareAndTransition(StatementState.Waiting, StatementState.Running)
 
-      val executeResult = if (_statements(statementId).state.get() == StatementState.Running) {
-        executeCode(statementId, code)
-      } else {
-        null
-      }
+      _statements(statementId).checkStateAndExecute(StatementState.Running,
+        new Runnable {
+          override def run(): Unit = {
+            _statements(statementId).output = executeCode(statementId, code)
+          }
+        })
 
-      _statements(statementId).output = executeResult
-      _statements(statementId).state.compareAndSet(StatementState.Running, StatementState.Available)
-      _statements(statementId).state.compareAndSet(
+      _statements(statementId).compareAndTransition(
+        StatementState.Running, StatementState.Available)
+      _statements(statementId).compareAndTransition(
         StatementState.Cancelling, StatementState.Cancelled)
-    }
+
+      // Clean old statements
+      cleanOldStatements()
+    }(executor)
 
     statementId
   }
@@ -117,38 +125,48 @@ class Session(
       return
     }
 
-    if (_statements(statementId).state.get() == StatementState.Available ||
-      _statements(statementId).state.get() == StatementState.Cancelled ||
-      _statements(statementId).state.get() == StatementState.Cancelling) {
+    if (_statements(statementId).state.get().isOneOf(
+      StatementState.Available, StatementState.Cancelled, StatementState.Cancelling)) {
       return
     } else {
       // statement 1 is running and statement 2 is waiting. User cancels
       // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
       // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
       // state to cancelled when cancelling a waiting statement.
-      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Cancelled)
-      _statements(statementId).state.compareAndSet(
+      _statements(statementId).compareAndTransition(
+        StatementState.Waiting, StatementState.Cancelled)
+      _statements(statementId).compareAndTransition(
         StatementState.Running, StatementState.Cancelling)
     }
 
     info(s"Cancelling statement $statementId...")
 
-      Future {
-        val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
-        while (_statements(statementId).state.get() == StatementState.Cancelling) {
+    Future {
+      val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
+      val runnable = new Runnable {
+        override def run(): Unit = {
           if (deadline.isOverdue()) {
             info(s"Failed to cancel statement $statementId.")
-            _statements(statementId).state.compareAndSet(
+            _statements(statementId).compareAndTransition(
               StatementState.Cancelling, StatementState.Cancelled)
           } else {
             _sc.foreach(_.cancelJobGroup(statementId.toString))
           }
-          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+
+          try {
+            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+          } catch {
+            case _: InterruptedException => // Ignore interrupted exception.
+            case NonFatal(e) => throw e
+          }
         }
-        if (_statements(statementId).state.get() == StatementState.Cancelled) {
-          info(s"Statement $statementId cancelled.")
-        }
-      }(cancelExecutor)
+      }
+
+      while(_statements(statementId).checkStateAndExecute(StatementState.Cancelling, runnable)) { }
+      if (_statements(statementId).state.get() == StatementState.Cancelled) {
+        info(s"Statement $statementId cancelled.")
+      }
+    }(cancelExecutor)
   }
 
   def close(): Unit = {
@@ -244,5 +262,25 @@ class Session(
     }
     // Set the job group
     executeCode(statementId, cmd)
+  }
+
+  private def cleanOldStatements(): Unit = {
+    if (_statements.size > numRetainedStatements) {
+      // Remove 10% of existing statements to avoid frequently calling this method when reaching
+      // threshold.
+      val toRemove = (numRetainedStatements * 0.1).toInt + 1
+      val stmtIdToRemove = math.max(newStatementId.get() - _statements.size, 0)
+      (stmtIdToRemove until stmtIdToRemove + toRemove).foreach { id =>
+        _statements.get(id).foreach { st =>
+          st.state.get() match {
+             case StatementState.Available | StatementState.Cancelled =>
+               // Only remove statement that is finished.
+               _statements.remove(id)
+               debug(s"Statement $id is removed")
+             case _ => // Unit
+           }
+        }
+      }
+    }
   }
 }
