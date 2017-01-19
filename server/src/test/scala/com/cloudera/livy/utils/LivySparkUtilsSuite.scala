@@ -69,6 +69,7 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
     intercept[IllegalArgumentException] { testSparkVersion("1.5.0") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.1") }
     intercept[IllegalArgumentException] { testSparkVersion("1.5.2") }
+    intercept[IllegalArgumentException] { testSparkVersion("1.5.0-cdh5.6.1") }
   }
 
   test("should fail on bad version") {
