@@ -324,7 +324,7 @@ Pi. This is from the `Spark Examples`_:
 .. code:: python
 
     data = {
-      'code': textwrap.dedent("""\
+      'code': textwrap.dedent("""
         val NUM_SAMPLES = 100000;
         val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
           val x = Math.random();
@@ -415,7 +415,7 @@ The Pi example from before then can be run as:
 .. code:: python
 
     data = {
-      'code': textwrap.dedent("""\
+      'code': textwrap.dedent("""
         n <- 100000
         piFunc <- function(elem) {
           rands <- runif(n = 2, min = -1, max = 1)
