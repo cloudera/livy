@@ -338,6 +338,10 @@ Pi. This is from the `Spark Examples`_:
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
     pprint.pprint(r.json())
 
+    statement_url = host + r.headers['location']
+    r = requests.get(statement_url, headers=headers)
+    pprint.pprint(r.json())
+
     {u'id': 1,
      u'output': {u'data': {u'text/plain': u'Pi is roughly 3.14004\nNUM_SAMPLES: Int = 100000\ncount: Int = 78501'},
                  u'execution_count': 1,
