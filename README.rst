@@ -324,7 +324,7 @@ Pi. This is from the `Spark Examples`_:
 .. code:: python
 
     data = {
-      'code': textwrap.dedent("""\
+      'code': textwrap.dedent("""
         val NUM_SAMPLES = 100000;
         val count = sc.parallelize(1 to NUM_SAMPLES).map { i =>
           val x = Math.random();
@@ -336,6 +336,10 @@ Pi. This is from the `Spark Examples`_:
     }
 
     r = requests.post(statements_url, data=json.dumps(data), headers=headers)
+    pprint.pprint(r.json())
+
+    statement_url = host + r.headers['location']
+    r = requests.get(statement_url, headers=headers)
     pprint.pprint(r.json())
 
     {u'id': 1,
@@ -415,7 +419,7 @@ The Pi example from before then can be run as:
 .. code:: python
 
     data = {
-      'code': textwrap.dedent("""\
+      'code': textwrap.dedent("""
         n <- 100000
         piFunc <- function(elem) {
           rands <- runif(n = 2, min = -1, max = 1)
