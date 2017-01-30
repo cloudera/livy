@@ -18,6 +18,9 @@
 
 package com.cloudera.livy.repl
 
+import java.io.File
+
+import org.apache.commons.io.FileUtils
 import org.scalatest.{FlatSpec, Matchers}
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
@@ -33,6 +36,7 @@ abstract class BaseInterpreterSpec extends FlatSpec with Matchers with LivyBaseU
       testCode(interpreter)
     } finally {
       interpreter.close()
+      FileUtils.deleteDirectory(new File("metastore_db"))
     }
   }
 }

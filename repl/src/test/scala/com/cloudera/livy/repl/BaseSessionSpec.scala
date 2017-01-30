@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.repl
 
+import java.io.File
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -25,6 +26,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
+import org.apache.commons.io.FileUtils
 import org.json4s._
 import org.scalatest.{FlatSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
@@ -63,6 +65,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
       testCode(session)
     } finally {
       session.close()
+      FileUtils.deleteDirectory(new File("metastore_db"))
     }
   }
 
@@ -78,6 +81,7 @@ abstract class BaseSessionSpec extends FlatSpec with Matchers with LivyBaseUnitT
       Await.ready(future, 60 seconds)
     } finally {
       session.close()
+      FileUtils.deleteDirectory(new File("metastore_db"))
     }
   }
 
