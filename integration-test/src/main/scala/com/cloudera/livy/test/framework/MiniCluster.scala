@@ -238,16 +238,16 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     assert(tempDir.mkdir(), "Cannot create temp test dir.")
     sparkConfDir = mkdir("spark-conf")
 
-    val sparkScalaVersion = getSparkScalaVersion()
-    val classPathFile =
-      new File(s"minicluster-dependencies/scala-$sparkScalaVersion/target/classpath")
-    assert(classPathFile.isFile,
-      s"Cannot read MiniCluster classpath file: ${classPathFile.getCanonicalPath}")
-    val sparkClassPath =
-      FileUtils.readFileToString(classPathFile, Charset.defaultCharset())
-
     // When running a real Spark cluster, don't set the classpath.
     val extraCp = if (!isRealSpark()) {
+      val sparkScalaVersion = getSparkScalaVersion()
+      val classPathFile =
+        new File(s"minicluster-dependencies/scala-$sparkScalaVersion/target/classpath")
+      assert(classPathFile.isFile,
+        s"Cannot read MiniCluster classpath file: ${classPathFile.getCanonicalPath}")
+      val sparkClassPath =
+        FileUtils.readFileToString(classPathFile, Charset.defaultCharset())
+
       val dummyJar = Files.createTempFile(Paths.get(tempDir.toURI), "dummy", "jar").toFile
       Map(
         SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sparkClassPath,
