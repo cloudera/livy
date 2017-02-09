@@ -40,7 +40,7 @@ requirements = [
 
 setup(
     name='livy-python-api',
-    version="0.3.0-SNAPSHOT",
+    version="0.3.0",
     packages=["livy", "livy-tests"],
     package_dir={
         "": "src/main/python",
