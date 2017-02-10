@@ -22,13 +22,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cloudera.livy</groupId>
   <artifactId>livy-repl_2.10</artifactId>
-  <version>0.3.0-SNAPSHOT</version>
+  <version>0.4.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <parent>
     <groupId>com.cloudera.livy</groupId>
     <artifactId>livy-repl-parent</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 

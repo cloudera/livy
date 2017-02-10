@@ -24,12 +24,12 @@
     <parent>
         <groupId>com.cloudera.livy</groupId>
         <artifactId>multi-scala-project-root</artifactId>
-        <version>0.3.0-SNAPSHOT</version>
+        <version>0.4.0-SNAPSHOT</version>
         <relativePath>../scala/pom.xml</relativePath>
     </parent>
 
     <artifactId>livy-scala-api-parent</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <dependencies>
