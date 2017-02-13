@@ -682,7 +682,7 @@
             </systemProperties>
             <redirectTestOutputToFile>${test.redirectToFile}</redirectTestOutputToFile>
             <useFile>${test.redirectToFile}</useFile>
-            <argLine>${argLine} -Xmx2g -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx4g -XX:MaxPermSize=1g</argLine>
             <failIfNoTests>false</failIfNoTests>
           </configuration>
         </plugin>
@@ -711,7 +711,7 @@
             <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
             <junitxml>.</junitxml>
             <filereports>WDF TestSuite.txt</filereports>
-            <argLine>${argLine} -Xmx2g -XX:MaxPermSize=512m</argLine>
+            <argLine>${argLine} -Xmx4g -XX:MaxPermSize=1g</argLine>
           </configuration>
           <executions>
             <execution>
@@ -1003,6 +1003,18 @@
       </activation>
       <properties>
         <spark.version>2.0.1</spark.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-2.1</id>
+      <activation>
+        <property>
+          <name>spark-2.1</name>
+        </property>
+      </activation>
+      <properties>
+        <spark.version>2.1.0</spark.version>
       </properties>
     </profile>
   </profiles>

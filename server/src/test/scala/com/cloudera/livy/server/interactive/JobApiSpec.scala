@@ -28,6 +28,7 @@ import scala.concurrent.duration._
 import scala.io.Source
 import scala.language.postfixOps
 
+import org.apache.commons.io.FileUtils
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.mock.MockitoSugar.mock
 
@@ -120,6 +121,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
 
       // Make sure the session's staging directory was cleaned up.
       assert(tempDir.listFiles().length === 0)
+      FileUtils.deleteDirectory(new File("metastore_db"))
     }
 
     it("should support user impersonation") {
@@ -133,6 +135,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
           user should be (PROXY)
         } finally {
           deleteSession(data.id)
+          FileUtils.deleteDirectory(new File("metastore_db"))
         }
       }
     }
@@ -154,6 +157,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
         } finally {
           deleteSession(data.id)
           assert(tempDir.listFiles().length === 0)
+          FileUtils.deleteDirectory(new File("metastore_db"))
         }
       }
     }
