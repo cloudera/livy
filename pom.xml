@@ -1002,6 +1002,18 @@
         </property>
       </activation>
       <properties>
+        <spark.version>2.0.1</spark.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>spark-2.1</id>
+      <activation>
+        <property>
+          <name>spark-2.1</name>
+        </property>
+      </activation>
+      <properties>
         <spark.version>2.1.0</spark.version>
       </properties>
     </profile>
