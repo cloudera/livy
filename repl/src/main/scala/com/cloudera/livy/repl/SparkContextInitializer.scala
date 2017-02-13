@@ -82,7 +82,7 @@ trait SparkContextInitializer extends Logging {
     builder.getClass.getMethod("config", classOf[SparkConf]).invoke(builder, conf)
 
     var spark: Object = null
-    if (conf.get("spark.sql.catalogImplementation", "hive").toLowerCase == "hive") {
+    if (conf.get("spark.sql.catalogImplementation", "in-memory").toLowerCase == "hive") {
       if (sparkClz.getMethod("hiveClassesArePresent").invoke(sparkObj).asInstanceOf[Boolean]) {
         val loader = Option(Thread.currentThread().getContextClassLoader)
           .getOrElse(getClass.getClassLoader)
