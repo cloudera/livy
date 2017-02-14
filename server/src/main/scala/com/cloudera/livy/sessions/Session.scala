@@ -197,7 +197,6 @@ abstract class Session(val id: Int, val owner: String, val livyConf: LivyConf)
     }
   }
 
-  val timeout: Long = TimeUnit.HOURS.toNanos(1)
 
   override def toString(): String = s"${this.getClass.getSimpleName} $id"
 
