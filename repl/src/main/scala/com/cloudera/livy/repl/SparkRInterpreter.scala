@@ -116,7 +116,8 @@ object SparkRInterpreter {
       builder.redirectErrorStream(true)
       val process = builder.start()
       new SparkRInterpreter(process, backendInstance, backendThread,
-        conf.get("spark.livy.spark_major_version", "1"))
+        conf.get("spark.livy.spark_major_version", "1"),
+        conf.getBoolean("spark.repl.enableHiveContext", false))
     } catch {
       case e: Exception =>
         if (backendThread != null) {
@@ -130,7 +131,8 @@ object SparkRInterpreter {
 class SparkRInterpreter(process: Process,
     backendInstance: Any,
     backendThread: Thread,
-    val sparkMajorVersion: String)
+    val sparkMajorVersion: String,
+    hiveEnabled: Boolean)
   extends ProcessInterpreter(process) {
   import SparkRInterpreter._
 
@@ -145,15 +147,22 @@ class SparkRInterpreter(process: Process,
     sendRequest("options(error = dump.frames)")
     if (!ClientConf.TEST_MODE) {
       sendRequest("library(SparkR)")
-
       if (sparkMajorVersion >= "2") {
-        sendRequest("spark <- SparkR::sparkR.session()")
+        if (hiveEnabled) {
+          sendRequest("spark <- SparkR::sparkR.session()")
+        } else {
+          sendRequest("spark <- SparkR::sparkR.session(enableHiveSupport=FALSE)")
+        }
         sendRequest(
           """sc <- SparkR:::callJStatic("org.apache.spark.sql.api.r.SQLUtils",
             "getJavaSparkContext", spark)""")
       } else {
         sendRequest("sc <- sparkR.init()")
-        sendRequest("sqlContext <- sparkRSQL.init(sc)")
+        if (hiveEnabled) {
+          sendRequest("sqlContext <- sparkRHive.init(sc)")
+        } else {
+          sendRequest("sqlContext <- sparkRSQL.init(sc)")
+        }
       }
     }
 
