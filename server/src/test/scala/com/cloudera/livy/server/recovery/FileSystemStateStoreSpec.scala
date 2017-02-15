@@ -82,9 +82,9 @@ class FileSystemStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       }
       test("600")
       test("400")
-      test("777")
-      test("770")
-      test("707")
+      test("677")
+      test("670")
+      test("607")
     }
 
     it("set should write with an intermediate file") {

@@ -72,10 +72,12 @@ class FileSystemStateStore(
     val fileStatus = fileContext.getFileStatus(absPath("."))
     require(fileStatus.getPermission.getUserAction() == FsAction.ALL,
       s"Livy doesn't have permission to access state store: $fsUri.")
-    require(fileStatus.getPermission.getGroupAction() == FsAction.NONE,
-      s"Group users have permission to access state store: $fsUri. This is insecure.")
-    require(fileStatus.getPermission.getOtherAction() == FsAction.NONE,
-      s"Other users have permission to access state store: $fsUri. This is insecure.")
+    if (fileStatus.getPermission.getGroupAction != FsAction.NONE) {
+      warn(s"Group users have permission to access state store: $fsUri. This is insecure.")
+    }
+    if (fileStatus.getPermission.getOtherAction != FsAction.NONE) {
+      warn(s"Other users have permission to access state store: $fsUri. This is in secure.")
+    }
   }
 
   override def set(key: String, value: Object): Unit = {
