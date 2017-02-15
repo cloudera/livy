@@ -78,6 +78,8 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   private[this] final val sessionTimeoutCheck = livyConf.getBoolean(LivyConf.SESSION_TIMEOUT_CHECK)
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_TIMEOUT))
+  private[this] final val sessionStateRetainedInSec =
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_STATE_RETAIN_TIME))
 
   mockSessions.getOrElse(recover()).foreach(register)
   new GarbageCollector().start()
@@ -135,10 +137,9 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       val currentTime = System.nanoTime()
       currentTime - session.lastActivity > sessionTimeout
       session.state match {
-        case SessionState.Success(_) | SessionState.Dead(_) | SessionState.Error(_) =>
-          // don't gc finished session in integration test, because we need to check the session
-          // state after it is finished.
-          !sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean
+        case s: FinishedSessionState =>
+          val currentTime = System.nanoTime()
+          currentTime - s.time > sessionStateRetainedInSec
         case _ =>
           if (!sessionTimeoutCheck) {
             false

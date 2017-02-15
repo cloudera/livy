@@ -62,7 +62,8 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       when(session.stop()).thenReturn(Future {})
       when(session.lastActivity).thenReturn(System.nanoTime())
 
-      val sm = new BatchSessionManager(new LivyConf(), mock[SessionStore], Some(Seq(session)))
+      val conf = new LivyConf().set(LivyConf.SESSION_STATE_RETAIN_TIME, "1s")
+      val sm = new BatchSessionManager(conf, mock[SessionStore], Some(Seq(session)))
       testSessionGC(session, sm)
     }
 
@@ -74,6 +75,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       when(session.lastActivity).thenReturn(System.nanoTime())
 
       val conf = new LivyConf().set(LivyConf.SESSION_TIMEOUT_CHECK, false)
+        .set(LivyConf.SESSION_STATE_RETAIN_TIME, "1s")
       val sm = new InteractiveSessionManager(conf, mock[SessionStore], Some(Seq(session)))
       testSessionGC(session, sm)
     }
@@ -96,11 +98,13 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
         changeStateAndCheck(s) { sm => sm.get(session.id) should be (Some(session)) }
       }
 
-      // Stopped session should be gc-ed immediate without checking timeout
+      // Stopped session should be gc-ed after retained timeout
       for (s <- Seq(SessionState.Error(),
         SessionState.Success(),
         SessionState.Dead())) {
-        changeStateAndCheck(s) { sm => sm.get(session.id) should be (None) }
+        eventually(timeout(30 seconds), interval(100 millis)) {
+          changeStateAndCheck(s) { sm => sm.get(session.id) should be (None) }
+        }
       }
     }
   }
