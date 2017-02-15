@@ -101,7 +101,7 @@ class LivyServer extends Logging {
       )
       val launch_keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
       val launch_principal = SecurityUtil.getServerPrincipal(
-        livyConf.get(LAUNCH_KERBEROS_PRINCIPAL), server.host)
+        livyConf.get(LAUNCH_KERBEROS_PRINCIPAL), host)
       require(launch_keytab != null,
         s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
       require(launch_principal != null,
