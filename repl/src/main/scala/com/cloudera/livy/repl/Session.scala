@@ -24,7 +24,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
-import scala.util.control.NonFatal
 
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
@@ -54,7 +53,7 @@ class Session(
   extends Logging {
   import Session._
 
-  private val executor = ExecutionContext.fromExecutorService(
+  private val interpreterExecutor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
 
   private val cancelExecutor = ExecutionContext.fromExecutorService(
@@ -70,7 +69,7 @@ class Session(
   private val newStatementId = new AtomicInteger(0)
 
   // Number of statements kept in driver's memory
-  private val numRetainedStatements =livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+  private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
 
   stateChangedCallback(_state)
 
@@ -81,9 +80,9 @@ class Session(
       _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
-    }(executor)
+    }(interpreterExecutor)
 
-    future.onFailure { case _ => changeState(SessionState.Error()) }(executor)
+    future.onFailure { case _ => changeState(SessionState.Error()) }(interpreterExecutor)
     future
   }
 
@@ -115,7 +114,7 @@ class Session(
 
       // Clean old statements
       cleanOldStatements()
-    }(executor)
+    }(interpreterExecutor)
 
     statementId
   }
@@ -152,17 +151,11 @@ class Session(
           } else {
             _sc.foreach(_.cancelJobGroup(statementId.toString))
           }
-
-          try {
-            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
-          } catch {
-            case _: InterruptedException => // Ignore interrupted exception.
-            case NonFatal(e) => throw e
-          }
+          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
         }
       }
 
-      while(_statements(statementId).checkStateAndExecute(StatementState.Cancelling, runnable)) { }
+      while (_statements(statementId).checkStateAndExecute(StatementState.Cancelling, runnable)) { }
       if (_statements(statementId).state.get() == StatementState.Cancelled) {
         info(s"Statement $statementId cancelled.")
       }
@@ -170,7 +163,8 @@ class Session(
   }
 
   def close(): Unit = {
-    executor.shutdown()
+    interpreterExecutor.shutdown()
+    cancelExecutor.shutdown()
     interpreter.close()
   }
 
