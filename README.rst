@@ -580,7 +580,7 @@ DELETE /sessions/{sessionId}
 Kills the `Session`_ job.
 
 
-GET /sessions/{sessionId}/logs
+GET /sessions/{sessionId}/log
 ------------------------------
 
 Gets the log lines from this session.
