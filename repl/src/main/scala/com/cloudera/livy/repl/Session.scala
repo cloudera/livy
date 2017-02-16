@@ -21,7 +21,7 @@ package com.cloudera.livy.repl
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.concurrent.TrieMap
+import scala.collection.mutable.LinkedHashMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
@@ -64,7 +64,7 @@ class Session(
   @volatile private[repl] var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
-  private val _statements = TrieMap[Int, Statement]()
+  private val _statements = LinkedHashMap[Int, Statement]()
 
   private val newStatementId = new AtomicInteger(0)
 
@@ -90,27 +90,28 @@ class Session(
 
   def state: SessionState = _state
 
-  def statements: collection.Map[Int, Statement] = _statements.readOnlySnapshot()
+  def statements: collection.Map[Int, Statement] = _statements.synchronized {
+    _statements.toMap
+  }
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
+    val statement = new Statement(statementId, StatementState.Waiting, null)
+    _statements.synchronized { _statements(statementId) = statement }
 
     Future {
       setJobGroup(statementId)
-      _statements(statementId).compareAndTransition(StatementState.Waiting, StatementState.Running)
+      statement.compareAndTransition(StatementState.Waiting, StatementState.Running)
 
-      _statements(statementId).checkStateAndExecute(StatementState.Running,
+      statement.checkStateAndExecute(StatementState.Running,
         new Runnable {
           override def run(): Unit = {
             _statements(statementId).output = executeCode(statementId, code)
           }
         })
 
-      _statements(statementId).compareAndTransition(
-        StatementState.Running, StatementState.Available)
-      _statements(statementId).compareAndTransition(
-        StatementState.Cancelling, StatementState.Cancelled)
+      statement.compareAndTransition(StatementState.Running, StatementState.Available)
+      statement.compareAndTransition(StatementState.Cancelling, StatementState.Cancelled)
 
       // Clean old statements
       cleanOldStatements()
@@ -120,11 +121,13 @@ class Session(
   }
 
   def cancel(statementId: Int): Unit = {
-    if (!_statements.contains(statementId)) {
+    val statementOpt = _statements.synchronized { _statements.get(statementId) }
+    if (statementOpt.isEmpty) {
       return
     }
 
-    if (_statements(statementId).state.get().isOneOf(
+    val statement = statementOpt.get
+    if (statement.state.get().isOneOf(
       StatementState.Available, StatementState.Cancelled, StatementState.Cancelling)) {
       return
     } else {
@@ -132,10 +135,8 @@ class Session(
       // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
       // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
       // state to cancelled when cancelling a waiting statement.
-      _statements(statementId).compareAndTransition(
-        StatementState.Waiting, StatementState.Cancelled)
-      _statements(statementId).compareAndTransition(
-        StatementState.Running, StatementState.Cancelling)
+      statement.compareAndTransition(StatementState.Waiting, StatementState.Cancelled)
+      statement.compareAndTransition(StatementState.Running, StatementState.Cancelling)
     }
 
     info(s"Cancelling statement $statementId...")
@@ -146,8 +147,7 @@ class Session(
         override def run(): Unit = {
           if (deadline.isOverdue()) {
             info(s"Failed to cancel statement $statementId.")
-            _statements(statementId).compareAndTransition(
-              StatementState.Cancelling, StatementState.Cancelled)
+            statement.compareAndTransition(StatementState.Cancelling, StatementState.Cancelled)
           } else {
             _sc.foreach(_.cancelJobGroup(statementId.toString))
           }
@@ -155,8 +155,8 @@ class Session(
         }
       }
 
-      while (_statements(statementId).checkStateAndExecute(StatementState.Cancelling, runnable)) { }
-      if (_statements(statementId).state.get() == StatementState.Cancelled) {
+      while (statement.checkStateAndExecute(StatementState.Cancelling, runnable)) { }
+      if (statement.state.get() == StatementState.Cancelled) {
         info(s"Statement $statementId cancelled.")
       }
     }(cancelExecutor)
@@ -258,21 +258,17 @@ class Session(
     executeCode(statementId, cmd)
   }
 
-  private def cleanOldStatements(): Unit = {
+  private def cleanOldStatements(): Unit = _statements.synchronized {
     if (_statements.size > numRetainedStatements) {
       // Remove 10% of existing statements to avoid frequently calling this method when reaching
       // threshold.
       val toRemove = (numRetainedStatements * 0.1).toInt + 1
-      val stmtIdToRemove = math.max(newStatementId.get() - _statements.size, 0)
-      (stmtIdToRemove until stmtIdToRemove + toRemove).foreach { id =>
-        _statements.get(id).foreach { st =>
-          st.state.get() match {
-             case StatementState.Available | StatementState.Cancelled =>
-               // Only remove statement that is finished.
-               _statements.remove(id)
-               debug(s"Statement $id is removed")
-             case _ => // Unit
-           }
+      (0 until toRemove).foreach { _ =>
+        _statements.head._2.state.get() match {
+          case StatementState.Available | StatementState.Cancelled =>
+          // Only remove statement that is finished.
+          _statements -= _statements.head._1
+          case _ => // Unit
         }
       }
     }
