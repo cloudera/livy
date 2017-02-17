@@ -130,6 +130,7 @@ abstract class ProcessInterpreter(process: Process)
       val exitCode = process.waitFor()
       if (exitCode != 0) {
         error(f"Process has died with $exitCode")
+        error(stderrLines.mkString("\n"))
       }
     }
   }
