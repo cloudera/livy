@@ -85,6 +85,8 @@ start_livy_server() {
 
   if [ -n "$SPARK_CONF_DIR" ]; then
     LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_CONF_DIR"
+  elif [ -n "$SPARK_HOME" ]; then
+    LIVY_CLASSPATH="$LIVY_CLASSPATH:$SPARK_HOME/conf"
   fi
   if [ -n "$HADOOP_CONF_DIR" ]; then
     LIVY_CLASSPATH="$LIVY_CLASSPATH:$HADOOP_CONF_DIR"
