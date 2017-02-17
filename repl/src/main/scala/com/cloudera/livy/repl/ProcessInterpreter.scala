@@ -18,7 +18,7 @@
 
 package com.cloudera.livy.repl
 
-import java.io.{BufferedReader, IOException, InputStreamReader, PrintWriter}
+import java.io.{BufferedReader, InputStreamReader, IOException, PrintWriter}
 import java.util.concurrent.locks.ReentrantLock
 
 import scala.concurrent.Promise

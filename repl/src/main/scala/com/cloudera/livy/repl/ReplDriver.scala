@@ -26,8 +26,8 @@ import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 
 import com.cloudera.livy.Logging
-import com.cloudera.livy.rsc.BaseProtocol.ReplState
 import com.cloudera.livy.rsc.{BaseProtocol, ReplJobResults, RSCConf}
+import com.cloudera.livy.rsc.BaseProtocol.ReplState
 import com.cloudera.livy.rsc.driver._
 import com.cloudera.livy.rsc.rpc.Rpc
 import com.cloudera.livy.sessions._

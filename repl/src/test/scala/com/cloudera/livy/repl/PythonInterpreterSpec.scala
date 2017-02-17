@@ -19,7 +19,7 @@
 package com.cloudera.livy.repl
 
 import org.apache.spark.SparkConf
-import org.json4s.{DefaultFormats, JValue, JNull}
+import org.json4s.{DefaultFormats, JNull, JValue}
 import org.json4s.JsonDSL._
 import org.scalatest._
 
