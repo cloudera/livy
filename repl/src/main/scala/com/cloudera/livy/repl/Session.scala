@@ -18,10 +18,12 @@
 
 package com.cloudera.livy.repl
 
+import java.util.{LinkedHashMap => JLinkedHashMap}
+import java.util.Map.Entry
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.mutable.LinkedHashMap
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
@@ -64,12 +66,17 @@ class Session(
   @volatile private[repl] var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
-  private val _statements = LinkedHashMap[Int, Statement]()
-
-  private val newStatementId = new AtomicInteger(0)
 
   // Number of statements kept in driver's memory
   private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+
+  private val _statements = new JLinkedHashMap[Int, Statement] {
+    protected override def removeEldestEntry(eldest: Entry[Int, Statement]): Boolean = {
+      size() > numRetainedStatements
+    }
+  }.asScala
+
+  private val newStatementId = new AtomicInteger(0)
 
   stateChangedCallback(_state)
 
@@ -112,9 +119,6 @@ class Session(
 
       statement.compareAndTransition(StatementState.Running, StatementState.Available)
       statement.compareAndTransition(StatementState.Cancelling, StatementState.Cancelled)
-
-      // Clean old statements
-      cleanOldStatements()
     }(interpreterExecutor)
 
     statementId
@@ -256,21 +260,5 @@ class Session(
     }
     // Set the job group
     executeCode(statementId, cmd)
-  }
-
-  private def cleanOldStatements(): Unit = _statements.synchronized {
-    if (_statements.size > numRetainedStatements) {
-      // Remove 10% of existing statements to avoid frequently calling this method when reaching
-      // threshold.
-      val toRemove = (numRetainedStatements * 0.1).toInt + 1
-      (0 until toRemove).foreach { _ =>
-        _statements.head._2.state.get() match {
-          case StatementState.Available | StatementState.Cancelled =>
-          // Only remove statement that is finished.
-          _statements -= _statements.head._1
-          case _ => // Unit
-        }
-      }
-    }
   }
 }
