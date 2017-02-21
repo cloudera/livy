@@ -11,7 +11,11 @@
 .project
 .classpath
 .scala_dependencies
+conf/*.conf
+conf/*.properties
+conf/*.sh
 lib_managed/
+logs/
 src_managed/
 target/
 reports/

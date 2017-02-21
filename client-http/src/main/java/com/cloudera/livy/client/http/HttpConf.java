@@ -29,8 +29,8 @@ class HttpConf extends ClientConf<HttpConf> {
     CONNECTION_IDLE_TIMEOUT("connection.idle.timeout", "10m"),
     SOCKET_TIMEOUT("connection.socket.timeout", "5m"),
 
-    JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "100ms"),
-    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s"),
+    JOB_INITIAL_POLL_INTERVAL("job.initialPollInterval", "100ms"),
+    JOB_MAX_POLL_INTERVAL("job.maxPollInterval", "5s"),
 
     CONTENT_COMPRESS_ENABLE("content.compress.enable", true),
 
