@@ -42,9 +42,9 @@ public class RSCConf extends ClientConf<RSCConf> {
   public static enum Entry implements ConfEntry {
     CLIENT_ID("client.auth.id", null),
     CLIENT_SECRET("client.auth.secret", null),
-    CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", false),
-    CLIENT_SHUTDOWN_TIMEOUT("client.shutdown_timeout", "10s"),
-    DRIVER_CLASS("driver_class", null),
+    CLIENT_IN_PROCESS("client.doNotUse.runDriverInProcess", false),
+    CLIENT_SHUTDOWN_TIMEOUT("client.shutdownTimeout", "10s"),
+    DRIVER_CLASS("driverClass", null),
     SESSION_KIND("session.kind", null),
 
     LIVY_JARS("jars", null),
@@ -56,9 +56,9 @@ public class RSCConf extends ClientConf<RSCConf> {
     LAUNCHER_PORT("launcher.port", -1),
 
     // How long will the RSC wait for a connection for a Livy server before shutting itself down.
-    SERVER_IDLE_TIMEOUT("server.idle_timeout", "10m"),
+    SERVER_IDLE_TIMEOUT("server.idleTimeout", "10m"),
 
-    PROXY_USER("proxy_user", null),
+    PROXY_USER("proxyUser", null),
 
     RPC_SERVER_ADDRESS("rpc.server.address", null),
     RPC_CLIENT_HANDSHAKE_TIMEOUT("server.connect.timeout", "90s"),
@@ -71,8 +71,8 @@ public class RSCConf extends ClientConf<RSCConf> {
     SASL_MECHANISMS("rpc.sasl.mechanisms", "DIGEST-MD5"),
     SASL_QOP("rpc.sasl.qop", null),
 
-    TEST_STUCK_END_SESSION("test.do_not_use.stuck_end_session", false),
-    TEST_STUCK_START_DRIVER("test.do_not_use.stuck_start_driver", false),
+    TEST_STUCK_END_SESSION("test.doNotUse.stuckEndSession", false),
+    TEST_STUCK_START_DRIVER("test.doNotUse.stuckStartDriver", false),
 
     JOB_CANCEL_TRIGGER_INTERVAL("job_cancel.trigger_interval", "100ms"),
     JOB_CANCEL_TIMEOUT("job_cancel.timeout", "30s"),

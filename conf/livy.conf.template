@@ -51,11 +51,11 @@
 # List of local directories from where files are allowed to be added to user sessions. By
 # default it's empty, meaning users can only reference remote URIs when starting their
 # sessions.
-# livy.file.local-dir-whitelist =
+# livy.file.localDirWhitelist =
 
 # Whether to enable csrf protection, by default it is false. If it is enabled, client should add
 # http-header "X-Requested-By" in request if the http method is POST/DELETE/PUT/PATCH.
-# livy.server.csrf_protection.enabled =
+# livy.server.csrfProtection.enabled =
 
 # Whether to enable HiveContext in livy interpreter, if it is true hive-site.xml will be detected
 # on user request and then livy server classpath automatically.
@@ -65,7 +65,7 @@
 # off: Default. Turn off recovery. Every time Livy shuts down, it stops and forgets all sessions.
 # recovery: Livy persists session info to the state store. When Livy restarts, it recovers
 #           previous sessions from the state store.
-# Must set livy.server.recovery.state-store and livy.server.recovery.state-store.url to
+# Must set livy.server.recovery.stateStore and livy.server.recovery.stateStore.url to
 # configure the state store.
 # livy.server.recovery.mode = off
 
@@ -73,24 +73,24 @@
 # <empty>: Default. State store disabled.
 # filesystem: Store state on a file system.
 # zookeeper: Store state in a Zookeeper instance.
-# livy.server.recovery.state-store =
+# livy.server.recovery.stateStore =
 
 # For filesystem state store, the path of the state store directory. Please don't use a filesystem
 # that doesn't support atomic rename (e.g. S3). e.g. file:///tmp/livy or hdfs:///.
 # For zookeeper, the address to the Zookeeper servers. e.g. host1:port1,host2:port2
-# livy.server.recovery.state-store.url =
+# livy.server.recovery.stateStore.url =
 
 # If Livy can't find the yarn app within this time, consider it lost.
-# livy.server.yarn.app-lookup-timeout = 60s
-# When the cluster is busy, we may fail to launch yarn app in app-lookup-timeout, then it would
+# livy.server.yarn.appLookupTimeout = 60s
+# When the cluster is busy, we may fail to launch yarn app in appLookupTimeout, then it would
 # cause session leakage, so we need to check session leakage.
 # How long to check livy session leakage
-# livy.server.yarn.app-leakage.check_timeout = 600s
+# livy.server.yarn.appLeakage.checkTimeout = 600s
 # how often to check livy session leakage
-# livy.server.yarn.app-leakage.check_interval = 60s
+# livy.server.yarn.appLeakage.checkInterval = 60s
 
 # How often Livy polls YARN to refresh YARN app state.
-# livy.server.yarn.poll-interval = 1s
+# livy.server.yarn.pollInterval = 1s
 #
 # Days to keep Livy server request logs.
-# livy.server.request-log-retain.days = 5
+# livy.server.requestLogRetain.days = 5

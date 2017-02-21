@@ -38,7 +38,7 @@ object LivyConf {
 
   val TEST_MODE = ClientConf.TEST_MODE
 
-  val SPARK_HOME = Entry("livy.server.spark-home", null)
+  val SPARK_HOME = Entry("livy.server.sparkHome", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deployMode", null)
 
@@ -49,45 +49,45 @@ object LivyConf {
   val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scalaVersion", null)
   val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
 
-  val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
+  val SESSION_STAGING_DIR = Entry("livy.session.stagingDir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
-  val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
+  val LOCAL_FS_WHITELIST = Entry("livy.file.localDirWhitelist", null)
   val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enableHiveContext", false)
 
   val ENVIRONMENT = Entry("livy.environment", "production")
 
   val SERVER_HOST = Entry("livy.server.host", "0.0.0.0")
   val SERVER_PORT = Entry("livy.server.port", 8998)
-  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf_protection.enabled", false)
+  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrfProtection.enabled", false)
 
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
-  val ACCESS_CONTROL_ENABLED = Entry("livy.server.access_control.enabled", false)
-  val ACCESS_CONTROL_USERS = Entry("livy.server.access_control.users", null)
+  val ACCESS_CONTROL_ENABLED = Entry("livy.server.accessControl.enabled", false)
+  val ACCESS_CONTROL_USERS = Entry("livy.server.accessControl.users", null)
 
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
   val AUTH_KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
   val AUTH_KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
-  val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
+  val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.nameRules", "DEFAULT")
 
-  val HEARTBEAT_WATCHDOG_INTERVAL = Entry("livy.server.heartbeat-watchdog.interval", "1m")
+  val HEARTBEAT_WATCHDOG_INTERVAL = Entry("livy.server.heartbeatWatchdog.interval", "1m")
 
   val LAUNCH_KERBEROS_PRINCIPAL =
     LivyConf.Entry("livy.server.launch.kerberos.principal", null)
   val LAUNCH_KERBEROS_KEYTAB =
     LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
   val LAUNCH_KERBEROS_REFRESH_INTERVAL =
-    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", "1h")
+    LivyConf.Entry("livy.server.launch.kerberos.refreshInterval", "1h")
   val KINIT_FAIL_THRESHOLD =
-    LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
+    LivyConf.Entry("livy.server.launch.kerberos.kinitFailThreshold", 5)
 
   /**
    * Recovery mode of Livy. Possible values:
    * off: Default. Turn off recovery. Every time Livy shuts down, it stops and forgets all sessions.
    * recovery: Livy persists session info to the state store. When Livy restarts, it recovers
    *   previous sessions from the state store.
-   * Must set livy.server.recovery.state-store and livy.server.recovery.state-store.url to
+   * Must set livy.server.recovery.stateStore and livy.server.recovery.stateStore.url to
    * configure the state store.
    */
   val RECOVERY_MODE = Entry("livy.server.recovery.mode", "off")
@@ -97,22 +97,22 @@ object LivyConf {
    * filesystem: Store state on a file system.
    * zookeeper: Store state in a Zookeeper instance.
    */
-  val RECOVERY_STATE_STORE = Entry("livy.server.recovery.state-store", null)
+  val RECOVERY_STATE_STORE = Entry("livy.server.recovery.stateStore", null)
   /**
    * For filesystem state store, the path of the state store directory. Please don't use a
    * filesystem that doesn't support atomic rename (e.g. S3). e.g. file:///tmp/livy or hdfs:///.
    * For zookeeper, the address to the Zookeeper servers. e.g. host1:port1,host2:port2
    */
-  val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.state-store.url", "")
+  val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.stateStore.url", "")
 
   // If Livy can't find the yarn app within this time, consider it lost.
-  val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "60s")
+  val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.appLookupTimeout", "60s")
 
   // How often Livy polls YARN to refresh YARN app state.
-  val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
+  val YARN_POLL_INTERVAL = Entry("livy.server.yarn.pollInterval", "5s")
 
   // Days to keep Livy server request logs.
-  val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)
+  val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.requestLogRetain.days", 5)
 
   // REPL related jars separated with comma.
   val REPL_JARS = Entry("livy.repl.jars", null)
@@ -120,9 +120,9 @@ object LivyConf {
   val RSC_JARS = Entry("livy.rsc.jars", null)
 
   // How long to check livy session leakage
-  val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.app-leakage.check_timeout", "600s")
+  val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.appLeakage.checkTimeout", "600s")
   // how often to check livy session leakage
-  val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.app-leakage.check_interval", "60s")
+  val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.appLeakage.checkInterval", "60s")
 
   // Whether session timeout should be checked, by default it will be checked, which means inactive
   // session will be stopped after "livy.server.session.timeout"
@@ -148,7 +148,7 @@ object LivyConf {
    * The configuration allows adding new configurations in case we either forget something in
    * the hardcoded list, or new versions of Spark add new configs.
    */
-  val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
+  val SPARK_FILE_LISTS = Entry("livy.spark.fileListConfigs", null)
 
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
