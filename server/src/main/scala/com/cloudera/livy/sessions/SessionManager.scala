@@ -147,7 +147,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
             false
           } else {
             val currentTime = System.nanoTime()
-            currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
+            currentTime - session.lastActivity > sessionTimeout
           }
       }
     }
