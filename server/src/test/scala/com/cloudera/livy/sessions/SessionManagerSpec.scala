@@ -30,14 +30,17 @@ import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
+import com.cloudera.livy.server.interactive.InteractiveSession
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuite {
+  implicit def executor: ExecutionContext = ExecutionContext.global
+
   describe("SessionManager") {
     it("should garbage collect old sessions") {
       val livyConf = new LivyConf()
-      livyConf.set(SessionManager.SESSION_TIMEOUT, "100ms")
+      livyConf.set(LivyConf.SESSION_TIMEOUT, "100ms")
       val manager = new SessionManager[MockSession, RecoveryMetadata](
         livyConf,
         { _ => assert(false).asInstanceOf[MockSession] },
@@ -49,6 +52,59 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       eventually(timeout(5 seconds), interval(100 millis)) {
         Await.result(manager.collectGarbage(), Duration.Inf)
         manager.get(session.id) should be(None)
+      }
+    }
+
+    it("batch session should not be gc-ed until application is finished") {
+      val sessionId = 24
+      val session = mock[BatchSession]
+      when(session.id).thenReturn(sessionId)
+      when(session.stop()).thenReturn(Future {})
+      when(session.lastActivity).thenReturn(System.nanoTime())
+
+      val conf = new LivyConf().set(LivyConf.SESSION_STATE_RETAIN_TIME, "1s")
+      val sm = new BatchSessionManager(conf, mock[SessionStore], Some(Seq(session)))
+      testSessionGC(session, sm)
+    }
+
+    it("interactive session should not gc-ed if session timeout check is off") {
+      val sessionId = 24
+      val session = mock[InteractiveSession]
+      when(session.id).thenReturn(sessionId)
+      when(session.stop()).thenReturn(Future {})
+      when(session.lastActivity).thenReturn(System.nanoTime())
+
+      val conf = new LivyConf().set(LivyConf.SESSION_TIMEOUT_CHECK, false)
+        .set(LivyConf.SESSION_STATE_RETAIN_TIME, "1s")
+      val sm = new InteractiveSessionManager(conf, mock[SessionStore], Some(Seq(session)))
+      testSessionGC(session, sm)
+    }
+
+    def testSessionGC(session: Session, sm: SessionManager[_, _]): Unit = {
+
+      def changeStateAndCheck(s: SessionState)(fn: SessionManager[_, _] => Unit): Unit = {
+        when(session.state).thenReturn(s)
+        Await.result(sm.collectGarbage(), Duration.Inf)
+        fn(sm)
+      }
+
+      // Batch session should not be gc-ed when alive
+      for (s <- Seq(SessionState.Running(),
+        SessionState.Idle(),
+        SessionState.Recovering(),
+        SessionState.NotStarted(),
+        SessionState.Busy(),
+        SessionState.ShuttingDown())) {
+        changeStateAndCheck(s) { sm => sm.get(session.id) should be (Some(session)) }
+      }
+
+      // Stopped session should be gc-ed after retained timeout
+      for (s <- Seq(SessionState.Error(),
+        SessionState.Success(),
+        SessionState.Dead())) {
+        eventually(timeout(30 seconds), interval(100 millis)) {
+          changeStateAndCheck(s) { sm => sm.get(session.id) should be (None) }
+        }
       }
     }
   }
