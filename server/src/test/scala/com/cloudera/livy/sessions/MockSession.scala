@@ -31,7 +31,5 @@ class MockSession(id: Int, owner: String, conf: LivyConf) extends Session(id, ow
 
   override def state: SessionState = SessionState.Idle()
 
-  override val timeout: Long = 0L
-
   override def recoveryMetadata: RecoveryMetadata = RecoveryMetadata(0)
 }
