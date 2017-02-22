@@ -25,7 +25,7 @@ from livy.client import HttpClient
 
 session_id = 0
 job_id = 1
-base_uri = 'http://{}:{}'.format(socket.gethostname(), 8998)
+base_uri = 'http://{0}:{1}'.format(socket.gethostname(), 8998)
 client_test = None
 invoked_queued_callback = False
 invoked_running_callback = False
