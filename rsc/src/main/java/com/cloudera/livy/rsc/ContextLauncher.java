@@ -69,7 +69,7 @@ class ContextLauncher {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
-  static  DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
+  static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
     ContextLauncher launcher = new ContextLauncher(factory, conf);
     return new DriverProcessInfo(launcher.promise, launcher.child.child);
@@ -304,33 +304,6 @@ class ContextLauncher {
     return file;
   }
 
-  private static class Redirector implements Runnable {
-
-    private final BufferedReader in;
-
-    Redirector(InputStream in) {
-      this.in = new BufferedReader(new InputStreamReader(in));
-    }
-
-    @Override
-    public void run() {
-      try {
-        String line = null;
-        while ((line = in.readLine()) != null) {
-          LOG.info(line);
-        }
-      } catch (Exception e) {
-        LOG.warn("Error in redirector thread.", e);
-      }
-
-      try {
-        in.close();
-      } catch (IOException ioe) {
-        LOG.warn("Error closing child stream.", ioe);
-      }
-    }
-
-  }
 
   private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
