@@ -108,17 +108,14 @@ class Session(
 
     Future {
       setJobGroup(statementId)
-      statement.compareAndTransition(StatementState.Waiting, StatementState.Running)
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Running)
 
-      statement.checkStateAndExecute(StatementState.Running,
-        new Runnable {
-          override def run(): Unit = {
-            _statements(statementId).output = executeCode(statementId, code)
-          }
-        })
+      if (statement.state.get() == StatementState.Running) {
+        statement.output = executeCode(statementId, code)
+      }
 
-      statement.compareAndTransition(StatementState.Running, StatementState.Available)
-      statement.compareAndTransition(StatementState.Cancelling, StatementState.Cancelled)
+      statement.compareAndTransit(StatementState.Running, StatementState.Available)
+      statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
     }(interpreterExecutor)
 
     statementId
@@ -139,27 +136,25 @@ class Session(
       // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
       // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
       // state to cancelled when cancelling a waiting statement.
-      statement.compareAndTransition(StatementState.Waiting, StatementState.Cancelled)
-      statement.compareAndTransition(StatementState.Running, StatementState.Cancelling)
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Cancelled)
+      statement.compareAndTransit(StatementState.Running, StatementState.Cancelling)
     }
 
     info(s"Cancelling statement $statementId...")
 
     Future {
       val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
-      val runnable = new Runnable {
-        override def run(): Unit = {
-          if (deadline.isOverdue()) {
-            info(s"Failed to cancel statement $statementId.")
-            statement.compareAndTransition(StatementState.Cancelling, StatementState.Cancelled)
-          } else {
-            _sc.foreach(_.cancelJobGroup(statementId.toString))
-          }
-          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+
+      while (statement.state.get() == StatementState.Cancelling) {
+        if (deadline.isOverdue()) {
+          info(s"Failed to cancel statement $statementId.")
+          statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+        } else {
+          _sc.foreach(_.cancelJobGroup(statementId.toString))
         }
+        Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
       }
 
-      while (statement.checkStateAndExecute(StatementState.Cancelling, runnable)) { }
       if (statement.state.get() == StatementState.Cancelled) {
         info(s"Statement $statementId cancelled.")
       }
