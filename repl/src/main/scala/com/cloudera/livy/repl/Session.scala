@@ -151,8 +151,8 @@ class Session(
           statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
         } else {
           _sc.foreach(_.cancelJobGroup(statementId.toString))
+          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
         }
-        Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
       }
 
       if (statement.state.get() == StatementState.Cancelled) {
