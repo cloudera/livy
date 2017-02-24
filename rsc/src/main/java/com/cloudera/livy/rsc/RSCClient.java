@@ -60,7 +60,7 @@ public class RSCClient implements LivyClient {
   private final Promise<URI> serverUriPromise;
 
   private ContextInfo contextInfo;
-  private transient Process driverProcess;
+  private Process driverProcess;
   private volatile boolean isAlive;
   private volatile String replState;
 

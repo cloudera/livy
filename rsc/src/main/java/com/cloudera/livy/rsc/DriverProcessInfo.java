@@ -27,7 +27,6 @@ public class DriverProcessInfo {
   private Promise<ContextInfo> contextInfo;
   private transient Process driverProcess;
 
-
   public DriverProcessInfo(Promise<ContextInfo> contextInfo, Process driverProcess) {
     this.contextInfo = contextInfo;
     this.driverProcess = driverProcess;
