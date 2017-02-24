@@ -75,7 +75,9 @@ public class RSCConf extends ClientConf<RSCConf> {
     TEST_STUCK_START_DRIVER("test.do_not_use.stuck_start_driver", false),
 
     JOB_CANCEL_TRIGGER_INTERVAL("job_cancel.trigger_interval", "100ms"),
-    JOB_CANCEL_TIMEOUT("job_cancel.timeout", "30s");
+    JOB_CANCEL_TIMEOUT("job_cancel.timeout", "30s"),
+
+    RETAINED_STATEMENT_NUMBER("retained_statements", 100);
 
     private final String key;
     private final Object dflt;

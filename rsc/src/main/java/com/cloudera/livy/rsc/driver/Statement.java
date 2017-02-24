@@ -36,4 +36,12 @@ public class Statement {
   public Statement() {
     this(null, null, null);
   }
+
+  public boolean compareAndTransit(final StatementState from, final StatementState to) {
+    if (state.compareAndSet(from, to)) {
+      StatementState.validate(from, to);
+      return true;
+    }
+    return false;
+  }
 }
