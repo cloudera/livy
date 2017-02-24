@@ -17,7 +17,12 @@
 
 package com.cloudera.livy.rsc.driver;
 
+import java.util.*;
+
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.common.base.Preconditions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public enum StatementState {
   Waiting("waiting"),
@@ -25,6 +30,8 @@ public enum StatementState {
   Available("available"),
   Cancelling("cancelling"),
   Cancelled("cancelled");
+
+  private static final Logger LOG = LoggerFactory.getLogger(StatementState.class);
 
   private final String state;
 
@@ -36,5 +43,44 @@ public enum StatementState {
   @Override
   public String toString() {
       return state;
+  }
+
+  public boolean isOneOf(StatementState... states) {
+    for (StatementState s : states) {
+      if (s == this) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static final Map<StatementState, List<StatementState>> PREDECESSORS;
+
+  static void put(StatementState key,
+    Map<StatementState, List<StatementState>> map,
+    StatementState... values) {
+    map.put(key, Collections.unmodifiableList(Arrays.asList(values)));
+  }
+
+  static {
+    final Map<StatementState, List<StatementState>> predecessors =
+      new EnumMap<>(StatementState.class);
+    put(Waiting, predecessors);
+    put(Running, predecessors, Waiting);
+    put(Available, predecessors, Running);
+    put(Cancelling, predecessors, Running);
+    put(Cancelled, predecessors, Waiting, Cancelling);
+
+    PREDECESSORS = Collections.unmodifiableMap(predecessors);
+  }
+
+  static boolean isValid(StatementState from, StatementState to) {
+    return PREDECESSORS.get(to).contains(from);
+  }
+
+  static void validate(StatementState from, StatementState to) {
+    LOG.debug("{} -> {}", from, to);
+
+    Preconditions.checkState(isValid(from, to), "Illegal Transition: %s -> %s", from, to);
   }
 }

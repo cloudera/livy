@@ -18,10 +18,12 @@
 
 package com.cloudera.livy.repl
 
+import java.util.{LinkedHashMap => JLinkedHashMap}
+import java.util.Map.Entry
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.concurrent.TrieMap
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
@@ -53,7 +55,7 @@ class Session(
   extends Logging {
   import Session._
 
-  private implicit val executor = ExecutionContext.fromExecutorService(
+  private val interpreterExecutor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
 
   private val cancelExecutor = ExecutionContext.fromExecutorService(
@@ -64,7 +66,15 @@ class Session(
   @volatile private[repl] var _sc: Option[SparkContext] = None
 
   private var _state: SessionState = SessionState.NotStarted()
-  private val _statements = TrieMap[Int, Statement]()
+
+  // Number of statements kept in driver's memory
+  private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+
+  private val _statements = new JLinkedHashMap[Int, Statement] {
+    protected override def removeEldestEntry(eldest: Entry[Int, Statement]): Boolean = {
+      size() > numRetainedStatements
+    }
+  }.asScala
 
   private val newStatementId = new AtomicInteger(0)
 
@@ -77,9 +87,9 @@ class Session(
       _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
-    }
+    }(interpreterExecutor)
 
-    future.onFailure { case _ => changeState(SessionState.Error()) }
+    future.onFailure { case _ => changeState(SessionState.Error()) }(interpreterExecutor)
     future
   }
 
@@ -87,72 +97,75 @@ class Session(
 
   def state: SessionState = _state
 
-  def statements: collection.Map[Int, Statement] = _statements.readOnlySnapshot()
+  def statements: collection.Map[Int, Statement] = _statements.synchronized {
+    _statements.toMap
+  }
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
+    val statement = new Statement(statementId, StatementState.Waiting, null)
+    _statements.synchronized { _statements(statementId) = statement }
 
     Future {
       setJobGroup(statementId)
-      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Running)
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Running)
 
-      val executeResult = if (_statements(statementId).state.get() == StatementState.Running) {
-        executeCode(statementId, code)
-      } else {
-        null
+      if (statement.state.get() == StatementState.Running) {
+        statement.output = executeCode(statementId, code)
       }
 
-      _statements(statementId).output = executeResult
-      _statements(statementId).state.compareAndSet(StatementState.Running, StatementState.Available)
-      _statements(statementId).state.compareAndSet(
-        StatementState.Cancelling, StatementState.Cancelled)
-    }
+      statement.compareAndTransit(StatementState.Running, StatementState.Available)
+      statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+    }(interpreterExecutor)
 
     statementId
   }
 
   def cancel(statementId: Int): Unit = {
-    if (!_statements.contains(statementId)) {
+    val statementOpt = _statements.synchronized { _statements.get(statementId) }
+    if (statementOpt.isEmpty) {
       return
     }
 
-    if (_statements(statementId).state.get() == StatementState.Available ||
-      _statements(statementId).state.get() == StatementState.Cancelled ||
-      _statements(statementId).state.get() == StatementState.Cancelling) {
+    val statement = statementOpt.get
+    if (statement.state.get().isOneOf(
+      StatementState.Available, StatementState.Cancelled, StatementState.Cancelling)) {
       return
     } else {
       // statement 1 is running and statement 2 is waiting. User cancels
       // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
       // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
       // state to cancelled when cancelling a waiting statement.
-      _statements(statementId).state.compareAndSet(StatementState.Waiting, StatementState.Cancelled)
-      _statements(statementId).state.compareAndSet(
-        StatementState.Running, StatementState.Cancelling)
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Cancelled)
+      statement.compareAndTransit(StatementState.Running, StatementState.Cancelling)
     }
 
     info(s"Cancelling statement $statementId...")
 
-      Future {
-        val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
-        while (_statements(statementId).state.get() == StatementState.Cancelling) {
-          if (deadline.isOverdue()) {
-            info(s"Failed to cancel statement $statementId.")
-            _statements(statementId).state.compareAndSet(
-              StatementState.Cancelling, StatementState.Cancelled)
-          } else {
-            _sc.foreach(_.cancelJobGroup(statementId.toString))
+    Future {
+      val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
+
+      while (statement.state.get() == StatementState.Cancelling) {
+        if (deadline.isOverdue()) {
+          info(s"Failed to cancel statement $statementId.")
+          statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+        } else {
+          _sc.foreach(_.cancelJobGroup(statementId.toString))
+          if (statement.state.get() == StatementState.Cancelling) {
+            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
           }
-          Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
         }
-        if (_statements(statementId).state.get() == StatementState.Cancelled) {
-          info(s"Statement $statementId cancelled.")
-        }
-      }(cancelExecutor)
+      }
+
+      if (statement.state.get() == StatementState.Cancelled) {
+        info(s"Statement $statementId cancelled.")
+      }
+    }(cancelExecutor)
   }
 
   def close(): Unit = {
-    executor.shutdown()
+    interpreterExecutor.shutdown()
+    cancelExecutor.shutdown()
     interpreter.close()
   }
 
