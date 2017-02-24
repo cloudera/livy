@@ -30,8 +30,8 @@ import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.LivyConf.Entry
 
 object ZooKeeperStateStore {
-  val ZK_KEY_PREFIX_CONF = Entry("livy.server.recovery.zkStateStore.keyPrefix", "livy")
-  val ZK_RETRY_CONF = Entry("livy.server.recovery.zkStateStore.retryPolicy", "5,100")
+  val ZK_KEY_PREFIX_CONF = Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
+  val ZK_RETRY_CONF = Entry("livy.server.recovery.zk-state-store.retry-policy", "5,100")
 }
 
 class ZooKeeperStateStore(
