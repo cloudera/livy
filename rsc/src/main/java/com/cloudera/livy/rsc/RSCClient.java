@@ -60,12 +60,14 @@ public class RSCClient implements LivyClient {
   private final Promise<URI> serverUriPromise;
 
   private ContextInfo contextInfo;
+  private Process driverProcess;
   private volatile boolean isAlive;
   private volatile String replState;
 
-  RSCClient(RSCConf conf, Promise<ContextInfo> ctx) throws IOException {
+  RSCClient(RSCConf conf, Promise<ContextInfo> ctx, Process driverProcess) throws IOException {
     this.conf = conf;
     this.contextInfoPromise = ctx;
+    this.driverProcess = driverProcess;
     this.jobs = new ConcurrentHashMap<>();
     this.protocol = new ClientProtocol();
     this.driverRpc = ImmediateEventExecutor.INSTANCE.newPromise();
@@ -96,6 +98,10 @@ public class RSCClient implements LivyClient {
 
   public boolean isAlive() {
     return isAlive;
+  }
+
+  public Process getDriverProcess() {
+    return driverProcess;
   }
 
   private synchronized void connectToContext(final ContextInfo info) throws Exception {
