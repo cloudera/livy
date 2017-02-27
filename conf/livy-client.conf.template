@@ -1,46 +1,78 @@
-# Configurations for HTTPClient
+#
+# Configurations for Livy HTTPClient
+#
 
-livy.client.http.connection.timeout = 10s
-livy.client.http.connection.idle.timeout = 10m
-livy.client.http.connection.socket.timeout = 5m
+# HTTP Request configurations
+# How long before a request times out
+# livy.client.http.connection.timeout = 10s
+# How long between data packets before a request times out
+# livy.client.http.connection.socket.timeout = 5m
+# Whether content is compressed
+# livy.client.http.content.compress.enable = true
 
-livy.client.http.job.initial_poll_interval = 100ms
-livy.client.http.job.max_poll_interval = 5s
+# How long before idle connections are closed
+# livy.client.http.connection.idle.timeout = 10m
 
-livy.client.http.content.compress.enable = true
+# Initial interval before polling for Job results
+# livy.client.http.job.initial_poll_interval = 100ms
+# Maximum interval between successive polls
+# livy.client.http.job.max_poll_interval = 5s
 
+#
+# Configurations for Livy RSCClient
+#
 
-# Configurations for RSCClient
+# Configurations for registering a client with the rpc server
+# Unique client id for connections to the rpc server
+# livy.rsc.client.auth.id =
+# Secret value for authenticating client connections with server
+# livy.rsc.client.auth.secret =
 
-livy.rsc.client.auth.id =
-livy.rsc.client.auth.secret =
-livy.rsc.client.shutdown_timeout = 10s
-livy.rsc.driver_class =
-livy.rsc.session.kind =
+# Timeout when stopping a rsc client
+# livy.rsc.client.shutdown_timeout = 10s
 
-livy.rsc.jars =
-livy.rsc.sparkr.package =
-livy.rsc.pyspark.archives =
+# Class of the rsc driver to use
+# livy.rsc.driver_class =
+# The kind of rsc session. Examples: pyspark or sparkr
+# livy.rsc.session.kind =
+
+# Comma-separated list of Livy RSC jars. By default Livy will upload jars from its installation
+# directory every time a session is started. By caching these files in HDFS, for example, startup
+# time of sessions on YARN can be reduced.
+# livy.rsc.jars =
+# Location of the SparkR package for running sparkr
+# livy.rsc.sparkr.package =
+# Location of the PySpark package for running pyspark
+# livy.rsc.pyspark.archives =
 
 # Address for the RSC driver to connect back with it's connection info.
-livy.rsc.launcher.address =
-livy.rsc.launcher.port = -1
+# livy.rsc.launcher.address =
+# livy.rsc.launcher.port = -1
 
 # How long will the RSC wait for a connection for a Livy server before shutting itself down.
-livy.rsc.server.idle_timeout = 10m
+# livy.rsc.server.idle_timeout = 10m
 
-livy.rsc.proxy_user =
+# The user that should be impersonated when requesting a Livy session
+# livy.rsc.proxy_user =
 
-livy.rsc.rpc.server.address =
-livy.rsc.server.connect.timeout = 90s
-livy.rsc.client.connect.timeout = 10s
-livy.rsc.channel.log.level =
-livy.rsc.rpc.max.size = 50 * 1024 * 1024
-livy.rsc.rpc.threads = 8
-livy.rsc.secret.bits = 256
+# Host or IP adress of the rpc server
+# livy.rsc.rpc.server.address =
+# How long the rsc client will wait when attempting to connect to the Livy server
+# livy.rsc.server.connect.timeout = 90s
 
-livy.rsc.rpc.sasl.mechanisms = DIGEST-MD5
-livy.rsc.rpc.sasl.qop =
+# The logging level for the rpc channel. Possible values: TRACE, DEBUG, INFO, WARN, or ERROR
+# livy.rsc.channel.log.level =
 
-livy.rsc.job_cancel.trigger_interval = 100ms
-livy.rsc.job_cancel.timeout = 30s
+# SASL configurations for authentication
+# SASL mechanism used for authentication
+# livy.rsc.rpc.sasl.mechanisms = DIGEST-MD5
+# SASL qop used for authentication
+# livy.rsc.rpc.sasl.qop =
+
+# Time between status checks for cancelled a Job
+# livy.rsc.job_cancel.trigger_interval = 100ms
+# Time before a cancelled a Job is forced into a Cancelled state
+# livy.rsc.job_cancel.timeout = 30s
+
+# Number of statements kept in driver's memory
+# livy.rsc.retained_statements = 100
