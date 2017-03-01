@@ -48,8 +48,7 @@ public class Statement {
   }
 
   public void updateProgress(double p) {
-    if (this.state.get().equals(StatementState.Cancelled) ||
-      this.state.get().equals(StatementState.Available)) {
+    if (this.state.get().isOneOf(StatementState.Cancelled, StatementState.Available)) {
       this.progress = 1.0;
     } else {
       this.progress = p;

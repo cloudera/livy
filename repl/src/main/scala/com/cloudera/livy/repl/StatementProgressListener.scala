@@ -26,9 +26,6 @@ import org.apache.spark.scheduler._
 import com.cloudera.livy.rsc.RSCConf
 import org.apache.spark.Success
 
-case class TaskCount(var currFinishedTasks: Int, var totalTasks: Int)
-case class JobState(jobId: Int, var isCompleted: Boolean)
-
 /**
  * [[StatementProgressListener]] is an implementation of SparkListener, used to track the progress
  * of submitted statement, this class builds a mapping relation between statement, jobs, stages
@@ -40,8 +37,14 @@ case class JobState(jobId: Int, var isCompleted: Boolean)
  * This statement progress can only reflect the statement in which has Spark jobs, if
  * the statement submitted doesn't generate any Spark job, the progress will always return 0.0
  * until completed.
+ *
+ * Also if the statement includes several Spark jobs, the progress will be flipped because we
+ * don't know the actual number of Spark jobs/tasks generated before the statement executed.
  */
 class StatementProgressListener(conf: RSCConf) extends SparkListener {
+
+  case class TaskCount(var currFinishedTasks: Int, var totalTasks: Int)
+  case class JobState(jobId: Int, var isCompleted: Boolean)
 
   private val retainedStatements = conf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
 
@@ -57,7 +60,7 @@ class StatementProgressListener(conf: RSCConf) extends SparkListener {
   @VisibleForTesting
   private[repl] val stageIdToTaskCount = new mutable.HashMap[Int, TaskCount]()
 
-  private var currentStatementId: Int = _
+  @transient private var currentStatementId: Int = _
 
   /**
    * Set current statement id, onJobStart() will use current statement id to build the mapping
