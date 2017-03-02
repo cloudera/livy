@@ -1,4 +1,12 @@
 #
+# Configurations for a Livy Client, any configurations set here will override any
+# livy or spark-default configurations.
+#
+# Before a Livy Client is able to load these configurations the folder containing
+# this file must be added to the application classpath
+#
+
+#
 # Configurations for Livy HTTPClient
 #
 
