@@ -21,11 +21,13 @@ package com.cloudera.livy.repl
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.mutable.ArrayBuffer
-import scala.language.reflectiveCalls
+import scala.concurrent.duration._
+import scala.language.{postfixOps, reflectiveCalls}
 
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.scheduler._
 import org.scalatest._
+import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.rsc.RSCConf
@@ -132,7 +134,9 @@ class StatementProgressListenerSpec extends FlatSpec
     testListener.onStageEndCallback = Some(verifyStages)
     sparkInterpreter.execute(stmtId, executeCode)
 
-    testListener.progressOfStatement(stmtId) should be (1.0)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      testListener.progressOfStatement(stmtId) should be(1.0)
+    }
   }
 
   it should "not generate Spark jobs for plain Scala code" in {
@@ -196,7 +200,9 @@ class StatementProgressListenerSpec extends FlatSpec
     taskProgress.toArray should be (Array(0.5, 1.0, 0.75, 1.0))
     stageProgress.toArray should be (Array(1.0, 1.0))
 
-    testListener.progressOfStatement(stmtId) should be (1.0)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      testListener.progressOfStatement(stmtId) should be(1.0)
+    }
   }
 
   it should "remove old statement progress" in {
