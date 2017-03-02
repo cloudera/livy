@@ -23,8 +23,8 @@ import scala.language.postfixOps
 
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
-import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
+import org.json4s.jackson.JsonMethods.parse
 import org.scalatest.concurrent.Eventually._
 
 import com.cloudera.livy.rsc.RSCConf

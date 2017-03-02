@@ -21,10 +21,10 @@ package com.cloudera.livy.repl
 import scala.collection.mutable
 
 import com.google.common.annotations.VisibleForTesting
+import org.apache.spark.Success
 import org.apache.spark.scheduler._
 
 import com.cloudera.livy.rsc.RSCConf
-import org.apache.spark.Success
 
 /**
  * [[StatementProgressListener]] is an implementation of SparkListener, used to track the progress

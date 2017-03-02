@@ -23,8 +23,8 @@ import org.json4s.{DefaultFormats, JNull, JValue}
 import org.json4s.JsonDSL._
 import org.scalatest._
 
-import com.cloudera.livy.sessions._
 import com.cloudera.livy.rsc.RSCConf
+import com.cloudera.livy.sessions._
 
 abstract class PythonBaseInterpreterSpec extends BaseInterpreterSpec {
 

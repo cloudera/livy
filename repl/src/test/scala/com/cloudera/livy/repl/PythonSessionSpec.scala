@@ -23,8 +23,8 @@ import org.json4s.Extraction
 import org.json4s.jackson.JsonMethods.parse
 import org.scalatest._
 
-import com.cloudera.livy.sessions._
 import com.cloudera.livy.rsc.RSCConf
+import com.cloudera.livy.sessions._
 
 abstract class PythonSessionSpec extends BaseSessionSpec {
 
