@@ -92,7 +92,7 @@ class StatementProgressListenerSpec extends FlatSpec
   it should "correctly calculate progress" in {
     val executeCode =
       """
-        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).reduceByKey(_ + _).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
       """.stripMargin
     val stmtId = getStatementId
 
@@ -104,8 +104,8 @@ class StatementProgressListenerSpec extends FlatSpec
       val jobId = testListener.statementToJobs(stmtId).head.jobId
       testListener.jobIdToStatement(jobId) should be (stmtId)
 
-      // Two stages will be generated
-      testListener.jobIdToStages(jobId).size should be (2)
+      // 1 stage will be generated
+      testListener.jobIdToStages(jobId).size should be (1)
       val stageIds = testListener.jobIdToStages(jobId)
 
       // 2 tasks per stage will be generated
@@ -118,13 +118,13 @@ class StatementProgressListenerSpec extends FlatSpec
     var taskEndCalls = 0
     def verifyTasks(): Unit = {
       taskEndCalls += 1
-      testListener.progressOfStatement(stmtId) should be (taskEndCalls.toDouble / 4)
+      testListener.progressOfStatement(stmtId) should be (taskEndCalls.toDouble / 2)
     }
 
     var stageEndCalls = 0
     def verifyStages(): Unit = {
       stageEndCalls += 1
-      testListener.progressOfStatement(stmtId) should be (stageEndCalls.toDouble / 2)
+      testListener.progressOfStatement(stmtId) should be (stageEndCalls.toDouble / 1)
     }
 
     testListener.onJobStartedCallback = Some(verifyJobs)
@@ -152,8 +152,8 @@ class StatementProgressListenerSpec extends FlatSpec
   it should "handle multiple jobs in one statement" in {
     val executeCode =
       """
-        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).reduceByKey(_ + _).collect()
-        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).reduceByKey(_ + _).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
       """.stripMargin
     val stmtId = getStatementId
 
@@ -167,8 +167,8 @@ class StatementProgressListenerSpec extends FlatSpec
       val jobId = testListener.statementToJobs(stmtId)(jobs - 1).jobId
       testListener.jobIdToStatement(jobId) should be (stmtId)
 
-      // Two stages will be generated
-      testListener.jobIdToStages(jobId).size should be (2)
+      // 1 stages will be generated
+      testListener.jobIdToStages(jobId).size should be (1)
       val stageIds = testListener.jobIdToStages(jobId)
 
       // 2 tasks per stage will be generated
@@ -193,8 +193,8 @@ class StatementProgressListenerSpec extends FlatSpec
     testListener.onStageEndCallback = Some(verifyStages)
     sparkInterpreter.execute(stmtId, executeCode)
 
-    taskProgress.toArray should be (Array(0.25, 0.5, 0.75, 1, 0.625, 0.75, 0.875, 1.0))
-    stageProgress.toArray should be (Array(0.5, 1.0, 0.75, 1.0))
+    taskProgress.toArray should be (Array(0.5, 1.0, 0.75, 1.0))
+    stageProgress.toArray should be (Array(1.0, 1.0))
 
     testListener.progressOfStatement(stmtId) should be (1.0)
   }
@@ -202,7 +202,7 @@ class StatementProgressListenerSpec extends FlatSpec
   it should "remove old statement progress" in {
     val executeCode =
       """
-        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).reduceByKey(_ + _).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
       """.stripMargin
     val stmtId = getStatementId
 
