@@ -69,10 +69,10 @@ class ContextLauncher {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
-  static Promise<ContextInfo> create(RSCClientFactory factory, RSCConf conf)
+  static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
     ContextLauncher launcher = new ContextLauncher(factory, conf);
-    return launcher.promise;
+    return new DriverProcessInfo(launcher.promise, launcher.child.child);
   }
 
   private final Promise<ContextInfo> promise;
@@ -304,33 +304,6 @@ class ContextLauncher {
     return file;
   }
 
-  private static class Redirector implements Runnable {
-
-    private final BufferedReader in;
-
-    Redirector(InputStream in) {
-      this.in = new BufferedReader(new InputStreamReader(in));
-    }
-
-    @Override
-    public void run() {
-      try {
-        String line = null;
-        while ((line = in.readLine()) != null) {
-          LOG.info(line);
-        }
-      } catch (Exception e) {
-        LOG.warn("Error in redirector thread.", e);
-      }
-
-      try {
-        in.close();
-      } catch (IOException ioe) {
-        LOG.warn("Error closing child stream.", ioe);
-      }
-    }
-
-  }
 
   private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
@@ -383,8 +356,6 @@ class ContextLauncher {
     private final Promise<?> promise;
     private final Process child;
     private final Thread monitor;
-    private final Thread stdout;
-    private final Thread stderr;
     private final File confFile;
 
     public ChildProcess(RSCConf conf, Promise<?> promise, Runnable child, File confFile) {
@@ -392,8 +363,6 @@ class ContextLauncher {
       this.promise = promise;
       this.monitor = monitor(child, CHILD_IDS.incrementAndGet());
       this.child = null;
-      this.stdout = null;
-      this.stderr = null;
       this.confFile = confFile;
     }
 
@@ -402,8 +371,6 @@ class ContextLauncher {
       this.conf = conf;
       this.promise = promise;
       this.child = childProc;
-      this.stdout = redirect("stdout-redir-" + childId, child.getInputStream());
-      this.stderr = redirect("stderr-redir-" + childId, child.getErrorStream());
       this.confFile = confFile;
 
       Runnable monitorTask = new Runnable() {
@@ -450,36 +417,11 @@ class ContextLauncher {
     }
 
     public void detach() {
-      if (stdout != null) {
-        stdout.interrupt();
-        try {
-          stdout.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
-        } catch (InterruptedException ie) {
-          LOG.info("Interrupted while waiting for child stdout to finish.");
-        }
-      }
-      if (stderr != null) {
-        stderr.interrupt();
-        try {
-          stderr.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
-        } catch (InterruptedException ie) {
-          LOG.info("Interrupted while waiting for child stderr to finish.");
-        }
-      }
-
       try {
         monitor.join(conf.getTimeAsMs(CLIENT_SHUTDOWN_TIMEOUT));
       } catch (InterruptedException ie) {
         LOG.debug("Interrupted before driver thread was finished.");
       }
-    }
-
-    private Thread redirect(String name, InputStream in) {
-      Thread thread = new Thread(new Redirector(in));
-      thread.setName(name);
-      thread.setDaemon(true);
-      thread.start();
-      return thread;
     }
 
     private Thread monitor(final Runnable task, int childId) {

@@ -136,8 +136,12 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
       Clock.withSleepMethod(mockSleep) {
         val mockYarnClient = mock[YarnClient]
         val mockSparkSubmit = mock[LineBufferedProcess]
-        val sparkSubmitLog = IndexedSeq("SPARK-SUBMIT", "LOG")
-        when(mockSparkSubmit.inputLines).thenReturn(sparkSubmitLog)
+        val sparkSubmitInfoLog = IndexedSeq("SPARK-SUBMIT", "LOG")
+        val sparkSubmitErrorLog = IndexedSeq("SPARK-SUBMIT", "error log")
+        val sparkSubmitLog = ("stdout: " +: sparkSubmitInfoLog) ++
+          ("\nstderr: " +: sparkSubmitErrorLog) :+ "\nYARN Diagnostics: "
+        when(mockSparkSubmit.inputLines).thenReturn(sparkSubmitInfoLog)
+        when(mockSparkSubmit.errorLines).thenReturn(sparkSubmitErrorLog)
         val waitForCalledLatch = new CountDownLatch(1)
         when(mockSparkSubmit.waitFor()).thenAnswer(new Answer[Int]() {
           override def answer(invocation: InvocationOnMock): Int = {

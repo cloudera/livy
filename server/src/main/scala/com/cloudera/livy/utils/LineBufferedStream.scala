@@ -39,7 +39,6 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
       for (line <- lines) {
         _lock.lock()
         try {
-          trace("stdout: ", line)
           _lines = _lines :+ line
           _condition.signalAll()
         } finally {
@@ -47,6 +46,7 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
         }
       }
 
+      _lines.map { line => info("stdout: ", line) }
       _lock.lock()
       try {
         _finished = true
