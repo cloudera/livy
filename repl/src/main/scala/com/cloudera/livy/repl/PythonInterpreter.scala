@@ -282,8 +282,8 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     }
     else {
       throw new Exception(
-         'Livy is unable to find valid JSON in the response from fake_shell. ' +
-         'Please recreate the session.')
+         "Livy is unable to find valid JSON in the response from fake_shell. " +
+         "Please recreate the session.")
     }
   }
 
