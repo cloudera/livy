@@ -28,6 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
+import com.fasterxml.jackson.core.JsonParseException
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
@@ -254,7 +255,35 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
     stdin.flush()
 
     Option(stdout.readLine()).map { case line =>
-      parse(line)
+      try {
+        parse(line)
+      }
+      catch {
+        // LIVY-322 - If a statement puts raw text in the stdout without fake_shell parsing it,
+        // retry the readLine up to 100 times in an attempt to find the next parsable line of JSON.
+        case e: JsonParseException => retryRead(100)
+      }
+    }
+  }
+
+  // LIVY-322 - Method for retrying reads from stdout if a JsonParseException is encountered
+  // due to non-JSON formatted text in the stdout. Accepts a param of the number of times
+  // to retry the read, and recurses until either it finds a parsable line of JSON, or
+  // exhausts the maximum level of retries.  If the maximum number of retries is exhausted,
+  // an Exception is thrown.
+  private def retryRead(maxRetries: Int): JValue = {
+    if (maxRetries > 0) {
+      try {
+         parse(stdout.readLine())
+      } catch {
+        case e: JsonParseException =>
+          retryRead(maxRetries - 1)
+      }
+    }
+    else {
+      throw new Exception(
+         'Livy is unable to find valid JSON in the response from fake_shell. ' +
+         'Please recreate the session.')
     }
   }
 
