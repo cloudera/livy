@@ -28,6 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
+import com.fasterxml.jackson.core.JsonParseException
 import org.apache.spark.{SparkConf, SparkContext}
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonAST.JObject
@@ -41,8 +42,6 @@ import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.rsc.BaseProtocol
 import com.cloudera.livy.rsc.driver.BypassJobWrapper
 import com.cloudera.livy.sessions._
-
-import com.fasterxml.jackson.core.JsonParseException
 
 // scalastyle:off println
 object PythonInterpreter extends Logging {
@@ -272,17 +271,18 @@ private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, 
   // to retry the read, and recurses until either it finds a parsable line of JSON, or
   // exhausts the maximum level of retries.  If the maximum number of retries is exhausted,
   // an Exception is thrown.
-  private def retryRead(maxRetries:Int): JValue = {
+  private def retryRead(maxRetries: Int): JValue = {
     if (maxRetries > 0) {
       try {
          parse(stdout.readLine())
       } catch {
-        case e: JsonParseException => 
+        case e: JsonParseException =>
           retryRead(maxRetries - 1)
       }
     }
     else {
-      throw new Exception("Livy is unable to find valid JSON in the response from fake_shell. Please recreate the session.")
+      throw new Exception("Livy is unable to find valid JSON in the response from fake_shell. "
+         "Please recreate the session.")
     }
   }
 
