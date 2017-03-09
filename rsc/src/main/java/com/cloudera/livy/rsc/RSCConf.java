@@ -139,20 +139,23 @@ public class RSCConf extends ClientConf<RSCConf> {
     return address.getCanonicalHostName();
   }
 
-  private static final Map<String, DeprecatedConf> configsWithAlternatives = new HashMap<String, DeprecatedConf>() {{
-    put(RSC_CONF_PREFIX + "client.do-not-use.run-driver-in-process", DepConf.CLIENT_IN_PROCESS);
-    put(RSC_CONF_PREFIX + "client.shutdown-timeout", DepConf.CLIENT_SHUTDOWN_TIMEOUT);
-    put(RSC_CONF_PREFIX + "driver-class", DepConf.DRIVER_CLASS);
-    put(RSC_CONF_PREFIX + "server.idle-timeout", DepConf.SERVER_IDLE_TIMEOUT);
-    put(RSC_CONF_PREFIX + "proxy-user", DepConf.PROXY_USER);
-    put(RSC_CONF_PREFIX + "test.do-not-use.stuck-end-session", DepConf.TEST_STUCK_END_SESSION);
-    put(RSC_CONF_PREFIX + "test.do-not-use.stuck-start-driver", DepConf.TEST_STUCK_START_DRIVER);
-    put(RSC_CONF_PREFIX + "job-cancel.trigger-interval", DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
-    put(RSC_CONF_PREFIX + "job-cancel.timeout", DepConf.JOB_CANCEL_TIMEOUT);
-    put(RSC_CONF_PREFIX + "retained-statements", DepConf.RETAINED_STATEMENT_NUMBER);
+  private static final Map<String, DeprecatedConf> configsWithAlternatives
+    = new HashMap<String, DeprecatedConf>() {{
+      put(RSC_CONF_PREFIX + "client.do-not-use.run-driver-in-process", DepConf.CLIENT_IN_PROCESS);
+      put(RSC_CONF_PREFIX + "client.shutdown-timeout", DepConf.CLIENT_SHUTDOWN_TIMEOUT);
+      put(RSC_CONF_PREFIX + "driver-class", DepConf.DRIVER_CLASS);
+      put(RSC_CONF_PREFIX + "server.idle-timeout", DepConf.SERVER_IDLE_TIMEOUT);
+      put(RSC_CONF_PREFIX + "proxy-user", DepConf.PROXY_USER);
+      put(RSC_CONF_PREFIX + "test.do-not-use.stuck-end-session", DepConf.TEST_STUCK_END_SESSION);
+      put(RSC_CONF_PREFIX + "test.do-not-use.stuck-start-driver", DepConf.TEST_STUCK_START_DRIVER);
+      put(RSC_CONF_PREFIX + "job-cancel.trigger-interval", DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
+      put(RSC_CONF_PREFIX + "job-cancel.timeout", DepConf.JOB_CANCEL_TIMEOUT);
+      put(RSC_CONF_PREFIX + "retained-statements", DepConf.RETAINED_STATEMENT_NUMBER);
   }};
 
-  public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return configsWithAlternatives; }
+  public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+    return configsWithAlternatives;
+  }
 
   static enum DepConf implements DeprecatedConf {
     CLIENT_IN_PROCESS("client.do_not_use.run_driver_in_process", "0.4"),

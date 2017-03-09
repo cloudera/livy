@@ -216,8 +216,9 @@ public abstract class ClientConf<T extends ClientConf>
   private void logDeprecationWarning(String key) {
     DeprecatedConf depConf = getConfigsWithAlternatives().get(key);
     if (depConf != null) {
-      LOG.warn("The configuration key " + depConf.key() + " has been deprecated as of Livy " + depConf.version()
-        + " and may be removed in the future. Please use the new key " + key + " instead.");
+      LOG.warn("The configuration key " + depConf.key() + " has been deprecated as of Livy "
+        + depConf.version() + " and may be removed in the future. Please use the new key "
+        + key + " instead.");
     }
   }
 

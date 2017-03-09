@@ -85,12 +85,15 @@ class HttpConf extends ClientConf<HttpConf> {
     return getBoolean(Entry.SPNEGO_ENABLED);
   }
 
-  private static final Map<String, DeprecatedConf> configsWithAlternatives = new HashMap<String, DeprecatedConf>() {{
-    put(HTTP_CONF_PREFIX + "job.initial-poll-interval", DepConf.JOB_INITIAL_POLL_INTERVAL);
-    put(HTTP_CONF_PREFIX + "job.max-poll-interval", DepConf.JOB_MAX_POLL_INTERVAL);
+  private static final Map<String, DeprecatedConf> configsWithAlternatives
+    = new HashMap<String, DeprecatedConf>() {{
+      put(HTTP_CONF_PREFIX + "job.initial-poll-interval", DepConf.JOB_INITIAL_POLL_INTERVAL);
+      put(HTTP_CONF_PREFIX + "job.max-poll-interval", DepConf.JOB_MAX_POLL_INTERVAL);
   }};
 
-  public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return configsWithAlternatives; }
+  public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+    return configsWithAlternatives;
+  }
 
   static enum DepConf implements DeprecatedConf {
     JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "0.4"),
