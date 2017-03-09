@@ -113,7 +113,7 @@ object SparkRInterpreter {
       env.put("R_PROFILE_USER",
         Seq(packageDir, "SparkR", "profile", "general.R").mkString(File.separator))
 
-      builder.redirectErrorStream(true)
+      builder.redirectErrorStream(false)
       val process = builder.start()
       new SparkRInterpreter(process, backendInstance, backendThread,
         conf.get("spark.livy.spark_major_version", "1"),
@@ -196,7 +196,13 @@ class SparkRInterpreter(process: Process,
         }
       }
 
-      Interpreter.ExecuteSuccess(content)
+      val errorLines = takeErrorLines()
+      if (errorLines.length > 0) {
+        Interpreter.ExecuteError("Error", errorLines)
+      } else {
+        Interpreter.ExecuteSuccess(content)
+      }
+
     } catch {
       case e: Error =>
         Interpreter.ExecuteError("Error", e.output)
