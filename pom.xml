@@ -42,7 +42,7 @@
   </organization>
 
   <properties>
-    <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
+    <hadoop.version>2.6.5</hadoop.version>
     <hadoop.scope>compile</hadoop.scope>
     <spark.version>1.6.2</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
