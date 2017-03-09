@@ -18,19 +18,23 @@
 
 package com.cloudera.livy.client.http;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 import com.cloudera.livy.client.common.ClientConf;
 
 class HttpConf extends ClientConf<HttpConf> {
 
+  private static final String HTTP_CONF_PREFIX = "livy.client.http.";
+
   static enum Entry implements ConfEntry {
     CONNECTION_TIMEOUT("connection.timeout", "10s"),
     CONNECTION_IDLE_TIMEOUT("connection.idle.timeout", "10m"),
     SOCKET_TIMEOUT("connection.socket.timeout", "5m"),
 
-    JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "100ms"),
-    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "5s"),
+    JOB_INITIAL_POLL_INTERVAL("job.initial-poll-interval", "100ms"),
+    JOB_MAX_POLL_INTERVAL("job.max-poll-interval", "5s"),
 
     CONTENT_COMPRESS_ENABLE("content.compress.enable", true),
 
@@ -44,7 +48,7 @@ class HttpConf extends ClientConf<HttpConf> {
     private final Object dflt;
 
     private Entry(String key, Object dflt) {
-      this.key = "livy.client.http." + key;
+      this.key = HTTP_CONF_PREFIX + key;
       this.dflt = dflt;
     }
 
@@ -80,4 +84,31 @@ class HttpConf extends ClientConf<HttpConf> {
   boolean isSpnegoEnabled() {
     return getBoolean(Entry.SPNEGO_ENABLED);
   }
+
+  private static final Map<String, DeprecatedConf> configsWithAlternatives = new HashMap<String, DeprecatedConf>() {{
+    put(HTTP_CONF_PREFIX + "job.initial-poll-interval", DepConf.JOB_INITIAL_POLL_INTERVAL);
+    put(HTTP_CONF_PREFIX + "job.max-poll-interval", DepConf.JOB_MAX_POLL_INTERVAL);
+  }};
+
+  public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return configsWithAlternatives; }
+
+  static enum DepConf implements DeprecatedConf {
+    JOB_INITIAL_POLL_INTERVAL("job.initial_poll_interval", "0.4"),
+    JOB_MAX_POLL_INTERVAL("job.max_poll_interval", "0.4");
+
+    private final String key;
+    private final String version;
+
+    private DepConf(String key, String version) {
+      this.key = HTTP_CONF_PREFIX + key;
+      this.version = version;
+    }
+
+    @Override
+    public String key() { return key; }
+
+    @Override
+    public String version() { return version; }
+  }
+
 }

@@ -20,6 +20,7 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
+import java.util.HashMap
 
 import org.apache.hadoop.conf.Configuration
 
@@ -246,4 +247,6 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     Option(get(entry)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
   }
 
+  // TODO: Add Conf Deprecation
+  def getConfigsWithAlternatives = new HashMap[String, ClientConf.DeprecatedConf]
 }

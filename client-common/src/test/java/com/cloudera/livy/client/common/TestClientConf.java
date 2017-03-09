@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.client.common;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
@@ -152,6 +153,9 @@ public class TestClientConf {
     TestConf(Properties p) {
       super(p);
     }
+
+    // TODO: Add tests for Conf Deprecation
+    public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return new HashMap<>(); }
 
   }
 

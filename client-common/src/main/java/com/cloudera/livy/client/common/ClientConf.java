@@ -28,6 +28,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.cloudera.livy.annotations.Private;
 
 /**
@@ -36,6 +39,8 @@ import com.cloudera.livy.annotations.Private;
 @Private
 public abstract class ClientConf<T extends ClientConf>
   implements Iterable<Map.Entry<String, String>> {
+
+  protected Logger LOG = LoggerFactory.getLogger(getClass());
 
   public static interface ConfEntry {
 
@@ -71,24 +76,37 @@ public abstract class ClientConf<T extends ClientConf>
     this.config = new ConcurrentHashMap<>();
     if (config != null) {
       for (String key : config.stringPropertyNames()) {
+        logDeprecationWarning(key);
         this.config.put(key, config.getProperty(key));
       }
     }
   }
 
   public String get(String key) {
-    return config.get(key);
+    String val = config.get(key);
+    if (val != null) {
+      return val;
+    }
+    DeprecatedConf depConf = getConfigsWithAlternatives().get(key);
+    if (depConf != null) {
+      return config.get(depConf.key());
+    } else {
+      return val;
+    }
   }
 
   @SuppressWarnings("unchecked")
   public T set(String key, String value) {
+    logDeprecationWarning(key);
     config.put(key, value);
     return (T) this;
   }
 
   @SuppressWarnings("unchecked")
   public T setIfMissing(String key, String value) {
-    config.putIfAbsent(key, value);
+    if (config.putIfAbsent(key, value) == null) {
+      logDeprecationWarning(key);
+    }
     return (T) this;
   }
 
@@ -163,6 +181,7 @@ public abstract class ClientConf<T extends ClientConf>
     if (value == null) {
       config.remove(e.key());
     } else {
+      logDeprecationWarning(e.key());
       config.put(e.key(), value.toString());
     }
     return (T) this;
@@ -176,7 +195,7 @@ public abstract class ClientConf<T extends ClientConf>
   private String get(ConfEntry e, Class<?> requestedType) {
     check(getType(e.dflt()).equals(requestedType), "Invalid type conversion requested for %s.",
       e.key());
-    return config.get(e.key());
+    return this.get(e.key());
   }
 
   private boolean typesMatch(Object test, Object expected) {
@@ -191,6 +210,28 @@ public abstract class ClientConf<T extends ClientConf>
     if (!test) {
       throw new IllegalArgumentException(String.format(message, args));
     }
+  }
+
+  /** Logs a warning message if the given config key is deprecated. */
+  private void logDeprecationWarning(String key) {
+    DeprecatedConf depConf = getConfigsWithAlternatives().get(key);
+    if (depConf != null) {
+      LOG.warn("The configuration key " + depConf.key() + " has been deprecated as of Livy " + depConf.version()
+        + " and may be removed in the future. Please use the new key " + key + " instead.");
+    }
+  }
+
+  // TODO: Add Deprecation without Alternatives
+
+  public abstract Map<String, DeprecatedConf> getConfigsWithAlternatives();
+
+  public static interface DeprecatedConf {
+
+    /** The key in the configuration file. */
+    String key();
+
+    /** The Livy version in which the key was deprecated. */
+    String version();
   }
 
 }
