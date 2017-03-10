@@ -156,6 +156,7 @@ public class TestClientConf {
 
     // TODO: Add tests for Conf Deprecation
     public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return new HashMap<>(); }
+    public Map<String, DeprecatedConf> getDeprecatedConfigs() { return new HashMap<>(); }
 
   }
 

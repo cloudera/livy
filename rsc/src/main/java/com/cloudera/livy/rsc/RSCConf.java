@@ -153,8 +153,16 @@ public class RSCConf extends ClientConf<RSCConf> {
       put(RSC_CONF_PREFIX + "retained-statements", DepConf.RETAINED_STATEMENT_NUMBER);
   }};
 
+  // Maps deprecated key to DeprecatedConf with the same key.
+  // There are no deprecated configs without alternatives currently.
+  private static final Map<String, DeprecatedConf> deprecatedConfigs = new HashMap<>();
+
   public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
     return configsWithAlternatives;
+  }
+
+  public Map<String, DeprecatedConf> getDeprecatedConfigs() {
+    return deprecatedConfigs;
   }
 
   static enum DepConf implements DeprecatedConf {
@@ -171,10 +179,16 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     private final String key;
     private final String version;
+    private final String deprecationMessage;
 
     private DepConf(String key, String version) {
+      this(key, version, "");
+    }
+
+    private DepConf(String key, String version, String deprecationMessage) {
       this.key = RSC_CONF_PREFIX + key;
       this.version = version;
+      this.deprecationMessage = deprecationMessage;
     }
 
     @Override
@@ -182,6 +196,9 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     @Override
     public String version() { return version; }
+
+    @Override
+    public String deprecationMessage() { return deprecationMessage; }
   }
 
 }

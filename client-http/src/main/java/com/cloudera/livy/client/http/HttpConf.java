@@ -91,8 +91,16 @@ class HttpConf extends ClientConf<HttpConf> {
       put(HTTP_CONF_PREFIX + "job.max-poll-interval", DepConf.JOB_MAX_POLL_INTERVAL);
   }};
 
+  // Maps deprecated key to DeprecatedConf with the same key.
+  // There are no deprecated configs without alternatives currently.
+  private static final Map<String, DeprecatedConf> deprecatedConfigs = new HashMap<>();
+
   public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
     return configsWithAlternatives;
+  }
+
+  public Map<String, DeprecatedConf> getDeprecatedConfigs() {
+    return deprecatedConfigs;
   }
 
   static enum DepConf implements DeprecatedConf {
@@ -101,10 +109,16 @@ class HttpConf extends ClientConf<HttpConf> {
 
     private final String key;
     private final String version;
+    private final String deprecationMessage;
 
     private DepConf(String key, String version) {
+      this(key, version, "");
+    }
+
+    private DepConf(String key, String version, String deprecationMessage) {
       this.key = HTTP_CONF_PREFIX + key;
       this.version = version;
+      this.deprecationMessage = deprecationMessage;
     }
 
     @Override
@@ -112,6 +126,9 @@ class HttpConf extends ClientConf<HttpConf> {
 
     @Override
     public String version() { return version; }
+
+    @Override
+    public String deprecationMessage() { return deprecationMessage; }
   }
 
 }

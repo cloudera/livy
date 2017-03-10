@@ -251,4 +251,5 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   // TODO: Add Conf Deprecation
   def getConfigsWithAlternatives: Map[String, DeprecatedConf] = new HashMap[String, DeprecatedConf]
+  def getDeprecatedConfigs: Map[String, DeprecatedConf] = new HashMap[String, DeprecatedConf]
 }

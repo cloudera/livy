@@ -214,17 +214,27 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Logs a warning message if the given config key is deprecated. */
   private void logDeprecationWarning(String key) {
-    DeprecatedConf depConf = getConfigsWithAlternatives().get(key);
-    if (depConf != null) {
-      LOG.warn("The configuration key " + depConf.key() + " has been deprecated as of Livy "
-        + depConf.version() + " and may be removed in the future. Please use the new key "
+    DeprecatedConf altConfs = getConfigsWithAlternatives().get(key);
+    if (altConfs != null) {
+      LOG.warn("The configuration key " + altConfs.key() + " has been deprecated as of Livy "
+        + altConfs.version() + " and may be removed in the future. Please use the new key "
         + key + " instead.");
+      return;
+    }
+
+    DeprecatedConf depConfs = getDeprecatedConfigs().get(key);
+    if (depConfs != null) {
+      LOG.warn("The configuration key " + depConfs.key() + " has been deprecated as of Livy "
+        + depConfs.version() + " and may be removed in the future. "
+        + depConfs.deprecationMessage());
     }
   }
 
-  // TODO: Add Deprecation without Alternatives
-
+  /** Maps valid key to DeprecatedConf with the deprecated key. */
   public abstract Map<String, DeprecatedConf> getConfigsWithAlternatives();
+
+  /** Maps deprecated key to DeprecatedConf with the same key. */
+  public abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
 
   public static interface DeprecatedConf {
 
@@ -233,6 +243,9 @@ public abstract class ClientConf<T extends ClientConf>
 
     /** The Livy version in which the key was deprecated. */
     String version();
+
+    /** Message to include in the deprecation warning for configs without alternatives */
+    String deprecationMessage();
   }
 
 }
