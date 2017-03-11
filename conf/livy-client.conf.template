@@ -22,9 +22,9 @@
 # livy.client.http.connection.idle.timeout = 10m
 
 # Initial interval before polling for Job results
-# livy.client.http.job.initial_poll_interval = 100ms
+# livy.client.http.job.initial-poll-interval = 100ms
 # Maximum interval between successive polls
-# livy.client.http.job.max_poll_interval = 5s
+# livy.client.http.job.max-poll-interval = 5s
 
 #
 # Configurations for Livy RSCClient
@@ -37,10 +37,10 @@
 # livy.rsc.client.auth.secret =
 
 # Timeout when stopping a rsc client
-# livy.rsc.client.shutdown_timeout = 10s
+# livy.rsc.client.shutdown-timeout = 10s
 
 # Class of the rsc driver to use
-# livy.rsc.driver_class =
+# livy.rsc.driver-class =
 # The kind of rsc session. Examples: pyspark or sparkr
 # livy.rsc.session.kind =
 
@@ -58,10 +58,10 @@
 # livy.rsc.launcher.port = -1
 
 # How long will the RSC wait for a connection for a Livy server before shutting itself down.
-# livy.rsc.server.idle_timeout = 10m
+# livy.rsc.server.idle-timeout = 10m
 
 # The user that should be impersonated when requesting a Livy session
-# livy.rsc.proxy_user =
+# livy.rsc.proxy-user =
 
 # Host or IP adress of the rpc server
 # livy.rsc.rpc.server.address =
@@ -78,9 +78,9 @@
 # livy.rsc.rpc.sasl.qop =
 
 # Time between status checks for cancelled a Job
-# livy.rsc.job_cancel.trigger_interval = 100ms
+# livy.rsc.job-cancel.trigger-interval = 100ms
 # Time before a cancelled a Job is forced into a Cancelled state
-# livy.rsc.job_cancel.timeout = 30s
+# livy.rsc.job-cancel.timeout = 30s
 
 # Number of statements kept in driver's memory
-# livy.rsc.retained_statements = 100
+# livy.rsc.retained-statements = 100
