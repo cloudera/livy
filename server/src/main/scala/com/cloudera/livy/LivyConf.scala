@@ -191,9 +191,12 @@ object LivyConf {
       DepConf("livy.server.yarn.app-leakage.check_interval", "0.4")
   )
 
-  // Maps deprecated key to DeprecatedConf with the same key.
   // There are no deprecated configs without alternatives currently.
-  private val deprecatedConfigs: Map[String, DeprecatedConf] = Map[String, DepConf]()
+  private val deprecatedConfigs: Map[String, DeprecatedConf] = {
+    val configs: Seq[DepConf] = Seq()
+
+    Map(configs.map { cfg => (cfg.key -> cfg) }: _*)
+  }
 
 }
 
