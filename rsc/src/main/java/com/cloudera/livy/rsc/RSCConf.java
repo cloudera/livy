@@ -94,6 +94,10 @@ public class RSCConf extends ClientConf<RSCConf> {
     public Object dflt() { return dflt; }
   }
 
+  public RSCConf() {
+    this(new Properties());
+  }
+
   public RSCConf(Properties config) {
     super(config);
   }

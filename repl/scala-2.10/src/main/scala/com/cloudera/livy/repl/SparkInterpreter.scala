@@ -33,7 +33,8 @@ import org.apache.spark.repl.SparkIMain
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter(conf: SparkConf)
+class SparkInterpreter(conf: SparkConf,
+    override val statementProgressListener: StatementProgressListener)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
   private var sparkIMain: SparkIMain = _
@@ -103,6 +104,7 @@ class SparkInterpreter(conf: SparkConf)
       createSparkContext(conf)
     }
 
+    sparkContext.addSparkListener(statementProgressListener)
     sparkContext
   }
 
