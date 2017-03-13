@@ -109,12 +109,19 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     }
   }
 
-  override protected def addJarOrPyFile(path: String): Unit = {
+  override protected def addJarOrPyFile(path: String): String = {
     require(interpreter != null)
     interpreter match {
       case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
+      case si: SparkInterpreter => addJar(path)
       case _ => super.addJarOrPyFile(path)
     }
+  }
+
+  def addJar(path: String): String = {
+    val local:String = "file://" + super.addJarOrPyFile(path)
+    interpreter.asInstanceOf[SparkInterpreter].addJar(local)
+    local
   }
 
   override protected def onClientAuthenticated(client: Rpc): Unit = {
