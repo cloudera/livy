@@ -3,6 +3,9 @@
 
 # Specify the keystore password.
 # livy.keystore.password =
+#
+# Specify the key password.
+# livy.key-password =
 
 # What host address to start the server on. By default, Livy will bind to all network interfaces.
 # livy.server.host = 0.0.0.0

@@ -28,18 +28,13 @@ import org.eclipse.jetty.util.ssl.SslContextFactory
 
 import com.cloudera.livy.{LivyConf, Logging}
 
-object WebServer {
-  val KeystoreKey = "livy.keystore"
-  val KeystorePasswordKey = "livy.keystore.password"
-}
-
 class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Logging {
   val server = new Server()
 
   server.setStopTimeout(1000)
   server.setStopAtShutdown(true)
 
-  val (connector, protocol) = Option(livyConf.get(WebServer.KeystoreKey)) match {
+  val (connector, protocol) = Option(livyConf.get(LivyConf.SSL_KEYSTORE)) match {
     case None =>
       (new ServerConnector(server), "http")
 
@@ -49,9 +44,9 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
       val sslContextFactory = new SslContextFactory()
       sslContextFactory.setKeyStorePath(keystore)
-      Option(livyConf.get(WebServer.KeystorePasswordKey))
+      Option(livyConf.get(LivyConf.SSL_KEYSTORE_PASSWORD))
         .foreach(sslContextFactory.setKeyStorePassword)
-      Option(livyConf.get(WebServer.KeystorePasswordKey))
+      Option(livyConf.get(LivyConf.SSL_KEY_PASSWORD))
         .foreach(sslContextFactory.setKeyManagerPassword)
 
       (new ServerConnector(server,
