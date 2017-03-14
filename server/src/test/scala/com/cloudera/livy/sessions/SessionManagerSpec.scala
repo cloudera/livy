@@ -23,7 +23,7 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
-import org.mockito.Mockito.{never, verify, when}
+import org.mockito.Mockito.{doReturn, never, verify, when}
 import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.mock.MockitoSugar.mock
@@ -83,7 +83,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
     def testSessionGC(session: Session, sm: SessionManager[_, _]): Unit = {
 
       def changeStateAndCheck(s: SessionState)(fn: SessionManager[_, _] => Unit): Unit = {
-        when(session.state).thenReturn(s)
+        doReturn(s).when(session).state
         Await.result(sm.collectGarbage(), Duration.Inf)
         fn(sm)
       }
