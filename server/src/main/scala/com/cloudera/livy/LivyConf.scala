@@ -70,6 +70,10 @@ object LivyConf {
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   val ACCESS_CONTROL_USERS = Entry("livy.server.access-control.users", null)
 
+  val SSL_KEYSTORE = Entry("livy.keystore", null)
+  val SSL_KEYSTORE_PASSWORD = Entry("livy.keystore.password", null)
+  val SSL_KEY_PASSWORD = Entry("livy.key-password", null)
+
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
   val AUTH_KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
   val AUTH_KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)

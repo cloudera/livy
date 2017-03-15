@@ -50,12 +50,13 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 
   protected def valueOfTerm(name: String): Option[Any]
 
-  override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
-    require(isStarted())
+  override protected[repl] def execute(code: String): Interpreter.ExecuteResponse =
+    restoreContextClassLoader {
+      require(isStarted())
 
-    executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
-      (TEXT_PLAIN, JString(""))
-    )))
+      executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
+        (TEXT_PLAIN, JString(""))
+      )))
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {
