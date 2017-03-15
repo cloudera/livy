@@ -173,21 +173,19 @@ object LivyConf {
     extends DeprecatedConf
 
   private val configsWithAlternatives: Map[String, DeprecatedConf] = Map[String, DepConf](
-    "livy.spark.deploy-mode" -> DepConf("livy.spark.deployMode", "0.4"),
-    "livy.spark.scala-version" -> DepConf("livy.spark.scalaVersion", "0.4"),
-    "livy.repl.enable-hive-context" -> DepConf("livy.repl.enableHiveContext", "0.4"),
-    "livy.server.csrf-protection.enabled" -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
-    "livy.server.access-control.enabled" -> DepConf("livy.server.access_control.enabled", "0.4"),
-    "livy.server.access-control.users" -> DepConf("livy.server.access_control.users", "0.4"),
-    "livy.server.auth.kerberos.name-rules" ->
-      DepConf("livy.server.auth.kerberos.name_rules", "0.4"),
-    "livy.server.launch.kerberos.refresh-interval" ->
+    LIVY_SPARK_DEPLOY_MODE.key -> DepConf("livy.spark.deployMode", "0.4"),
+    LIVY_SPARK_SCALA_VERSION.key -> DepConf("livy.spark.scalaVersion", "0.4"),
+    ENABLE_HIVE_CONTEXT.key -> DepConf("livy.repl.enableHiveContext", "0.4"),
+    CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
+    ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
+    ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
+    AUTH_KERBEROS_NAME_RULES.key -> DepConf("livy.server.auth.kerberos.name_rules", "0.4"),
+    LAUNCH_KERBEROS_REFRESH_INTERVAL.key ->
       DepConf("livy.server.launch.kerberos.refresh_interval", "0.4"),
-    "livy.server.launch.kerberos.kinit-fail-threshold" ->
-      DepConf("livy.server.launch.kerberos.kinit_fail_threshold", "0.4"),
-    "livy.server.yarn.app-leakage.check-timeout" ->
+    KINIT_FAIL_THRESHOLD.key -> DepConf("livy.server.launch.kerberos.kinit_fail_threshold", "0.4"),
+    YARN_APP_LEAKAGE_CHECK_TIMEOUT.key ->
       DepConf("livy.server.yarn.app-leakage.check_timeout", "0.4"),
-    "livy.server.yarn.app-leakage.check-interval" ->
+    YARN_APP_LEAKAGE_CHECK_INTERVAL.key ->
       DepConf("livy.server.yarn.app-leakage.check_interval", "0.4")
   )
 

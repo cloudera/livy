@@ -141,16 +141,16 @@ public class RSCConf extends ClientConf<RSCConf> {
 
   private static final Map<String, DeprecatedConf> configsWithAlternatives
     = new HashMap<String, DeprecatedConf>() {{
-      put(RSC_CONF_PREFIX + "client.do-not-use.run-driver-in-process", DepConf.CLIENT_IN_PROCESS);
-      put(RSC_CONF_PREFIX + "client.shutdown-timeout", DepConf.CLIENT_SHUTDOWN_TIMEOUT);
-      put(RSC_CONF_PREFIX + "driver-class", DepConf.DRIVER_CLASS);
-      put(RSC_CONF_PREFIX + "server.idle-timeout", DepConf.SERVER_IDLE_TIMEOUT);
-      put(RSC_CONF_PREFIX + "proxy-user", DepConf.PROXY_USER);
-      put(RSC_CONF_PREFIX + "test.do-not-use.stuck-end-session", DepConf.TEST_STUCK_END_SESSION);
-      put(RSC_CONF_PREFIX + "test.do-not-use.stuck-start-driver", DepConf.TEST_STUCK_START_DRIVER);
-      put(RSC_CONF_PREFIX + "job-cancel.trigger-interval", DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
-      put(RSC_CONF_PREFIX + "job-cancel.timeout", DepConf.JOB_CANCEL_TIMEOUT);
-      put(RSC_CONF_PREFIX + "retained-statements", DepConf.RETAINED_STATEMENT_NUMBER);
+      put(RSCConf.Entry.CLIENT_IN_PROCESS.key, DepConf.CLIENT_IN_PROCESS);
+      put(RSCConf.Entry.CLIENT_SHUTDOWN_TIMEOUT.key, DepConf.CLIENT_SHUTDOWN_TIMEOUT);
+      put(RSCConf.Entry.DRIVER_CLASS.key, DepConf.DRIVER_CLASS);
+      put(RSCConf.Entry.SERVER_IDLE_TIMEOUT.key, DepConf.SERVER_IDLE_TIMEOUT);
+      put(RSCConf.Entry.PROXY_USER.key, DepConf.PROXY_USER);
+      put(RSCConf.Entry.TEST_STUCK_END_SESSION.key, DepConf.TEST_STUCK_END_SESSION);
+      put(RSCConf.Entry.TEST_STUCK_START_DRIVER.key, DepConf.TEST_STUCK_START_DRIVER);
+      put(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL.key, DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
+      put(RSCConf.Entry.JOB_CANCEL_TIMEOUT.key, DepConf.JOB_CANCEL_TIMEOUT);
+      put(RSCConf.Entry.RETAINED_STATEMENT_NUMBER.key, DepConf.RETAINED_STATEMENT_NUMBER);
   }};
 
   // Maps deprecated key to DeprecatedConf with the same key.

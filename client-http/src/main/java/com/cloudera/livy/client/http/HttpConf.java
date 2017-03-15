@@ -87,8 +87,8 @@ class HttpConf extends ClientConf<HttpConf> {
 
   private static final Map<String, DeprecatedConf> configsWithAlternatives
     = new HashMap<String, DeprecatedConf>() {{
-      put(HTTP_CONF_PREFIX + "job.initial-poll-interval", DepConf.JOB_INITIAL_POLL_INTERVAL);
-      put(HTTP_CONF_PREFIX + "job.max-poll-interval", DepConf.JOB_MAX_POLL_INTERVAL);
+      put(HttpConf.Entry.JOB_INITIAL_POLL_INTERVAL.key, DepConf.JOB_INITIAL_POLL_INTERVAL);
+      put(HttpConf.Entry.JOB_MAX_POLL_INTERVAL.key, DepConf.JOB_MAX_POLL_INTERVAL);
   }};
 
   // Maps deprecated key to DeprecatedConf with the same key.

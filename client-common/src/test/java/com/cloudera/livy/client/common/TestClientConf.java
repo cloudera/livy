@@ -123,6 +123,31 @@ public class TestClientConf {
     conf.getTimeAsMs(TestConf.Entry.TIME_NO_DEFAULT);
   }
 
+
+  @Test
+  public void testDeprecation() {
+    TestConf conf = new TestConf(null);
+
+    assertNull(conf.get("depKey"));
+    assertNull(conf.get("dep_alt"));
+    assertNull(conf.get("new-key"));
+    assertEquals("value", conf.get(TestConf.Entry.NEW_CONF));
+
+    TestConf depProps = new TestConf(null);
+    depProps.set("depKey", "dep-val");
+    depProps.set("dep_alt", "alt-val");
+    conf.setAll(depProps);
+    assertEquals("dep-val", conf.get("depKey"));
+    assertEquals("alt-val", conf.get("dep_alt"));
+    assertEquals("alt-val", conf.get(TestConf.Entry.NEW_CONF));
+    assertEquals("alt-val", conf.get("new-key"));
+
+    conf.set("new-key", "new-val");
+    assertEquals("new-val", conf.get(TestConf.Entry.NEW_CONF));
+    assertEquals("alt-val", conf.get("dep_alt"));
+    assertEquals("new-val", conf.get("new-key"));
+  }
+
   private static class TestConf extends ClientConf<TestConf> {
 
     static enum Entry implements ConfEntry {
@@ -132,7 +157,8 @@ public class TestClientConf {
       INT("int", 42),
       LONG("long", 84L),
       TIME("time", "168ms"),
-      TIME_NO_DEFAULT("time2", null);
+      TIME_NO_DEFAULT("time2", null),
+      NEW_CONF("new-key", "value");
 
       private final String key;
       private final Object dflt;
@@ -154,10 +180,51 @@ public class TestClientConf {
       super(p);
     }
 
-    // TODO: Add tests for Conf Deprecation
-    public Map<String, DeprecatedConf> getConfigsWithAlternatives() { return new HashMap<>(); }
-    public Map<String, DeprecatedConf> getDeprecatedConfigs() { return new HashMap<>(); }
+    private static final Map<String, DeprecatedConf> configsWithAlternatives
+      = new HashMap<String, DeprecatedConf>() {{
+      put(TestConf.Entry.NEW_CONF.key, DepConf.DEP_WITH_ALT);
+    }};
 
+    private static final Map<String, DeprecatedConf> deprecatedConfigs
+      = new HashMap<String, DeprecatedConf>() {{
+      put(DepConf.DEP_NO_ALT.key, DepConf.DEP_NO_ALT);
+    }};
+
+    public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+      return configsWithAlternatives;
+    }
+
+    public Map<String, DeprecatedConf> getDeprecatedConfigs() {
+      return deprecatedConfigs;
+    }
+
+    static enum DepConf implements DeprecatedConf {
+      DEP_WITH_ALT("dep_alt", "0.4"),
+      DEP_NO_ALT("depKey", "1.0");
+
+      private final String key;
+      private final String version;
+      private final String deprecationMessage;
+
+      private DepConf(String key, String version) {
+        this(key, version, "");
+      }
+
+      private DepConf(String key, String version, String deprecationMessage) {
+        this.key = key;
+        this.version = version;
+        this.deprecationMessage = deprecationMessage;
+      }
+
+      @Override
+      public String key() { return key; }
+
+      @Override
+      public String version() { return version; }
+
+      @Override
+      public String deprecationMessage() { return deprecationMessage; }
+    }
   }
 
 }

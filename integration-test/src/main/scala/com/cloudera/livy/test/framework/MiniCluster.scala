@@ -176,7 +176,7 @@ object MiniLivyMain extends MiniClusterBase {
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.
     eventually(timeout(30 seconds), interval(1 second)) {
-      val serverUrlConf = Map("livy.server.serverUrl" -> server.serverUrl())
+      val serverUrlConf = Map("livy.server.server-url" -> server.serverUrl())
       saveProperties(serverUrlConf, new File(configPath + "/serverUrl.conf"))
     }
   }
@@ -297,7 +297,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     val localLivy = start(MiniLivyMain.getClass, confFile, extraJavaArgs = jacocoArgs)
 
     val props = loadProperties(confFile)
-    livyUrl = props("livy.server.serverUrl")
+    livyUrl = props("livy.server.server-url")
 
     // Wait until Livy server responds.
     val httpClient = new AsyncHttpClient()

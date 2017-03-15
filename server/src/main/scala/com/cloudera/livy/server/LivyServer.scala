@@ -232,7 +232,7 @@ class LivyServer extends Logging {
     })
 
     _serverUrl = Some(s"http://${server.host}:${server.port}")
-    sys.props("livy.server.serverUrl") = _serverUrl.get
+    sys.props("livy.server.server-url") = _serverUrl.get
   }
 
   def runKinit(keytab: String, principal: String): Boolean = {
