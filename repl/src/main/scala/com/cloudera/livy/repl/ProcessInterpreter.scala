@@ -109,16 +109,14 @@ abstract class ProcessInterpreter(process: Process)
 
   private[this] val stderrThread = new Thread("process stderr thread") {
     override def run() = {
-      while (true) {
-        val lines = Source.fromInputStream(process.getErrorStream).getLines()
+      val lines = Source.fromInputStream(process.getErrorStream).getLines()
 
-        for (line <- lines) {
-          stderrLock.lock()
-          try {
-            stderrLines :+= line
-          } finally {
-            stderrLock.unlock()
-          }
+      for (line <- lines) {
+        stderrLock.lock()
+        try {
+          stderrLines :+= line
+        } finally {
+          stderrLock.unlock()
         }
       }
     }
