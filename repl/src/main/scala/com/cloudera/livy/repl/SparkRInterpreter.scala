@@ -220,7 +220,8 @@ class SparkRInterpreter(process: Process,
 
   private def sendRequest(code: String): RequestResponse = {
     stdin.println(s"""tryCatch(eval(parse(text="${StringEscapeUtils.escapeJava(code)}"))
-                     |,error = function(e) sprintf("%s%s", e, "${LIVY_ERROR_MARKER}"))""".stripMargin)
+                     |,error = function(e) sprintf("%s%s", e, "${LIVY_ERROR_MARKER}"))
+                  """.stripMargin)
     stdin.flush()
 
     stdin.println(PRINT_MARKER)
@@ -250,7 +251,10 @@ class SparkRInterpreter(process: Process,
   }
 
   @tailrec
-  private def readTo(marker: String, errorMarker: String, output: StringBuilder = StringBuilder.newBuilder): RequestResponse = {
+  private def readTo(
+      marker: String,
+      errorMarker: String,
+      output: StringBuilder = StringBuilder.newBuilder): RequestResponse = {
     var char = readChar(output)
 
     // Remove any ANSI color codes which match the pattern "\u001b\\[[0-9;]*[mG]".
