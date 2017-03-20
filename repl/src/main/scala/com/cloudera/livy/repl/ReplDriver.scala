@@ -44,10 +44,11 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
   override protected def initializeContext(): JavaSparkContext = {
     interpreter = kind match {
-      case PySpark() => PythonInterpreter(conf, PySpark())
-      case PySpark3() => PythonInterpreter(conf, PySpark3())
-      case Spark() => new SparkInterpreter(conf)
-      case SparkR() => SparkRInterpreter(conf)
+      case PySpark() => PythonInterpreter(conf, PySpark(), new StatementProgressListener(livyConf))
+      case PySpark3() =>
+        PythonInterpreter(conf, PySpark3(), new StatementProgressListener(livyConf))
+      case Spark() => new SparkInterpreter(conf, new StatementProgressListener(livyConf))
+      case SparkR() => SparkRInterpreter(conf, new StatementProgressListener(livyConf))
     }
     session = new Session(livyConf, interpreter, { s => broadcast(new ReplState(s.toString)) })
 
@@ -90,6 +91,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
         session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
       }
     }
+
+    // Update progress of statements when queried
+    statements.foreach { s =>
+      s.updateProgress(interpreter.statementProgressListener.progressOfStatement(s.id))
+    }
+
     new ReplJobResults(statements.sortBy(_.id))
   }
 

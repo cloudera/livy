@@ -134,8 +134,6 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
   def collectGarbage(): Future[Iterable[Unit]] = {
     def expired(session: Session): Boolean = {
-      val currentTime = System.nanoTime()
-      currentTime - session.lastActivity > sessionTimeout
       session.state match {
         case s: FinishedSessionState =>
           val currentTime = System.nanoTime()

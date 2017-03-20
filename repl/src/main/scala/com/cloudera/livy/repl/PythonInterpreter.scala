@@ -45,7 +45,7 @@ import com.cloudera.livy.sessions._
 // scalastyle:off println
 object PythonInterpreter extends Logging {
 
-  def apply(conf: SparkConf, kind: Kind): Interpreter = {
+  def apply(conf: SparkConf, kind: Kind, listener: StatementProgressListener): Interpreter = {
     val pythonExec = kind match {
         case PySpark() => sys.env.getOrElse("PYSPARK_PYTHON", "python")
         case PySpark3() => sys.env.getOrElse("PYSPARK3_PYTHON", "python3")
@@ -72,7 +72,7 @@ object PythonInterpreter extends Logging {
     env.put("LIVY_SPARK_MAJOR_VERSION", conf.get("spark.livy.spark_major_version", "1"))
     builder.redirectError(Redirect.PIPE)
     val process = builder.start()
-    new PythonInterpreter(process, gatewayServer, kind.toString)
+    new PythonInterpreter(process, gatewayServer, kind.toString, listener)
   }
 
   private def findPySparkArchives(): Seq[String] = {
@@ -187,8 +187,12 @@ object PythonInterpreter extends Logging {
   }
 }
 
-private class PythonInterpreter(process: Process, gatewayServer: GatewayServer, pyKind: String)
-  extends ProcessInterpreter(process)
+private class PythonInterpreter(
+    process: Process,
+    gatewayServer: GatewayServer,
+    pyKind: String,
+    listener: StatementProgressListener)
+  extends ProcessInterpreter(process, listener)
   with Logging
 {
   implicit val formats = DefaultFormats

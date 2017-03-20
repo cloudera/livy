@@ -231,7 +231,7 @@ class LivyServer extends Logging {
       }
     })
 
-    _serverUrl = Some(s"http://${server.host}:${server.port}")
+    _serverUrl = Some(s"${server.protocol}://${server.host}:${server.port}")
     sys.props("livy.server.serverUrl") = _serverUrl.get
   }
 

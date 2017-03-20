@@ -116,6 +116,7 @@ class Session(
 
       statement.compareAndTransit(StatementState.Running, StatementState.Available)
       statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+      statement.updateProgress(1.0)
     }(interpreterExecutor)
 
     statementId
@@ -187,7 +188,7 @@ class Session(
     }
 
     val resultInJson = try {
-      interpreter.execute(code) match {
+      interpreter.execute(executionCount, code) match {
         case Interpreter.ExecuteSuccess(data) =>
           transitToIdle()
 

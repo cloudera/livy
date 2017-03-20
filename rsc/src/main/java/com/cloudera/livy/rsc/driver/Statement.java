@@ -26,11 +26,13 @@ public class Statement {
   public final AtomicReference<StatementState> state;
   @JsonRawValue
   public volatile String output;
+  public double progress;
 
   public Statement(Integer id, StatementState state, String output) {
     this.id = id;
     this.state = new AtomicReference<>(state);
     this.output = output;
+    this.progress = 0.0;
   }
 
   public Statement() {
@@ -43,5 +45,13 @@ public class Statement {
       return true;
     }
     return false;
+  }
+
+  public void updateProgress(double p) {
+    if (this.state.get().isOneOf(StatementState.Cancelled, StatementState.Available)) {
+      this.progress = 1.0;
+    } else {
+      this.progress = p;
+    }
   }
 }
