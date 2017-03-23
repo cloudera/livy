@@ -20,7 +20,7 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
-import java.util.{Map => JMap}
+import java.util.{Collections => JCollections, Map => JMap}
 
 import scala.collection.JavaConverters._
 
@@ -286,9 +286,11 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   }
 
   override def getConfigsWithAlternatives: JMap[String, DeprecatedConf] = {
-    configsWithAlternatives.asJava
+    JCollections.unmodifiableMap(configsWithAlternatives.asJava)
   }
 
-  override def getDeprecatedConfigs: JMap[String, DeprecatedConf] = deprecatedConfigs.asJava
+  override def getDeprecatedConfigs: JMap[String, DeprecatedConf] = {
+    JCollections.unmodifiableMap(deprecatedConfigs.asJava)
+  }
 
 }

@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.client.common;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -191,11 +192,11 @@ public class TestClientConf {
     }};
 
     public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
-      return configsWithAlternatives;
+      return Collections.unmodifiableMap(configsWithAlternatives);
     }
 
     public Map<String, DeprecatedConf> getDeprecatedConfigs() {
-      return deprecatedConfigs;
+      return Collections.unmodifiableMap(deprecatedConfigs);
     }
 
     static enum DepConf implements DeprecatedConf {

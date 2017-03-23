@@ -231,10 +231,10 @@ public abstract class ClientConf<T extends ClientConf>
   }
 
   /** Maps valid key to DeprecatedConf with the deprecated key. */
-  public abstract Map<String, DeprecatedConf> getConfigsWithAlternatives();
+  protected abstract Map<String, DeprecatedConf> getConfigsWithAlternatives();
 
   /** Maps deprecated key to DeprecatedConf with the same key. */
-  public abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
+  protected abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
 
   public static interface DeprecatedConf {
 

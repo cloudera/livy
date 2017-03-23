@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -162,11 +163,11 @@ public class RSCConf extends ClientConf<RSCConf> {
   private static final Map<String, DeprecatedConf> deprecatedConfigs = new HashMap<>();
 
   public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
-    return configsWithAlternatives;
+    return Collections.unmodifiableMap(configsWithAlternatives);
   }
 
   public Map<String, DeprecatedConf> getDeprecatedConfigs() {
-    return deprecatedConfigs;
+    return Collections.unmodifiableMap(deprecatedConfigs);
   }
 
   static enum DepConf implements DeprecatedConf {
