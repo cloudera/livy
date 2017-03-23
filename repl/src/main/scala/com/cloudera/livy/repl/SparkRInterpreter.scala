@@ -37,9 +37,12 @@ import org.json4s.JsonDSL._
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.rsc.RSCConf
 
+private case class RequestResponse(content: String, error: Boolean)
+
 // scalastyle:off println
 object SparkRInterpreter {
   private val LIVY_END_MARKER = "----LIVY_END_OF_COMMAND----"
+  private val LIVY_ERROR_MARKER = "----LIVY_END_OF_ERROR----"
   private val PRINT_MARKER = f"""print("$LIVY_END_MARKER")"""
   private val EXPECTED_OUTPUT = f"""[1] "$LIVY_END_MARKER""""
 
@@ -188,18 +191,25 @@ class SparkRInterpreter(process: Process,
     }
 
     try {
-      var content: JObject = TEXT_PLAIN -> sendRequest(code)
+      val response = sendRequest(code)
 
-      // If we rendered anything, pass along the last image.
-      tempFile.foreach { case file =>
-        val bytes = Files.readAllBytes(file)
-        if (bytes.nonEmpty) {
-          val image = Base64.encodeBase64String(bytes)
-          content = content ~ (IMAGE_PNG -> image)
+      if (response.error) {
+        Interpreter.ExecuteError("Error", response.content)
+      } else {
+        var content: JObject = TEXT_PLAIN -> response.content
+
+        // If we rendered anything, pass along the last image.
+        tempFile.foreach { case file =>
+          val bytes = Files.readAllBytes(file)
+          if (bytes.nonEmpty) {
+            val image = Base64.encodeBase64String(bytes)
+            content = content ~ (IMAGE_PNG -> image)
+          }
         }
+
+        Interpreter.ExecuteSuccess(content)
       }
 
-      Interpreter.ExecuteSuccess(content)
     } catch {
       case e: Error =>
         Interpreter.ExecuteError("Error", e.output)
@@ -211,14 +221,16 @@ class SparkRInterpreter(process: Process,
 
   }
 
-  private def sendRequest(code: String): String = {
-    stdin.println(s"""try(eval(parse(text="${StringEscapeUtils.escapeJava(code)}")))""")
+  private def sendRequest(code: String): RequestResponse = {
+    stdin.println(s"""tryCatch(eval(parse(text="${StringEscapeUtils.escapeJava(code)}"))
+                     |,error = function(e) sprintf("%s%s", e, "${LIVY_ERROR_MARKER}"))
+                  """.stripMargin)
     stdin.flush()
 
     stdin.println(PRINT_MARKER)
     stdin.flush()
 
-    readTo(EXPECTED_OUTPUT)
+    readTo(EXPECTED_OUTPUT, LIVY_ERROR_MARKER)
   }
 
   override protected def sendShutdownRequest() = {
@@ -242,7 +254,10 @@ class SparkRInterpreter(process: Process,
   }
 
   @tailrec
-  private def readTo(marker: String, output: StringBuilder = StringBuilder.newBuilder): String = {
+  private def readTo(
+      marker: String,
+      errorMarker: String,
+      output: StringBuilder = StringBuilder.newBuilder): RequestResponse = {
     var char = readChar(output)
 
     // Remove any ANSI color codes which match the pattern "\u001b\\[[0-9;]*[mG]".
@@ -259,13 +274,23 @@ class SparkRInterpreter(process: Process,
     }
 
     if (output.endsWith(marker)) {
-      val result = output.toString()
-      result.substring(0, result.length - marker.length)
-        .stripPrefix("\n")
-        .stripSuffix("\n")
+      var result = stripMarker(output.toString(), marker)
+
+      if (result.endsWith(errorMarker + "\"")) {
+        result = stripMarker(result, "\\n" + errorMarker)
+        RequestResponse(result, error = true)
+      } else {
+        RequestResponse(result, error = false)
+      }
     } else {
-      readTo(marker, output)
+      readTo(marker, errorMarker, output)
     }
+  }
+
+  private def stripMarker(result: String, marker: String): String = {
+    result.replace(marker, "")
+      .stripPrefix("\n")
+      .stripSuffix("\n")
   }
 
   private def readChar(output: StringBuilder): Char = {
