@@ -145,7 +145,7 @@ public class RSCConf extends ClientConf<RSCConf> {
   }
 
   private static final Map<String, DeprecatedConf> configsWithAlternatives
-    = new HashMap<String, DeprecatedConf>() {{
+    = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>() {{
       put(RSCConf.Entry.CLIENT_IN_PROCESS.key, DepConf.CLIENT_IN_PROCESS);
       put(RSCConf.Entry.CLIENT_SHUTDOWN_TIMEOUT.key, DepConf.CLIENT_SHUTDOWN_TIMEOUT);
       put(RSCConf.Entry.DRIVER_CLASS.key, DepConf.DRIVER_CLASS);
@@ -156,18 +156,19 @@ public class RSCConf extends ClientConf<RSCConf> {
       put(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL.key, DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
       put(RSCConf.Entry.JOB_CANCEL_TIMEOUT.key, DepConf.JOB_CANCEL_TIMEOUT);
       put(RSCConf.Entry.RETAINED_STATEMENT_NUMBER.key, DepConf.RETAINED_STATEMENT_NUMBER);
-  }};
+  }});
 
   // Maps deprecated key to DeprecatedConf with the same key.
   // There are no deprecated configs without alternatives currently.
-  private static final Map<String, DeprecatedConf> deprecatedConfigs = new HashMap<>();
+  private static final Map<String, DeprecatedConf> deprecatedConfigs
+    = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>());
 
-  public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
-    return Collections.unmodifiableMap(configsWithAlternatives);
+  protected Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+    return configsWithAlternatives;
   }
 
-  public Map<String, DeprecatedConf> getDeprecatedConfigs() {
-    return Collections.unmodifiableMap(deprecatedConfigs);
+  protected Map<String, DeprecatedConf> getDeprecatedConfigs() {
+    return deprecatedConfigs;
   }
 
   static enum DepConf implements DeprecatedConf {

@@ -182,21 +182,21 @@ public class TestClientConf {
     }
 
     private static final Map<String, DeprecatedConf> configsWithAlternatives
-      = new HashMap<String, DeprecatedConf>() {{
+      = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>() {{
       put(TestConf.Entry.NEW_CONF.key, DepConf.DEP_WITH_ALT);
-    }};
+    }});
 
     private static final Map<String, DeprecatedConf> deprecatedConfigs
-      = new HashMap<String, DeprecatedConf>() {{
+      = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>() {{
       put(DepConf.DEP_NO_ALT.key, DepConf.DEP_NO_ALT);
-    }};
+    }});
 
-    public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
-      return Collections.unmodifiableMap(configsWithAlternatives);
+    protected Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+      return configsWithAlternatives;
     }
 
-    public Map<String, DeprecatedConf> getDeprecatedConfigs() {
-      return Collections.unmodifiableMap(deprecatedConfigs);
+    protected Map<String, DeprecatedConf> getDeprecatedConfigs() {
+      return deprecatedConfigs;
     }
 
     static enum DepConf implements DeprecatedConf {

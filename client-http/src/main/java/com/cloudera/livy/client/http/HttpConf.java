@@ -87,21 +87,22 @@ class HttpConf extends ClientConf<HttpConf> {
   }
 
   private static final Map<String, DeprecatedConf> configsWithAlternatives
-    = new HashMap<String, DeprecatedConf>() {{
+    = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>() {{
       put(HttpConf.Entry.JOB_INITIAL_POLL_INTERVAL.key, DepConf.JOB_INITIAL_POLL_INTERVAL);
       put(HttpConf.Entry.JOB_MAX_POLL_INTERVAL.key, DepConf.JOB_MAX_POLL_INTERVAL);
-  }};
+  }});
 
   // Maps deprecated key to DeprecatedConf with the same key.
   // There are no deprecated configs without alternatives currently.
-  private static final Map<String, DeprecatedConf> deprecatedConfigs = new HashMap<>();
+  private static final Map<String, DeprecatedConf> deprecatedConfigs
+    = Collections.unmodifiableMap(new HashMap<String, DeprecatedConf>());
 
-  public Map<String, DeprecatedConf> getConfigsWithAlternatives() {
-    return Collections.unmodifiableMap(configsWithAlternatives);
+  protected Map<String, DeprecatedConf> getConfigsWithAlternatives() {
+    return configsWithAlternatives;
   }
 
-  public Map<String, DeprecatedConf> getDeprecatedConfigs() {
-    return Collections.unmodifiableMap(deprecatedConfigs);
+  protected Map<String, DeprecatedConf> getDeprecatedConfigs() {
+    return deprecatedConfigs;
   }
 
   static enum DepConf implements DeprecatedConf {

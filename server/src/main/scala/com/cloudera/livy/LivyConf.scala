@@ -20,7 +20,7 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
-import java.util.{Collections => JCollections, Map => JMap}
+import java.util.{Map => JMap}
 
 import scala.collection.JavaConverters._
 
@@ -170,10 +170,10 @@ object LivyConf {
     "spark.yarn.jars"
   )
 
-  // TODO: Add Conf Deprecation
-  case class DepConf(override val key: String,
-                     override val version: String,
-                     override val deprecationMessage: String = "")
+  case class DepConf(
+      override val key: String,
+      override val version: String,
+      override val deprecationMessage: String = "")
     extends DeprecatedConf
 
   private val configsWithAlternatives: Map[String, DeprecatedConf] = Map[String, DepConf](
@@ -286,11 +286,11 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   }
 
   override def getConfigsWithAlternatives: JMap[String, DeprecatedConf] = {
-    JCollections.unmodifiableMap(configsWithAlternatives.asJava)
+    configsWithAlternatives.asJava
   }
 
   override def getDeprecatedConfigs: JMap[String, DeprecatedConf] = {
-    JCollections.unmodifiableMap(deprecatedConfigs.asJava)
+    deprecatedConfigs.asJava
   }
 
 }
