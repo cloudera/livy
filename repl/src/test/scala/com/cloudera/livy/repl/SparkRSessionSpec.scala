@@ -133,11 +133,11 @@ class SparkRSessionSpec extends BaseSessionSpec {
 
     val result = parse(statement.output)
     val expectedResult = Extraction.decompose(Map(
-      "status" -> "ok",
+      "status" -> "error",
       "execution_count" -> 0,
-      "data" -> Map(
-        "text/plain" -> "Error in eval(expr, envir, enclos) : object 'x' not found"
-      )
+      "ename" -> "Error",
+      "evalue" -> "[1] \"Error in eval(expr, envir, enclos): object 'x' not found\"",
+      "traceback" -> List()
     ))
 
     result should equal (expectedResult)

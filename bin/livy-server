@@ -108,7 +108,7 @@ start_livy_server() {
     if [ -f "$pid" ]; then
       TARGET_ID="$(cat "$pid")"
       if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
-        echo "livy_server running as process $TARGET_ID.  Stop it first."
+        echo "livy-server running as process $TARGET_ID.  Stop it first."
         exit 1
       fi
     fi
@@ -125,6 +125,7 @@ start_livy_server() {
       tail -2 "$log" | sed 's/^/  /'
       echo "full log in $log"
       rm -rf "$pid"
+      exit 1
     fi
   fi
 }
@@ -146,13 +147,26 @@ case $option in
     if [ -f $pid ]; then
       TARGET_ID="$(cat "$pid")"
       if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
-        echo "stopping livy_server"
+        echo "stopping livy-server"
         kill "$TARGET_ID" && rm -f "$pid"
       else
-        echo "no livy_server to stop"
+        echo "no livy-server to stop"
       fi
     else
-      echo "no livy_server to stop"
+      echo "no livy-server to stop"
+    fi
+    ;;
+
+  (status)
+    if [ -f "$pid" ]; then
+      TARGET_ID="$(cat "$pid")"
+      if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
+        echo "livy-server is running (pid: $TARGET_ID)"
+      else
+        echo "livy-server is not running"
+      fi
+    else
+      echo "livy-server is not running"
     fi
     ;;
 
