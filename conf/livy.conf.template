@@ -17,7 +17,7 @@
 # livy.spark.master = local
 
 # What spark deploy mode Livy sessions should use.
-# livy.spark.deployMode =
+# livy.spark.deploy-mode =
 
 # Enabled to check whether timeout Livy sessions should be stopped.
 # livy.server.session.timeout-check = true
@@ -58,11 +58,11 @@
 
 # Whether to enable csrf protection, by default it is false. If it is enabled, client should add
 # http-header "X-Requested-By" in request if the http method is POST/DELETE/PUT/PATCH.
-# livy.server.csrf_protection.enabled =
+# livy.server.csrf-protection.enabled =
 
 # Whether to enable HiveContext in livy interpreter, if it is true hive-site.xml will be detected
 # on user request and then livy server classpath automatically.
-# livy.repl.enableHiveContext =
+# livy.repl.enable-hive-context =
 
 # Recovery mode of Livy. Possible values:
 # off: Default. Turn off recovery. Every time Livy shuts down, it stops and forgets all sessions.
@@ -88,9 +88,9 @@
 # When the cluster is busy, we may fail to launch yarn app in app-lookup-timeout, then it would
 # cause session leakage, so we need to check session leakage.
 # How long to check livy session leakage
-# livy.server.yarn.app-leakage.check_timeout = 600s
+# livy.server.yarn.app-leakage.check-timeout = 600s
 # how often to check livy session leakage
-# livy.server.yarn.app-leakage.check_interval = 60s
+# livy.server.yarn.app-leakage.check-interval = 60s
 
 # How often Livy polls YARN to refresh YARN app state.
 # livy.server.yarn.poll-interval = 1s

@@ -20,11 +20,15 @@ package com.cloudera.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
+import java.util.{Map => JMap}
+
+import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 
 import com.cloudera.livy.client.common.ClientConf
 import com.cloudera.livy.client.common.ClientConf.ConfEntry
+import com.cloudera.livy.client.common.ClientConf.DeprecatedConf
 
 object LivyConf {
 
@@ -40,31 +44,31 @@ object LivyConf {
 
   val SPARK_HOME = Entry("livy.server.spark-home", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
-  val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deployMode", null)
+  val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deploy-mode", null)
 
   // Two configurations to specify Spark and related Scala version. These are internal
   // configurations will be set by LivyServer and used in session creation. It is not required to
   // set usually unless running with unofficial Spark + Scala versions
   // (like Spark 2.0 + Scala 2.10, Spark 1.6 + Scala 2.11)
-  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scalaVersion", null)
+  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scala-version", null)
   val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
 
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
-  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enableHiveContext", false)
+  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enable-hive-context", false)
 
   val ENVIRONMENT = Entry("livy.environment", "production")
 
   val SERVER_HOST = Entry("livy.server.host", "0.0.0.0")
   val SERVER_PORT = Entry("livy.server.port", 8998)
-  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf_protection.enabled", false)
+  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf-protection.enabled", false)
 
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
-  val ACCESS_CONTROL_ENABLED = Entry("livy.server.access_control.enabled", false)
-  val ACCESS_CONTROL_USERS = Entry("livy.server.access_control.users", null)
+  val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
+  val ACCESS_CONTROL_USERS = Entry("livy.server.access-control.users", null)
 
   val SSL_KEYSTORE = Entry("livy.keystore", null)
   val SSL_KEYSTORE_PASSWORD = Entry("livy.keystore.password", null)
@@ -73,7 +77,7 @@ object LivyConf {
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
   val AUTH_KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
   val AUTH_KERBEROS_KEYTAB = Entry("livy.server.auth.kerberos.keytab", null)
-  val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name_rules", "DEFAULT")
+  val AUTH_KERBEROS_NAME_RULES = Entry("livy.server.auth.kerberos.name-rules", "DEFAULT")
 
   val HEARTBEAT_WATCHDOG_INTERVAL = Entry("livy.server.heartbeat-watchdog.interval", "1m")
 
@@ -82,9 +86,9 @@ object LivyConf {
   val LAUNCH_KERBEROS_KEYTAB =
     LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
   val LAUNCH_KERBEROS_REFRESH_INTERVAL =
-    LivyConf.Entry("livy.server.launch.kerberos.refresh_interval", "1h")
+    LivyConf.Entry("livy.server.launch.kerberos.refresh-interval", "1h")
   val KINIT_FAIL_THRESHOLD =
-    LivyConf.Entry("livy.server.launch.kerberos.kinit_fail_threshold", 5)
+    LivyConf.Entry("livy.server.launch.kerberos.kinit-fail-threshold", 5)
 
   /**
    * Recovery mode of Livy. Possible values:
@@ -124,9 +128,9 @@ object LivyConf {
   val RSC_JARS = Entry("livy.rsc.jars", null)
 
   // How long to check livy session leakage
-  val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.app-leakage.check_timeout", "600s")
+  val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.app-leakage.check-timeout", "600s")
   // how often to check livy session leakage
-  val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.app-leakage.check_interval", "60s")
+  val YARN_APP_LEAKAGE_CHECK_INTERVAL = Entry("livy.server.yarn.app-leakage.check-interval", "60s")
 
   // Whether session timeout should be checked, by default it will be checked, which means inactive
   // session will be stopped after "livy.server.session.timeout"
@@ -165,6 +169,37 @@ object LivyConf {
     "spark.yarn.jar",
     "spark.yarn.jars"
   )
+
+  case class DepConf(
+      override val key: String,
+      override val version: String,
+      override val deprecationMessage: String = "")
+    extends DeprecatedConf
+
+  private val configsWithAlternatives: Map[String, DeprecatedConf] = Map[String, DepConf](
+    LIVY_SPARK_DEPLOY_MODE.key -> DepConf("livy.spark.deployMode", "0.4"),
+    LIVY_SPARK_SCALA_VERSION.key -> DepConf("livy.spark.scalaVersion", "0.4"),
+    ENABLE_HIVE_CONTEXT.key -> DepConf("livy.repl.enableHiveContext", "0.4"),
+    CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
+    ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
+    ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
+    AUTH_KERBEROS_NAME_RULES.key -> DepConf("livy.server.auth.kerberos.name_rules", "0.4"),
+    LAUNCH_KERBEROS_REFRESH_INTERVAL.key ->
+      DepConf("livy.server.launch.kerberos.refresh_interval", "0.4"),
+    KINIT_FAIL_THRESHOLD.key -> DepConf("livy.server.launch.kerberos.kinit_fail_threshold", "0.4"),
+    YARN_APP_LEAKAGE_CHECK_TIMEOUT.key ->
+      DepConf("livy.server.yarn.app-leakage.check_timeout", "0.4"),
+    YARN_APP_LEAKAGE_CHECK_INTERVAL.key ->
+      DepConf("livy.server.yarn.app-leakage.check_interval", "0.4")
+  )
+
+  private val deprecatedConfigs: Map[String, DeprecatedConf] = {
+    val configs: Seq[DepConf] = Seq(
+      // There are no deprecated configs without alternatives currently.
+    )
+
+    Map(configs.map { cfg => (cfg.key -> cfg) }: _*)
+  }
 
 }
 
@@ -248,6 +283,14 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   private def configToSeq(entry: LivyConf.Entry): Seq[String] = {
     Option(get(entry)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
+  }
+
+  override def getConfigsWithAlternatives: JMap[String, DeprecatedConf] = {
+    configsWithAlternatives.asJava
+  }
+
+  override def getDeprecatedConfigs: JMap[String, DeprecatedConf] = {
+    deprecatedConfigs.asJava
   }
 
 }

@@ -100,7 +100,7 @@ object InteractiveSession extends Logging {
       info(s"Creating LivyClient for sessionId: $id")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
-        .setConf("livy.client.sessionId", id.toString)
+        .setConf("livy.client.session-id", id.toString)
         .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
         .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
         .setURI(new URI("rsc:/"))

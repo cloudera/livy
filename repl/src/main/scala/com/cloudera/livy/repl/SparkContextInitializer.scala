@@ -46,7 +46,7 @@ trait SparkContextInitializer extends Logging {
         val loader = Option(Thread.currentThread().getContextClassLoader)
           .getOrElse(getClass.getClassLoader)
         if (loader.getResource("hive-site.xml") == null) {
-          warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
+          warn("livy.repl.enable-hive-context is true but no hive-site.xml found on classpath.")
         }
 
         sqlContext = Class.forName("org.apache.spark.sql.hive.HiveContext")
@@ -87,7 +87,7 @@ trait SparkContextInitializer extends Logging {
         val loader = Option(Thread.currentThread().getContextClassLoader)
           .getOrElse(getClass.getClassLoader)
         if (loader.getResource("hive-site.xml") == null) {
-          warn("livy.repl.enableHiveContext is true but no hive-site.xml found on classpath.")
+          warn("livy.repl.enable-hive-context is true but no hive-site.xml found on classpath.")
         }
 
         builder.getClass.getMethod("enableHiveSupport").invoke(builder)
