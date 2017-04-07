@@ -92,6 +92,10 @@ class SparkInterpreter(conf: SparkConf,
             .filter { u => u.getProtocol == "file" && new File(u.getPath).isFile }
             // Livy rsc and repl are also in the extra jars list. Filter them out.
             .filterNot { u => Paths.get(u.toURI).getFileName.toString.startsWith("livy-") }
+            // Some bad spark packages depend on the wrong version of scala-reflect. Blacklist it.
+            .filterNot { u =>
+              Paths.get(u.toURI).getFileName.toString.contains("org.scala-lang_scala-reflect")
+            }
 
           extraJarPath.foreach { p => debug(s"Adding $p to Scala interpreter's class path...") }
           sparkIMain.addUrlsToClassPath(extraJarPath: _*)
