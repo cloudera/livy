@@ -88,7 +88,8 @@ object InteractiveSession extends Logging {
         SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
         SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
         "spark.executor.instances" -> request.numExecutors.map(_.toString),
-        "spark.app.name" -> request.name.map(_.toString)
+        "spark.app.name" -> request.name.map(_.toString),
+        "spark.yarn.queue" -> request.queue
       )
 
       userOpts.foreach { case (key, opt) =>
