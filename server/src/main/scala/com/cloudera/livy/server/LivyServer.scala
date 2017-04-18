@@ -30,12 +30,14 @@ import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
+import org.scalatra.ScalatraServlet
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
+import com.cloudera.livy.server.ui.UIServlet
 import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import com.cloudera.livy.utils.LivySparkUtils._
@@ -142,6 +144,14 @@ class LivyServer extends Logging {
       }
     }
 
+    // Servlet for hosting static files such as html, css, and js
+    // Necessary since Jetty cannot set it's resource base inside a jar
+    val staticResourceServlet = new ScalatraServlet {
+      get("/*") {
+        getClass.getResourceAsStream("ui/static/" + params("splat"))
+      }
+    }
+
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
@@ -166,6 +176,12 @@ class LivyServer extends Logging {
 
             val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
             mount(context, batchServlet, "/batches/*")
+
+            if (livyConf.getBoolean(UI_ENABLED)) {
+              val uiServlet = new UIServlet(livyConf)
+              mount(context, uiServlet, "/ui/*")
+              mount(context, staticResourceServlet, "/static/*")
+            }
 
             context.mountMetricsAdminServlet("/")
 
