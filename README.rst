@@ -72,7 +72,7 @@ Livy is built using `Apache Maven`_. To check out and build Livy, run:
 
 .. code:: shell
 
-    git clone git@github.com:cloudera/livy.git
+    git clone https://github.com/cloudera/livy.git
     cd livy
     mvn package
 
