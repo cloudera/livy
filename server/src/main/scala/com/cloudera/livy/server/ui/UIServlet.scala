@@ -18,18 +18,42 @@
 
 package com.cloudera.livy.server.ui
 
+import scala.xml.Node
+
 import org.scalatra.ScalatraServlet
 
 import com.cloudera.livy.LivyConf
-import com.cloudera.livy.Logging
 
-class UIServlet(livyConf: LivyConf) extends ScalatraServlet with Logging {
+class UIServlet(livyConf: LivyConf) extends ScalatraServlet {
   before() { contentType = "text/html" }
 
-  get("/") {
-    <link rel="stylesheet" href="/static/sessions.css" type="text/css"/> ++
+  val headerContent =
+    <link rel="stylesheet" href="/static/bootstrap.min.css" type="text/css"/> ++
+      <link rel="stylesheet" href="/static/livy-ui.css" type="text/css"/> ++
       <script src="/static/jquery-3.2.1.min.js"></script> ++
-      <script src="/static/sessions.js"></script> ++
-      <div id="sessions"></div>
+      <script src="/static/all-sessions.js"></script>
+
+  def navBar(pageName: String): Seq[Node] =
+    <nav class="navbar navbar-default">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="#">
+            <img alt="Livy" src="/static/livy-mini-logo.png"/>
+          </a>
+        </div>
+        <div class="collapse navbar-collapse">
+          <ul class="nav navbar-nav">
+            <li><a href="#">{pageName}</a></li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+  get("/") {
+    headerContent  ++
+    <div class="container">
+      {navBar("Sessions")}
+      <div id="all-sessions"></div>
+    </div>
   }
 }
