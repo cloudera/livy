@@ -27,6 +27,11 @@ import java.util.concurrent.Future;
 public interface LivyClient {
 
   /**
+   * @return The current session id 
+   */
+  int getSessionId();
+	
+  /**
    * Submits a job for asynchronous execution.
    *
    * @param job The job to execute.

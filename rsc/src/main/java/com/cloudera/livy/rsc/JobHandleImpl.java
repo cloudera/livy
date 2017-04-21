@@ -102,5 +102,10 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
       changeState(State.FAILED);
     }
   }
+  
+  @Override
+  public long getJobId() {
+    return -1;
+  }
 
 }

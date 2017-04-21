@@ -87,6 +87,11 @@ public class TestAbstractJobHandle {
     public boolean cancel(boolean b) {
       throw new UnsupportedOperationException();
     }
+    
+    @Override
+    public long getJobId() {
+      throw new UnsupportedOperationException();
+    }
 
   }
 

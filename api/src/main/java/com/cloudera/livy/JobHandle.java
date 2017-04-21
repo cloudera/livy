@@ -26,6 +26,11 @@ import java.util.concurrent.Future;
 public interface JobHandle<T> extends Future<T> {
 
   /**
+   * @return Return the current job id
+   */
+  long getJobId();	
+	
+  /**
    * Return the current state of the job.
    */
   State getState();

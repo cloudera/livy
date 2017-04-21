@@ -186,8 +186,8 @@ class HttpClient implements LivyClient {
     }
   }
 
-  // For testing.
-  int getSessionId() {
+  @Override
+  public int getSessionId() {
     return sessionId;
   }
 

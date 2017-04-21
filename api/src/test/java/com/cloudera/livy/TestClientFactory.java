@@ -80,6 +80,11 @@ public class TestClientFactory implements LivyClientFactory {
     public Future<?> addFile(URI uri) {
       throw new UnsupportedOperationException();
     }
+    
+    @Override
+    public int getSessionId() {
+      throw new UnsupportedOperationException();	
+    }
 
 }
 

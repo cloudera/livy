@@ -406,4 +406,9 @@ public class RSCClient implements LivyClient {
       replState = msg.state;
     }
   }
+
+  @Override
+  public int getSessionId() {
+    return -1;
+  }
 }

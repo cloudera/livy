@@ -272,5 +272,10 @@ class JobHandleImpl<T> extends AbstractJobHandle<T> {
     }
 
   }
+  
+  @Override
+  public long getJobId() {
+    return jobId;
+  }
 
 }
