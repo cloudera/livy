@@ -46,6 +46,7 @@
     <hadoop.scope>compile</hadoop.scope>
     <spark.version>1.6.2</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
+    <grouper-ws.version>2.3.0</grouper-ws.version>
     <httpclient.version>4.5.2</httpclient.version>
     <httpcore.version>4.4.4</httpcore.version>
     <jackson.version>2.4.4</jackson.version>
@@ -230,7 +231,6 @@
       <version>${scalatra.version}</version>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 
   <dependencyManagement>
@@ -276,6 +276,18 @@
         <groupId>commons-codec</groupId>
         <artifactId>commons-codec</artifactId>
         <version>${commons-codec.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>edu.internet2.middleware.grouper</groupId>
+        <artifactId>grouper-ws</artifactId>
+        <version>${grouper-ws.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>*</groupId>
+            <artifactId>*</artifactId>
+          </exclusion>
+        </exclusions>
       </dependency>
 
       <dependency>

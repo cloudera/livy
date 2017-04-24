@@ -247,6 +247,12 @@ class LivyServer extends Logging {
       }
     }
 
+    if (livyConf.getBoolean(QUERY_LOGGER_ENABLED)) {
+      info("Query logging is enabled.")
+      val servletLoggingHolder = new FilterHolder(new ServletLoggerFilter(livyConf))
+      server.context.addFilter(servletLoggingHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
+    }
+
     server.start()
 
     Runtime.getRuntime().addShutdownHook(new Thread("Livy Server Shutdown") {

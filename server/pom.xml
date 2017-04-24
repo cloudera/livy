@@ -76,6 +76,17 @@
     </dependency>
 
     <dependency>
+      <groupId>edu.internet2.middleware.grouper</groupId>
+      <artifactId>grouper-ws</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>*</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-core</artifactId>
     </dependency>
