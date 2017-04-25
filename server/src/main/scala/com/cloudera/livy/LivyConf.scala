@@ -246,14 +246,20 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
   /** Return the location of the spark home directory */
-  def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+  def sparkHome(version: Option[String] = None): Option[String] = {
+    version.map {version => Option(get(s"livy.server.spark-home_$version"))
+      .orElse(throw new IllegalArgumentException(
+        s"Spark version: $version is not supported"))
+    }.getOrElse(Option(get(s"livy.server.spark-home")).orElse(sys.env.get("SPARK_HOME")))
+  }
 
   /** Return the spark master Livy sessions should use. */
   def sparkMaster(): String = get(LIVY_SPARK_MASTER)
 
   /** Return the path to the spark-submit executable. */
-  def sparkSubmit(): String = {
-    sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
+  def sparkSubmit(version: Option[String] = None): String = {
+    sparkHome(version).map { _ + File.separator + "bin" + File.separator +
+      "spark-submit" }.get
   }
 
   /** Return the list of superusers. */

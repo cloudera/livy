@@ -31,6 +31,12 @@
 # If livy should impersonate the requesting users when creating a new session.
 # livy.impersonation.enabled = true
 
+# Livy Spark Home
+# livy.server.spark-home_1.5.2=<path>/spark-1.5.2
+# livy.server.spark-home_1.6.3=<path>/spark-1.6.3
+# livy.server.spark-home_2.0.1=<path>/spark-2.0.1
+# livy.server.spark-home_2.1.0=<path>/spark-2.1.0
+
 # Comma-separated list of Livy RSC jars. By default Livy will upload jars from its installation
 # directory every time a session is started. By caching these files in HDFS, for example, startup
 # time of sessions on YARN can be reduced.
