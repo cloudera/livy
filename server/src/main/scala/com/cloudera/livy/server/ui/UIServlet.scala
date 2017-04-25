@@ -27,11 +27,15 @@ import com.cloudera.livy.LivyConf
 class UIServlet(livyConf: LivyConf) extends ScalatraServlet {
   before() { contentType = "text/html" }
 
-  val headerContent =
-    <link rel="stylesheet" href="/static/bootstrap.min.css" type="text/css"/> ++
-      <link rel="stylesheet" href="/static/livy-ui.css" type="text/css"/> ++
-      <script src="/static/jquery-3.2.1.min.js"></script> ++
+  def getHeader(title: String): Seq[Node] =
+    <head>
+      <link rel="stylesheet" href="/static/bootstrap.min.css" type="text/css"/>
+      <link rel="stylesheet" href="/static/livy-ui.css" type="text/css"/>
+      <script src="/static/jquery-3.2.1.min.js"></script>
+      <script src="/static/bootstrap.min.js"></script>
       <script src="/static/all-sessions.js"></script>
+      <title>{title}</title>
+    </head>
 
   def navBar(pageName: String): Seq[Node] =
     <nav class="navbar navbar-default">
@@ -49,11 +53,24 @@ class UIServlet(livyConf: LivyConf) extends ScalatraServlet {
       </div>
     </nav>
 
+  def createPage(pageName: String, pageContents: Seq[Node]): Seq[Node] =
+    <html>
+      {getHeader("Livy - " + pageName)}
+      <body>
+        <div class="container">
+          {navBar(pageName)}
+          {pageContents}
+        </div>
+      </body>
+    </html>
+
   get("/") {
-    headerContent  ++
-    <div class="container">
-      {navBar("Sessions")}
-      <div id="all-sessions"></div>
-    </div>
+    val content =
+      <div id="all-sessions">
+        <div id="interactive-sessions"></div>
+        <div id="batches"></div>
+      </div>
+
+    createPage("Sessions", content)
   }
 }
