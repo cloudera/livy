@@ -52,15 +52,7 @@ object SessionServletSpec {
 
   case class MockSessionView(id: Int, owner: String, logs: Seq[String])
 
-}
-
-class SessionServletSpec
-  extends BaseSessionServletSpec[Session, RecoveryMetadata] {
-
-  import SessionServletSpec._
-
-  override def createServlet(): SessionServlet[Session, RecoveryMetadata] = {
-    val conf = createConf()
+  def createServlet(conf: LivyConf): SessionServlet[Session, RecoveryMetadata] = {
     val sessionManager = new SessionManager[Session, RecoveryMetadata](
       conf,
       { _ => assert(false).asInstanceOf[Session] },
@@ -68,7 +60,8 @@ class SessionServletSpec
       "test",
       Some(Seq.empty))
 
-    new SessionServlet(sessionManager, conf) with RemoteUserOverride {
+    val accessManager = new AccessManager(conf)
+    new SessionServlet(sessionManager, conf, accessManager) with RemoteUserOverride {
       override protected def createSession(req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
         checkImpersonation(params.get(PROXY_USER), req)
@@ -78,10 +71,20 @@ class SessionServletSpec
       override protected def clientSessionView(
           session: Session,
           req: HttpServletRequest): Any = {
-        val logs = if (hasAccess(session.owner, req)) session.logLines() else Nil
+        val logs = if (hasViewAccess(session.owner, req)) session.logLines() else Nil
         MockSessionView(session.id, session.owner, logs)
       }
     }
+  }
+
+}
+
+class SessionServletSpec extends BaseSessionServletSpec[Session, RecoveryMetadata] {
+
+  import SessionServletSpec._
+
+  override def createServlet(): SessionServlet[Session, RecoveryMetadata] = {
+    SessionServletSpec.createServlet(createConf())
   }
 
   private val aliceHeaders = makeUserHeaders("alice")
@@ -118,25 +121,86 @@ class SessionServletSpec
       jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
         jget[MockSessionView](s"/${res.id}", headers = bobHeaders) { res =>
           assert(res.owner === "alice")
-          assert(res.logs === Nil)
+          assert(res.logs === IndexedSeq("log"))
         }
         delete(res.id, aliceHeaders, SC_OK)
       }
     }
 
-    it("should prevent non-owners from modifying sessions") {
+    it("should allow non-owners from modifying sessions") {
       jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
-        delete(res.id, bobHeaders, SC_FORBIDDEN)
+        delete(res.id, bobHeaders, SC_OK)
       }
     }
 
-    it("should allow admins to access all sessions") {
+    it("should not allow regular users to impersonate others") {
+      jpost[MockSessionView]("/", Map(PROXY_USER -> "bob"), headers = aliceHeaders,
+        expectedStatus = SC_FORBIDDEN) { _ => }
+    }
+
+    it("should allow admins to impersonate anyone") {
+      jpost[MockSessionView]("/", Map(PROXY_USER -> "bob"), headers = adminHeaders) { res =>
+        delete(res.id, adminHeaders, SC_OK)
+      }
+    }
+  }
+}
+
+class AclsEnabledSessionServletSpec extends BaseSessionServletSpec[Session, RecoveryMetadata] {
+
+  import SessionServletSpec._
+
+  override def createServlet(): SessionServlet[Session, RecoveryMetadata] = {
+    val conf = createConf().set(LivyConf.ACCESS_CONTROL_ENABLED, true)
+    SessionServletSpec.createServlet(conf)
+  }
+
+  private val aliceHeaders = makeUserHeaders("alice")
+  private val bobHeaders = makeUserHeaders("bob")
+
+  private def delete(id: Int, headers: Map[String, String], expectedStatus: Int): Unit = {
+    jdelete[Map[String, Any]](s"/$id", headers = headers, expectedStatus = expectedStatus) { _ =>
+      // Nothing to do.
+    }
+  }
+
+  describe("SessionServlet") {
+    it("should attach owner information to sessions") {
       jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
-        jget[MockSessionView](s"/${res.id}", headers = adminHeaders) { res =>
+        assert(res.owner === "alice")
+        assert(res.logs === IndexedSeq("log"))
+        delete(res.id, aliceHeaders, SC_OK)
+      }
+    }
+
+    it("should only allow view accessible users to see non-sensitive information") {
+      jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
+        jget[MockSessionView](s"/${res.id}", headers = bobHeaders) { res =>
           assert(res.owner === "alice")
+          // Other user cannot see the logs
+          assert(res.logs === Nil)
+        }
+
+        // Users with access permission could see the logs
+        jget[MockSessionView](s"/${res.id}", headers = viewUserHeaders) { res =>
           assert(res.logs === IndexedSeq("log"))
         }
-        delete(res.id, adminHeaders, SC_OK)
+        jget[MockSessionView](s"/${res.id}", headers = modifyUserHeaders) { res =>
+          assert(res.logs === IndexedSeq("log"))
+        }
+        jget[MockSessionView](s"/${res.id}", headers = adminHeaders) { res =>
+          assert(res.logs === IndexedSeq("log"))
+        }
+
+        delete(res.id, aliceHeaders, SC_OK)
+      }
+    }
+
+    it("should only allow modify accessible users from modifying sessions") {
+      jpost[MockSessionView]("/", Map(), headers = aliceHeaders) { res =>
+        delete(res.id, bobHeaders, SC_FORBIDDEN)
+        delete(res.id, viewUserHeaders, SC_FORBIDDEN)
+        delete(res.id, modifyUserHeaders, SC_OK)
       }
     }
 
@@ -151,7 +215,5 @@ class SessionServletSpec
         delete(res.id, adminHeaders, SC_OK)
       }
     }
-
   }
-
 }

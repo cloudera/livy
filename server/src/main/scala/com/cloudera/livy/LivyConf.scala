@@ -70,7 +70,12 @@ object LivyConf {
   val SUPERUSERS = Entry("livy.superusers", null)
 
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
-  val ACCESS_CONTROL_USERS = Entry("livy.server.access-control.users", null)
+  // Allowed users to access Livy, by default any user is allowed to access Livy. If user want to
+  // limit the users who could access Livy, user should configure all the users with comma
+  // separated.
+  val ACCESS_CONTROL_ALLOWED_USERS = Entry("livy.server.access-control.allowed-users", "*")
+  val ACCESS_CONTROL_MODIFY_USERS = Entry("livy.server.access-control.modify-users", null)
+  val ACCESS_CONTROL_VIEW_USERS = Entry("livy.server.access-control.view-users", null)
 
   val SSL_KEYSTORE = Entry("livy.keystore", null)
   val SSL_KEYSTORE_PASSWORD = Entry("livy.keystore.password", null)
@@ -184,7 +189,6 @@ object LivyConf {
     ENABLE_HIVE_CONTEXT.key -> DepConf("livy.repl.enableHiveContext", "0.4"),
     CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
     ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
-    ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
     AUTH_KERBEROS_NAME_RULES.key -> DepConf("livy.server.auth.kerberos.name_rules", "0.4"),
     LAUNCH_KERBEROS_REFRESH_INTERVAL.key ->
       DepConf("livy.server.launch.kerberos.refresh_interval", "0.4"),
@@ -197,7 +201,7 @@ object LivyConf {
 
   private val deprecatedConfigs: Map[String, DeprecatedConf] = {
     val configs: Seq[DepConf] = Seq(
-      // There are no deprecated configs without alternatives currently.
+      DepConf("livy.server.access_control.users", "0.4")
     )
 
     Map(configs.map { cfg => (cfg.key -> cfg) }: _*)
@@ -212,9 +216,6 @@ object LivyConf {
 class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   import LivyConf._
-
-  private lazy val _superusers = configToSeq(SUPERUSERS)
-  private lazy val _allowedUsers = configToSeq(ACCESS_CONTROL_USERS).toSet
 
   lazy val hadoopConf = new Configuration()
   lazy val localFsWhitelist = configToSeq(LOCAL_FS_WHITELIST).map { path =>
@@ -258,12 +259,6 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
   }
 
-  /** Return the list of superusers. */
-  def superusers(): Seq[String] = _superusers
-
-  /** Return the set of users allowed to use Livy via SPNEGO. */
-  def allowedUsers(): Set[String] = _allowedUsers
-
   private val configDir: Option[File] = {
     sys.env.get("LIVY_CONF_DIR")
       .orElse(sys.env.get("LIVY_HOME").map(path => s"$path${File.separator}conf"))
@@ -283,7 +278,7 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     }
   }
 
-  private def configToSeq(entry: LivyConf.Entry): Seq[String] = {
+  def configToSeq(entry: LivyConf.Entry): Seq[String] = {
     Option(get(entry)).map(_.split("[, ]+").toSeq).getOrElse(Nil)
   }
 

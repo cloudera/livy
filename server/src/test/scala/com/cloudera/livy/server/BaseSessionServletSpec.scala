@@ -43,18 +43,26 @@ abstract class BaseSessionServletSpec[S <: Session, R <: RecoveryMetadata]
   /** Name of the admin user. */
   protected val ADMIN = "__admin__"
 
+  private val VIEW_USER = "__view__"
+
+  private val MODIFY_USER = "__modify__"
+
   /** Create headers that identify a specific user in tests. */
   protected def makeUserHeaders(user: String): Map[String, String] = {
     defaultHeaders ++ Map(BaseSessionServletSpec.REMOTE_USER_HEADER -> user)
   }
 
   protected val adminHeaders = makeUserHeaders(ADMIN)
+  protected val viewUserHeaders = makeUserHeaders(VIEW_USER)
+  protected val modifyUserHeaders = makeUserHeaders(MODIFY_USER)
 
   /** Create a LivyConf with impersonation enabled and a superuser. */
   protected def createConf(): LivyConf = {
     new LivyConf()
       .set(LivyConf.IMPERSONATION_ENABLED, true)
       .set(LivyConf.SUPERUSERS, ADMIN)
+      .set(LivyConf.ACCESS_CONTROL_VIEW_USERS, VIEW_USER)
+      .set(LivyConf.ACCESS_CONTROL_MODIFY_USERS, MODIFY_USER)
       .set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
   }
 

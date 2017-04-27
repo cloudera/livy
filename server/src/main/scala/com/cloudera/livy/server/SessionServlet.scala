@@ -39,7 +39,8 @@ object SessionServlet extends Logging
  */
 abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     private[livy] val sessionManager: SessionManager[S, R],
-    livyConf: LivyConf)
+    livyConf: LivyConf,
+    accessManager: AccessManager)
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
@@ -91,7 +92,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   }
 
   get("/:id/log") {
-    withSession { session =>
+    withViewAccessSession { session =>
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
       val (from_, total, logLines) = serializeLogs(session, from, size)
@@ -105,7 +106,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   }
 
   delete("/:id") {
-    withSession { session =>
+    withModifyAccessSession { session =>
       sessionManager.delete(session.id) match {
         case Some(future) =>
           Await.ready(future, Duration.Inf)
@@ -157,7 +158,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       target: Option[String],
       req: HttpServletRequest): Option[String] = {
     if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
-      if (!target.map(hasAccess(_, req)).getOrElse(true)) {
+      if (!target.map(hasSuperAccess(_, req)).getOrElse(true)) {
         halt(Forbidden(s"User '${remoteUser(req)}' not allowed to impersonate '$target'."))
       }
       target.orElse(Option(remoteUser(req)))
@@ -167,11 +168,27 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   }
 
   /**
-   * Check that the request's user has access to resources owned by the given target user.
+   * Check that the request's user has view access to resources owned by the given target user.
    */
-  protected def hasAccess(target: String, req: HttpServletRequest): Boolean = {
+  protected def hasViewAccess(target: String, req: HttpServletRequest): Boolean = {
     val user = remoteUser(req)
-    user == null || user == target || livyConf.superusers().contains(user)
+    user == target || accessManager.checkViewPermissions(user)
+  }
+
+  /**
+   * Check that the request's user has modify access to resources owned by the given target user.
+   */
+  protected def hasModifyAccess(target: String, req: HttpServletRequest): Boolean = {
+    val user = remoteUser(req)
+    user == target || accessManager.checkModifyPermissions(user)
+  }
+
+  /**
+   * Check that the request's user has admin access to resources owned by the given target user.
+   */
+  protected def hasSuperAccess(target: String, req: HttpServletRequest): Boolean = {
+    val user = remoteUser(req)
+    user == target || accessManager.checkSuperUser(user)
   }
 
   /**
@@ -179,19 +196,29 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    * via this method must not modify the session in any way, or return potentially sensitive
    * information.
    */
-  protected def withUnprotectedSession(fn: (S => Any)): Any = doWithSession(fn, true)
+  protected def withUnprotectedSession(fn: (S => Any)): Any = doWithSession(fn, true, None)
 
   /**
-   * Performs an operation on the session, verifying whether the caller is the owner of the
+   * Performs an operation on the session, verifying whether the caller has view access of the
    * session.
    */
-  protected def withSession(fn: (S => Any)): Any = doWithSession(fn, false)
+  protected def withViewAccessSession(fn: (S => Any)): Any =
+    doWithSession(fn, false, Some(hasViewAccess))
 
-  private def doWithSession(fn: (S => Any), allowAll: Boolean): Any = {
+  /**
+   * Performs an operation on the session, verifying whether the caller has view access of the
+   * session.
+   */
+  protected def withModifyAccessSession(fn: (S => Any)): Any =
+    doWithSession(fn, false, Some(hasModifyAccess))
+
+  private def doWithSession(fn: (S => Any),
+      allowAll: Boolean,
+      checkFn: Option[(String, HttpServletRequest) => Boolean]): Any = {
     val sessionId = params("id").toInt
     sessionManager.get(sessionId) match {
       case Some(session) =>
-        if (allowAll || hasAccess(session.owner, request)) {
+        if (allowAll || checkFn.map(_(session.owner, request)).getOrElse(false)) {
           fn(session)
         } else {
           Forbidden()

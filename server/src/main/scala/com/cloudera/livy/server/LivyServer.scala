@@ -54,9 +54,11 @@ class LivyServer extends Logging {
 
   private var kinitFailCount: Int = 0
   private var executor: ScheduledExecutorService = _
+  private var accessManager: AccessManager = _
 
   def start(): Unit = {
     livyConf = new LivyConf().loadFromFile("livy.conf")
+    accessManager = new AccessManager(livyConf)
 
     val host = livyConf.get(SERVER_HOST)
     val port = livyConf.getInt(SERVER_PORT)
@@ -176,11 +178,12 @@ class LivyServer extends Logging {
             val context = sce.getServletContext()
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
 
-            val interactiveServlet =
-              new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
+            val interactiveServlet = new InteractiveSessionServlet(
+              interactiveSessionManager, sessionStore, livyConf, accessManager)
             mount(context, interactiveServlet, "/sessions/*")
 
-            val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
+            val batchServlet =
+              new BatchSessionServlet(batchSessionManager, sessionStore, livyConf, accessManager)
             mount(context, batchServlet, "/batches/*")
 
             if (livyConf.getBoolean(UI_ENABLED)) {
@@ -236,15 +239,10 @@ class LivyServer extends Logging {
       server.context.addFilter(csrfHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
-    if (livyConf.getBoolean(ACCESS_CONTROL_ENABLED)) {
-      if (livyConf.get(AUTH_TYPE) != null) {
-        info("Access control is enabled.")
-        val accessHolder = new FilterHolder(new AccessFilter(livyConf))
-        server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
-      } else {
-        throw new IllegalArgumentException("Access control was requested but could " +
-          "not be enabled, since authentication is disabled.")
-      }
+    if (accessManager.isAccessControlOn) {
+      info("Access control is enabled")
+      val accessHolder = new FilterHolder(new AccessFilter(accessManager))
+      server.context.addFilter(accessHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
     server.start()
