@@ -245,12 +245,16 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   /** Return the spark deploy mode Livy sessions should use. */
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
-  /** Return the location of the spark home directory */
-  def sparkHome(version: Option[String] = None): Option[String] = {
-    version.map {version => Option(get(s"livy.server.spark-home_$version"))
+  /** Return the  spark home version */
+  def SPARK_HOME_VER(version: String): Option[String] = {
+    Option(get(s"livy.server.spark-home-$version"))
       .orElse(throw new IllegalArgumentException(
         s"Spark version: $version is not supported"))
-    }.getOrElse(Option(get(s"livy.server.spark-home")).orElse(sys.env.get("SPARK_HOME")))
+  }
+  /** Return the location of the spark home directory */
+  def sparkHome(version: Option[String] = None): Option[String] = {
+    version.map {version => SPARK_HOME_VER(version)
+    }.getOrElse(Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME")))
   }
 
   /** Return the spark master Livy sessions should use. */
