@@ -20,7 +20,6 @@ package com.cloudera.livy.rsc.driver;
 import java.util.*;
 
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,7 +79,8 @@ public enum StatementState {
 
   static void validate(StatementState from, StatementState to) {
     LOG.debug("{} -> {}", from, to);
-
-    Preconditions.checkState(isValid(from, to), "Illegal Transition: %s -> %s", from, to);
+    if (!isValid(from, to)) {
+      throw new IllegalStateException("Illegal Transition: " + from + " -> " + to);
+    }
   }
 }
