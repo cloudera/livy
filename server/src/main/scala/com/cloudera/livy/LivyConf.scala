@@ -158,6 +158,9 @@ object LivyConf {
    */
   val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
 
+  /** Return the  spark home version */
+  def SPARK_HOME_VER(version: String): Entry = Entry(s"livy.server.spark-home-$version", null)
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
@@ -244,9 +247,6 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   /** Return the spark deploy mode Livy sessions should use. */
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
-
-  /** Return the  spark home version */
-  def SPARK_HOME_VER(version: String): Entry = Entry(s"livy.server.spark-home-$version", null)
 
   /** Return the location of the spark home directory */
   def sparkHome(version: Option[String] = None): Option[String] = {
