@@ -51,27 +51,29 @@ var numSessions = 0;
 var numBatches = 0;
 
 $(document).ready(function () {
-  $.getJSON(location.origin + "/sessions", function(response) {
+  var sessionsReq = $.getJSON(location.origin + "/sessions", function(response) {
     if (response && response.total > 0) {
       $("#interactive-sessions").load("/static/sessions-table.html", function() {
         loadSessionsTable(response.sessions);
         $('#interactive-sessions [data-toggle="tooltip"]').tooltip();
-        numSessions = response.total;
       });
     }
+    numSessions = response.total;
   });
 
-  $.getJSON(location.origin + "/batches", function(response) {
+  var batchesReq = $.getJSON(location.origin + "/batches", function(response) {
     if (response && response.total > 0) {
       $("#batches").load("/static/batches-table.html", function() {
         loadBatchesTable(response.sessions);
         $('#batches [data-toggle="tooltip"]').tooltip();
-        numBatches = response.total;
       });
     }
+    numBatches = response.total;
   });
 
-  if(numSessions + numBatches == 0) {
-    $("#all-sessions").append('<h4>No Sessions or Batches have been created yet.</h4>');
-  }
+  $.when(sessionsReq, batchesReq).done(function () {
+    if (numSessions + numBatches == 0) {
+      $("#all-sessions").append('<h4>No Sessions or Batches have been created yet.</h4>');
+    }
+  });
 });

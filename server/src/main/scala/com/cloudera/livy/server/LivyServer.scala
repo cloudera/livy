@@ -152,6 +152,12 @@ class LivyServer extends Logging {
       }
     }
 
+    val uiRedirectServlet = new ScalatraServlet {
+      get("/") {
+        redirect("/ui/")
+      }
+    }
+
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
@@ -181,9 +187,10 @@ class LivyServer extends Logging {
               val uiServlet = new UIServlet(livyConf)
               mount(context, uiServlet, "/ui/*")
               mount(context, staticResourceServlet, "/static/*")
+              mount(context, uiRedirectServlet, "/*")
             }
 
-            context.mountMetricsAdminServlet("/")
+            context.mountMetricsAdminServlet("/metrics")
 
             mount(context, livyVersionServlet, "/version/*")
           } catch {
