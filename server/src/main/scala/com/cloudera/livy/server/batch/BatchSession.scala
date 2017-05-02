@@ -64,10 +64,8 @@ object BatchSession {
       require(request.file != null, "File is required.")
 
       val builder = new SparkProcessBuilder(livyConf, request.sparkVersion)
-      request.sparkVersion.map({ value =>
-        val sparkConf = livyConf.sparkHome(request.sparkVersion).map(_ + File.separator + "conf")
-        sparkConf.map(sc => builder.env("SPARK_CONF_DIR", sc))
-      })
+      val sparkConf = livyConf.sparkHome(request.sparkVersion).map(_ + File.separator + "conf")
+      sparkConf.map(sc => builder.env("SPARK_CONF_DIR", sc))
       builder.conf(conf)
 
       proxyUser.foreach(builder.proxyUser)
