@@ -39,7 +39,6 @@ class SparkInterpreter(conf: SparkConf)
   protected var sparkContext: SparkContext = _
   private var sparkILoop: SparkILoop = _
   private var sparkHttpServer: Object = _
-  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     require(sparkILoop == null)
@@ -94,12 +93,7 @@ class SparkInterpreter(conf: SparkConf)
       createSparkContext(conf)
     }
 
-    tracker = new StatementProgressTracker(sparkContext)
     sparkContext
-  }
-
-  override def statementProgressTracker: Option[StatementProgressTracker] = {
-    Option(tracker)
   }
 
   override def close(): Unit = synchronized {

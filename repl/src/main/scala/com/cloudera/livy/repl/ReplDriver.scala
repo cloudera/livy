@@ -94,8 +94,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
 
     // Update progress of statements when queried
     statements.foreach { s =>
-      s.updateProgress(
-        interpreter.statementProgressTracker.map(_.progressOfStatement(s.id)).getOrElse(0.0))
+      s.updateProgress(session.progressOfStatement(s.id))
     }
 
     new ReplJobResults(statements.sortBy(_.id))

@@ -43,7 +43,7 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
   describe("Session") {
     it("should call state changed callbacks in happy path") {
       val expectedStateTransitions =
-        Array("not_started", "starting", "idle", "busy", "idle")
+        Array("not_started", "starting", "idle", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]
@@ -65,7 +65,7 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
 
     it("should not transit to idle if there're any pending statements.") {
       val expectedStateTransitions =
-        Array("not_started", "busy", "busy", "idle")
+        Array("not_started", "busy", "busy", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]

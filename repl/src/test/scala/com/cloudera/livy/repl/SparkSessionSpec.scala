@@ -239,4 +239,36 @@ class SparkSessionSpec extends BaseSessionSpec {
         "Job 0 cancelled part of cancelled job group 0")
     }
   }
+
+  it should "correctly calculate progress" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
+    }
+  }
+
+  it should "not generate Spark jobs for plain Scala code" in withSession { session =>
+    val executeCode = """1 + 1"""
+
+    val stmtId = session.execute(executeCode)
+    session.progressOfStatement(stmtId) should be (0.0)
+  }
+
+  it should "handle multiple jobs in one statement" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
+    }
+  }
 }

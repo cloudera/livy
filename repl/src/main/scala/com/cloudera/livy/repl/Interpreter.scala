@@ -37,22 +37,12 @@ trait Interpreter {
 
   def kind: String
 
-  def statementProgressTracker: Option[StatementProgressTracker]
-
   /**
    * Start the Interpreter.
    *
    * @return A SparkContext
    */
   def start(): SparkContext
-
-  /**
-   * Execute the code and return the result.
-   */
-  def execute(statementId: Int, code: String): ExecuteResponse = {
-    statementProgressTracker.map(_.setJobGroup(statementId))
-    execute(code)
-  }
 
   /**
    * Execute the code and return the result, it may

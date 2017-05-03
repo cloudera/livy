@@ -45,7 +45,6 @@ abstract class ProcessInterpreter(process: Process)
   extends Interpreter with Logging {
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
-  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     waitUntilReady()
@@ -53,14 +52,8 @@ abstract class ProcessInterpreter(process: Process)
     if (ClientConf.TEST_MODE) {
       null.asInstanceOf[SparkContext]
     } else {
-      val sc = SparkContext.getOrCreate()
-      tracker = new StatementProgressTracker(sc)
-      sc
+      SparkContext.getOrCreate()
     }
-  }
-
-  override def statementProgressTracker: Option[StatementProgressTracker] = {
-    Option(tracker)
   }
 
   override protected[repl] def execute(code: String): Interpreter.ExecuteResponse = {

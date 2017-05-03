@@ -38,7 +38,6 @@ class SparkInterpreter(conf: SparkConf)
 
   private var sparkIMain: SparkIMain = _
   protected var sparkContext: SparkContext = _
-  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     require(sparkIMain == null && sparkContext == null)
@@ -108,7 +107,6 @@ class SparkInterpreter(conf: SparkConf)
       createSparkContext(conf)
     }
 
-    tracker = new StatementProgressTracker(sparkContext)
     sparkContext
   }
 
@@ -116,10 +114,6 @@ class SparkInterpreter(conf: SparkConf)
     sparkIMain.beQuietDuring {
       sparkIMain.bind(name, tpe, value, modifier)
     }
-  }
-
-  override def statementProgressTracker: Option[StatementProgressTracker] = {
-    Option(tracker)
   }
 
   override def close(): Unit = synchronized {
