@@ -33,12 +33,12 @@ import org.apache.spark.repl.SparkIMain
 /**
  * This represents a Spark interpreter. It is not thread safe.
  */
-class SparkInterpreter(conf: SparkConf,
-    override val statementProgressListener: StatementProgressListener)
+class SparkInterpreter(conf: SparkConf)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
   private var sparkIMain: SparkIMain = _
   protected var sparkContext: SparkContext = _
+  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     require(sparkIMain == null && sparkContext == null)
@@ -108,7 +108,7 @@ class SparkInterpreter(conf: SparkConf,
       createSparkContext(conf)
     }
 
-    sparkContext.addSparkListener(statementProgressListener)
+    tracker = new StatementProgressTracker(sparkContext)
     sparkContext
   }
 
@@ -116,6 +116,10 @@ class SparkInterpreter(conf: SparkConf,
     sparkIMain.beQuietDuring {
       sparkIMain.bind(name, tpe, value, modifier)
     }
+  }
+
+  override def statementProgressTracker: Option[StatementProgressTracker] = {
+    Option(tracker)
   }
 
   override def close(): Unit = synchronized {

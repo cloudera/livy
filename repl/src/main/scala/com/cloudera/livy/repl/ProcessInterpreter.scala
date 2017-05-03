@@ -41,11 +41,11 @@ private case class ShutdownRequest(promise: Promise[Unit]) extends Request
  *
  * @param process
  */
-abstract class ProcessInterpreter(process: Process,
-    override val statementProgressListener: StatementProgressListener)
+abstract class ProcessInterpreter(process: Process)
   extends Interpreter with Logging {
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
+  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     waitUntilReady()
@@ -54,9 +54,13 @@ abstract class ProcessInterpreter(process: Process,
       null.asInstanceOf[SparkContext]
     } else {
       val sc = SparkContext.getOrCreate()
-      sc.addSparkListener(statementProgressListener)
+      tracker = new StatementProgressTracker(sc)
       sc
     }
+  }
+
+  override def statementProgressTracker: Option[StatementProgressTracker] = {
+    Option(tracker)
   }
 
   override protected[repl] def execute(code: String): Interpreter.ExecuteResponse = {

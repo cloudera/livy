@@ -107,7 +107,6 @@ class Session(
     _statements.synchronized { _statements(statementId) = statement }
 
     Future {
-      setJobGroup(statementId)
       statement.compareAndTransit(StatementState.Waiting, StatementState.Running)
 
       if (statement.state.get() == StatementState.Running) {
@@ -237,26 +236,5 @@ class Session(
     }
 
     compact(render(resultInJson))
-  }
-
-  private def setJobGroup(statementId: Int): String = {
-    val cmd = Kind(interpreter.kind) match {
-      case Spark() =>
-        // A dummy value to avoid automatic value binding in scala REPL.
-        s"""val _livyJobGroup$statementId = sc.setJobGroup("$statementId",""" +
-          s""""Job group for statement $statementId")"""
-      case PySpark() | PySpark3() =>
-        s"""sc.setJobGroup("$statementId", "Job group for statement $statementId")"""
-      case SparkR() =>
-        interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
-          case "1" =>
-            s"""setJobGroup(sc, "$statementId", "Job group for statement $statementId", """ +
-              "FALSE)"
-          case "2" =>
-            s"""setJobGroup("$statementId", "Job group for statement $statementId", FALSE)"""
-        }
-    }
-    // Set the job group
-    executeCode(statementId, cmd)
   }
 }

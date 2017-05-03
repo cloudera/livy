@@ -33,13 +33,13 @@ import org.apache.spark.repl.SparkILoop
 /**
  * Scala 2.11 version of SparkInterpreter
  */
-class SparkInterpreter(conf: SparkConf,
-    override val statementProgressListener: StatementProgressListener)
+class SparkInterpreter(conf: SparkConf)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
   protected var sparkContext: SparkContext = _
   private var sparkILoop: SparkILoop = _
   private var sparkHttpServer: Object = _
+  private var tracker: StatementProgressTracker = _
 
   override def start(): SparkContext = {
     require(sparkILoop == null)
@@ -94,8 +94,12 @@ class SparkInterpreter(conf: SparkConf,
       createSparkContext(conf)
     }
 
-    sparkContext.addSparkListener(statementProgressListener)
+    tracker = new StatementProgressTracker(sparkContext)
     sparkContext
+  }
+
+  override def statementProgressTracker: Option[StatementProgressTracker] = {
+    Option(tracker)
   }
 
   override def close(): Unit = synchronized {

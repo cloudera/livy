@@ -37,7 +37,7 @@ trait Interpreter {
 
   def kind: String
 
-  def statementProgressListener: StatementProgressListener
+  def statementProgressTracker: Option[StatementProgressTracker]
 
   /**
    * Start the Interpreter.
@@ -50,7 +50,7 @@ trait Interpreter {
    * Execute the code and return the result.
    */
   def execute(statementId: Int, code: String): ExecuteResponse = {
-    statementProgressListener.setCurrentStatementId(statementId)
+    statementProgressTracker.map(_.setJobGroup(statementId))
     execute(code)
   }
 
