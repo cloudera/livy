@@ -17,7 +17,7 @@
  */
 
 function tdWrap(str) {
-    return "<td>" + str + "</td>";
+  return "<td>" + str + "</td>";
 }
 
 function loadSessionsTable(sessions) {
@@ -53,7 +53,7 @@ var numBatches = 0;
 $(document).ready(function () {
   var sessionsReq = $.getJSON(location.origin + "/sessions", function(response) {
     if (response && response.total > 0) {
-      $("#interactive-sessions").load("/static/sessions-table.html", function() {
+      $("#interactive-sessions").load("/static/sessions-table.html .sessions-template", function() {
         loadSessionsTable(response.sessions);
         $('#interactive-sessions [data-toggle="tooltip"]').tooltip();
       });
@@ -63,7 +63,7 @@ $(document).ready(function () {
 
   var batchesReq = $.getJSON(location.origin + "/batches", function(response) {
     if (response && response.total > 0) {
-      $("#batches").load("/static/batches-table.html", function() {
+      $("#batches").load("/static/batches-table.html .sessions-template", function() {
         loadBatchesTable(response.sessions);
         $('#batches [data-toggle="tooltip"]').tooltip();
       });

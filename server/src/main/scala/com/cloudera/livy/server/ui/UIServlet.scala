@@ -24,7 +24,7 @@ import org.scalatra.ScalatraServlet
 
 import com.cloudera.livy.LivyConf
 
-class UIServlet(livyConf: LivyConf) extends ScalatraServlet {
+class UIServlet extends ScalatraServlet {
   before() { contentType = "text/html" }
 
   def getHeader(title: String): Seq[Node] =

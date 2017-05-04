@@ -183,10 +183,12 @@ class LivyServer extends Logging {
             val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
             mount(context, batchServlet, "/batches/*")
 
-            val uiServlet = new UIServlet(livyConf)
-            mount(context, uiServlet, "/ui/*")
-            mount(context, staticResourceServlet, "/static/*")
-            mount(context, uiRedirectServlet, "/*")
+            if (livyConf.getBoolean(UI_ENABLED)) {
+              val uiServlet = new UIServlet
+              mount(context, uiServlet, "/ui/*")
+              mount(context, staticResourceServlet, "/static/*")
+              mount(context, uiRedirectServlet, "/*")
+            }
 
             context.mountMetricsAdminServlet("/metrics")
 
