@@ -174,7 +174,7 @@ class Session(
    * Get the current progress of given statement id.
    */
   def progressOfStatement(stmtId: Int): Double = {
-    val jobGroup = stmtId.toString
+    val jobGroup = statementIdToJobGroup(stmtId)
 
     _sc.map { sc =>
       val jobIds = sc.statusTracker.getJobIdsForGroup(jobGroup)
@@ -263,23 +263,28 @@ class Session(
   }
 
   private def setJobGroup(statementId: Int): String = {
+    val jobGroup = statementIdToJobGroup(statementId)
     val cmd = Kind(interpreter.kind) match {
       case Spark() =>
         // A dummy value to avoid automatic value binding in scala REPL.
-        s"""val _livyJobGroup$statementId = sc.setJobGroup("$statementId",""" +
-          s""""Job group for statement $statementId")"""
+        s"""val _livyJobGroup$jobGroup = sc.setJobGroup("$jobGroup",""" +
+          s""""Job group for statement $jobGroup")"""
       case PySpark() | PySpark3() =>
-        s"""sc.setJobGroup("$statementId", "Job group for statement $statementId")"""
+        s"""sc.setJobGroup("$jobGroup", "Job group for statement $jobGroup")"""
       case SparkR() =>
         interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
           case "1" =>
-            s"""setJobGroup(sc, "$statementId", "Job group for statement $statementId", """ +
+            s"""setJobGroup(sc, "$jobGroup", "Job group for statement $jobGroup", """ +
               "FALSE)"
           case "2" =>
-            s"""setJobGroup("$statementId", "Job group for statement $statementId", FALSE)"""
+            s"""setJobGroup("$jobGroup", "Job group for statement $jobGroup", FALSE)"""
         }
     }
     // Set the job group
     executeCode(statementId, cmd)
+  }
+
+  private def statementIdToJobGroup(statementId: Int): String = {
+    statementId.toString
   }
 }
