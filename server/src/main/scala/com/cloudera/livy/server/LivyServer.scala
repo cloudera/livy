@@ -152,9 +152,9 @@ class LivyServer extends Logging {
       }
     }
 
-    val uiRedirectServlet = new ScalatraServlet {
+    def uiRedirectServlet(path: String) = new ScalatraServlet {
       get("/") {
-        redirect("/ui/")
+        redirect(path)
       }
     }
 
@@ -187,7 +187,9 @@ class LivyServer extends Logging {
               val uiServlet = new UIServlet
               mount(context, uiServlet, "/ui/*")
               mount(context, staticResourceServlet, "/static/*")
-              mount(context, uiRedirectServlet, "/*")
+              mount(context, uiRedirectServlet("/ui/"), "/*")
+            } else {
+              mount(context, uiRedirectServlet("/metrics"), "/*")
             }
 
             context.mountMetricsAdminServlet("/metrics")
