@@ -41,18 +41,18 @@ class CreateInteractiveRequest {
     "Interactive session request:[" +
       s"kind: $kind, " +
       s"proxyUser: $proxyUser, " +
-      s"${if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else ""}" +
-      s"${if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else ""}" +
-      s"${if (files.nonEmpty) s"files: ${files.mkString(",")}, " else ""}" +
-      s"${if (archives.nonEmpty) s"archives: ${archives.mkString(",")}, " else ""}" +
-      s"${if (driverMemory.isDefined) s"driverMemory: ${driverMemory.get}, " else ""}" +
-      s"${if (driverCores.isDefined) s"driverCores: ${driverCores.get}, " else ""}" +
-      s"${if (executorMemory.isDefined) s"executorMemory: ${executorMemory.get}, " else ""}" +
-      s"${if (executorCores.isDefined) s"executorCores: ${executorCores.get}, " else ""}" +
-      s"${if (numExecutors.isDefined) s"numExecutors: ${numExecutors.get}, " else ""}" +
-      s"${if (queue.isDefined) s"queue: ${queue.get}, " else ""}" +
-      s"${if (name.isDefined) s"name: ${name.get}, " else ""}" +
-      s"${if (conf.nonEmpty) s"conf: ${conf.mkString(",")}, " else ""}" +
+      (if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else "") +
+      (if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else "") +
+      (if (files.nonEmpty) s"files: ${files.mkString(",")}, " else "") +
+      (if (archives.nonEmpty) s"archives: ${archives.mkString(",")}, " else "") +
+      (if (driverMemory.isDefined) s"driverMemory: ${driverMemory.get}, " else "") +
+      (if (driverCores.isDefined) s"driverCores: ${driverCores.get}, " else "") +
+      (if (executorMemory.isDefined) s"executorMemory: ${executorMemory.get}, " else "") +
+      (if (executorCores.isDefined) s"executorCores: ${executorCores.get}, " else "") +
+      (if (numExecutors.isDefined) s"numExecutors: ${numExecutors.get}, " else "") +
+      (if (queue.isDefined) s"queue: ${queue.get}, " else "") +
+      (if (name.isDefined) s"name: ${name.get}, " else "") +
+      (if (conf.nonEmpty) s"conf: ${conf.mkString(",")}, " else "") +
       s"heartbeatTimeoutInSecond: $heartbeatTimeoutInSecond]"
   }
 }
