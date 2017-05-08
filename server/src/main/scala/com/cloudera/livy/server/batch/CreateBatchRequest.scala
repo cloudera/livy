@@ -37,4 +37,22 @@ class CreateBatchRequest {
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
 
+  override def toString: String = {
+    "Batch session request:[" +
+      s"proxyUser: $proxyUser, " +
+      s"file: $file, " +
+      s"${if (args.nonEmpty) s"args: ${args.mkString(",")}, " else ""}" +
+      s"${if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else ""}" +
+      s"${if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else ""}" +
+      s"${if (files.nonEmpty) s"files: ${files.mkString(",")}, " else ""}" +
+      s"${if (archives.nonEmpty) s"archives: ${archives.mkString(",")}, " else ""}" +
+      s"${if (driverMemory.isDefined) s"driverMemory: ${driverMemory.get}, " else ""}" +
+      s"${if (driverCores.isDefined) s"driverCores: ${driverCores.get}, " else ""}" +
+      s"${if (executorMemory.isDefined) s"executorMemory: ${executorMemory.get}, " else ""}" +
+      s"${if (executorCores.isDefined) s"executorCores: ${executorCores.get}, " else ""}" +
+      s"${if (numExecutors.isDefined) s"numExecutors: ${numExecutors.get}, " else ""}" +
+      s"${if (queue.isDefined) s"queue: ${queue.get}, " else ""}" +
+      s"${if (name.isDefined) s"name: ${name.get}, " else ""}" +
+      s"${if (conf.nonEmpty) s"conf: ${conf.mkString(",")}" else ""}]"
+  }
 }

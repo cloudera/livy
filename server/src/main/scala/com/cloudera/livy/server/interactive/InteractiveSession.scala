@@ -98,7 +98,7 @@ object InteractiveSession extends Logging {
 
       builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
 
-      info(s"Creating LivyClient for sessionId: $id")
+      info(s"Creating Interactive session $id: [owner: $owner, request: $request]")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
         .setConf("livy.client.session-id", id.toString)

@@ -25,7 +25,7 @@ import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
-import com.cloudera.livy.LivyConf
+import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{Session, SessionState}
 import com.cloudera.livy.sessions.Session._
@@ -41,7 +41,7 @@ case class BatchRecoveryMetadata(
     version: Int = 1)
   extends RecoveryMetadata
 
-object BatchSession {
+object BatchSession extends Logging {
   val RECOVERY_SESSION_TYPE = "batch"
 
   def create(
@@ -88,6 +88,8 @@ object BatchSession {
 
       SparkApp.create(appTag, None, Option(sparkSubmit), livyConf, Option(s))
     }
+
+    info(s"Creating batch session $id: [owner: $owner, request: $request]")
 
     new BatchSession(
       id,

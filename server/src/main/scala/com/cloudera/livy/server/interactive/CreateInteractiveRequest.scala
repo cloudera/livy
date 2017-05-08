@@ -36,4 +36,23 @@ class CreateInteractiveRequest {
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
   var heartbeatTimeoutInSecond: Int = 0
+
+  override def toString: String = {
+    "Interactive session request:[" +
+      s"kind: $kind, " +
+      s"proxyUser: $proxyUser, " +
+      s"${if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else ""}" +
+      s"${if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else ""}" +
+      s"${if (files.nonEmpty) s"files: ${files.mkString(",")}, " else ""}" +
+      s"${if (archives.nonEmpty) s"archives: ${archives.mkString(",")}, " else ""}" +
+      s"${if (driverMemory.isDefined) s"driverMemory: ${driverMemory.get}, " else ""}" +
+      s"${if (driverCores.isDefined) s"driverCores: ${driverCores.get}, " else ""}" +
+      s"${if (executorMemory.isDefined) s"executorMemory: ${executorMemory.get}, " else ""}" +
+      s"${if (executorCores.isDefined) s"executorCores: ${executorCores.get}, " else ""}" +
+      s"${if (numExecutors.isDefined) s"numExecutors: ${numExecutors.get}, " else ""}" +
+      s"${if (queue.isDefined) s"queue: ${queue.get}, " else ""}" +
+      s"${if (name.isDefined) s"name: ${name.get}, " else ""}" +
+      s"${if (conf.nonEmpty) s"conf: ${conf.mkString(",")}, " else ""}" +
+      s"heartbeatTimeoutInSecond: $heartbeatTimeoutInSecond]"
+  }
 }
