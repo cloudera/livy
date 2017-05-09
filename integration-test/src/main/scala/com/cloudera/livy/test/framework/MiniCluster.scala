@@ -302,7 +302,7 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     // Wait until Livy server responds.
     val httpClient = new AsyncHttpClient()
     eventually(timeout(30 seconds), interval(1 second)) {
-      val res = httpClient.prepareGet(livyUrl).execute().get()
+      val res = httpClient.prepareGet(livyUrl + "/metrics").execute().get()
       assert(res.getStatusCode() == HttpServletResponse.SC_OK)
     }
 

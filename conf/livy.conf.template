@@ -97,3 +97,6 @@
 #
 # Days to keep Livy server request logs.
 # livy.server.request-log-retain.days = 5
+
+# If the Livy Web UI should be included in the Livy Server. Enabled by default.
+# livy.ui.enabled = true
