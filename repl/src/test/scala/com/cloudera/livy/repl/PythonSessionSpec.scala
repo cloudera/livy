@@ -174,8 +174,7 @@ abstract class PythonSessionSpec extends BaseSessionSpec {
 }
 
 class Python2SessionSpec extends PythonSessionSpec {
-  override def createInterpreter(): Interpreter =
-    PythonInterpreter(new SparkConf(), PySpark(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark())
 }
 
 class Python3SessionSpec extends PythonSessionSpec {
@@ -185,8 +184,7 @@ class Python3SessionSpec extends PythonSessionSpec {
     test()
   }
 
-  override def createInterpreter(): Interpreter =
-    PythonInterpreter(new SparkConf(), PySpark3(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
 
   it should "check python version is 3.x" in withSession { session =>
     val statement = execute(session)(

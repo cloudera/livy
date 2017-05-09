@@ -68,7 +68,7 @@ object SparkRInterpreter {
     ")"
     ).r.unanchored
 
-  def apply(conf: SparkConf, listener: StatementProgressListener): SparkRInterpreter = {
+  def apply(conf: SparkConf): SparkRInterpreter = {
     val backendTimeout = sys.env.getOrElse("SPARKR_BACKEND_TIMEOUT", "120").toInt
     val mirror = universe.runtimeMirror(getClass.getClassLoader)
     val sparkRBackendClass = mirror.classLoader.loadClass("org.apache.spark.api.r.RBackend")
@@ -121,8 +121,7 @@ object SparkRInterpreter {
       val process = builder.start()
       new SparkRInterpreter(process, backendInstance, backendThread,
         conf.get("spark.livy.spark_major_version", "1"),
-        conf.getBoolean("spark.repl.enableHiveContext", false),
-        listener)
+        conf.getBoolean("spark.repl.enableHiveContext", false))
     } catch {
       case e: Exception =>
         if (backendThread != null) {
@@ -137,9 +136,8 @@ class SparkRInterpreter(process: Process,
     backendInstance: Any,
     backendThread: Thread,
     val sparkMajorVersion: String,
-    hiveEnabled: Boolean,
-    statementProgressListener: StatementProgressListener)
-  extends ProcessInterpreter(process, statementProgressListener) {
+    hiveEnabled: Boolean)
+  extends ProcessInterpreter(process) {
   import SparkRInterpreter._
 
   implicit val formats = DefaultFormats

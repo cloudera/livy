@@ -29,7 +29,7 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
   implicit val formats = DefaultFormats
 
   override def createInterpreter(): Interpreter =
-    new SparkInterpreter(new SparkConf(), new StatementProgressListener(new RSCConf()))
+    new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")

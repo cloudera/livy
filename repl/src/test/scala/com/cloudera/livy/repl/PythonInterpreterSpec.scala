@@ -245,8 +245,7 @@ class Python2InterpreterSpec extends PythonBaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter(): Interpreter =
-    PythonInterpreter(new SparkConf(), PySpark(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark())
 
   // Scalastyle is treating unicode escape as non ascii characters. Turn off the check.
   // scalastyle:off non.ascii.character.disallowed
@@ -273,8 +272,7 @@ class Python3InterpreterSpec extends PythonBaseInterpreterSpec {
     test()
   }
 
-  override def createInterpreter(): Interpreter =
-    PythonInterpreter(new SparkConf(), PySpark3(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = PythonInterpreter(new SparkConf(), PySpark3())
 
   it should "check python version is 3.x" in withInterpreter { interpreter =>
     val response = interpreter.execute("""import sys
