@@ -33,8 +33,7 @@ import org.apache.spark.repl.SparkILoop
 /**
  * Scala 2.11 version of SparkInterpreter
  */
-class SparkInterpreter(conf: SparkConf,
-    override val statementProgressListener: StatementProgressListener)
+class SparkInterpreter(conf: SparkConf)
   extends AbstractSparkInterpreter with SparkContextInitializer {
 
   protected var sparkContext: SparkContext = _
@@ -94,7 +93,6 @@ class SparkInterpreter(conf: SparkConf,
       createSparkContext(conf)
     }
 
-    sparkContext.addSparkListener(statementProgressListener)
     sparkContext
   }
 

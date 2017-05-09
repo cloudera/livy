@@ -31,8 +31,7 @@ class SparkRSessionSpec extends BaseSessionSpec {
     super.withFixture(test)
   }
 
-  override def createInterpreter(): Interpreter =
-    SparkRInterpreter(new SparkConf(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = SparkRInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = execute(session)("1 + 2")

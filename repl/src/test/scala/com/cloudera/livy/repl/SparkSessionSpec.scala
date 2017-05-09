@@ -32,8 +32,7 @@ import com.cloudera.livy.rsc.driver.StatementState
 
 class SparkSessionSpec extends BaseSessionSpec {
 
-  override def createInterpreter(): Interpreter =
-    new SparkInterpreter(new SparkConf(), new StatementProgressListener(new RSCConf()))
+  override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withSession { session =>
     val statement = execute(session)("1 + 2")
@@ -238,6 +237,38 @@ class SparkSessionSpec extends BaseSessionSpec {
       assert(session.statements(stmtId1).state.get() == StatementState.Cancelled)
       session.statements(stmtId1).output should include (
         "Job 0 cancelled part of cancelled job group 0")
+    }
+  }
+
+  it should "correctly calculate progress" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
+    }
+  }
+
+  it should "not generate Spark jobs for plain Scala code" in withSession { session =>
+    val executeCode = """1 + 1"""
+
+    val stmtId = session.execute(executeCode)
+    session.progressOfStatement(stmtId) should be (0.0)
+  }
+
+  it should "handle multiple jobs in one statement" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
     }
   }
 }

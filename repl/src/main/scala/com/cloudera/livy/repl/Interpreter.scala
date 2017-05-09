@@ -37,22 +37,12 @@ trait Interpreter {
 
   def kind: String
 
-  def statementProgressListener: StatementProgressListener
-
   /**
    * Start the Interpreter.
    *
    * @return A SparkContext
    */
   def start(): SparkContext
-
-  /**
-   * Execute the code and return the result.
-   */
-  def execute(statementId: Int, code: String): ExecuteResponse = {
-    statementProgressListener.setCurrentStatementId(statementId)
-    execute(code)
-  }
 
   /**
    * Execute the code and return the result, it may
