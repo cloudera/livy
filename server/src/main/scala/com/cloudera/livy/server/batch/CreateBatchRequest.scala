@@ -38,8 +38,7 @@ class CreateBatchRequest {
   var conf: Map[String, String] = Map()
 
   override def toString: String = {
-    "Batch session request:[" +
-      s"proxyUser: $proxyUser, " +
+    s"[proxyUser: $proxyUser, " +
       s"file: $file, " +
       (if (args.nonEmpty) s"args: ${args.mkString(",")}, " else "") +
       (if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else "") +

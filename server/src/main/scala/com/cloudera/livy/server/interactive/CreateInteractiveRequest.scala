@@ -38,8 +38,7 @@ class CreateInteractiveRequest {
   var heartbeatTimeoutInSecond: Int = 0
 
   override def toString: String = {
-    "Interactive session request:[" +
-      s"kind: $kind, " +
+    s"[kind: $kind, " +
       s"proxyUser: $proxyUser, " +
       (if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else "") +
       (if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else "") +
