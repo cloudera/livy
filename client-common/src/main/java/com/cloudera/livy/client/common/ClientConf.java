@@ -18,10 +18,7 @@
 
 package com.cloudera.livy.client.common;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -214,11 +211,12 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Logs a warning message if the given config key is deprecated. */
   private void logDeprecationWarning(String key) {
-    DeprecatedConf altConfs = getConfigsWithAlternatives().get(key);
-    if (altConfs != null) {
+    String altConfKey = allAlternativeKeys().get(key);
+    if (altConfKey != null) {
+      DeprecatedConf altConfs = getConfigsWithAlternatives().get(altConfKey);
       LOG.warn("The configuration key " + altConfs.key() + " has been deprecated as of Livy "
         + altConfs.version() + " and may be removed in the future. Please use the new key "
-        + key + " instead.");
+        + altConfKey + " instead.");
       return;
     }
 
@@ -235,6 +233,18 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Maps deprecated key to DeprecatedConf with the same key. */
   protected abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
+
+  private Map<String, String> altToNewKeyMap = null;
+  private Map<String, String> allAlternativeKeys() {
+    if (altToNewKeyMap == null) {
+      Map<String, String> configs = new HashMap<>();
+      for (String e : getConfigsWithAlternatives().keySet()) {
+        configs.put(getConfigsWithAlternatives().get(e).key(), e);
+      }
+      altToNewKeyMap = Collections.unmodifiableMap(configs);
+    }
+    return altToNewKeyMap;
+  }
 
   public static interface DeprecatedConf {
 
