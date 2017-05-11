@@ -34,12 +34,12 @@ private[livy] class AccessManager(conf: LivyConf) extends Logging {
   private val modifyAcls = (superUsers ++ modifyUsers).toSet
   private val superAcls = superUsers.toSet
 
-  {
+  if (aclsOn) {
     // Livy will load AccessFilter if acls is on. In this case if configured users (view users,
     // modify users, super users) are not in the allowed user list, then AccessFilter check will
     // be failed, so all these configured users should be included in the allowed users.
     val notAllowedSuperUsers = superUsers.filter(!isUserAllowed(_))
-    if (notAllowedSuperUsers.nonEmpty && aclsOn) {
+    if (notAllowedSuperUsers.nonEmpty) {
       throw new IllegalArgumentException(
         s"Users ${notAllowedSuperUsers.mkString(", ")} configured in " +
         s"${LivyConf.SUPERUSERS.key} are not fully included in " +
@@ -47,7 +47,7 @@ private[livy] class AccessManager(conf: LivyConf) extends Logging {
     }
 
     val notAllowedViewUsers = viewUsers.filter(!isUserAllowed(_))
-    if (notAllowedViewUsers.nonEmpty && aclsOn) {
+    if (notAllowedViewUsers.nonEmpty) {
       throw new IllegalArgumentException(
         s"Users ${notAllowedViewUsers.mkString(", ")} configured in " +
         s"${LivyConf.ACCESS_CONTROL_VIEW_USERS.key} are not fully included in " +
@@ -55,7 +55,7 @@ private[livy] class AccessManager(conf: LivyConf) extends Logging {
     }
 
    val notAllowedModifyUsers = modifyUsers.filter(!isUserAllowed(_))
-    if (notAllowedModifyUsers.nonEmpty && aclsOn) {
+    if (notAllowedModifyUsers.nonEmpty) {
       throw new IllegalArgumentException(
         s"Users ${notAllowedViewUsers.mkString(", ")} configured in " +
         s"${LivyConf.ACCESS_CONTROL_MODIFY_USERS.key} are not fully included in " +
@@ -110,7 +110,8 @@ private[livy] class AccessManager(conf: LivyConf) extends Logging {
    */
   def isUserAllowed(user: String): Boolean = {
     debug(s"user=$user aclsOn=$aclsOn, allowedUsers=${allowedUsers.mkString(", ")}")
-    if (!aclsOn || allowedUsers.contains(user) || allowedUsers.contains(WILDCARD_ACL)) {
+    if (!aclsOn || user == null || allowedUsers.contains(user) ||
+      allowedUsers.contains(WILDCARD_ACL)) {
       true
     } else {
       false

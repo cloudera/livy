@@ -71,7 +71,7 @@ object LivyConf {
 
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   // Allowed users to access Livy, by default any user is allowed to access Livy. If user want to
-  // limit the users who could access Livy, user should configure all the users with comma
+  // limit who could access Livy, user should list all the permitted users with comma
   // separated.
   val ACCESS_CONTROL_ALLOWED_USERS = Entry("livy.server.access-control.allowed-users", "*")
   val ACCESS_CONTROL_MODIFY_USERS = Entry("livy.server.access-control.modify-users", null)

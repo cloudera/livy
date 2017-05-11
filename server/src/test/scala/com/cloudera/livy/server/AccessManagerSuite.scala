@@ -94,6 +94,7 @@ class AccessManagerSuite extends FunSuite with Matchers with LivyBaseUnitTestSui
     superUsers.foreach { u => accessManager.isUserAllowed(u) should be (true) }
 
     accessManager.isUserAllowed("anyUser") should be (true)
+    accessManager.isUserAllowed(null) should be (true)
   }
 
   test("configured users are not in the allowed list") {
