@@ -65,9 +65,10 @@ object BatchSession {
 
       val builder = new SparkProcessBuilder(livyConf, request.sparkVersion)
       val sparkConf = livyConf.sparkHome(request.sparkVersion).map(_ + File.separator + "conf")
+      val sparkHome = livyConf.sparkHome(request.sparkVersion)
       sparkConf.map(sc => builder.env("SPARK_CONF_DIR", sc))
+      sparkHome.map(sh => builder.env("SPARK_HOME", sh))
       builder.conf(conf)
-
       proxyUser.foreach(builder.proxyUser)
       request.className.foreach(builder.className)
       request.driverMemory.foreach(builder.driverMemory)
