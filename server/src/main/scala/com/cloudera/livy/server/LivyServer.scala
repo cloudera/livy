@@ -222,21 +222,12 @@ class LivyServer extends Logging {
           livyConf.get(AUTH_KERBEROS_NAME_RULES))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
-      case authType@LdapAuthenticationHandler.TYPE =>
+      case authType @ LdapAuthenticationHandler.TYPE =>
         val holder = new FilterHolder(new AuthenticationFilter())
         holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
-        val url = livyConf.get(LivyConf.AUTH_LDAP_URL)
-        if (url != null) {
-          holder.setInitParameter(LdapAuthenticationHandler.PROVIDER_URL, url)
-        }
-        val baseDN = livyConf.get(LivyConf.AUTH_LDAP_BASE_DN)
-        if (baseDN != null) {
-          holder.setInitParameter(LdapAuthenticationHandler.BASE_DN, baseDN)
-        }
-        val domain = livyConf.get(LivyConf.AUTH_LDAP_USERNAME_DOMAIN)
-        if (domain != null) {
-          holder.setInitParameter(LdapAuthenticationHandler.LDAP_BIND_DOMAIN, domain)
-        }
+        Option(livyConf.get(LivyConf.AUTH_LDAP_URL)).foreach(url => holder.setInitParameter(LdapAuthenticationHandler.PROVIDER_URL, url))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_USERNAME_DOMAIN)).foreach(domain => holder.setInitParameter(LdapAuthenticationHandler.LDAP_BIND_DOMAIN, domain))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_BASE_DN)).foreach(baseDN => holder.setInitParameter(LdapAuthenticationHandler.BASE_DN, baseDN))
         holder.setInitParameter(LdapAuthenticationHandler.SECURITY_AUTHENTICATION,
           livyConf.get(LivyConf.AUTH_LDAP_SECURITY_AUTH))
         holder.setInitParameter(LdapAuthenticationHandler.ENABLE_START_TLS,
