@@ -211,12 +211,11 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Logs a warning message if the given config key is deprecated. */
   private void logDeprecationWarning(String key) {
-    String altConfKey = allAlternativeKeys().get(key);
-    if (altConfKey != null) {
-      DeprecatedConf altConfs = getConfigsWithAlternatives().get(altConfKey);
-      LOG.warn("The configuration key " + altConfs.key() + " has been deprecated as of Livy "
-        + altConfs.version() + " and may be removed in the future. Please use the new key "
-        + altConfKey + " instead.");
+    ConfPair altConf = allAlternativeKeys().get(key);
+    if (altConf != null) {
+      LOG.warn("The configuration key " + key + " has been deprecated as of Livy "
+        + altConf.depConf.version() + " and may be removed in the future. Please use the new key "
+        + altConf.newKey + " instead.");
       return;
     }
 
@@ -234,12 +233,23 @@ public abstract class ClientConf<T extends ClientConf>
   /** Maps deprecated key to DeprecatedConf with the same key. */
   protected abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
 
-  private Map<String, String> altToNewKeyMap = null;
-  private Map<String, String> allAlternativeKeys() {
+  private static class ConfPair {
+    final String newKey;
+    final DeprecatedConf depConf;
+
+    ConfPair(String key, DeprecatedConf conf) {
+      this.newKey = key;
+      this.depConf = conf;
+    }
+  }
+  private Map<String, ConfPair> altToNewKeyMap = null;
+
+  private Map<String, ConfPair> allAlternativeKeys() {
     if (altToNewKeyMap == null) {
-      Map<String, String> configs = new HashMap<>();
+      Map<String, ConfPair> configs = new HashMap<>();
       for (String e : getConfigsWithAlternatives().keySet()) {
-        configs.put(getConfigsWithAlternatives().get(e).key(), e);
+        DeprecatedConf depConf = getConfigsWithAlternatives().get(e);
+        configs.put(depConf.key(), new ConfPair(e, depConf));
       }
       altToNewKeyMap = Collections.unmodifiableMap(configs);
     }
