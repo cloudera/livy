@@ -98,7 +98,7 @@ object InteractiveSession extends Logging {
 
       builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
 
-      info(s"Creating LivyClient for sessionId: $id")
+      info(s"Creating Interactive session $id: [owner: $owner, request: $request]")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
         .setConf("livy.client.session-id", id.toString)
@@ -421,6 +421,9 @@ class InteractiveSession(
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
         transition(SessionState.Running())
+        info(s"Interactive session $id created [appid: ${appId.orNull}, owner: $owner, proxyUser:" +
+          s" $proxyUser, state: ${state.toString}, kind: ${kind.toString}, " +
+          s"info: ${appInfo.asJavaMap}]")
       }
 
       private def errorOut(): Unit = {
