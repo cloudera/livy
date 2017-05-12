@@ -36,10 +36,15 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
 
   val (connector, protocol) = Option(livyConf.get(LivyConf.SSL_KEYSTORE)) match {
     case None =>
-      (new ServerConnector(server), "http")
+      val http = new HttpConfiguration()
+      http.setRequestHeaderSize(livyConf.getInt(LivyConf.REQUEST_HEADER_SIZE))
+      http.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
+      (new ServerConnector(server, new HttpConnectionFactory(http)), "http")
 
     case Some(keystore) =>
       val https = new HttpConfiguration()
+      https.setRequestHeaderSize(livyConf.getInt(LivyConf.REQUEST_HEADER_SIZE))
+      https.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
       https.addCustomizer(new SecureRequestCustomizer())
 
       val sslContextFactory = new SslContextFactory()
