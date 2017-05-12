@@ -62,12 +62,13 @@ object LivyConf {
 
   val SERVER_HOST = Entry("livy.server.host", "0.0.0.0")
   val SERVER_PORT = Entry("livy.server.port", 8998)
-  val CSRF_PROTECTION = LivyConf.Entry("livy.server.csrf-protection.enabled", false)
 
   val UI_ENABLED = Entry("livy.ui.enabled", true)
 
-  val HTTP_REQUEST_HEADER_SIZE = Entry("livy.http.request.header.size", 131072)
-  val HTTP_RESPONSE_HEADER_SIZE = Entry("livy.http.response.header.size", 131072)
+  val REQUEST_HEADER_SIZE = Entry("livy.server.request-header.size", 131072)
+  val RESPONSE_HEADER_SIZE = Entry("livy.server.response-header.size", 131072)
+
+  val CSRF_PROTECTION = Entry("livy.server.csrf-protection.enabled", false)
 
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
@@ -86,14 +87,10 @@ object LivyConf {
 
   val HEARTBEAT_WATCHDOG_INTERVAL = Entry("livy.server.heartbeat-watchdog.interval", "1m")
 
-  val LAUNCH_KERBEROS_PRINCIPAL =
-    LivyConf.Entry("livy.server.launch.kerberos.principal", null)
-  val LAUNCH_KERBEROS_KEYTAB =
-    LivyConf.Entry("livy.server.launch.kerberos.keytab", null)
-  val LAUNCH_KERBEROS_REFRESH_INTERVAL =
-    LivyConf.Entry("livy.server.launch.kerberos.refresh-interval", "1h")
-  val KINIT_FAIL_THRESHOLD =
-    LivyConf.Entry("livy.server.launch.kerberos.kinit-fail-threshold", 5)
+  val LAUNCH_KERBEROS_PRINCIPAL = Entry("livy.server.launch.kerberos.principal", null)
+  val LAUNCH_KERBEROS_KEYTAB = Entry("livy.server.launch.kerberos.keytab", null)
+  val LAUNCH_KERBEROS_REFRESH_INTERVAL = Entry("livy.server.launch.kerberos.refresh-interval", "1h")
+  val KINIT_FAIL_THRESHOLD = Entry("livy.server.launch.kerberos.kinit-fail-threshold", 5)
 
   /**
    * Recovery mode of Livy. Possible values:

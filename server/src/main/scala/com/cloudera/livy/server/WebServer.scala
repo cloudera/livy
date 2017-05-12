@@ -34,20 +34,17 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
   server.setStopTimeout(1000)
   server.setStopAtShutdown(true)
 
-  val requestHeaderSize = livyConf.getInt(LivyConf.HTTP_REQUEST_HEADER_SIZE)
-  val responseHeaderSize = livyConf.getInt(LivyConf.HTTP_RESPONSE_HEADER_SIZE)
-
   val (connector, protocol) = Option(livyConf.get(LivyConf.SSL_KEYSTORE)) match {
     case None =>
       val http = new HttpConfiguration()
-      http.setRequestHeaderSize(requestHeaderSize)
-      http.setResponseHeaderSize(responseHeaderSize)
+      http.setRequestHeaderSize(livyConf.getInt(LivyConf.REQUEST_HEADER_SIZE))
+      http.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
       (new ServerConnector(server, new HttpConnectionFactory(http)), "http")
 
     case Some(keystore) =>
       val https = new HttpConfiguration()
-      https.setRequestHeaderSize(requestHeaderSize)
-      https.setResponseHeaderSize(responseHeaderSize)
+      https.setRequestHeaderSize(livyConf.getInt(LivyConf.REQUEST_HEADER_SIZE))
+      https.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
       https.addCustomizer(new SecureRequestCustomizer())
 
       val sslContextFactory = new SslContextFactory()
