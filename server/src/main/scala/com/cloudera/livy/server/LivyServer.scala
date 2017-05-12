@@ -29,9 +29,9 @@ import scala.concurrent.Future
 import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
+import org.scalatra.{NotFound, ScalatraServlet}
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
-import org.scalatra.{NotFound, ScalatraServlet}
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
