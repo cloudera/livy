@@ -217,7 +217,7 @@ class LivyConnection {
       req.addHeader("X-Requested-By", "livy");
     }
     try (CloseableHttpResponse res = client.execute(req)) {
-      int status = (res.getStatusLine().getStatusCode() / 100) * 100;
+      int status = res.getStatusLine().getStatusCode();
       HttpEntity entity = res.getEntity();
       if (status == HttpStatus.SC_OK) {
         if (!Void.class.equals(retType)) {
@@ -227,8 +227,8 @@ class LivyConnection {
         }
       } else {
         String error = EntityUtils.toString(entity);
-        throw new IOException(String.format("%s: %s", res.getStatusLine().getReasonPhrase(),
-          error));
+        throw new IOException(String.format("[%d]%s: %s", status,
+        res.getStatusLine().getReasonPhrase(), error));
       }
     }
   }
