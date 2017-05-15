@@ -22,7 +22,6 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets.UTF_8
 
-import scala.util.Random
 import org.apache.http.client.utils.URIBuilder
 import org.eclipse.jetty.security._
 import org.eclipse.jetty.security.authentication.BasicAuthenticator
@@ -30,6 +29,7 @@ import org.eclipse.jetty.util.security._
 import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
 import org.scalatest.Matchers._
 import org.scalatra.servlet.ScalatraListener
+
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
 import com.cloudera.livy.server.WebServer
 
