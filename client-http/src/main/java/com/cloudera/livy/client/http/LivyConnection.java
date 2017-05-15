@@ -228,7 +228,7 @@ class LivyConnection {
       } else {
         String error = EntityUtils.toString(entity);
         throw new IOException(String.format("[%d]%s: %s", status,
-        res.getStatusLine().getReasonPhrase(), error));
+          res.getStatusLine().getReasonPhrase(), error));
       }
     }
   }
