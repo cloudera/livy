@@ -17,13 +17,12 @@
  */
 package com.cloudera.livy.server.auth;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Properties;
+
 import javax.naming.NamingException;
 import javax.naming.directory.InitialDirContext;
 import javax.naming.ldap.Control;
@@ -35,6 +34,10 @@ import javax.net.ssl.SSLSession;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+
 import org.apache.commons.codec.binary.Base64;
 import org.apache.hadoop.classification.InterfaceAudience.Private;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
@@ -44,6 +47,7 @@ import org.apache.hadoop.security.authentication.server.AuthenticationHandlerUti
 import org.apache.hadoop.security.authentication.server.AuthenticationToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 @Private
 @Evolving
@@ -78,43 +82,46 @@ public class LdapAuthenticationHandlerImpl implements AuthenticationHandler {
     return "ldap";
   }
 
-  public void init(Properties config) throws ServletException {
+  public void init(Properties config)
+      throws ServletException {
     this.baseDN = config.getProperty(BASE_DN);
     this.providerUrl = config.getProperty(PROVIDER_URL);
     this.ldapDomain = config.getProperty(LDAP_BIND_DOMAIN);
     this.enableStartTls = Boolean.valueOf(config.getProperty(ENABLE_START_TLS, "false"));
     Preconditions.checkNotNull(this.providerUrl, "The LDAP URI can not be null");
-    if(this.enableStartTls.booleanValue()) {
+    if (this.enableStartTls.booleanValue()) {
       String tmp = this.providerUrl.toLowerCase();
       Preconditions.checkArgument(!tmp.startsWith("ldaps"), "Can not use ldaps and StartTLS option at the same time");
     }
-
   }
 
   public void destroy() {
   }
 
-  public boolean managementOperation(AuthenticationToken token, HttpServletRequest request, HttpServletResponse response) throws IOException, AuthenticationException {
+  public boolean managementOperation(AuthenticationToken token, HttpServletRequest request,
+      HttpServletResponse response)
+      throws IOException, AuthenticationException {
     return true;
   }
 
-  public AuthenticationToken authenticate(HttpServletRequest request, HttpServletResponse response) throws IOException, AuthenticationException {
+  public AuthenticationToken authenticate(HttpServletRequest request, HttpServletResponse response)
+      throws IOException, AuthenticationException {
     logger.debug("[authenticate] started");
     logger.debug("[authenticate] Cookies: " + Arrays.toString(request.getCookies()));
     AuthenticationToken token = null;
     String authorization = request.getHeader("Authorization");
-    if(authorization != null && AuthenticationHandlerUtil.matchAuthScheme("Basic", authorization)) {
+    if (authorization != null && AuthenticationHandlerUtil.matchAuthScheme("Basic", authorization)) {
       authorization = authorization.substring("Basic".length()).trim();
       Base64 base64 = new Base64(0);
       String[] credentials = (new String(base64.decode(authorization), StandardCharsets.UTF_8)).split(":", 2);
-      if(credentials.length == 2) {
+      if (credentials.length == 2) {
         token = this.authenticateUser(credentials[0], credentials[1]);
         response.setStatus(200);
       }
     } else {
       response.setHeader("WWW-Authenticate", "Basic");
       response.setStatus(401);
-      if(authorization == null) {
+      if (authorization == null) {
         logger.trace("Basic auth starting");
       } else {
         logger.warn("\'Authorization\' does not start with \'Basic\' :  {}", authorization);
@@ -124,22 +131,23 @@ public class LdapAuthenticationHandlerImpl implements AuthenticationHandler {
     return token;
   }
 
-  private AuthenticationToken authenticateUser(String userName, String password) throws AuthenticationException {
+  private AuthenticationToken authenticateUser(String userName, String password)
+      throws AuthenticationException {
     logger.debug("[authenticateUser] started");
-    if(userName != null && !userName.isEmpty()) {
-      if(!hasDomain(userName) && this.ldapDomain != null) {
+    if (userName != null && !userName.isEmpty()) {
+      if (!hasDomain(userName) && this.ldapDomain != null) {
         userName = userName + "@" + this.ldapDomain;
       }
 
-      if(password != null && !password.isEmpty() && password.getBytes(StandardCharsets.UTF_8)[0] != 0) {
+      if (password != null && !password.isEmpty() && password.getBytes(StandardCharsets.UTF_8)[0] != 0) {
         String bindDN;
-        if(this.baseDN == null) {
+        if (this.baseDN == null) {
           bindDN = userName;
         } else {
           bindDN = "uid=" + userName + "," + this.baseDN;
         }
 
-        if(this.enableStartTls.booleanValue()) {
+        if (this.enableStartTls.booleanValue()) {
           this.authenticateWithTlsExtension(bindDN, password);
         } else {
           this.authenticateWithoutTlsExtension(bindDN, password);
@@ -154,16 +162,17 @@ public class LdapAuthenticationHandlerImpl implements AuthenticationHandler {
     }
   }
 
-  private void authenticateWithTlsExtension(String userDN, String password) throws AuthenticationException {
+  private void authenticateWithTlsExtension(String userDN, String password)
+      throws AuthenticationException {
     InitialLdapContext ctx = null;
     Hashtable env = new Hashtable();
     env.put("java.naming.factory.initial", "com.sun.jndi.ldap.LdapCtxFactory");
     env.put("java.naming.provider.url", this.providerUrl);
 
     try {
-      ctx = new InitialLdapContext(env, (Control[])null);
-      StartTlsResponse ex = (StartTlsResponse)ctx.extendedOperation(new StartTlsRequest());
-      if(this.disableHostNameVerification.booleanValue()) {
+      ctx = new InitialLdapContext(env, (Control[]) null);
+      StartTlsResponse ex = (StartTlsResponse) ctx.extendedOperation(new StartTlsRequest());
+      if (this.disableHostNameVerification.booleanValue()) {
         ex.setHostnameVerifier(new HostnameVerifier() {
           public boolean verify(String hostname, SSLSession session) {
             return true;
@@ -180,19 +189,18 @@ public class LdapAuthenticationHandlerImpl implements AuthenticationHandler {
     } catch (IOException | NamingException var13) {
       throw new AuthenticationException("Error validating LDAP user", var13);
     } finally {
-      if(ctx != null) {
+      if (ctx != null) {
         try {
           ctx.close();
         } catch (NamingException var12) {
           ;
         }
       }
-
     }
-
   }
 
-  private void authenticateWithoutTlsExtension(String userDN, String password) throws AuthenticationException {
+  private void authenticateWithoutTlsExtension(String userDN, String password)
+      throws AuthenticationException {
     Hashtable env = new Hashtable();
     env.put("java.naming.factory.initial", "com.sun.jndi.ldap.LdapCtxFactory");
     env.put("java.naming.provider.url", this.providerUrl);
@@ -214,13 +222,13 @@ public class LdapAuthenticationHandlerImpl implements AuthenticationHandler {
   }
 
   private static int indexOfDomainMatch(String userName) {
-    if(userName == null) {
+    if (userName == null) {
       return -1;
     } else {
       int idx = userName.indexOf(47);
       int idx2 = userName.indexOf(64);
       int endIdx = Math.min(idx, idx2);
-      if(endIdx == -1) {
+      if (endIdx == -1) {
         endIdx = Math.max(idx, idx2);
       }
 

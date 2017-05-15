@@ -18,32 +18,31 @@
 
 package com.cloudera.livy.server
 
-import java.util.concurrent._
 import java.util.EnumSet
+import java.util.concurrent._
 import javax.servlet._
 
-import org.apache.hadoop.security.authentication.server.{KerberosAuthenticationHandler, AuthenticationFilter}
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
-import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
-import org.eclipse.jetty.servlet.FilterHolder
-import org.scalatra.metrics.MetricsBootstrap
-import org.scalatra.metrics.MetricsSupportExtensions._
-import org.scalatra.ScalatraServlet
-import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
-
 import com.cloudera.livy._
+import com.cloudera.livy.server.auth.LdapAuthenticationHandlerImpl
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
 import com.cloudera.livy.server.ui.UIServlet
-import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
+import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
-import com.cloudera.livy.server.auth.LdapAuthenticationHandlerImpl
+
+import org.apache.hadoop.security.authentication.server.{AuthenticationFilter, KerberosAuthenticationHandler}
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
+import org.eclipse.jetty.servlet.FilterHolder
+import org.scalatra.ScalatraServlet
+import org.scalatra.metrics.MetricsBootstrap
+import org.scalatra.metrics.MetricsSupportExtensions._
+import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class LivyServer extends Logging {
 
@@ -224,6 +223,7 @@ class LivyServer extends Logging {
           livyConf.get(AUTH_KERBEROS_NAME_RULES))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
+
       case authType @ LdapAuthenticationHandlerImpl.TYPE =>
         val holder = new FilterHolder(new AuthenticationFilter())
         holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
@@ -235,7 +235,7 @@ class LivyServer extends Logging {
         holder.setInitParameter(LdapAuthenticationHandlerImpl.ENABLE_START_TLS,
           livyConf.get(LivyConf.AUTH_LDAP_ENABLE_START_TLS))
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
-        info("Ldap auth enabled.")
+        info("LDAP auth enabled.")
      case null =>
         // Nothing to do.
 
