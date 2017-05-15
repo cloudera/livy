@@ -31,6 +31,9 @@
 # If livy should impersonate the requesting users when creating a new session.
 # livy.impersonation.enabled = true
 
+# Logs size livy can cache for each session/batch. 0 means don't cache the logs.
+# livy.spark.logs.size = 200 
+
 # Comma-separated list of Livy RSC jars. By default Livy will upload jars from its installation
 # directory every time a session is started. By caching these files in HDFS, for example, startup
 # time of sessions on YARN can be reduced.

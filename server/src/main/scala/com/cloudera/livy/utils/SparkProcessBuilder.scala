@@ -214,7 +214,7 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
     _redirectError.foreach(pb.redirectError)
     _redirectErrorStream.foreach(pb.redirectErrorStream)
 
-    new LineBufferedProcess(pb.start())
+    new LineBufferedProcess(pb.start(), livyConf.getInt(LivyConf.SPARK_LOGS_SIZE))
   }
 
 }

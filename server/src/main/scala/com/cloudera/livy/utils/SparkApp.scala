@@ -92,7 +92,8 @@ object SparkApp {
     if (livyConf.isRunningOnYarn()) {
       new SparkYarnApp(uniqueAppTag, appId, process, listener, livyConf)
     } else {
-      require(process.isDefined, "process must not be None when Livy master is not YARN.")
+      // process is None in recovery mode
+      // require(process.isDefined, "process must not be None when Livy master is not YARN.")
       new SparkProcApp(process.get, listener)
     }
   }

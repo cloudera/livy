@@ -23,11 +23,13 @@ import java.util.concurrent.locks.ReentrantLock
 
 import scala.io.Source
 
+import com.google.common.collect.EvictingQueue
+
 import com.cloudera.livy.Logging
 
-class LineBufferedStream(inputStream: InputStream) extends Logging {
+class LineBufferedStream(inputStream: InputStream, logSize: Int) extends Logging {
 
-  private[this] var _lines: IndexedSeq[String] = IndexedSeq()
+  private[this] val _lines: EvictingQueue[String] = EvictingQueue.create[String](logSize)
 
   private[this] val _lock = new ReentrantLock()
   private[this] val _condition = _lock.newCondition()
@@ -36,17 +38,17 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
   private val thread = new Thread {
     override def run() = {
       val lines = Source.fromInputStream(inputStream).getLines()
-      for (line <- lines) {
+       for (line <- lines) {
         _lock.lock()
         try {
-          _lines = _lines :+ line
+          info(s"stdout: $line")
+          if(logSize > 0) _lines add line
           _condition.signalAll()
         } finally {
           _lock.unlock()
         }
       }
 
-      _lines.map { line => info("stdout: ", line) }
       _lock.lock()
       try {
         _finished = true
@@ -59,7 +61,7 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
   thread.setDaemon(true)
   thread.start()
 
-  def lines: IndexedSeq[String] = _lines
+  def lines: IndexedSeq[String] = IndexedSeq.empty[String] ++ _lines.toArray(Array.empty[String])
 
   def iterator: Iterator[String] = {
     new LinesIterator
@@ -71,7 +73,7 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
     private[this] var index = 0
 
     override def hasNext: Boolean = {
-      if (index < _lines.length) {
+      if (_lines.size > 0) {
         true
       } else {
         // Otherwise we might still have more data.
@@ -81,7 +83,7 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
             false
           } else {
             _condition.await()
-            index < _lines.length
+            _lines.size > 0
           }
         } finally {
           _lock.unlock()
@@ -90,7 +92,7 @@ class LineBufferedStream(inputStream: InputStream) extends Logging {
     }
 
     override def next(): String = {
-      val line = _lines(index)
+      val line = _lines.poll()
       index += 1
       line
     }

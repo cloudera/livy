@@ -380,17 +380,9 @@ class InteractiveSession(
   heartbeat()
 
   private val app = mockApp.orElse {
-    if (livyConf.isRunningOnYarn()) {
       val driverProcess = client.flatMap { c => Option(c.getDriverProcess) }
-        .map(new LineBufferedProcess(_))
-      // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
-      // (e.g. Reflect YARN application state to session state).
+        .map(new LineBufferedProcess(_, livyConf.getInt(LivyConf.SPARK_LOGS_SIZE)))
       Option(SparkApp.create(appTag, appId, driverProcess, livyConf, Some(this)))
-    } else {
-      // When Livy is running with other cluster manager, SparkApp doesn't provide any
-      // additional benefit over controlling RSCDriver using RSCClient. Don't use it.
-      None
-    }
   }
 
   if (client.isEmpty) {
