@@ -38,11 +38,11 @@ class LineBufferedStream(inputStream: InputStream, logSize: Int) extends Logging
   private val thread = new Thread {
     override def run() = {
       val lines = Source.fromInputStream(inputStream).getLines()
-       for (line <- lines) {
+      for (line <- lines) {
+        info(s"stdout: $line")
         _lock.lock()
         try {
-          info(s"stdout: $line")
-          if(logSize > 0) _lines add line
+          _lines.add(line)
           _condition.signalAll()
         } finally {
           _lock.unlock()
@@ -61,7 +61,12 @@ class LineBufferedStream(inputStream: InputStream, logSize: Int) extends Logging
   thread.setDaemon(true)
   thread.start()
 
-  def lines: IndexedSeq[String] = IndexedSeq.empty[String] ++ _lines.toArray(Array.empty[String])
+  def lines: IndexedSeq[String] = {
+    _lock.lock()
+    val lines = IndexedSeq.empty[String] ++ _lines.toArray(Array.empty[String])
+    _lock.unlock()
+    lines
+  }
 
   def iterator: Iterator[String] = {
     new LinesIterator
@@ -70,7 +75,6 @@ class LineBufferedStream(inputStream: InputStream, logSize: Int) extends Logging
   def waitUntilClose(): Unit = thread.join()
 
   private class LinesIterator extends Iterator[String] {
-    private[this] var index = 0
 
     override def hasNext: Boolean = {
       if (_lines.size > 0) {
@@ -92,8 +96,9 @@ class LineBufferedStream(inputStream: InputStream, logSize: Int) extends Logging
     }
 
     override def next(): String = {
+      _lock.lock()
       val line = _lines.poll()
-      index += 1
+      _lock.unlock()
       line
     }
   }

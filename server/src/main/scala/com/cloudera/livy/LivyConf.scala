@@ -116,7 +116,7 @@ object LivyConf {
   val RECOVERY_STATE_STORE_URL = Entry("livy.server.recovery.state-store.url", "")
 
   // Livy will cache the max no of logs specified. 0 means don't cache the logs.
-  val SPARK_LOGS_SIZE = Entry("livy.spark.logs.size", 200)
+  val SPARK_LOGS_SIZE = Entry("livy.cache-log.size", 200)
 
   // If Livy can't find the yarn app within this time, consider it lost.
   val YARN_APP_LOOKUP_TIMEOUT = Entry("livy.server.yarn.app-lookup-timeout", "60s")
