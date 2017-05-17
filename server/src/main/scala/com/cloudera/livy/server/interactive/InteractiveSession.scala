@@ -290,7 +290,7 @@ object InteractiveSession extends Logging {
         case (Some(file), false) =>
           debug("Enable HiveContext because hive-site.xml is found under classpath, "
             + file.getAbsolutePath)
-          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_FILES)
+          mergeConfList(List(file.getAbsolutePath), LivyConf.SPARK_JARS)
           mergeConfList(datanucleusJars(livyConf, sparkMajorVersion), LivyConf.SPARK_JARS)
         case (None, false) =>
           warn("Enable HiveContext but no hive-site.xml found under" +
