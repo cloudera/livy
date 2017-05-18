@@ -19,9 +19,10 @@ package com.cloudera.livy.rsc.driver;
 
 import java.io.File;
 import java.lang.reflect.Method;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.spark.SparkContext;
-import org.apache.spark.api.java.JavaFutureAction;
+
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SQLContext;
 import org.apache.spark.sql.hive.HiveContext;
@@ -42,6 +43,7 @@ class JobContextImpl implements JobContext {
   private volatile SQLContext sqlctx;
   private volatile HiveContext hivectx;
   private volatile JavaStreamingContext streamingctx;
+  private final ConcurrentHashMap<String, Object> variables;
   private final RSCDriver driver;
   private volatile Object sparksession;
 
@@ -49,6 +51,7 @@ class JobContextImpl implements JobContext {
     this.sc = sc;
     this.localTmpDir = localTmpDir;
     this.driver = driver;
+    this.variables = new ConcurrentHashMap<>();
   }
 
   @Override
@@ -108,6 +111,11 @@ class JobContextImpl implements JobContext {
   public synchronized JavaStreamingContext streamingctx(){
     Utils.checkState(streamingctx != null, "method createStreamingContext must be called first.");
     return streamingctx;
+  }
+
+  @Override
+  public ConcurrentHashMap<String, Object> variables() {
+    return variables;
   }
 
   @Override
