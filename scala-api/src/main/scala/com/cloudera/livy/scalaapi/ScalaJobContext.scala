@@ -48,6 +48,15 @@ class ScalaJobContext private[livy] (context: JobContext) {
 
   def sparkSession[E]: E = context.sparkSession()
 
+  /** Set shared object, it will replace the old one if already existed */
+  def setSharedVariable[E](name: String, obj: E): Unit = context.setSharedObject(name, obj)
+
+  /** Get shared object */
+  def getSharedVariable[E](name: String): E = context.getSharedObject(name)
+
+  /** Remove shared object from cache */
+  def removeSharedVariable[E](name: String): E = context.removeSharedObject(name)
+
   /**
    * Creates the SparkStreaming context.
    *

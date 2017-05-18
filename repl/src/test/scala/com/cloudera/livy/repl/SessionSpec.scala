@@ -99,7 +99,7 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
         override def answer(invocationOnMock: InvocationOnMock): String = "spark"
       })
 
-      rscConf.set(RSCConf.Entry.RETAINED_STATEMENT_NUMBER, 2)
+      rscConf.set(RSCConf.Entry.RETAINED_STATEMENTS, 2)
       val session = new Session(rscConf, interpreter)
       session.start()
 

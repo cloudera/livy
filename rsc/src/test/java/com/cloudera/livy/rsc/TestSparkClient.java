@@ -45,13 +45,7 @@ import com.cloudera.livy.LivyClient;
 import com.cloudera.livy.LivyClientBuilder;
 import com.cloudera.livy.client.common.Serializer;
 import com.cloudera.livy.rsc.rpc.RpcException;
-import com.cloudera.livy.test.jobs.Echo;
-import com.cloudera.livy.test.jobs.Failure;
-import com.cloudera.livy.test.jobs.FileReader;
-import com.cloudera.livy.test.jobs.GetCurrentUser;
-import com.cloudera.livy.test.jobs.SQLGetTweets;
-import com.cloudera.livy.test.jobs.Sleeper;
-import com.cloudera.livy.test.jobs.SmallCount;
+import com.cloudera.livy.test.jobs.*;
 import static com.cloudera.livy.rsc.RSCConf.Entry.*;
 
 public class TestSparkClient {
@@ -76,6 +70,7 @@ public class TestSparkClient {
     }
 
     conf.put(LIVY_JARS.key(), "");
+    conf.put(RETAINED_SHARE_VARIABLES.key(), "2");
     return conf;
   }
 
@@ -107,6 +102,61 @@ public class TestSparkClient {
       public void call(LivyClient client) throws Exception {
         JobHandle<Long> handle = client.submit(new SmallCount(5));
         assertEquals(Long.valueOf(5L), handle.get(TIMEOUT, TimeUnit.SECONDS));
+      }
+    });
+  }
+
+  @Test
+  public void testSharedVariable() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      void call(LivyClient client) throws Exception {
+        for (int i = 0; i < 2; i ++) {
+          JobHandle<Integer> handler = client.submit(new SharedVariableCounter("test"));
+          assertEquals(Integer.valueOf(i), handler.get(TIMEOUT, TimeUnit.SECONDS));
+        }
+      }
+    });
+  }
+
+  private static class SharedVariableTest implements Job<Void> {
+
+    @Override
+    public Void call(JobContext jc) throws Exception {
+      jc.setSharedObject("1", 1);
+      jc.setSharedObject("2", 2);
+
+      Integer obj = jc.getSharedObject("1");
+      assertEquals(obj, Integer.valueOf(1));
+
+      jc.setSharedObject("3", 3);
+
+      Exception e = null;
+      try {
+        jc.getSharedObject("2");
+      } catch (NoSuchElementException exp) {
+        e = exp;
+      }
+
+      assertNotNull(e);
+
+      obj = jc.removeSharedObject("2");
+      assertNull(obj);
+
+      obj = jc.removeSharedObject("3");
+      assertEquals(obj, Integer.valueOf(3));
+
+      return null;
+    }
+  }
+
+  @Test
+  public void testRemoveSharedVariableWithLRU() throws Exception {
+    runTest(true, new TestFunction() {
+      @Override
+      void call(LivyClient client) throws Exception {
+        JobHandle<Void> handler = client.submit(new SharedVariableTest());
+        handler.get(TIMEOUT, TimeUnit.SECONDS);
       }
     });
   }

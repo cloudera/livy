@@ -158,6 +158,12 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     assert(result === "hello")
   }
 
+  test("share variables across jobs") {
+    assume(client2 != null, "Client not active.")
+    waitFor(client2.submit(new SharedVariableCounter("x"))) shouldBe 0
+    waitFor(client2.submit(new SharedVariableCounter("x"))) shouldBe 1
+  }
+
   scalaTest("run scala jobs") {
     assume(client2 != null, "Client not active.")
 
@@ -173,6 +179,11 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     jobs.foreach { job =>
       val result = waitFor(client2.submit(job))
       assert(result === job.value)
+    }
+
+    (0 until 2).foreach { i =>
+      val result = waitFor(client.submit(new ScalaSharedVariableCounter("test")))
+      assert(i === result)
     }
   }
 
