@@ -182,7 +182,7 @@ class JobApiIT extends BaseIntegrationTestSuite with BeforeAndAfterAll with Logg
     }
 
     (0 until 2).foreach { i =>
-      val result = waitFor(client.submit(new ScalaSharedVariableCounter("test")))
+      val result = waitFor(client2.submit(new ScalaSharedVariableCounter("test")))
       assert(i === result)
     }
   }
