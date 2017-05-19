@@ -144,7 +144,7 @@ case $option in
     ;;
 
   (stop)
-    if [ -f $pid ]; then
+    if [ -f "$pid" ]; then
       TARGET_ID="$(cat "$pid")"
       if [[ $(ps -p "$TARGET_ID" -o comm=) =~ "java" ]]; then
         echo "stopping livy-server"
