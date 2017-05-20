@@ -68,24 +68,29 @@ public class RpcServer implements Closeable {
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-  private final int DEFAULT_RETRY=10;
+  private final int DEFAULT_RETRY = 10;
   
-  
+  /**
+   * Creating RPC Server
+   * @param lconf
+   * @throws IOException
+   * @throws InterruptedException
+   */
   public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
     this.config = lconf;
     this.group = new NioEventLoopGroup(
     this.config.getInt(RPC_MAX_THREADS),
     Utils.newDaemonThreadFactory("RPC-Handler-%d"));
-    int portNumber=config.getInt(LAUNCHER_PORT);
+    int portNumber = config.getInt(LAUNCHER_PORT);
     for(int tries = 0 ; tries<DEFAULT_RETRY ; tries++){
       try {
         this.channel=createChannel(portNumber, tries);
-    		break;
-    	}catch(BindException e){
-    		LOG.warn("RPC not able to connect port "+ portNumber);
-    		portNumber = portNumber +1;
-    	}
-    }
+        break;
+      }catch(BindException e){
+        LOG.warn("RPC not able to connect port "+ portNumber);
+        portNumber = portNumber +1;
+     }
+  }
    
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
@@ -105,12 +110,12 @@ public class RpcServer implements Closeable {
    * @throws InterruptedException 
    */
   public Channel createChannel(int portNumber,int tries) throws IOException, InterruptedException{
-    if(portNumber==-1) {
+    if (portNumber == -1) {
       return getChannel(0);
-	}
-	else {
+    }
+    else {
       return getChannel(config.getInt(LAUNCHER_PORT) + tries );
-	}
+    }
   }
   
   /**
@@ -118,34 +123,34 @@ public class RpcServer implements Closeable {
    * 
    */
   public Channel getChannel(int portNumber) throws BindException, InterruptedException{
-	  Channel channel = new ServerBootstrap()
-		      .group(group)
-		      .channel(NioServerSocketChannel.class)
-		      .childHandler(new ChannelInitializer<SocketChannel>() {
-		          @Override
-		          public void initChannel(SocketChannel ch) throws Exception {
-		            SaslServerHandler saslHandler = new SaslServerHandler(config);
-		            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
-		            saslHandler.rpc = newRpc;
+      Channel channel = new ServerBootstrap()
+	      .group(group)
+	      .channel(NioServerSocketChannel.class)
+	      .childHandler(new ChannelInitializer<SocketChannel>() {
+	          @Override
+	          public void initChannel(SocketChannel ch) throws Exception {
+	            SaslServerHandler saslHandler = new SaslServerHandler(config);
+	            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
+	            saslHandler.rpc = newRpc;
 
-		            Runnable cancelTask = new Runnable() {
-		                @Override
-		                public void run() {
-		                  LOG.warn("Timed out waiting for hello from client.");
-		                  newRpc.close();
-		                }
-		            };
-		            saslHandler.cancelTask = group.schedule(cancelTask,
-		                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
-		                TimeUnit.MILLISECONDS);
-		          }
-		      })
-		      .option(ChannelOption.SO_BACKLOG, 1)
-		      .option(ChannelOption.SO_REUSEADDR, true)
-		      .childOption(ChannelOption.SO_KEEPALIVE, true)
-		      .bind(portNumber)
-		      .sync()
-		      .channel(); 
+	            Runnable cancelTask = new Runnable() {
+	                @Override
+	                public void run() {
+	                  LOG.warn("Timed out waiting for hello from client.");
+	                  newRpc.close();
+	                }
+	            };
+	            saslHandler.cancelTask = group.schedule(cancelTask,
+	                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
+	                TimeUnit.MILLISECONDS);
+	          }
+	      })
+	      .option(ChannelOption.SO_BACKLOG, 1)
+	      .option(ChannelOption.SO_REUSEADDR, true)
+	      .childOption(ChannelOption.SO_KEEPALIVE, true)
+	      .bind(portNumber)
+	      .sync()
+	      .channel(); 
 	  return channel;
   }
 
