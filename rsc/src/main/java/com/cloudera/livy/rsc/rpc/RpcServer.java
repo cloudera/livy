@@ -68,8 +68,7 @@ public class RpcServer implements Closeable {
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-  private final int DEFAULT_RETRY = 10;
-  
+  private final int DEFAULT_RETRY = 10; 
   /**
    * Creating RPC Server
    * @param lconf
@@ -90,8 +89,7 @@ public class RpcServer implements Closeable {
         LOG.warn("RPC not able to connect port "+ portNumber);
         portNumber = portNumber +1;
      }
-  }
-   
+    }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
     LOG.warn("Connected to the port " + this.port);
@@ -124,34 +122,34 @@ public class RpcServer implements Closeable {
    */
   public Channel getChannel(int portNumber) throws BindException, InterruptedException{
       Channel channel = new ServerBootstrap()
-	      .group(group)
-	      .channel(NioServerSocketChannel.class)
-	      .childHandler(new ChannelInitializer<SocketChannel>() {
-	          @Override
-	          public void initChannel(SocketChannel ch) throws Exception {
-	            SaslServerHandler saslHandler = new SaslServerHandler(config);
-	            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
-	            saslHandler.rpc = newRpc;
+      .group(group)
+      .channel(NioServerSocketChannel.class)
+      .childHandler(new ChannelInitializer<SocketChannel>() {
+          @Override
+          public void initChannel(SocketChannel ch) throws Exception {
+            SaslServerHandler saslHandler = new SaslServerHandler(config);
+            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
+            saslHandler.rpc = newRpc;
 
-	            Runnable cancelTask = new Runnable() {
-	                @Override
-	                public void run() {
-	                  LOG.warn("Timed out waiting for hello from client.");
-	                  newRpc.close();
-	                }
-	            };
-	            saslHandler.cancelTask = group.schedule(cancelTask,
-	                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
-	                TimeUnit.MILLISECONDS);
-	          }
-	      })
-	      .option(ChannelOption.SO_BACKLOG, 1)
-	      .option(ChannelOption.SO_REUSEADDR, true)
-	      .childOption(ChannelOption.SO_KEEPALIVE, true)
-	      .bind(portNumber)
-	      .sync()
-	      .channel(); 
-	  return channel;
+            Runnable cancelTask = new Runnable() {
+                @Override
+                public void run() {
+                  LOG.warn("Timed out waiting for hello from client.");
+                  newRpc.close();
+                }
+            };
+            saslHandler.cancelTask = group.schedule(cancelTask,
+                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
+                TimeUnit.MILLISECONDS);
+          }
+      })
+      .option(ChannelOption.SO_BACKLOG, 1)
+      .option(ChannelOption.SO_REUSEADDR, true)
+      .childOption(ChannelOption.SO_KEEPALIVE, true)
+      .bind(portNumber)
+      .sync()
+      .channel(); 
+  return channel;
   }
 
   /**
