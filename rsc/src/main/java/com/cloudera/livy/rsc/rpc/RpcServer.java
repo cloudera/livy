@@ -68,7 +68,7 @@ public class RpcServer implements Closeable {
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-  private final int DEFAULT_RETRY = 10; 
+  private final int DEFAULT_RETRY = 10;
   /**
    * Creating RPC Server
    * @param lconf
@@ -98,15 +98,14 @@ public class RpcServer implements Closeable {
       address = config.findLocalAddress();
     }
     this.address = address;
-  }
-  
+  } 
   /**
    * If user set the port number by livy.rsc.launcher.port then use that
-   * @param portNumber : Provided by the user 
+   * @param portNumber : Provided by the user
    * @return
-   * @throws IOException 
-   * @throws InterruptedException 
-   */
+   * @throws IOException
+   * @throws InterruptedException
+  */
   public Channel createChannel(int portNumber,int tries) throws IOException, InterruptedException{
     if (portNumber == -1) {
       return getChannel(0);
@@ -115,11 +114,9 @@ public class RpcServer implements Closeable {
       return getChannel(config.getInt(LAUNCHER_PORT) + tries );
     }
   }
-  
   /**
-   * @throws InterruptedException 
-   * 
-   */
+   * @throws InterruptedException
+   **/
   public Channel getChannel(int portNumber) throws BindException, InterruptedException{
       Channel channel = new ServerBootstrap()
       .group(group)
@@ -151,7 +148,6 @@ public class RpcServer implements Closeable {
       .channel(); 
   return channel;
   }
-
   /**
    * Tells the RPC server to expect connections from clients.
    *
