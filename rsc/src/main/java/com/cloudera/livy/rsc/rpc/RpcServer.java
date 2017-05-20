@@ -98,7 +98,7 @@ public class RpcServer implements Closeable {
       address = config.findLocalAddress();
     }
     this.address = address;
-  } 
+  }
   /**
    * If user set the port number by livy.rsc.launcher.port then use that
    * @param portNumber : Provided by the user
@@ -145,7 +145,7 @@ public class RpcServer implements Closeable {
       .childOption(ChannelOption.SO_KEEPALIVE, true)
       .bind(portNumber)
       .sync()
-      .channel(); 
+      .channel();
   return channel;
   }
   /**
