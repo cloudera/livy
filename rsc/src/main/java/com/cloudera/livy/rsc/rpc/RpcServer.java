@@ -68,7 +68,7 @@ public class RpcServer implements Closeable {
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-  private final int DEFAULT_RETRY = 10;
+  private int portRange;
   /**
    * Creating RPC Server
    * @param lconf
@@ -77,11 +77,12 @@ public class RpcServer implements Closeable {
    */
   public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
     this.config = lconf;
+    this.portRange=config.getInt(LAUNCHER_PORT_RANGE);
     this.group = new NioEventLoopGroup(
     this.config.getInt(RPC_MAX_THREADS),
     Utils.newDaemonThreadFactory("RPC-Handler-%d"));
     int portNumber = config.getInt(LAUNCHER_PORT);
-    for(int tries = 0 ; tries<DEFAULT_RETRY ; tries++){
+    for(int tries = 0 ; tries < this.portRange ; tries++){
       try {
         this.channel=createChannel(portNumber, tries);
         break;
