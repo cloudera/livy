@@ -103,7 +103,7 @@ class Session(
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    val statement = new Statement(statementId, StatementState.Waiting, null)
+    val statement = new Statement(statementId, code, StatementState.Waiting, null)
     _statements.synchronized { _statements(statementId) = statement }
 
     Future {

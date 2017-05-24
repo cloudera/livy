@@ -914,6 +914,8 @@ A statement represents the result of an execution statement.
 +========+======================+=====================+
 | id     | The statement id     | integer             |
 +--------+----------------------+---------------------+
+| code   | The execution code   | string              |
++--------+----------------------+---------------------+
 | state  | The execution state  | statement state     |
 +--------+----------------------+---------------------+
 | output | The execution output | statement output    |
