@@ -21,11 +21,7 @@ package com.cloudera.livy.server.interactive
 import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
-=======
->>>>>>> Add SparkEnvironment
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
@@ -47,12 +43,7 @@ import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.sessions.SessionState.Dead
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-import com.cloudera.livy.util.LineBufferedProcess
-import com.cloudera.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener}
-=======
 import com.cloudera.livy.utils._
->>>>>>> Add SparkEnvironment
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class InteractiveRecoveryMetadata(
@@ -68,11 +59,6 @@ case class InteractiveRecoveryMetadata(
   extends RecoveryMetadata
 
 object InteractiveSession extends Logging {
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-  private[interactive] val SPARK_YARN_IS_PYTHON = "spark.yarn.isPython"
-
-=======
->>>>>>> Add SparkEnvironment
   val RECOVERY_SESSION_TYPE = "interactive"
 
   def create(
@@ -172,7 +158,6 @@ object InteractiveSession extends Logging {
     builderProperties ++= conf
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
       Option(livyConf.get(LivyConf.REPL_JARS)).map { jars =>
         val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
         jars.split(",").filter { name => new Path(name).getName match {
@@ -183,9 +168,6 @@ object InteractiveSession extends Logging {
           }
         }.toList
       }.getOrElse {
-=======
-      Option(livyConf.get(LivyConf.LIVY_REPL_JARS)).map(_.split(",").toList).getOrElse {
->>>>>>> Add SparkEnvironment
         val home = sys.env("LIVY_HOME")
         val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
           .filter(_.isDirectory())
@@ -261,20 +243,11 @@ object InteractiveSession extends Logging {
     builderProperties.put(RSCConf.Entry.SPARK_HOME.key, sparkEnv.sparkHome())
     builderProperties.put(RSCConf.Entry.SPARK_CONF_DIR.key, sparkEnv.sparkConfDir())
 
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
     // Set Livy.rsc.jars from livy conf to rsc conf, RSC conf will take precedence if both are set.
     Option(livyConf.get(LivyConf.RSC_JARS)).foreach(
       builderProperties.getOrElseUpdate(RSCConf.Entry.LIVY_JARS.key(), _))
 
-    require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
-    require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
-
-    val (sparkMajorVersion, _) =
-      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
-    val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
-=======
     mergeConfList(livyJars(livyConf, sparkEnv.scalaVersion()), SparkEnvironment.SPARK_JARS)
->>>>>>> Add SparkEnvironment
 
     val enableHiveContext = sparkEnv.getBoolean(SparkEnvironment.ENABLE_HIVE_CONTEXT)
     // pass spark.livy.spark_major_version to driver

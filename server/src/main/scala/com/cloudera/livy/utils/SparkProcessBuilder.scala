@@ -23,7 +23,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import com.cloudera.livy.{LivyConf, Logging}
-import com.cloudera.livy.util.LineBufferedProcess
 
 class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
 

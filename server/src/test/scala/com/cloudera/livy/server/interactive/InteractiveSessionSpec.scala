@@ -45,13 +45,7 @@ class InteractiveSessionSpec extends FunSpec
     with Matchers with BeforeAndAfterAll with BeforeAndAfter with LivyBaseUnitTestSuite {
 
   private val livyConf = new LivyConf()
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
   livyConf.set(LivyConf.REPL_JARS, "dummy.jar")
-    .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
-    .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
-=======
-  livyConf.set(LivyConf.LIVY_REPL_JARS, "")
->>>>>>> Add SparkEnvironment
 
   implicit val formats = DefaultFormats
 
@@ -122,17 +116,22 @@ class InteractiveSessionSpec extends FunSpec
       )
       val livyConf = new LivyConf(false)
         .set(LivyConf.REPL_JARS, testedJars.mkString(","))
-        .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
-        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
-      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties(LivyConf.SPARK_JARS).split(",").toSet === Set("test_2.10-0.1.jar",
+      val sparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
+      sparkEnv._sparkVersion = (1, 6)
+      sparkEnv._scalaVersion = "2.10"
+      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf, sparkEnv)
+      assert(properties(SparkEnvironment.SPARK_JARS).split(",").toSet === Set(
+        "test_2.10-0.1.jar",
         "local://dummy-path/test/test1_2.10-1.0.jar",
         "hdfs:///dummy-path/test/test3.jar",
         "dummy.jar"))
 
-      livyConf.set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.11")
-      val properties1 = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
-      assert(properties1(LivyConf.SPARK_JARS).split(",").toSet === Set(
+      val newSparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
+      newSparkEnv._sparkVersion = (1, 6)
+      newSparkEnv._scalaVersion = "2.11"
+      val properties1 = InteractiveSession.prepareBuilderProp(
+        Map.empty, Spark(), livyConf, newSparkEnv)
+      assert(properties1(SparkEnvironment.SPARK_JARS).split(",").toSet === Set(
         "file:///dummy-path/test/test2_2.11-1.0-SNAPSHOT.jar",
         "hdfs:///dummy-path/test/test3.jar",
         "dummy.jar"))
@@ -148,9 +147,10 @@ class InteractiveSessionSpec extends FunSpec
       val livyConf = new LivyConf(false)
         .set(LivyConf.REPL_JARS, "dummy.jar")
         .set(LivyConf.RSC_JARS, rscJars.mkString(","))
-        .set(LivyConf.LIVY_SPARK_VERSION, "1.6.2")
-        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
-      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf)
+      val sparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
+      sparkEnv._sparkVersion = (1, 6)
+      sparkEnv._scalaVersion = "2.10"
+      val properties = InteractiveSession.prepareBuilderProp(Map.empty, Spark(), livyConf, sparkEnv)
       // if livy.rsc.jars is configured in LivyConf, it should be passed to RSCConf.
       properties(RSCConf.Entry.LIVY_JARS.key()).split(",").toSet === rscJars
 
@@ -160,7 +160,7 @@ class InteractiveSessionSpec extends FunSpec
         "file:///dummy-path/foo2.jar",
         "hdfs:///dummy-path/foo3.jar")
       val properties1 = InteractiveSession.prepareBuilderProp(
-        Map(RSCConf.Entry.LIVY_JARS.key() -> rscJars1.mkString(",")), Spark(), livyConf)
+        Map(RSCConf.Entry.LIVY_JARS.key() -> rscJars1.mkString(",")), Spark(), livyConf, sparkEnv)
       // if rsc jars are configured both in LivyConf and RSCConf, RSCConf should take precedence.
       properties1(RSCConf.Entry.LIVY_JARS.key()).split(",").toSet === rscJars1
     }
@@ -289,7 +289,7 @@ class InteractiveSessionSpec extends FunSpec
     it("should honor default Spark environment") {
       val conf = new LivyConf()
         .set(SPARK_ENV_PREFIX + ".default." + SPARK_HOME.key, sys.env("SPARK_HOME"))
-        .set(LivyConf.LIVY_REPL_JARS, "")
+        .set(LivyConf.REPL_JARS, "dummy.jar")
       session = createSession(livyConf = conf)
       session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
       sparkEnvironments.size should be (1)
@@ -299,7 +299,7 @@ class InteractiveSessionSpec extends FunSpec
     it("should use customized Spark environment") {
       val conf = new LivyConf()
         .set(SPARK_ENV_PREFIX + ".test." + SPARK_HOME.key, sys.env("SPARK_HOME"))
-        .set(LivyConf.LIVY_REPL_JARS, "")
+        .set(LivyConf.REPL_JARS, "dummy.jar")
       session = createSession(livyConf = conf, sparkEnv = "test")
       session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
       sparkEnvironments.get("test") should not be (None)
@@ -309,7 +309,7 @@ class InteractiveSessionSpec extends FunSpec
       val conf = new LivyConf()
         .set(SPARK_ENV_PREFIX + ".test." + SPARK_HOME.key, sys.env("SPARK_HOME"))
         .set(SPARK_ENV_PREFIX + ".production." + SPARK_HOME.key, sys.env("SPARK_HOME"))
-        .set(LivyConf.LIVY_REPL_JARS, "")
+        .set(LivyConf.REPL_JARS, "dummy.jar")
       session = createSession(livyConf = conf, sparkEnv = "production")
       session.state should (be(a[SessionState.Starting]) or be(a[SessionState.Idle]))
       sparkEnvironments.get("production") should not be (None)

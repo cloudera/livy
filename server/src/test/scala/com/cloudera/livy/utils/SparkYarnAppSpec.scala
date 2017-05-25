@@ -35,7 +35,6 @@ import org.scalatest.FunSpec
 import org.scalatest.mock.MockitoSugar.mock
 
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
-import com.cloudera.livy.util.LineBufferedProcess
 import com.cloudera.livy.utils.SparkApp._
 
 class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {

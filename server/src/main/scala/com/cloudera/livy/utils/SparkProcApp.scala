@@ -19,7 +19,6 @@
 package com.cloudera.livy.utils
 
 import com.cloudera.livy.{Logging, Utils}
-import com.cloudera.livy.util.LineBufferedProcess
 
 /**
  * Provide a class to control a Spark application using spark-submit.

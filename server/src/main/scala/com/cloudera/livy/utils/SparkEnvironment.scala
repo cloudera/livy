@@ -21,6 +21,7 @@ package com.cloudera.livy.utils
 import java.io.File
 import java.lang.{Boolean => JBoolean}
 import java.nio.file.{Files, Paths}
+import java.util.{Map => JMap}
 
 import scala.collection.mutable
 import scala.collection.JavaConverters._
@@ -29,7 +30,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.client.common.ClientConf
-import com.cloudera.livy.client.common.ClientConf.ConfEntry
+import com.cloudera.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
 
 object SparkEnvironment extends Logging {
 
@@ -49,9 +50,9 @@ object SparkEnvironment extends Logging {
   // configurations will be used in session creation. It is not required to
   // set usually unless running with unofficial Spark + Scala versions
   // (like Spark 2.0 + Scala 2.10, Spark 1.6 + Scala 2.11)
-  val LIVY_SPARK_SCALA_VERSION = Entry("scalaVersion", null)
+  val SPARK_SCALA_VERSION = Entry("scala-version", null)
 
-  val ENABLE_HIVE_CONTEXT = Entry("enableHiveContext", false)
+  val ENABLE_HIVE_CONTEXT = Entry("enable-hive-context", false)
 
   val SPARKR_PACKAGE = Entry("sparkr.package", null)
   val PYSPARK_ARCHIVES = Entry("pyspark.archives", null)
@@ -59,7 +60,9 @@ object SparkEnvironment extends Logging {
   val backwardCompatibleConfs = Map(
     "livy.server.spark-home" -> SPARK_HOME,
     "livy.server.spark-conf-dir" -> SPARK_CONF_DIR,
-    "livy.spark.scalaVersion" -> LIVY_SPARK_SCALA_VERSION,
+    "livy.spark.scala-version" -> SPARK_SCALA_VERSION,
+    "livy.spark.scalaVersion" -> SPARK_SCALA_VERSION,
+    "livy.repl.enable-hive-context" -> ENABLE_HIVE_CONTEXT,
     "livy.repl.enableHiveContext" -> ENABLE_HIVE_CONTEXT,
     "livy.sparkr.package" -> SPARKR_PACKAGE,
     "livy.pyspark.archives" -> PYSPARK_ARCHIVES
@@ -173,22 +176,27 @@ class SparkEnvironment private(name: String)
 
   import SparkEnvironment._
 
-  private var _sparkVersion: (Int, Int) = _
-  private var _scalaVersion: String = _
+  @VisibleForTesting
+  private[livy] var _sparkVersion: (Int, Int) = _
+  @VisibleForTesting
+  private[livy] var _scalaVersion: String = _
 
   /**
    * Return the location of the spark home directory. It will check livy conf as well as
    * environment variable. For "default" Spark environment, it will check SPARK_HOME or
    * DEFAULT_SPARK_HOME. For other Spark environment, it will check ${NAME}_SPARK_HOME.
    */
-  def sparkHome(): String = Option(get(SPARK_HOME))
-    .orElse {
-      if (name == DEFAULT_ENV_NAME) {
-        sys.env.get("SPARK_HOME").orElse(sys.env.get(DEFAULT_ENV_NAME.toUpperCase + "_SPARK_HOME"))
-      } else {
-        sys.env.get(name.toUpperCase + "_SPARK_HOME")
-      }
-    }.getOrElse(throw new IllegalStateException(s"SPARK_HOME is not configured"))
+  def sparkHome(): String = {
+    Option(get(SPARK_HOME))
+      .orElse {
+        if (name == DEFAULT_ENV_NAME) {
+          sys.env.get(DEFAULT_ENV_NAME.toUpperCase + "_SPARK_HOME")
+            .orElse(sys.env.get("SPARK_HOME"))
+        } else {
+          sys.env.get(name.toUpperCase + "_SPARK_HOME")
+        }
+      }.getOrElse(throw new IllegalStateException(s"SPARK_HOME is not configured"))
+  }
 
   /**
    * Return the location of Spark conf directory. It will check livy conf
@@ -196,15 +204,17 @@ class SparkEnvironment private(name: String)
    * environment, it will check SPARK_CONF_DIR or DEFAULT_SPARK_CONF_DIR. For other Spark
    * environment, it will check ${NAME}_SPARK_CONF_DIR.
    */
-  def sparkConfDir(): String = Option(get(SPARK_CONF_DIR))
-    .orElse(
-      if (name == DEFAULT_ENV_NAME) {
-        sys.env.get("SPARK_CONF_DIR")
-          .orElse(sys.env.get(DEFAULT_ENV_NAME.toUpperCase + "_SPARK_CONF_DIR"))
-      } else {
-        sys.env.get(name.toUpperCase + "_SPARK_CONF_DIR")
-      }
-    ).getOrElse(sparkHome() + File.separator + "conf")
+  def sparkConfDir(): String = {
+    Option(get(SPARK_CONF_DIR))
+      .orElse(
+        if (name == DEFAULT_ENV_NAME) {
+          sys.env.get(DEFAULT_ENV_NAME.toUpperCase + "_SPARK_CONF_DIR")
+            .orElse(sys.env.get("SPARK_CONF_DIR"))
+        } else {
+          sys.env.get(name.toUpperCase + "_SPARK_CONF_DIR")
+        }
+      ).getOrElse(sparkHome + File.separator + "conf")
+  }
 
   /** Return the path to the spark-submit executable. */
   def sparkSubmit(): String = {
@@ -227,7 +237,7 @@ class SparkEnvironment private(name: String)
 
     // Test spark-submit and get Spark Scala version accordingly.
     val (sparkVersionFromSparkSubmit, scalaVersionFromSparkSubmit) =
-    LivySparkUtils.sparkSubmitVersion(this)
+      LivySparkUtils.sparkSubmitVersion(this)
 
     LivySparkUtils.testSparkVersion(sparkVersionFromSparkSubmit)
 
@@ -239,7 +249,7 @@ class SparkEnvironment private(name: String)
 
   def findSparkRArchive(): String = {
     Option(get(SPARKR_PACKAGE)).getOrElse {
-      val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
+      val path = Seq(sparkHome(), "R", "lib", "sparkr.zip").mkString(File.separator)
       val rArchivesFile = new File(path)
       require(rArchivesFile.exists(), "sparkr.zip not found; cannot run sparkr application.")
       rArchivesFile.getAbsolutePath()
@@ -254,20 +264,20 @@ class SparkEnvironment private(name: String)
       val major = sparkVersion()._1
       val libdir = major match {
         case 1 =>
-          if (new File(sparkHome, "RELEASE").isFile) {
-            new File(sparkHome, "lib")
+          if (new File(sparkHome(), "RELEASE").isFile) {
+            new File(sparkHome(), "lib")
           } else {
-            new File(sparkHome, "lib_managed/jars")
+            new File(sparkHome(), "lib_managed/jars")
           }
         case 2 =>
-          if (new File(sparkHome, "RELEASE").isFile) {
-            new File(sparkHome, "jars")
-          } else if (new File(sparkHome, "assembly/target/scala-2.11/jars").isDirectory) {
-            new File(sparkHome, "assembly/target/scala-2.11/jars")
+          if (new File(sparkHome(), "RELEASE").isFile) {
+            new File(sparkHome(), "jars")
+          } else if (new File(sparkHome(), "assembly/target/scala-2.11/jars").isDirectory) {
+            new File(sparkHome(), "assembly/target/scala-2.11/jars")
           } else {
-            new File(sparkHome, "assembly/target/scala-2.10/jars")
+            new File(sparkHome(), "assembly/target/scala-2.10/jars")
           }
-        case v =>
+        case _ =>
           throw new IllegalStateException(s"Unsupported spark major version: $major")
       }
       val jars = if (!libdir.isDirectory) {
@@ -287,7 +297,7 @@ class SparkEnvironment private(name: String)
     Option(get(PYSPARK_ARCHIVES))
       .map(_.split(",").toSeq)
       .getOrElse {
-        val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
+        val pyLibPath = Seq(sparkHome(), "python", "lib").mkString(File.separator)
         val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
         require(pyArchivesFile.exists(),
           "pyspark.zip not found; cannot run pyspark application in YARN mode.")
@@ -301,5 +311,13 @@ class SparkEnvironment private(name: String)
           "py4j-*-src.zip not found; cannot run pyspark application in YARN mode.")
         Seq(pyArchivesFile.getAbsolutePath, py4jFile.getAbsolutePath)
       }
+  }
+
+  override protected def getConfigsWithAlternatives: JMap[String, DeprecatedConf] = {
+    Map.empty[String, DeprecatedConf].asJava
+  }
+
+  override protected def getDeprecatedConfigs: JMap[String, DeprecatedConf] = {
+    Map.empty[String, DeprecatedConf].asJava
   }
 }

@@ -156,21 +156,13 @@ object MiniLivyMain extends MiniClusterBase {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
-<<<<<<< 5a769d34c7a3538b72fc1f12a4fcd166a6678e4c
-<<<<<<< b5ef8c0df0a0fd6c64a36ee33ae30a2a2ee6e89f
       LivyConf.HEARTBEAT_WATCHDOG_INTERVAL.key -> "1s",
-      SparkEnvironment.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
-=======
-      "livy.spark.scalaVersion" -> getSparkScalaVersion(),
->>>>>>> Add unit tests and change docs and scripts
-=======
-      "livy.server.spark-env.default.scalaVersion" -> getSparkScalaVersion(),
->>>>>>> Fix test issue
+      "livy.server.spark-env.default.scala-version" -> getSparkScalaVersion(),
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
       LivyConf.RECOVERY_STATE_STORE_URL.key -> s"file://$configPath/state-store",
-      "livy.server.spark-env.default.enableHiveContext" -> "true")
+      "livy.server.spark-env.default.enable-hive-context" -> "true")
 
     if (Cluster.isRunningOnTravis) {
       livyConf ++= Map("livy.server.yarn.app-lookup-timeout" -> "2m")

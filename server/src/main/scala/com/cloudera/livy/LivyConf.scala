@@ -27,12 +27,8 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 
 import com.cloudera.livy.client.common.ClientConf
-import com.cloudera.livy.client.common.ClientConf.ConfEntry
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-import com.cloudera.livy.client.common.ClientConf.DeprecatedConf
-=======
+import com.cloudera.livy.client.common.ClientConf._
 import com.cloudera.livy.utils.SparkEnvironment
->>>>>>> Add SparkEnvironment
 
 object LivyConf {
 
@@ -49,23 +45,9 @@ object LivyConf {
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deploy-mode", null)
 
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-  // Two configurations to specify Spark and related Scala version. These are internal
-  // configurations will be set by LivyServer and used in session creation. It is not required to
-  // set usually unless running with unofficial Spark + Scala versions
-  // (like Spark 2.0 + Scala 2.10, Spark 1.6 + Scala 2.11)
-  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scala-version", null)
-  val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
-
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
-  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enable-hive-context", false)
-=======
-  val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
-  val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
-  val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
->>>>>>> Add SparkEnvironment
 
   val ENVIRONMENT = Entry("livy.environment", "production")
 
@@ -130,7 +112,6 @@ object LivyConf {
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
 
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
   // Days to keep Livy server request logs.
   val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)
 
@@ -152,16 +133,6 @@ object LivyConf {
   // How long a finished session state will be kept in memory
   val SESSION_STATE_RETAIN_TIME = Entry("livy.server.session.state-retain.sec", "600s")
 
-  val SPARK_MASTER = "spark.master"
-  val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
-  val SPARK_JARS = "spark.jars"
-  val SPARK_FILES = "spark.files"
-  val SPARK_ARCHIVES = "spark.yarn.dist.archives"
-  val SPARK_PY_FILES = "spark.submit.pyFiles"
-=======
-  val LIVY_REPL_JARS = Entry("livy.repl.jars", null)
->>>>>>> Add SparkEnvironment
-
   /**
    * These are Spark configurations that contain lists of files that the user can add to
    * their jobs in one way or another. Livy needs to pre-process these to make sure the
@@ -172,19 +143,6 @@ object LivyConf {
    * the hardcoded list, or new versions of Spark add new configs.
    */
   val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-
-  private val HARDCODED_SPARK_FILE_LISTS = Seq(
-    SPARK_JARS,
-    SPARK_FILES,
-    SPARK_ARCHIVES,
-    SPARK_PY_FILES,
-    "spark.yarn.archive",
-    "spark.yarn.dist.files",
-    "spark.yarn.dist.jars",
-    "spark.yarn.jar",
-    "spark.yarn.jars"
-  )
 
   case class DepConf(
       override val key: String,
@@ -194,8 +152,8 @@ object LivyConf {
 
   private val configsWithAlternatives: Map[String, DeprecatedConf] = Map[String, DepConf](
     LIVY_SPARK_DEPLOY_MODE.key -> DepConf("livy.spark.deployMode", "0.4"),
-    LIVY_SPARK_SCALA_VERSION.key -> DepConf("livy.spark.scalaVersion", "0.4"),
-    ENABLE_HIVE_CONTEXT.key -> DepConf("livy.repl.enableHiveContext", "0.4"),
+    "livy.spark.scala-version" -> DepConf("livy.spark.scalaVersion", "0.4"),
+    "livy-repl.enable-hive-context" -> DepConf("livy.repl.enableHiveContext", "0.4"),
     CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
     ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
     ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
@@ -216,9 +174,6 @@ object LivyConf {
 
     Map(configs.map { cfg => (cfg.key -> cfg) }: _*)
   }
-
-=======
->>>>>>> Add SparkEnvironment
 }
 
 /**

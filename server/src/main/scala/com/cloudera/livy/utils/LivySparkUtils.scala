@@ -24,7 +24,6 @@ import scala.collection.SortedMap
 import scala.math.Ordering.Implicits._
 
 import com.cloudera.livy.{LivyConf, Logging}
-import com.cloudera.livy.util.LineBufferedProcess
 
 object LivySparkUtils extends Logging {
 
@@ -118,7 +117,7 @@ object LivySparkUtils extends Logging {
       formattedSparkVersion: (Int, Int),
       scalaVersionFromSparkSubmit: Option[String],
       sparkEnv: SparkEnvironment): String = {
-    val scalaVersionInLivyConf = Option(sparkEnv.get(SparkEnvironment.LIVY_SPARK_SCALA_VERSION))
+    val scalaVersionInLivyConf = Option(sparkEnv.get(SparkEnvironment.SPARK_SCALA_VERSION))
       .filter(_.nonEmpty)
       .map(formatScalaVersion)
 

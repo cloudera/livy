@@ -33,11 +33,11 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   private val sparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
 
   private val livyConf210 = new LivyConf()
-  livyConf210.set("livy.spark.scalaVersion", "2.10.6")
+  livyConf210.set("livy.spark.scala-version", "2.10.6")
   private val sparkEnv210 = SparkEnvironment.createSparkEnv(livyConf210, "default")
 
   private val livyConf211 = new LivyConf()
-  livyConf211.set("livy.spark.scalaVersion", "2.11.1")
+  livyConf211.set("livy.spark.scala-version", "2.11.1")
   private val sparkEnv211 = SparkEnvironment.createSparkEnv(livyConf211, "default")
 
   test("check for SPARK_HOME") {
@@ -136,17 +136,10 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   }
 
   test("sparkScalaVersion() should use default Spark Scala version.") {
-<<<<<<< 2abb8a3d2850c506ffd2b8a210813f1b8353045f
-    sparkScalaVersion(formatSparkVersion("1.6.0"), None, livyConf) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("1.6.2"), None, livyConf) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("2.0.0"), None, livyConf) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.0.1"), None, livyConf) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.1.0"), None, livyConf) shouldBe "2.11"
-=======
     sparkScalaVersion(formatSparkVersion("1.6.0"), None, sparkEnv) shouldBe "2.10"
     sparkScalaVersion(formatSparkVersion("1.6.2"), None, sparkEnv) shouldBe "2.10"
     sparkScalaVersion(formatSparkVersion("2.0.0"), None, sparkEnv) shouldBe "2.11"
     sparkScalaVersion(formatSparkVersion("2.0.1"), None, sparkEnv) shouldBe "2.11"
->>>>>>> Add SparkEnvironment
+    sparkScalaVersion(formatSparkVersion("2.1.0"), None, sparkEnv) shouldBe "2.11"
   }
 }

@@ -21,7 +21,6 @@ package com.cloudera.livy.utils
 import scala.collection.JavaConverters._
 
 import com.cloudera.livy.LivyConf
-import com.cloudera.livy.util.LineBufferedProcess
 
 object AppInfo {
   val DRIVER_LOG_URL_NAME = "driverLogUrl"
