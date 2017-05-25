@@ -118,7 +118,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
     jpost[Map[String, Any]]("/0/statements", ExecuteRequest("foo")) { data =>
       data("id") should be (0)
-      data("code") should be "1+1"
+      data("code") shouldBe "1+1"
       data("progress") should be (0.0)
       data("output") shouldBe 1
     }
