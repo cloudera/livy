@@ -68,7 +68,9 @@ public class RpcServer implements Closeable {
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-  private int portRange;
+  private final String portRange;
+  private static enum PortRangeSchema{START_PORT, END_PORT, max};
+  private final String PORT_DELIMITER="~";
   /**
    * Creating RPC Server
    * @param lconf
@@ -77,19 +79,21 @@ public class RpcServer implements Closeable {
    */
   public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
     this.config = lconf;
-    this.portRange=config.getInt(LAUNCHER_PORT_RANGE);
+    this.portRange=config.get(LAUNCHER_PORT_RANGE);
     this.group = new NioEventLoopGroup(
     this.config.getInt(RPC_MAX_THREADS),
     Utils.newDaemonThreadFactory("RPC-Handler-%d"));
-    int portNumber = config.getInt(LAUNCHER_PORT);
-    for(int tries = 0 ; tries < this.portRange ; tries++){
+    int [] portData=getPortNumberAndRange();
+    int startingPortNumber=portData[PortRangeSchema.START_PORT.ordinal()];
+    int endPort=portData[PortRangeSchema.END_PORT.ordinal()];
+    for(int tries = startingPortNumber-1 ; tries <= endPort ; tries++){
       try {
-        this.channel=createChannel(portNumber, tries);
+        startingPortNumber++;
+        this.channel = getChannel(startingPortNumber);
         break;
       }catch(BindException e){
-        LOG.warn("RPC not able to connect port "+ portNumber);
-        portNumber = portNumber +1;
-     }
+        LOG.warn("RPC not able to connect port "+ startingPortNumber);
+      }
     }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
@@ -100,20 +104,25 @@ public class RpcServer implements Closeable {
     }
     this.address = address;
   }
+
   /**
-   * If user set the port number by livy.rsc.launcher.port then use that
-   * @param portNumber : Provided by the user
-   * @return
-   * @throws IOException
-   * @throws InterruptedException
-  */
-  public Channel createChannel(int portNumber,int tries) throws IOException, InterruptedException{
-    if (portNumber == -1) {
-      return getChannel(0);
+   * Get Port Numbers
+   */
+  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException, NumberFormatException{
+    String split[] = this.portRange.split(PORT_DELIMITER);
+    int [] portRange=new int[PortRangeSchema.max.ordinal()];
+    try {
+      portRange[PortRangeSchema.START_PORT.ordinal()] = Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
+      portRange[PortRangeSchema.END_PORT.ordinal()] = Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
+    }catch(ArrayIndexOutOfBoundsException e) {
+      LOG.error("Port Range format is not correct " + this.portRange);
+      throw e;
     }
-    else {
-      return getChannel(config.getInt(LAUNCHER_PORT) + tries );
+    catch(NumberFormatException e) {
+      LOG.error("Port are not in numeric format " + this.portRange);
+      throw e;
     }
+    return portRange;
   }
   /**
    * @throws InterruptedException
