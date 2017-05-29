@@ -109,11 +109,13 @@ public class RpcServer implements Closeable {
    * Get Port Numbers
    */
   public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException, NumberFormatException{
-    String split[] = this.portRange.split(PORT_DELIMITER);
-    int [] portRange=new int[PortRangeSchema.max.ordinal()];
+    String split [] = this.portRange.split(PORT_DELIMITER);
+    int [] portRange=new int [PortRangeSchema.max.ordinal()];
     try {
-      portRange[PortRangeSchema.START_PORT.ordinal()] = Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
-      portRange[PortRangeSchema.END_PORT.ordinal()] = Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
+      portRange[PortRangeSchema.START_PORT.ordinal()] =
+      Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
+      portRange[PortRangeSchema.END_PORT.ordinal()] =
+      Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
     }catch(ArrayIndexOutOfBoundsException e) {
       LOG.error("Port Range format is not correct " + this.portRange);
       throw e;
