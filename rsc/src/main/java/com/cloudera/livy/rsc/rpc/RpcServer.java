@@ -35,7 +35,7 @@ import javax.security.sasl.RealmCallback;
 import javax.security.sasl.Sasl;
 import javax.security.sasl.SaslException;
 import javax.security.sasl.SaslServer;
-
+import java.net.SocketException;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -90,8 +90,8 @@ public class RpcServer implements Closeable {
       try {
         this.channel = getChannel(tries);
         break;
-      }catch(BindException e){
-        LOG.warn("RPC not able to connect port " + tries);
+      }catch(SocketException e){
+        LOG.warn("RPC not able to connect port " + tries + " " + e.getMessage());
       }
     }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
