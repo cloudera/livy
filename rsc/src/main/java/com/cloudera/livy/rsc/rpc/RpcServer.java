@@ -63,14 +63,14 @@ public class RpcServer implements Closeable {
   private static final SecureRandom RND = new SecureRandom();
 
   private final String address;
-  private  Channel channel;
+  private Channel channel;
   private final EventLoopGroup group;
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
   private final String portRange;
   private static enum PortRangeSchema{START_PORT, END_PORT, max};
-  private final String PORT_DELIMITER="~";
+  private final String PORT_DELIMITER = "~";
   /**
    * Creating RPC Server
    * @param lconf
@@ -79,20 +79,19 @@ public class RpcServer implements Closeable {
    */
   public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
     this.config = lconf;
-    this.portRange=config.get(LAUNCHER_PORT_RANGE);
+    this.portRange = config.get(LAUNCHER_PORT_RANGE);
     this.group = new NioEventLoopGroup(
     this.config.getInt(RPC_MAX_THREADS),
     Utils.newDaemonThreadFactory("RPC-Handler-%d"));
-    int [] portData=getPortNumberAndRange();
-    int startingPortNumber=portData[PortRangeSchema.START_PORT.ordinal()];
-    int endPort=portData[PortRangeSchema.END_PORT.ordinal()];
-    for(int tries = startingPortNumber-1 ; tries <= endPort ; tries++){
+    int [] portData = getPortNumberAndRange();
+    int startingPortNumber = portData[PortRangeSchema.START_PORT.ordinal()];
+    int endPort = portData[PortRangeSchema.END_PORT.ordinal()];
+    for(int tries = startingPortNumber ; tries<=endPort ; tries++){
       try {
-        startingPortNumber++;
-        this.channel = getChannel(startingPortNumber);
+        this.channel = getChannel(tries);
         break;
       }catch(BindException e){
-        LOG.warn("RPC not able to connect port "+ startingPortNumber);
+        LOG.warn("RPC not able to connect port " + tries);
       }
     }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
