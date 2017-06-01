@@ -68,7 +68,7 @@ class LivyConnection {
   private final CloseableHttpClient client;
   private final ObjectMapper mapper;
 
-  LivyConnection(URI uri, final HttpConf config) {
+  LivyConnection(URI uri, final HttpConf config) throws Exception {
     HttpClientContext ctx = HttpClientContext.create();
     int port = uri.getPort() > 0 ? uri.getPort() : 8998;
 
@@ -131,6 +131,8 @@ class LivyConnection {
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
     credsProvider.setCredentials(AuthScope.ANY, credentials);
 
+    String scheme = uri.getScheme();
+
     HttpClientBuilder builder = HttpClientBuilder.create()
       .disableAutomaticRetries()
       .evictExpiredConnections()
@@ -141,6 +143,11 @@ class LivyConnection {
       .setMaxConnTotal(1)
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
+
+    if (scheme.equals("https")) {
+      ClientSSLOptions clientSSLOptions = ClientSSLOptions.parse(config);
+      builder.setSSLSocketFactory(clientSSLOptions.createSslConnectionSocketFactory());
+    }
 
     if (config.isSpnegoEnabled()) {
       Registry<AuthSchemeProvider> authSchemeProviderRegistry =

@@ -76,9 +76,19 @@ object LivyConf {
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   val ACCESS_CONTROL_USERS = Entry("livy.server.access-control.users", null)
 
-  val SSL_KEYSTORE = Entry("livy.keystore", null)
-  val SSL_KEYSTORE_PASSWORD = Entry("livy.keystore.password", null)
-  val SSL_KEY_PASSWORD = Entry("livy.key-password", null)
+  // Livy Server SSL related configurations.
+  val SSL_PORT = Entry("livy.server.https.port", 8998)
+  val SSL_KEYSTORE = Entry("livy.server.ssl.keystore", null)
+  val SSL_KEYSTORE_PASSWORD = Entry("livy.server.ssl.keystore-password", null)
+  val SSL_KEY_PASSWORD = Entry("livy.server.ssl.key-password", null)
+  val SSL_KEYSTORE_TYPE = Entry("livy.server.ssl.keystore-type", null)
+  val SSL_PROTOCOL = Entry("livy.server.ssl.protocol", null)
+  val SSL_ENABLED_ALGOS = Entry("livy.server.ssl.enabled-algorithms", null)
+
+  val SSL_CLIENT_AUTH = Entry("livy.server.ssl.client-auth", false)
+  val SSL_TRUSTSTORE = Entry("livy.server.ssl.truststore", null)
+  val SSL_TRUSTSTORE_PASSWORD = Entry("livy.server.ssl.truststore-password", null)
+  val SSL_TRUSTSTORE_TYPE = Entry("livy.server.ssl.truststore-type", null)
 
   val AUTH_TYPE = Entry("livy.server.auth.type", null)
   val AUTH_KERBEROS_PRINCIPAL = Entry("livy.server.auth.kerberos.principal", null)
@@ -192,7 +202,10 @@ object LivyConf {
     YARN_APP_LEAKAGE_CHECK_TIMEOUT.key ->
       DepConf("livy.server.yarn.app-leakage.check_timeout", "0.4"),
     YARN_APP_LEAKAGE_CHECK_INTERVAL.key ->
-      DepConf("livy.server.yarn.app-leakage.check_interval", "0.4")
+      DepConf("livy.server.yarn.app-leakage.check_interval", "0.4"),
+    SSL_KEYSTORE.key -> DepConf("livy.keystore", "0.4"),
+    SSL_KEY_PASSWORD.key -> DepConf("livy.key-password", "0.4"),
+    SSL_KEYSTORE_PASSWORD.key -> DepConf("livy.keystore.password", "0.4")
   )
 
   private val deprecatedConfigs: Map[String, DeprecatedConf] = {
