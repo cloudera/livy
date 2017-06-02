@@ -91,6 +91,7 @@ public class RpcServer implements Closeable {
     for(int tries = startingPortNumber ; tries<=endPort ; tries++){
       try {
         this.channel = getChannel(tries);
+        isContected = true;
         break;
       }catch(SocketException e){
         LOG.warn("RPC not able to connect port " + tries + " " + e.getMessage());
