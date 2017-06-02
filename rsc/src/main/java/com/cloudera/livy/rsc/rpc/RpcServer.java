@@ -87,6 +87,7 @@ public class RpcServer implements Closeable {
     int [] portData = getPortNumberAndRange();
     int startingPortNumber = portData[PortRangeSchema.START_PORT.ordinal()];
     int endPort = portData[PortRangeSchema.END_PORT.ordinal()];
+    boolean isContected = false;
     for(int tries = startingPortNumber ; tries<=endPort ; tries++){
       try {
         this.channel = getChannel(tries);
@@ -94,6 +95,9 @@ public class RpcServer implements Closeable {
       }catch(SocketException e){
         LOG.warn("RPC not able to connect port " + tries + " " + e.getMessage());
       }
+    }
+    if(!isContected) {
+      throw new IOException("Unable to connect to provided ports " + this.portRange);
     }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
