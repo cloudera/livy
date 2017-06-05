@@ -70,7 +70,7 @@ public class RpcServer implements Closeable {
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
   private final String portRange;
-  private static enum PortRangeSchema{START_PORT, END_PORT, max};
+  private static enum PortRangeSchema{START_PORT, END_PORT, MAX};
   private final String PORT_DELIMITER = "~";
   /**
    * Creating RPC Server
@@ -82,8 +82,8 @@ public class RpcServer implements Closeable {
     this.config = lconf;
     this.portRange = config.get(LAUNCHER_PORT_RANGE);
     this.group = new NioEventLoopGroup(
-    this.config.getInt(RPC_MAX_THREADS),
-    Utils.newDaemonThreadFactory("RPC-Handler-%d"));
+      this.config.getInt(RPC_MAX_THREADS),
+      Utils.newDaemonThreadFactory("RPC-Handler-%d"));
     int [] portData = getPortNumberAndRange();
     int startingPortNumber = portData[PortRangeSchema.START_PORT.ordinal()];
     int endPort = portData[PortRangeSchema.END_PORT.ordinal()];
@@ -93,8 +93,8 @@ public class RpcServer implements Closeable {
         this.channel = getChannel(tries);
         isContected = true;
         break;
-      }catch(SocketException e){
-        LOG.warn("RPC not able to connect port " + tries + " " + e.getMessage());
+      } catch(SocketException e){
+        LOG.debug("RPC not able to connect port " + tries + " " + e.getMessage());
       }
     }
     if(!isContected) {
@@ -102,7 +102,7 @@ public class RpcServer implements Closeable {
     }
     this.port = ((InetSocketAddress) channel.localAddress()).getPort();
     this.pendingClients = new ConcurrentHashMap<>();
-    LOG.warn("Connected to the port " + this.port);
+    LOG.info("Connected to the port " + this.port);
     String address = config.get(RPC_SERVER_ADDRESS);
     if (address == null) {
       address = config.findLocalAddress();
@@ -113,19 +113,18 @@ public class RpcServer implements Closeable {
   /**
    * Get Port Numbers
    */
-  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException, NumberFormatException{
+  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException, NumberFormatException {
     String[] split = this.portRange.split(PORT_DELIMITER);
-    int [] portRange=new int [PortRangeSchema.max.ordinal()];
+    int [] portRange=new int [PortRangeSchema.MAX.ordinal()];
     try {
       portRange[PortRangeSchema.START_PORT.ordinal()] =
       Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
       portRange[PortRangeSchema.END_PORT.ordinal()] =
       Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
-    }catch(ArrayIndexOutOfBoundsException e) {
+    } catch(ArrayIndexOutOfBoundsException e) {
       LOG.error("Port Range format is not correct " + this.portRange);
       throw e;
-    }
-    catch(NumberFormatException e) {
+    } catch(NumberFormatException e) {
       LOG.error("Port are not in numeric format " + this.portRange);
       throw e;
     }
@@ -134,36 +133,36 @@ public class RpcServer implements Closeable {
   /**
    * @throws InterruptedException
    **/
-  public Channel getChannel(int portNumber) throws BindException, InterruptedException{
-      Channel channel = new ServerBootstrap()
-      .group(group)
-      .channel(NioServerSocketChannel.class)
-      .childHandler(new ChannelInitializer<SocketChannel>() {
-          @Override
-          public void initChannel(SocketChannel ch) throws Exception {
-            SaslServerHandler saslHandler = new SaslServerHandler(config);
-            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
-            saslHandler.rpc = newRpc;
+  public Channel getChannel(int portNumber) throws BindException, InterruptedException {
+    Channel channel = new ServerBootstrap()
+    .group(group)
+    .channel(NioServerSocketChannel.class)
+    .childHandler(new ChannelInitializer<SocketChannel>() {
+      @Override
+      public void initChannel(SocketChannel ch) throws Exception {
+        SaslServerHandler saslHandler = new SaslServerHandler(config);
+        final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
+        saslHandler.rpc = newRpc;
 
-            Runnable cancelTask = new Runnable() {
-                @Override
-                public void run() {
-                  LOG.warn("Timed out waiting for hello from client.");
-                  newRpc.close();
-                }
-            };
-            saslHandler.cancelTask = group.schedule(cancelTask,
-                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
-                TimeUnit.MILLISECONDS);
+        Runnable cancelTask = new Runnable() {
+          @Override
+          public void run() {
+            LOG.warn("Timed out waiting for hello from client.");
+            newRpc.close();
           }
-      })
-      .option(ChannelOption.SO_BACKLOG, 1)
-      .option(ChannelOption.SO_REUSEADDR, true)
-      .childOption(ChannelOption.SO_KEEPALIVE, true)
-      .bind(portNumber)
-      .sync()
-      .channel();
-  return channel;
+        };
+        saslHandler.cancelTask = group.schedule(cancelTask,
+        config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
+        TimeUnit.MILLISECONDS);
+      }
+    })
+    .option(ChannelOption.SO_BACKLOG, 1)
+    .option(ChannelOption.SO_REUSEADDR, true)
+    .childOption(ChannelOption.SO_KEEPALIVE, true)
+    .bind(portNumber)
+    .sync()
+    .channel();
+    return channel;
   }
   /**
    * Tells the RPC server to expect connections from clients.
