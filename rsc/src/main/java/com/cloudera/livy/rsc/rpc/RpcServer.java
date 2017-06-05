@@ -113,7 +113,8 @@ public class RpcServer implements Closeable {
   /**
    * Get Port Numbers
    */
-  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException, NumberFormatException {
+  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException,
+  NumberFormatException {
     String[] split = this.portRange.split(PORT_DELIMITER);
     int [] portRange=new int [PortRangeSchema.MAX.ordinal()];
     try {
