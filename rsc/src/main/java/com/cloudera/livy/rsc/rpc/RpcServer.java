@@ -113,7 +113,7 @@ public class RpcServer implements Closeable {
   /**
    * Get Port Numbers
    */
-  public int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException,
+  private int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException,
   NumberFormatException {
     String[] split = this.portRange.split(PORT_DELIMITER);
     int [] portRange=new int [PortRangeSchema.MAX.ordinal()];
@@ -134,35 +134,35 @@ public class RpcServer implements Closeable {
   /**
    * @throws InterruptedException
    **/
-  public Channel getChannel(int portNumber) throws BindException, InterruptedException {
+  private Channel getChannel(int portNumber) throws BindException, InterruptedException {
     Channel channel = new ServerBootstrap()
-    .group(group)
-    .channel(NioServerSocketChannel.class)
-    .childHandler(new ChannelInitializer<SocketChannel>() {
-      @Override
-      public void initChannel(SocketChannel ch) throws Exception {
-        SaslServerHandler saslHandler = new SaslServerHandler(config);
-        final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
-        saslHandler.rpc = newRpc;
-
-        Runnable cancelTask = new Runnable() {
+      .group(group)
+      .channel(NioServerSocketChannel.class)
+      .childHandler(new ChannelInitializer<SocketChannel>() {
           @Override
-          public void run() {
-            LOG.warn("Timed out waiting for hello from client.");
-            newRpc.close();
+          public void initChannel(SocketChannel ch) throws Exception {
+            SaslServerHandler saslHandler = new SaslServerHandler(config);
+            final Rpc newRpc = Rpc.createServer(saslHandler, config, ch, group);
+            saslHandler.rpc = newRpc;
+
+            Runnable cancelTask = new Runnable() {
+                @Override
+                public void run() {
+                  LOG.warn("Timed out waiting for hello from client.");
+                  newRpc.close();
+                }
+            };
+            saslHandler.cancelTask = group.schedule(cancelTask,
+                config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
+                TimeUnit.MILLISECONDS);
           }
-        };
-        saslHandler.cancelTask = group.schedule(cancelTask,
-        config.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT),
-        TimeUnit.MILLISECONDS);
-      }
-    })
-    .option(ChannelOption.SO_BACKLOG, 1)
-    .option(ChannelOption.SO_REUSEADDR, true)
-    .childOption(ChannelOption.SO_KEEPALIVE, true)
-    .bind(portNumber)
-    .sync()
-    .channel();
+      })
+      .option(ChannelOption.SO_BACKLOG, 1)
+      .option(ChannelOption.SO_REUSEADDR, true)
+      .childOption(ChannelOption.SO_KEEPALIVE, true)
+      .bind(portNumber)
+      .sync()
+      .channel();
     return channel;
   }
   /**
