@@ -114,22 +114,22 @@ public class RpcServer implements Closeable {
    * Get Port Numbers
    */
   private int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException,
-  NumberFormatException {
-    String[] split = this.portRange.split(PORT_DELIMITER);
-    int [] portRange=new int [PortRangeSchema.MAX.ordinal()];
-    try {
-      portRange[PortRangeSchema.START_PORT.ordinal()] =
-      Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
-      portRange[PortRangeSchema.END_PORT.ordinal()] =
-      Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
-    } catch(ArrayIndexOutOfBoundsException e) {
-      LOG.error("Port Range format is not correct " + this.portRange);
-      throw e;
-    } catch(NumberFormatException e) {
-      LOG.error("Port are not in numeric format " + this.portRange);
-      throw e;
-    }
-    return portRange;
+    NumberFormatException {
+      String[] split = this.portRange.split(PORT_DELIMITER);
+      int [] portRange = new int [PortRangeSchema.MAX.ordinal()];
+      try {
+        portRange[PortRangeSchema.START_PORT.ordinal()] =
+        Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
+        portRange[PortRangeSchema.END_PORT.ordinal()] =
+        Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
+      } catch(ArrayIndexOutOfBoundsException e) {
+        LOG.error("Port Range format is not correct " + this.portRange);
+        throw e;
+      } catch(NumberFormatException e) {
+        LOG.error("Port are not in numeric format " + this.portRange);
+        throw e;
+      }
+      return portRange;
   }
   /**
    * @throws InterruptedException
