@@ -18,6 +18,8 @@
 package com.cloudera.livy.rsc.rpc;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
@@ -184,6 +186,25 @@ public class TestRpc {
     Future<TestMessage> call = client.call(outbound, TestMessage.class);
     TestMessage reply = call.get(10, TimeUnit.SECONDS);
     assertEquals(outbound.message, reply.message);
+  }
+
+  @Test
+  public void testPortRange() throws Exception {
+    String portRangeData = emptyConfig.get(LAUNCHER_PORT_RANGE);
+    String portRange[] = portRangeData.split("~");
+    int startPort = Integer.parseInt(portRange[0]);
+    int endPort = Integer.parseInt(portRange[1]);
+    for (int index = startPort; index <= endPort; index++) {
+      RpcServer server = autoClose(new RpcServer(emptyConfig));
+      assertTrue(startPort <= server.getPort() && server.getPort() <= endPort);
+    }
+    try {
+      autoClose(new RpcServer(emptyConfig));
+    } catch (IOException ee) {
+      assertTrue(ee instanceof IOException);
+      assertEquals(ee.getMessage(), "Unable to connect to provided ports "
+      + portRangeData);
+    }  
   }
 
   private void transfer(Rpc serverRpc, Rpc clientRpc) {
