@@ -191,7 +191,7 @@ public class TestRpc {
   @Test
   public void testPortRange() throws Exception {
     String portRangeData = emptyConfig.get(LAUNCHER_PORT_RANGE);
-    String portRange[] = portRangeData.split("~");
+    String [] portRange = portRangeData.split("~");
     int startPort = Integer.parseInt(portRange[0]);
     int endPort = Integer.parseInt(portRange[1]);
     for (int index = startPort; index <= endPort; index++) {
