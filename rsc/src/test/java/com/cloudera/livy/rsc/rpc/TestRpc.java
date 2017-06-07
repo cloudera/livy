@@ -190,21 +190,27 @@ public class TestRpc {
 
   @Test
   public void testPortRange() throws Exception {
-    String portRangeData = emptyConfig.get(LAUNCHER_PORT_RANGE);
-    String [] portRange = portRangeData.split("~");
-    int startPort = Integer.parseInt(portRange[0]);
-    int endPort = Integer.parseInt(portRange[1]);
-    for (int index = startPort; index <= endPort; index++) {
-      RpcServer server = autoClose(new RpcServer(emptyConfig));
-      assertTrue(startPort <= server.getPort() && server.getPort() <= endPort);
-    }
+    String portRange = "a~b";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
     try {
       autoClose(new RpcServer(emptyConfig));
-    } catch (IOException ee) {
-      assertTrue(ee instanceof IOException);
-      assertEquals(ee.getMessage(), "Unable to connect to provided ports "
-      + portRangeData);
-    }  
+    } catch (Exception ee) {
+      assertTrue(ee instanceof NumberFormatException);
+    }
+    portRange = "11000";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
+    try {
+      autoClose(new RpcServer(emptyConfig));
+    } catch (Exception ee) {
+      assertTrue(ee instanceof ArrayIndexOutOfBoundsException);
+    }
+    portRange = "11000~11001";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
+    String [] portRangeData = portRange.split("~");
+    int startPort = Integer.parseInt(portRangeData[0]);
+    int endPort = Integer.parseInt(portRangeData[1]);
+    RpcServer server = autoClose(new RpcServer(emptyConfig));
+    assertTrue(startPort <= server.getPort() && server.getPort() <= endPort);
   }
 
   private void transfer(Rpc serverRpc, Rpc clientRpc) {
