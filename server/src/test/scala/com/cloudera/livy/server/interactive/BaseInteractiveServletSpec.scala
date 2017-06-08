@@ -51,8 +51,6 @@ abstract class BaseInteractiveServletSpec
     super.createConf()
       .set(LivyConf.SESSION_STAGING_DIR, tempDir.toURI().toString())
       .set(LivyConf.REPL_JARS, "dummy.jar")
-      .set(LivyConf.LIVY_SPARK_VERSION, "1.6.0")
-      .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10.5")
   }
 
   protected def createRequest(

@@ -27,8 +27,8 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 
 import com.cloudera.livy.client.common.ClientConf
-import com.cloudera.livy.client.common.ClientConf.ConfEntry
-import com.cloudera.livy.client.common.ClientConf.DeprecatedConf
+import com.cloudera.livy.client.common.ClientConf._
+import com.cloudera.livy.utils.SparkEnvironment
 
 object LivyConf {
 
@@ -42,21 +42,12 @@ object LivyConf {
 
   val TEST_MODE = ClientConf.TEST_MODE
 
-  val SPARK_HOME = Entry("livy.server.spark-home", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deploy-mode", null)
-
-  // Two configurations to specify Spark and related Scala version. These are internal
-  // configurations will be set by LivyServer and used in session creation. It is not required to
-  // set usually unless running with unofficial Spark + Scala versions
-  // (like Spark 2.0 + Scala 2.10, Spark 1.6 + Scala 2.11)
-  val LIVY_SPARK_SCALA_VERSION = Entry("livy.spark.scala-version", null)
-  val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
 
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
-  val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enable-hive-context", false)
 
   val ENVIRONMENT = Entry("livy.environment", "production")
 
@@ -142,13 +133,6 @@ object LivyConf {
   // How long a finished session state will be kept in memory
   val SESSION_STATE_RETAIN_TIME = Entry("livy.server.session.state-retain.sec", "600s")
 
-  val SPARK_MASTER = "spark.master"
-  val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
-  val SPARK_JARS = "spark.jars"
-  val SPARK_FILES = "spark.files"
-  val SPARK_ARCHIVES = "spark.yarn.dist.archives"
-  val SPARK_PY_FILES = "spark.submit.pyFiles"
-
   /**
    * These are Spark configurations that contain lists of files that the user can add to
    * their jobs in one way or another. Livy needs to pre-process these to make sure the
@@ -160,18 +144,6 @@ object LivyConf {
    */
   val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
 
-  private val HARDCODED_SPARK_FILE_LISTS = Seq(
-    SPARK_JARS,
-    SPARK_FILES,
-    SPARK_ARCHIVES,
-    SPARK_PY_FILES,
-    "spark.yarn.archive",
-    "spark.yarn.dist.files",
-    "spark.yarn.dist.jars",
-    "spark.yarn.jar",
-    "spark.yarn.jars"
-  )
-
   case class DepConf(
       override val key: String,
       override val version: String,
@@ -180,8 +152,8 @@ object LivyConf {
 
   private val configsWithAlternatives: Map[String, DeprecatedConf] = Map[String, DepConf](
     LIVY_SPARK_DEPLOY_MODE.key -> DepConf("livy.spark.deployMode", "0.4"),
-    LIVY_SPARK_SCALA_VERSION.key -> DepConf("livy.spark.scalaVersion", "0.4"),
-    ENABLE_HIVE_CONTEXT.key -> DepConf("livy.repl.enableHiveContext", "0.4"),
+    "livy.spark.scala-version" -> DepConf("livy.spark.scalaVersion", "0.4"),
+    "livy-repl.enable-hive-context" -> DepConf("livy.repl.enableHiveContext", "0.4"),
     CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
     ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
     ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
@@ -202,7 +174,6 @@ object LivyConf {
 
     Map(configs.map { cfg => (cfg.key -> cfg) }: _*)
   }
-
 }
 
 /**
@@ -222,7 +193,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
     path.stripSuffix("/") + "/"
   }
 
-  lazy val sparkFileLists = HARDCODED_SPARK_FILE_LISTS ++ configToSeq(SPARK_FILE_LISTS)
+  lazy val sparkFileLists = SparkEnvironment.HARDCODED_SPARK_FILE_LISTS ++
+    configToSeq(SPARK_FILE_LISTS)
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
@@ -247,16 +219,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   /** Return the spark deploy mode Livy sessions should use. */
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
-  /** Return the location of the spark home directory */
-  def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
-
   /** Return the spark master Livy sessions should use. */
   def sparkMaster(): String = get(LIVY_SPARK_MASTER)
-
-  /** Return the path to the spark-submit executable. */
-  def sparkSubmit(): String = {
-    sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
-  }
 
   /** Return the list of superusers. */
   def superusers(): Seq[String] = _superusers

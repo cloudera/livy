@@ -64,30 +64,6 @@ class LivyServer extends Logging {
         maxFileSize = Some(livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))
       ).toMultipartConfigElement
 
-    // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
-    testSparkHome(livyConf)
-
-    // Test spark-submit and get Spark Scala version accordingly.
-    val (sparkVersion, scalaVersionFromSparkSubmit) = sparkSubmitVersion(livyConf)
-    testSparkVersion(sparkVersion)
-
-    // If Spark and Scala version is set manually, should verify if they're consistent with
-    // ones parsed from "spark-submit --version"
-    val formattedSparkVersion = formatSparkVersion(sparkVersion)
-    Option(livyConf.get(LIVY_SPARK_VERSION)).map(formatSparkVersion).foreach { version =>
-      require(formattedSparkVersion == version,
-        s"Configured Spark version $version is not equal to Spark version $formattedSparkVersion " +
-          "got from spark-submit -version")
-    }
-
-    // Set formatted Spark and Scala version into livy configuration, this will be used by
-    // session creation.
-    // TODO Create a new class to pass variables from LivyServer to sessions and remove these
-    // internal LivyConfs.
-    livyConf.set(LIVY_SPARK_VERSION.key, formattedSparkVersion.productIterator.mkString("."))
-    livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
-      sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
-
     if (UserGroupInformation.isSecurityEnabled) {
       // If Hadoop security is enabled, run kinit periodically. runKinit() should be called
       // before any Hadoop operation, otherwise Kerberos exception will be thrown.

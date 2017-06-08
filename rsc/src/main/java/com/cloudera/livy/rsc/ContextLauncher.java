@@ -28,13 +28,7 @@ import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -66,8 +60,6 @@ class ContextLauncher {
 
   private static final String SPARK_DEPLOY_MODE = "spark.submit.deployMode";
   private static final String SPARK_JARS_KEY = "spark.jars";
-  private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
-  private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
   static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
@@ -124,6 +116,7 @@ class ContextLauncher {
       this.timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
         conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
     } catch (Exception e) {
+      LOG.error("exception: ", e);
       dispose(true);
       throw Utils.propagate(e);
     }
@@ -172,11 +165,10 @@ class ContextLauncher {
     }
     merge(conf, SPARK_JARS_KEY, livyJars, ",");
 
+    HashMap<String, String> childEnv = new HashMap<>();
     String kind = conf.get(SESSION_KIND);
-    if ("sparkr".equals(kind)) {
-      merge(conf, SPARK_ARCHIVES_KEY, conf.get(RSCConf.Entry.SPARKR_PACKAGE), ",");
-    } else if ("pyspark".equals(kind)) {
-      merge(conf, "spark.submit.pyFiles", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES), ",");
+    if ("pyspark".equals(kind) && conf.get(RSCConf.Entry.PYSPARK_ARCHIVES) != null) {
+      childEnv.put("PYSPARK_ARCHIVES_PATH", conf.get(RSCConf.Entry.PYSPARK_ARCHIVES));
     }
 
     // Disable multiple attempts since the RPC server doesn't yet support multiple
@@ -220,7 +212,7 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      final SparkLauncher launcher = new SparkLauncher();
+      final SparkLauncher launcher = new SparkLauncher(childEnv);
 
       // Spark 1.x does not support specifying deploy mode in conf and needs special handling.
       String deployMode = conf.get(SPARK_DEPLOY_MODE);
@@ -228,7 +220,7 @@ class ContextLauncher {
         launcher.setDeployMode(deployMode);
       }
 
-      launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
+      launcher.setSparkHome(conf.get(SPARK_HOME));
       launcher.setAppResource("spark-internal");
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
@@ -266,11 +258,7 @@ class ContextLauncher {
     }
 
     // Load the default Spark configuration.
-    String confDir = System.getenv("SPARK_CONF_DIR");
-    if (confDir == null && System.getenv(SPARK_HOME_ENV) != null) {
-      confDir = System.getenv(SPARK_HOME_ENV) + File.separator + "conf";
-    }
-
+    String confDir = conf.get(SPARK_CONF_DIR);
     if (confDir != null) {
       File sparkDefaults = new File(confDir + File.separator + "spark-defaults.conf");
       if (sparkDefaults.isFile()) {

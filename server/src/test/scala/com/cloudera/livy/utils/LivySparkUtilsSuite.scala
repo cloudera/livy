@@ -30,18 +30,22 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   import LivySparkUtils._
 
   private val livyConf = new LivyConf()
+  private val sparkEnv = SparkEnvironment.createSparkEnv(livyConf, "default")
+
   private val livyConf210 = new LivyConf()
-  livyConf210.set(LIVY_SPARK_SCALA_VERSION, "2.10.6")
+  livyConf210.set("livy.spark.scala-version", "2.10.6")
+  private val sparkEnv210 = SparkEnvironment.createSparkEnv(livyConf210, "default")
 
   private val livyConf211 = new LivyConf()
-  livyConf211.set(LIVY_SPARK_SCALA_VERSION, "2.11.1")
+  livyConf211.set("livy.spark.scala-version", "2.11.1")
+  private val sparkEnv211 = SparkEnvironment.createSparkEnv(livyConf211, "default")
 
   test("check for SPARK_HOME") {
-    testSparkHome(livyConf)
+    testSparkHome(sparkEnv)
   }
 
   test("check spark-submit version") {
-    testSparkSubmit(livyConf)
+    testSparkSubmit(sparkEnv)
   }
 
   test("should support Spark 1.6") {
@@ -107,35 +111,35 @@ class LivySparkUtilsSuite extends FunSuite with Matchers with LivyBaseUnitTestSu
   }
 
   test("sparkScalaVersion() should use spark-submit detected Scala version.") {
-    sparkScalaVersion(formatSparkVersion("2.0.1"), Some("2.10"), livyConf) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("1.6.0"), Some("2.11"), livyConf) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("2.0.1"), Some("2.10"), sparkEnv) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("1.6.0"), Some("2.11"), sparkEnv) shouldBe "2.11"
   }
 
   test("sparkScalaVersion() should throw if configured and detected Scala version mismatch.") {
     intercept[IllegalArgumentException] {
-      sparkScalaVersion(formatSparkVersion("2.0.1"), Some("2.11"), livyConf210)
+      sparkScalaVersion(formatSparkVersion("2.0.1"), Some("2.11"), sparkEnv210)
     }
     intercept[IllegalArgumentException] {
-      sparkScalaVersion(formatSparkVersion("1.6.1"), Some("2.10"), livyConf211)
+      sparkScalaVersion(formatSparkVersion("1.6.1"), Some("2.10"), sparkEnv211)
     }
   }
 
   test("sparkScalaVersion() should use configured Scala version if spark-submit doesn't tell.") {
-    sparkScalaVersion(formatSparkVersion("1.6.0"), None, livyConf210) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("1.6.2"), None, livyConf210) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("2.0.0"), None, livyConf210) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("2.0.1"), None, livyConf210) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("1.6.0"), None, livyConf211) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("1.6.2"), None, livyConf211) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.0.0"), None, livyConf211) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.0.1"), None, livyConf211) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("1.6.0"), None, sparkEnv210) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("1.6.2"), None, sparkEnv210) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("2.0.0"), None, sparkEnv210) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("2.0.1"), None, sparkEnv210) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("1.6.0"), None, sparkEnv211) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("1.6.2"), None, sparkEnv211) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("2.0.0"), None, sparkEnv211) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("2.0.1"), None, sparkEnv211) shouldBe "2.11"
   }
 
   test("sparkScalaVersion() should use default Spark Scala version.") {
-    sparkScalaVersion(formatSparkVersion("1.6.0"), None, livyConf) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("1.6.2"), None, livyConf) shouldBe "2.10"
-    sparkScalaVersion(formatSparkVersion("2.0.0"), None, livyConf) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.0.1"), None, livyConf) shouldBe "2.11"
-    sparkScalaVersion(formatSparkVersion("2.1.0"), None, livyConf) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("1.6.0"), None, sparkEnv) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("1.6.2"), None, sparkEnv) shouldBe "2.10"
+    sparkScalaVersion(formatSparkVersion("2.0.0"), None, sparkEnv) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("2.0.1"), None, sparkEnv) shouldBe "2.11"
+    sparkScalaVersion(formatSparkVersion("2.1.0"), None, sparkEnv) shouldBe "2.11"
   }
 }

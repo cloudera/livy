@@ -156,12 +156,13 @@ object MiniLivyMain extends MiniClusterBase {
     var livyConf = Map(
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
-      LivyConf.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
       LivyConf.HEARTBEAT_WATCHDOG_INTERVAL.key -> "1s",
+      "livy.server.spark-env.default.scala-version" -> getSparkScalaVersion(),
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
-      LivyConf.RECOVERY_STATE_STORE_URL.key -> s"file://$configPath/state-store")
+      LivyConf.RECOVERY_STATE_STORE_URL.key -> s"file://$configPath/state-store",
+      "livy.server.spark-env.default.enable-hive-context" -> "true")
 
     if (Cluster.isRunningOnTravis) {
       livyConf ++= Map("livy.server.yarn.app-lookup-timeout" -> "2m")
@@ -171,7 +172,6 @@ object MiniLivyMain extends MiniClusterBase {
 
     val server = new LivyServer()
     server.start()
-    server.livyConf.set(LivyConf.ENABLE_HIVE_CONTEXT, true)
     // Write a serverUrl.conf file to the conf directory with the location of the Livy
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.

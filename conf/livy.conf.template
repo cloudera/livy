@@ -98,9 +98,48 @@
 
 # How often Livy polls YARN to refresh YARN app state.
 # livy.server.yarn.poll-interval = 1s
+<<<<<<< b5ef8c0df0a0fd6c64a36ee33ae30a2a2ee6e89f:conf/livy.conf.template
 #
 # Days to keep Livy server request logs.
 # livy.server.request-log-retain.days = 5
 
 # If the Livy Web UI should be included in the Livy Server. Enabled by default.
 # livy.ui.enabled = true
+=======
+
+# Define Spark environments in Livy Server. User could pre-define multiple Spark environments, and
+# pick one environment in the run-time via session creation request.
+#
+# A Spark enviroment is combined by several configurations:
+# livy.server.spark-env.${sparkEnv}.spark-home = <SPARK_HOME>
+# livy.server.spark-env.${sparkEnv}.spark-conf-dir = <SPARK_CONF_DIR>
+# livy.server.spark-env.${sparkEnv}.scalaVersion = <SPARK_CONF_DIR>
+# whether to enable HiveContext in interpreter session, by default is false.
+# livy.server.spark-env.${sparkEnv}.enableHiveContext = false
+# livy.server.spark-env.${sparkEnv}.sparkr.package = <PATH_TO_SPARKR_PACKAGE>
+# livy.server.spark-env.${sparkEnv}.pyspark.archives = <PATH_TO_PYSPARK_ARCHIVES>
+#
+# Only livy.server.spark-env.${sparkEnv}.spark-home is required, others can be inferred from
+# provided spark-home.
+#
+# Environement variables like SPARK_HOME, SPARK_CONF_DIR can still be used and the value will be
+# merged into "default" environment.
+#
+# User can also define "${SPARK_ENV}_SPARK_HOME" and "${SPARK_ENV}_SPARK_CONF_DIR", and these values
+# will merged with ${sparkEnv} environment.
+#
+# ${sparkEnv} can be replaced with any name wanted. When creating a session, user could specify the
+# name of Spark environment, Livy server internally will pick right Spark environment accordingly,
+# by default "default" spark environment will be pick if not specify.
+#
+# For the backward compatibility, all the previous configurations:
+
+# livy.server.spark-home
+# livy.server.spark-conf-dir
+# livy.spark.scalaVersion
+# livy.repl.enableHiveContext
+# livy.sparkr.package
+# livy.pyspark.archives
+#
+# can still be used and will automatically be merged into "default" Spark environment.
+>>>>>>> Add unit tests and change docs and scripts:conf/livy.conf

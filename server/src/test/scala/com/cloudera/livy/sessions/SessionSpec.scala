@@ -23,6 +23,7 @@ import java.net.URI
 import org.scalatest.FunSuite
 
 import com.cloudera.livy.{LivyBaseUnitTestSuite, LivyConf}
+import com.cloudera.livy.utils.SparkEnvironment
 
 class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
 
@@ -89,8 +90,8 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     val other = Seq("/file2.txt")
     val expected = Some(Seq("dummy://" + other(0), "dummy://" + base).mkString(","))
 
-    val userLists = Seq(LivyConf.SPARK_JARS, LivyConf.SPARK_FILES, LivyConf.SPARK_ARCHIVES,
-      LivyConf.SPARK_PY_FILES)
+    val userLists = Seq(SparkEnvironment.SPARK_JARS, SparkEnvironment.SPARK_FILES,
+      SparkEnvironment.SPARK_ARCHIVES, SparkEnvironment.SPARK_PY_FILES)
     val baseConf = userLists.map { key => (key -> base) }.toMap
     val result = Session.prepareConf(baseConf, other, other, other, other, conf)
     userLists.foreach { key => assert(result.get(key) === expected) }

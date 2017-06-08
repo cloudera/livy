@@ -31,7 +31,7 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
-import com.cloudera.livy.utils.AppInfo
+import com.cloudera.livy.utils.{AppInfo, SparkEnvironment}
 
 object Session {
   trait RecoveryMetadata { val id: Int }
@@ -70,10 +70,10 @@ object Session {
       .map { key => (key -> Nil) }.toMap
 
     val userLists = confLists ++ Map(
-      LivyConf.SPARK_JARS -> jars,
-      LivyConf.SPARK_FILES -> files,
-      LivyConf.SPARK_ARCHIVES -> archives,
-      LivyConf.SPARK_PY_FILES -> pyFiles)
+      SparkEnvironment.SPARK_JARS -> jars,
+      SparkEnvironment.SPARK_FILES -> files,
+      SparkEnvironment.SPARK_ARCHIVES -> archives,
+      SparkEnvironment.SPARK_PY_FILES -> pyFiles)
 
     val merged = userLists.flatMap { case (key, list) =>
       val confList = conf.get(key)
@@ -89,8 +89,8 @@ object Session {
       }
     }
 
-    val masterConfList = Map(LivyConf.SPARK_MASTER -> livyConf.sparkMaster()) ++
-      livyConf.sparkDeployMode().map(LivyConf.SPARK_DEPLOY_MODE -> _).toMap
+    val masterConfList = Map(SparkEnvironment.SPARK_MASTER -> livyConf.sparkMaster()) ++
+      livyConf.sparkDeployMode().map(SparkEnvironment.SPARK_DEPLOY_MODE -> _).toMap
 
     conf ++ masterConfList ++ merged
   }

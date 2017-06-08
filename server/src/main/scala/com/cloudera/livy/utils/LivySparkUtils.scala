@@ -24,8 +24,6 @@ import scala.collection.SortedMap
 import scala.math.Ordering.Implicits._
 
 import com.cloudera.livy.{LivyConf, Logging}
-import com.cloudera.livy.LivyConf.LIVY_SPARK_SCALA_VERSION
-import com.cloudera.livy.util.LineBufferedProcess
 
 object LivySparkUtils extends Logging {
 
@@ -50,22 +48,18 @@ object LivySparkUtils extends Logging {
   /**
    * Test that Spark home is configured and configured Spark home is a directory.
    */
-  def testSparkHome(livyConf: LivyConf): Unit = {
-    val sparkHome = livyConf.sparkHome().getOrElse {
-      throw new IllegalArgumentException("Livy requires the SPARK_HOME environment variable")
-    }
-
-    require(new File(sparkHome).isDirectory(), "SPARK_HOME path does not exist")
+  def testSparkHome(sparkEnv: SparkEnvironment): Unit = {
+    require(new File(sparkEnv.sparkHome()).isDirectory(), "SPARK_HOME path does not exist")
   }
 
   /**
    * Test that the configured `spark-submit` executable exists.
    *
-   * @param livyConf
+   * @param sparkEnv
    */
-   def testSparkSubmit(livyConf: LivyConf): Unit = {
+   def testSparkSubmit(sparkEnv: SparkEnvironment): Unit = {
     try {
-      testSparkVersion(sparkSubmitVersion(livyConf)._1)
+      testSparkVersion(sparkSubmitVersion(sparkEnv)._1)
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
@@ -87,11 +81,11 @@ object LivySparkUtils extends Logging {
   /**
    * Call `spark-submit --version` and parse its output for Spark and Scala version.
    *
-   * @param livyConf
+   * @param sparkEnv
    * @return Tuple with Spark and Scala version
    */
-  def sparkSubmitVersion(livyConf: LivyConf): (String, Option[String]) = {
-    val sparkSubmit = livyConf.sparkSubmit()
+  def sparkSubmitVersion(sparkEnv: SparkEnvironment): (String, Option[String]) = {
+    val sparkSubmit = sparkEnv.sparkSubmit()
     val pb = new ProcessBuilder(sparkSubmit, "--version")
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)
@@ -122,8 +116,8 @@ object LivySparkUtils extends Logging {
   def sparkScalaVersion(
       formattedSparkVersion: (Int, Int),
       scalaVersionFromSparkSubmit: Option[String],
-      livyConf: LivyConf): String = {
-    val scalaVersionInLivyConf = Option(livyConf.get(LIVY_SPARK_SCALA_VERSION))
+      sparkEnv: SparkEnvironment): String = {
+    val scalaVersionInLivyConf = Option(sparkEnv.get(SparkEnvironment.SPARK_SCALA_VERSION))
       .filter(_.nonEmpty)
       .map(formatScalaVersion)
 

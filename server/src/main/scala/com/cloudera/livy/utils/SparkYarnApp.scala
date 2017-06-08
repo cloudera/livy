@@ -34,7 +34,6 @@ import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
 
 import com.cloudera.livy.{LivyConf, Logging, Utils}
-import com.cloudera.livy.util.LineBufferedProcess
 
 object SparkYarnApp extends Logging {
 

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package com.cloudera.livy.util
+package com.cloudera.livy.utils
 
 import java.io.InputStream
 import java.util.concurrent.locks.ReentrantLock
