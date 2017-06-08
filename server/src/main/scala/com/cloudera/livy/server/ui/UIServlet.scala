@@ -30,9 +30,12 @@ class UIServlet extends ScalatraServlet {
   def getHeader(title: String): Seq[Node] =
     <head>
       <link rel="stylesheet" href="/static/bootstrap.min.css" type="text/css"/>
+      <link rel="stylesheet" href="/static/dataTables.bootstrap.min.css" type="text/css"/>
       <link rel="stylesheet" href="/static/livy-ui.css" type="text/css"/>
       <script src="/static/jquery-3.2.1.min.js"></script>
       <script src="/static/bootstrap.min.js"></script>
+      <script src="/static/jquery.dataTables.min.js"></script>
+      <script src="/static/dataTables.bootstrap.min.js"></script>
       <script src="/static/all-sessions.js"></script>
       <title>{title}</title>
     </head>
