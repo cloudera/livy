@@ -48,6 +48,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
       case PySpark3() =>
         PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
+      case SparkSql() => new SparkSqlInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
     session = new Session(livyConf, interpreter, { s => broadcast(new ReplState(s.toString)) })
