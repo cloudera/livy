@@ -30,7 +30,7 @@ import scala.concurrent.duration.Duration
 
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {
-    loadProperties(file.toURL())
+    loadProperties(file.toURI().toURL())
   }
 
   def loadProperties(url: URL): Map[String, String] = {
