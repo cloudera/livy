@@ -18,10 +18,7 @@
 
 package com.cloudera.livy.client.common;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -214,11 +211,11 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Logs a warning message if the given config key is deprecated. */
   private void logDeprecationWarning(String key) {
-    DeprecatedConf altConfs = getConfigsWithAlternatives().get(key);
-    if (altConfs != null) {
-      LOG.warn("The configuration key " + altConfs.key() + " has been deprecated as of Livy "
-        + altConfs.version() + " and may be removed in the future. Please use the new key "
-        + key + " instead.");
+    ConfPair altConf = allAlternativeKeys().get(key);
+    if (altConf != null) {
+      LOG.warn("The configuration key " + key + " has been deprecated as of Livy "
+        + altConf.depConf.version() + " and may be removed in the future. Please use the new key "
+        + altConf.newKey + " instead.");
       return;
     }
 
@@ -235,6 +232,29 @@ public abstract class ClientConf<T extends ClientConf>
 
   /** Maps deprecated key to DeprecatedConf with the same key. */
   protected abstract Map<String, DeprecatedConf> getDeprecatedConfigs();
+
+  private static class ConfPair {
+    final String newKey;
+    final DeprecatedConf depConf;
+
+    ConfPair(String key, DeprecatedConf conf) {
+      this.newKey = key;
+      this.depConf = conf;
+    }
+  }
+  private Map<String, ConfPair> altToNewKeyMap = null;
+
+  private Map<String, ConfPair> allAlternativeKeys() {
+    if (altToNewKeyMap == null) {
+      Map<String, ConfPair> configs = new HashMap<>();
+      for (String e : getConfigsWithAlternatives().keySet()) {
+        DeprecatedConf depConf = getConfigsWithAlternatives().get(e);
+        configs.put(depConf.key(), new ConfPair(e, depConf));
+      }
+      altToNewKeyMap = Collections.unmodifiableMap(configs);
+    }
+    return altToNewKeyMap;
+  }
 
   public static interface DeprecatedConf {
 
