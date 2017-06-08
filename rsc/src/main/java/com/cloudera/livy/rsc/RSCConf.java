@@ -51,8 +51,10 @@ public class RSCConf extends ClientConf<RSCConf> {
 
     // Address for the RSC driver to connect back with it's connection info.
     LAUNCHER_ADDRESS("launcher.address", null),
+    LAUNCHER_PORT_RANGE("launcher.port.range", "10000~10010"),
+    // Setting up of this propety by user has no benefit. It is currently being used
+    // to pass  port information from ContextLauncher to RSCDriver
     LAUNCHER_PORT("launcher.port", -1),
-
     // How long will the RSC wait for a connection for a Livy server before shutting itself down.
     SERVER_IDLE_TIMEOUT("server.idle-timeout", "10m"),
 
