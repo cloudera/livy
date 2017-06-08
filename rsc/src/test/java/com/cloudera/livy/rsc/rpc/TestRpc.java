@@ -204,7 +204,7 @@ public class TestRpc {
     } catch (Exception ee) {
       assertTrue(ee instanceof ArrayIndexOutOfBoundsException);
     }
-    portRange = "11000~11001";
+    portRange = "11000~11110";
     emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
     String [] portRangeData = portRange.split("~");
     int startPort = Integer.parseInt(portRangeData[0]);

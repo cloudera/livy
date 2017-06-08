@@ -55,6 +55,7 @@
 
 # Address for the RSC driver to connect back with it's connection info.
 # livy.rsc.launcher.address =
+# Port Range on which RPC will launch . Port range in inclusive of start and end port .
 # livy.rsc.launcher.port.range = 10000~10110
 
 # How long will the RSC wait for a connection for a Livy server before shutting itself down.
