@@ -20,6 +20,7 @@ package com.cloudera.livy.repl
 
 import java.io._
 import java.net.URLClassLoader
+import java.net.URL
 import java.nio.file.Paths
 
 import scala.tools.nsc.Settings
@@ -134,6 +135,10 @@ class SparkInterpreter(conf: SparkConf)
 
   override protected def interpret(code: String): Result = {
     sparkIMain.interpret(code)
+  }
+
+  def addJar(jar: String): Unit = {
+    sparkIMain.addUrlsToClassPath(new java.net.URL(jar))
   }
 
   override protected[repl] def parseError(stdout: String): (String, Seq[String]) = {

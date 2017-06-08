@@ -20,6 +20,7 @@ package com.cloudera.livy.repl
 
 import java.io.File
 import java.net.URLClassLoader
+import java.net.URL
 import java.nio.file.{Files, Paths}
 
 import scala.tools.nsc.Settings
@@ -132,6 +133,10 @@ class SparkInterpreter(conf: SparkConf)
     sparkILoop.beQuietDuring {
       sparkILoop.bind(name, tpe, value, modifier)
     }
+  }
+
+  def addJar(jar: String): Unit = {
+    sparkILoop.addUrlsToClassPath(new java.net.URL(jar))
   }
 
   private def startHttpServer(outputDir: File): Option[(Object, String)] = {

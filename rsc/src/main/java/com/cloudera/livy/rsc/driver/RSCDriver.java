@@ -18,9 +18,13 @@
 package com.cloudera.livy.rsc.driver;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -472,11 +476,11 @@ public class RSCDriver extends BaseProtocol {
     jc.sc().addFile(path);
   }
 
-  protected void addJarOrPyFile(String path) throws Exception {
-    File localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
-    File localCopy = copyFileToLocal(localCopyDir, path, jc.sc().sc());
+  protected String addJarOrPyFile(String path) throws Exception {
+    File localCopy = copyFileToLocal(null, path, jc.sc().sc());
     addLocalFileToClassLoader(localCopy);
     jc.sc().addJar(path);
+    return localCopy.getPath();
   }
 
   public void addLocalFileToClassLoader(File localCopy) throws MalformedURLException {
@@ -484,27 +488,42 @@ public class RSCDriver extends BaseProtocol {
     cl.addURL(localCopy.toURI().toURL());
   }
 
-  public File copyFileToLocal(
-      File localCopyDir,
-      String filePath,
-      SparkContext sc) throws Exception {
+  protected File localize(File localCopyDir, String remotePath) throws Exception {
+    if (localCopyDir == null) {
+      localCopyDir = new File(jc.getLocalTmpDir(), "__livy__");
+    }
     synchronized (jc) {
       if (!localCopyDir.isDirectory() && !localCopyDir.mkdir()) {
         throw new IOException("Failed to create directory to add pyFile");
       }
     }
-    URI uri = new URI(filePath);
+    URI uri = new URI(remotePath);
     String name = uri.getFragment() != null ? uri.getFragment() : uri.getPath();
     name = new File(name).getName();
-    File localCopy = new File(localCopyDir, name);
+    return new File(localCopyDir, name);
+  }
 
-    if (localCopy.exists()) {
-      throw new IOException(String.format("A file with name %s has " +
-              "already been uploaded.", name));
+  public File copyFileToLocal(
+      File localCopyDir,
+      String filePath,
+      SparkContext sc) throws Exception {
+    if (filePath.startsWith("http")) {
+      return downloadFileToLocal(localCopyDir, filePath);
     }
+    File localCopy = localize(localCopyDir, filePath);
+    URI uri = new URI(filePath);
     Configuration conf = sc.hadoopConfiguration();
     FileSystem fs = FileSystem.get(uri, conf);
     fs.copyToLocalFile(new Path(uri), new Path(localCopy.toURI()));
     return localCopy;
   }
+
+  public File downloadFileToLocal(File localCopyDir, String fileUrl) throws Exception {
+    File localCopy = localize(localCopyDir, fileUrl);
+    ReadableByteChannel rbc = Channels.newChannel(new URL(fileUrl).openStream());
+    FileOutputStream fos = new FileOutputStream(localCopy.getPath());
+    fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+    return localCopy;
+  }
+
 }
