@@ -77,7 +77,8 @@ public class RSCConf extends ClientConf<RSCConf> {
     JOB_CANCEL_TRIGGER_INTERVAL("job-cancel.trigger-interval", "100ms"),
     JOB_CANCEL_TIMEOUT("job-cancel.timeout", "30s"),
 
-    RETAINED_STATEMENT_NUMBER("retained-statements", 100);
+    RETAINED_STATEMENTS("retained-statements", 100),
+    RETAINED_SHARE_VARIABLES("retained.share-variables", 100);
 
     private final String key;
     private final Object dflt;
@@ -157,7 +158,7 @@ public class RSCConf extends ClientConf<RSCConf> {
       put(RSCConf.Entry.TEST_STUCK_START_DRIVER.key, DepConf.TEST_STUCK_START_DRIVER);
       put(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL.key, DepConf.JOB_CANCEL_TRIGGER_INTERVAL);
       put(RSCConf.Entry.JOB_CANCEL_TIMEOUT.key, DepConf.JOB_CANCEL_TIMEOUT);
-      put(RSCConf.Entry.RETAINED_STATEMENT_NUMBER.key, DepConf.RETAINED_STATEMENT_NUMBER);
+      put(RSCConf.Entry.RETAINED_STATEMENTS.key, DepConf.RETAINED_STATEMENTS);
   }});
 
   // Maps deprecated key to DeprecatedConf with the same key.
@@ -183,7 +184,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     TEST_STUCK_START_DRIVER("test.do_not_use.stuck_start_driver", "0.4"),
     JOB_CANCEL_TRIGGER_INTERVAL("job_cancel.trigger_interval", "0.4"),
     JOB_CANCEL_TIMEOUT("job_cancel.timeout", "0.4"),
-    RETAINED_STATEMENT_NUMBER("retained_statements", "0.4");
+    RETAINED_STATEMENTS("retained_statements", "0.4");
 
     private final String key;
     private final String version;

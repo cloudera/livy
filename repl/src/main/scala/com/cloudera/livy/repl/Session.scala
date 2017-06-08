@@ -68,7 +68,7 @@ class Session(
   private var _state: SessionState = SessionState.NotStarted()
 
   // Number of statements kept in driver's memory
-  private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+  private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENTS)
 
   private val _statements = new JLinkedHashMap[Int, Statement] {
     protected override def removeEldestEntry(eldest: Entry[Int, Statement]): Boolean = {

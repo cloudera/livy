@@ -16,6 +16,7 @@
 
 from __future__ import print_function
 import ast
+from collections import OrderedDict
 import datetime
 import decimal
 import io
@@ -99,6 +100,8 @@ class JobContextImpl(object):
         self.streaming_ctx = None
         self.local_tmp_dir_path = local_tmp_dir_path
         self.spark_session = global_dict.get('spark')
+        self.shared_variables = OrderedDict()
+        self.max_var_size = 100
 
     def sc(self):
         return self.sc
@@ -147,6 +150,31 @@ class JobContextImpl(object):
 
     def spark_session(self):
         return self.spark_session
+
+    def get_shared_object(self, name):
+        with self.lock:
+            try:
+                var = self.shared_variables[name]
+                del self.shared_variables[name]
+                self.shared_variables[name] = var
+            except:
+                var = None
+
+        return var
+
+    def set_shared_object(self, name, object):
+        with self.lock:
+            self.shared_variables[name] = object
+
+            while len(self.shared_variables) > self.max_var_size:
+                self.popitem(last=False)
+
+    def remove_shared_object(self, name):
+        with self.lock:
+            try:
+                del self.shared_variables[name]
+            except:
+                pass
 
 
 class PySparkJobProcessorImpl(object):
