@@ -21,7 +21,7 @@ package com.cloudera.livy.server.batch
 import javax.servlet.http.HttpServletRequest
 
 import com.cloudera.livy.LivyConf
-import com.cloudera.livy.server.SessionServlet
+import com.cloudera.livy.server.{AccessManager, SessionServlet}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.BatchSessionManager
 import com.cloudera.livy.utils.AppInfo
@@ -36,8 +36,9 @@ case class BatchSessionView(
 class BatchSessionServlet(
     sessionManager: BatchSessionManager,
     sessionStore: SessionStore,
-    livyConf: LivyConf)
-  extends SessionServlet(sessionManager, livyConf)
+    livyConf: LivyConf,
+    accessManager: AccessManager)
+  extends SessionServlet(sessionManager, livyConf, accessManager)
 {
 
   override protected def createSession(req: HttpServletRequest): BatchSession = {
@@ -51,7 +52,7 @@ class BatchSessionServlet(
       session: BatchSession,
       req: HttpServletRequest): Any = {
     val logs =
-      if (hasAccess(session.owner, req)) {
+      if (hasViewAccess(session.owner, req)) {
         val lines = session.logLines()
 
         val size = 10

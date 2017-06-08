@@ -38,7 +38,7 @@ import org.scalatra.servlet.ScalatraListener
 import com.cloudera.livy._
 import com.cloudera.livy.client.common.{BufferUtils, Serializer}
 import com.cloudera.livy.client.common.HttpMessages._
-import com.cloudera.livy.server.WebServer
+import com.cloudera.livy.server.{AccessManager, WebServer}
 import com.cloudera.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.{InteractiveSessionManager, SessionState, Spark}
@@ -268,7 +268,8 @@ private class HttpClientTestBootstrap extends LifeCycle {
     val conf = new LivyConf()
     val stateStore = mock(classOf[SessionStore])
     val sessionManager = new InteractiveSessionManager(conf, stateStore, Some(Seq.empty))
-    val servlet = new InteractiveSessionServlet(sessionManager, stateStore, conf) {
+    val accessManager = new AccessManager(conf)
+    val servlet = new InteractiveSessionServlet(sessionManager, stateStore, conf, accessManager) {
       override protected def createSession(req: HttpServletRequest): InteractiveSession = {
         val session = mock(classOf[InteractiveSession])
         val id = sessionManager.nextId()
