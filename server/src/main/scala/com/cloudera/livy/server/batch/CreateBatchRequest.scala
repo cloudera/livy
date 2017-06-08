@@ -36,6 +36,7 @@ class CreateBatchRequest {
   var queue: Option[String] = None
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
+  var sparkVersion: Option[String] = None
 
   override def toString: String = {
     s"[proxyUser: $proxyUser, " +

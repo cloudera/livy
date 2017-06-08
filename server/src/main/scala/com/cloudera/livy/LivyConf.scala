@@ -160,6 +160,9 @@ object LivyConf {
    */
   val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
 
+  /** Return the  spark home version */
+  def SPARK_HOME_VER(version: String): Entry = Entry(s"livy.server.spark-home-$version", null)
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
@@ -248,14 +251,22 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
   /** Return the location of the spark home directory */
-  def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+  def sparkHome(version: Option[String] = None): Option[String] = {
+    version match {
+      case Some(value) => Option(get(SPARK_HOME_VER(value)))
+                          .orElse(throw new IllegalArgumentException(
+                            s"Spark version: $value is not supported"))
+      case None => Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+    }
+  }
 
   /** Return the spark master Livy sessions should use. */
   def sparkMaster(): String = get(LIVY_SPARK_MASTER)
 
   /** Return the path to the spark-submit executable. */
-  def sparkSubmit(): String = {
-    sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
+  def sparkSubmit(version: Option[String] = None): String = {
+    sparkHome(version).map { _ + File.separator + "bin" + File.separator +
+      "spark-submit" }.get
   }
 
   /** Return the list of superusers. */

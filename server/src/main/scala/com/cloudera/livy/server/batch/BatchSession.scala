@@ -18,6 +18,7 @@
 
 package com.cloudera.livy.server.batch
 
+import java.io.File
 import java.lang.ProcessBuilder.Redirect
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
@@ -62,9 +63,12 @@ object BatchSession extends Logging {
           request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
       require(request.file != null, "File is required.")
 
-      val builder = new SparkProcessBuilder(livyConf)
+      val builder = new SparkProcessBuilder(livyConf, request.sparkVersion)
+      val sparkConf = livyConf.sparkHome(request.sparkVersion).map(_ + File.separator + "conf")
+      val sparkHome = livyConf.sparkHome(request.sparkVersion)
+      sparkConf.map(sc => builder.env("SPARK_CONF_DIR", sc))
+      sparkHome.map(sh => builder.env("SPARK_HOME", sh))
       builder.conf(conf)
-
       proxyUser.foreach(builder.proxyUser)
       request.className.foreach(builder.className)
       request.driverMemory.foreach(builder.driverMemory)
