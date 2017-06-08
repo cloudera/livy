@@ -16,6 +16,15 @@
  * limitations under the License.
  */
 
+function appIdLink(session) {
+  var appUiUrl = session.appInfo.sparkUiUrl;
+  if (appUiUrl != null) {
+    return '<a href="' + appUiUrl + '">' + session.appId + "</a>";
+  } else {
+    return session.appId;
+  }
+}
+
 function tdWrap(str) {
   return "<td>" + str + "</td>";
 }
@@ -25,7 +34,7 @@ function loadSessionsTable(sessions) {
     $("#interactive-sessions .sessions-table-body").append(
       "<tr>" +
         tdWrap(session.id) +
-        tdWrap(session.appId) +
+        tdWrap(appIdLink(session)) +
         tdWrap(session.owner) +
         tdWrap(session.proxyUser) +
         tdWrap(session.kind) +
@@ -40,7 +49,7 @@ function loadBatchesTable(sessions) {
     $("#batches .sessions-table-body").append(
       "<tr>" +
         tdWrap(session.id) +
-        tdWrap(session.appId) +
+        tdWrap(appIdLink(session)) +
         tdWrap(session.state) +
        "</tr>"
     );
