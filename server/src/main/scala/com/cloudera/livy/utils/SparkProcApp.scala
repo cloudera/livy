@@ -40,7 +40,8 @@ class SparkProcApp (
     }
   }
 
-  override def log(): IndexedSeq[String] = process.inputLines
+  override def log(): IndexedSeq[String] =
+    ("stdout: " +: process.inputLines) ++ ("\nstderr: " +: process.errorLines)
 
   private def changeState(newState: SparkApp.State.Value) = {
     if (state != newState) {

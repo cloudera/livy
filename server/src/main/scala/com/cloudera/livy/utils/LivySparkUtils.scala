@@ -100,7 +100,7 @@ object LivySparkUtils extends Logging {
       pb.environment().put("LIVY_TEST_CLASSPATH", sys.props("java.class.path"))
     }
 
-    val process = new LineBufferedProcess(pb.start())
+    val process = new LineBufferedProcess(pb.start(), 200)
     val exitCode = process.waitFor()
     val output = process.inputIterator.mkString("\n")
 

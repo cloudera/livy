@@ -20,10 +20,10 @@ package com.cloudera.livy.util
 
 import com.cloudera.livy.{Logging, Utils}
 
-class LineBufferedProcess(process: Process) extends Logging {
+class LineBufferedProcess(process: Process, logSize: Int) extends Logging {
 
-  private[this] val _inputStream = new LineBufferedStream(process.getInputStream)
-  private[this] val _errorStream = new LineBufferedStream(process.getErrorStream)
+  private[this] val _inputStream = new LineBufferedStream(process.getInputStream, logSize)
+  private[this] val _errorStream = new LineBufferedStream(process.getErrorStream, logSize)
 
   def inputLines: IndexedSeq[String] = _inputStream.lines
   def errorLines: IndexedSeq[String] = _errorStream.lines
