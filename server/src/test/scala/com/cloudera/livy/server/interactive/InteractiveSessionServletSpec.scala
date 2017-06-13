@@ -69,10 +69,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
         new Answer[Statement]() {
           override def answer(args: InvocationOnMock): Statement = {
             val id = statementCounter.getAndIncrement
-            val statement = new Statement(
-              id,
-              StatementState.Available,
-              "1")
+            val statement = new Statement(id, "1+1", StatementState.Available, "1")
 
             statements :+= statement
             statement
@@ -82,7 +79,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
         new Answer[Unit] {
           override def answer(args: InvocationOnMock): Unit = {
             statements = IndexedSeq(
-              new Statement(statementCounter.get(), StatementState.Cancelled, null))
+              new Statement(statementCounter.get(), null, StatementState.Cancelled, null))
           }
         }
       )
@@ -121,6 +118,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
     jpost[Map[String, Any]]("/0/statements", ExecuteRequest("foo")) { data =>
       data("id") should be (0)
+      data("code") shouldBe "1+1"
       data("progress") should be (0.0)
       data("output") shouldBe 1
     }

@@ -23,20 +23,22 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
 
 public class Statement {
   public final Integer id;
+  public final String code;
   public final AtomicReference<StatementState> state;
   @JsonRawValue
   public volatile String output;
   public double progress;
 
-  public Statement(Integer id, StatementState state, String output) {
+  public Statement(Integer id, String code, StatementState state, String output) {
     this.id = id;
+    this.code = code;
     this.state = new AtomicReference<>(state);
     this.output = output;
     this.progress = 0.0;
   }
 
   public Statement() {
-    this(null, null, null);
+    this(null, null, null, null);
   }
 
   public boolean compareAndTransit(final StatementState from, final StatementState to) {
