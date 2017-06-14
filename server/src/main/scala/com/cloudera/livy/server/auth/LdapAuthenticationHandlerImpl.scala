@@ -164,11 +164,11 @@ class LdapAuthenticationHandlerImpl() extends AuthenticationHandler {
       ctx.lookup(userDN)
       LdapAuthenticationHandlerImpl.logger.debug("Authentication successful for {}", userDN)
     } catch {
-      case var13@(_: IOException | _: NamingException) =>
-        throw new AuthenticationException("Error validating LDAP user", var13)
+      case exception@(_: IOException | _: NamingException) =>
+        throw new AuthenticationException("Error validating LDAP user", exception)
     } finally if (ctx != null) try ctx.close()
     catch {
-      case var12: NamingException =>
+      case exception: NamingException =>
     }
   }
 
@@ -186,8 +186,8 @@ class LdapAuthenticationHandlerImpl() extends AuthenticationHandler {
       e.close()
       LdapAuthenticationHandlerImpl.logger.debug("Authentication successful for {}", userDN)
     } catch {
-      case var5: NamingException =>
-        throw new AuthenticationException("Error validating LDAP user", var5)
+      case exception: NamingException =>
+        throw new AuthenticationException("Error validating LDAP user", exception)
     }
   }
 }
