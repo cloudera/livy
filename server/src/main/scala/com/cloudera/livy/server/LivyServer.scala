@@ -34,6 +34,7 @@ import org.scalatra.ScalatraServlet
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
+import com.cloudera.livy.server.auth.LdapAuthenticationHandlerImpl
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
@@ -180,9 +181,11 @@ class LivyServer extends Logging {
               new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
             mount(context, interactiveServlet, "/sessions/*")
 
-            val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
-            mount(context, batchServlet, "/batches/*")
-
+            if(livyConf.getBoolean(BATCH_ENABLED)) {
+              val batchServlet = new BatchSessionServlet(batchSessionManager,
+                sessionStore, livyConf)
+              mount(context, batchServlet, "/batches/*")
+            }
             if (livyConf.getBoolean(UI_ENABLED)) {
               val uiServlet = new UIServlet
               mount(context, uiServlet, "/ui/*")
@@ -223,6 +226,21 @@ class LivyServer extends Logging {
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
 
+      case authType @ LdapAuthenticationHandlerImpl.TYPE =>
+        val holder = new FilterHolder(new AuthenticationFilter())
+        holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
+        Option(livyConf.get(LivyConf.AUTH_LDAP_URL)).foreach(url =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.PROVIDER_URL, url))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_USERNAME_DOMAIN)).foreach(domain =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.LDAP_BIND_DOMAIN, domain))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_BASE_DN)).foreach(baseDN =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.BASE_DN, baseDN))
+        holder.setInitParameter(LdapAuthenticationHandlerImpl.SECURITY_AUTHENTICATION,
+          livyConf.get(LivyConf.AUTH_LDAP_SECURITY_AUTH))
+        holder.setInitParameter(LdapAuthenticationHandlerImpl.ENABLE_START_TLS,
+          livyConf.get(LivyConf.AUTH_LDAP_ENABLE_START_TLS))
+        server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
+        info("LDAP auth enabled.")
      case null =>
         // Nothing to do.
 
