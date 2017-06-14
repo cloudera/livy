@@ -32,7 +32,6 @@ import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
-
 import org.apache.hadoop.security.authentication.server.{AuthenticationFilter, KerberosAuthenticationHandler}
 import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.eclipse.jetty.servlet.FilterHolder
@@ -181,9 +180,10 @@ class LivyServer extends Logging {
               new InteractiveSessionServlet(interactiveSessionManager, sessionStore, livyConf)
             mount(context, interactiveServlet, "/sessions/*")
 
-            val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
-            mount(context, batchServlet, "/batches/*")
-
+            if(livyConf.getBoolean(BATCH_ENABLED)) {
+              val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
+              mount(context, batchServlet, "/batches/*")
+            }
             if (livyConf.getBoolean(UI_ENABLED)) {
               val uiServlet = new UIServlet
               mount(context, uiServlet, "/ui/*")
@@ -227,9 +227,12 @@ class LivyServer extends Logging {
       case authType @ LdapAuthenticationHandlerImpl.TYPE =>
         val holder = new FilterHolder(new AuthenticationFilter())
         holder.setInitParameter(AuthenticationFilter.AUTH_TYPE, authType)
-        Option(livyConf.get(LivyConf.AUTH_LDAP_URL)).foreach(url => holder.setInitParameter(LdapAuthenticationHandlerImpl.PROVIDER_URL, url))
-        Option(livyConf.get(LivyConf.AUTH_LDAP_USERNAME_DOMAIN)).foreach(domain => holder.setInitParameter(LdapAuthenticationHandlerImpl.LDAP_BIND_DOMAIN, domain))
-        Option(livyConf.get(LivyConf.AUTH_LDAP_BASE_DN)).foreach(baseDN => holder.setInitParameter(LdapAuthenticationHandlerImpl.BASE_DN, baseDN))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_URL)).foreach(url =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.PROVIDER_URL, url))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_USERNAME_DOMAIN)).foreach(domain =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.LDAP_BIND_DOMAIN, domain))
+        Option(livyConf.get(LivyConf.AUTH_LDAP_BASE_DN)).foreach(baseDN =>
+          holder.setInitParameter(LdapAuthenticationHandlerImpl.BASE_DN, baseDN))
         holder.setInitParameter(LdapAuthenticationHandlerImpl.SECURITY_AUTHENTICATION,
           livyConf.get(LivyConf.AUTH_LDAP_SECURITY_AUTH))
         holder.setInitParameter(LdapAuthenticationHandlerImpl.ENABLE_START_TLS,
