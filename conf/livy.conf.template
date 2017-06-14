@@ -35,6 +35,9 @@
 # If livy should impersonate the requesting users when creating a new session.
 # livy.impersonation.enabled = true
 
+# Enable Logging queries
+# livy.server.query-logging.enabled = true
+
 # Comma-separated list of Livy RSC jars. By default Livy will upload jars from its installation
 # directory every time a session is started. By caching these files in HDFS, for example, startup
 # time of sessions on YARN can be reduced.
