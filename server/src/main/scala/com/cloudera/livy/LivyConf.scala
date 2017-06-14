@@ -77,6 +77,8 @@ object LivyConf {
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   val ACCESS_CONTROL_USERS = Entry("livy.server.access-control.users", null)
 
+  val QUERY_LOGGER_ENABLED = Entry("livy.server.query-logging.enabled", false)
+
   val SSL_KEYSTORE = Entry("livy.keystore", null)
   val SSL_KEYSTORE_PASSWORD = Entry("livy.keystore.password", null)
   val SSL_KEY_PASSWORD = Entry("livy.key-password", null)
@@ -193,6 +195,7 @@ object LivyConf {
     CSRF_PROTECTION.key -> DepConf("livy.server.csrf_protection.enabled", "0.4"),
     ACCESS_CONTROL_ENABLED.key -> DepConf("livy.server.access_control.enabled", "0.4"),
     ACCESS_CONTROL_USERS.key -> DepConf("livy.server.access_control.users", "0.4"),
+    QUERY_LOGGER_ENABLED.key -> DepConf("livy.server.query_logging.enabled", "0.4"),
     AUTH_KERBEROS_NAME_RULES.key -> DepConf("livy.server.auth.kerberos.name_rules", "0.4"),
     LAUNCH_KERBEROS_REFRESH_INTERVAL.key ->
       DepConf("livy.server.launch.kerberos.refresh_interval", "0.4"),

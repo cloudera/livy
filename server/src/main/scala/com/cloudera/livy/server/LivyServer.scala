@@ -18,20 +18,9 @@
 
 package com.cloudera.livy.server
 
-import java.util.concurrent._
 import java.util.EnumSet
+import java.util.concurrent._
 import javax.servlet._
-
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
-
-import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
-import org.apache.hadoop.security.authentication.server._
-import org.eclipse.jetty.servlet.FilterHolder
-import org.scalatra.metrics.MetricsBootstrap
-import org.scalatra.metrics.MetricsSupportExtensions._
-import org.scalatra.ScalatraServlet
-import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.auth.LdapAuthenticationHandlerImpl
@@ -39,10 +28,21 @@ import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
 import com.cloudera.livy.server.ui.UIServlet
-import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
+import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.utils.LivySparkUtils._
 import com.cloudera.livy.utils.SparkYarnApp
+
+import org.apache.hadoop.security.authentication.server.{AuthenticationFilter, KerberosAuthenticationHandler}
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
+import org.eclipse.jetty.servlet.FilterHolder
+import org.scalatra.ScalatraServlet
+import org.scalatra.metrics.MetricsBootstrap
+import org.scalatra.metrics.MetricsSupportExtensions._
+import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 
 class LivyServer extends Logging {
 
@@ -263,6 +263,12 @@ class LivyServer extends Logging {
         throw new IllegalArgumentException("Access control was requested but could " +
           "not be enabled, since authentication is disabled.")
       }
+    }
+
+    if (livyConf.getBoolean(QUERY_LOGGER_ENABLED)) {
+      info("Query logging is enabled.")
+      val servletLoggingHolder = new FilterHolder(new ServletLoggerFilter(livyConf))
+      server.context.addFilter(servletLoggingHolder, "/*", EnumSet.allOf(classOf[DispatcherType]))
     }
 
     server.start()

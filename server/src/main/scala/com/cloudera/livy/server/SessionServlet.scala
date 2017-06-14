@@ -23,6 +23,7 @@ import javax.servlet.http.HttpServletRequest
 import org.scalatra._
 import scala.concurrent._
 import scala.concurrent.duration._
+import scala.sys.process._
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.sessions.{Session, SessionManager}
@@ -171,7 +172,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    */
   protected def hasAccess(target: String, req: HttpServletRequest): Boolean = {
     val user = remoteUser(req)
-    user == null || user == target || livyConf.superusers().contains(user)
+    val cmdResult = Process("sh", Seq("-c", "getent netgroup " + target)).!!
+    val headlessGroup = cmdResult.split(",").zipWithIndex.filter(_._2 % 2 == 1).map(_._1).map(_.trim)
+    user == null || user == target || livyConf.superusers().contains(user) || headlessGroup.contains(user)
   }
 
   /**
