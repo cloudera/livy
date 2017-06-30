@@ -43,7 +43,21 @@ class HttpConf extends ClientConf<HttpConf> {
     SPNEGO_ENABLED("spnego.enable", false),
     AUTH_LOGIN_CONFIG("auth.login.config", null),
     KRB5_DEBUG_ENABLED("krb5.debug", false),
-    KRB5_CONF("krb5.conf", null);
+    KRB5_CONF("krb5.conf", null),
+
+    // SSL related configurations
+    SSL_TRUSTSTORE("ssl.truststore", null),
+    SSL_TRUSTSTORE_PASSWORD("ssl.truststore-password", null),
+    SSL_TRUSTSTORE_TYPE("ssl.truststore-type", null),
+
+    SSL_CLIENT_AUTH("ssl.client-auth", false),
+    SSL_KEYSTORE("ssl.keystore", null),
+    SSL_KEY_PASSWORD("ssl.key-password", null),
+    SSL_KEYSTORE_PASSWORD("ssl.keystore-password", null),
+    SSL_KEYSTORE_TYPE("ssl.keystore-type", null),
+
+    SSL_PROTOCOL("ssl.protocol", null),
+    SSL_ENABLED_ALGOS("ssl.enabled-algorithms", null);
 
     private final String key;
     private final Object dflt;

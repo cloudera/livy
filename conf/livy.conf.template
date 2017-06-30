@@ -1,11 +1,32 @@
 # Use this keystore for the SSL certificate and key.
-# livy.keystore =
+# livy.server.ssl.keystore =
 
 # Specify the keystore password.
-# livy.keystore.password =
+# livy.server.ssl.keystore-password =
 #
 # Specify the key password.
-# livy.key-password =
+# livy.server.ssl.key-password =
+
+# Specify the keystore type.
+# livy.server.ssl.keystore-type =
+
+# Whether to enable SSL client authentication.
+# livy.serverl.ssl.client-auth = false
+
+# Truststore for SSL client authentication.
+# livy.server.ssl.truststore =
+
+# Specify the truststore password.
+# livy.server.ssl.truststore-password =
+
+# Specify the truststore type.
+# livy.server.ssl.truststore-type =
+
+# Specify the protocol of SSL.
+# livy.server.ssl.protocol =
+#
+# Specify SSL enabled algorithms.
+# livy.server.ssl.enabled-algorithms =
 
 # What host address to start the server on. By default, Livy will bind to all network interfaces.
 # livy.server.host = 0.0.0.0

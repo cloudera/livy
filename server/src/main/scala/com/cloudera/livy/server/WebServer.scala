@@ -41,22 +41,20 @@ class WebServer(livyConf: LivyConf, var host: String, var port: Int) extends Log
       http.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
       (new ServerConnector(server, new HttpConnectionFactory(http)), "http")
 
-    case Some(keystore) =>
+    case Some(_) =>
       val https = new HttpConfiguration()
       https.setRequestHeaderSize(livyConf.getInt(LivyConf.REQUEST_HEADER_SIZE))
       https.setResponseHeaderSize(livyConf.getInt(LivyConf.RESPONSE_HEADER_SIZE))
       https.addCustomizer(new SecureRequestCustomizer())
 
-      val sslContextFactory = new SslContextFactory()
-      sslContextFactory.setKeyStorePath(keystore)
-      Option(livyConf.get(LivyConf.SSL_KEYSTORE_PASSWORD))
-        .foreach(sslContextFactory.setKeyStorePassword)
-      Option(livyConf.get(LivyConf.SSL_KEY_PASSWORD))
-        .foreach(sslContextFactory.setKeyManagerPassword)
+      val serverSslOptions = ServerSSLOptions.parse(livyConf)
+      val sslContextFactory = serverSslOptions.createJettySslContextFactory()
 
-      (new ServerConnector(server,
-        new SslConnectionFactory(sslContextFactory, "http/1.1"),
-        new HttpConnectionFactory(https)), "https")
+      val conn = new ServerConnector(server,
+        new SslConnectionFactory(sslContextFactory, "http/1.1"), new HttpConnectionFactory(https))
+      conn.setPort(serverSslOptions.port)
+
+      (conn, "https")
   }
 
   connector.setHost(host)
