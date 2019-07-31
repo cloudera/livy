@@ -17,21 +17,41 @@
 
 package com.cloudera.livy.rsc.driver;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 import com.fasterxml.jackson.annotation.JsonRawValue;
 
 public class Statement {
   public final Integer id;
-  public final StatementState state;
+  public final AtomicReference<StatementState> state;
   @JsonRawValue
-  public final String output;
+  public volatile String output;
+  public double progress;
 
   public Statement(Integer id, StatementState state, String output) {
     this.id = id;
-    this.state = state;
+    this.state = new AtomicReference<>(state);
     this.output = output;
+    this.progress = 0.0;
   }
 
   public Statement() {
     this(null, null, null);
+  }
+
+  public boolean compareAndTransit(final StatementState from, final StatementState to) {
+    if (state.compareAndSet(from, to)) {
+      StatementState.validate(from, to);
+      return true;
+    }
+    return false;
+  }
+
+  public void updateProgress(double p) {
+    if (this.state.get().isOneOf(StatementState.Cancelled, StatementState.Available)) {
+      this.progress = 1.0;
+    } else {
+      this.progress = p;
+    }
   }
 }

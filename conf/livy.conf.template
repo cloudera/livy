@@ -3,6 +3,9 @@
 
 # Specify the keystore password.
 # livy.keystore.password =
+#
+# Specify the key password.
+# livy.key-password =
 
 # What host address to start the server on. By default, Livy will bind to all network interfaces.
 # livy.server.host = 0.0.0.0
@@ -14,10 +17,20 @@
 # livy.spark.master = local
 
 # What spark deploy mode Livy sessions should use.
-# livy.spark.deployMode =
+# livy.spark.deploy-mode =
+
+# Configure Livy server http request and response header size.
+# livy.server.request-header.size = 131072
+# livy.server.response-header.size = 131072
+
+# Enabled to check whether timeout Livy sessions should be stopped.
+# livy.server.session.timeout-check = true
 
 # Time in milliseconds on how long Livy will wait before timing out an idle session.
 # livy.server.session.timeout = 1h
+#
+# How long a finished session state should be kept in LivyServer for query.
+# livy.server.session.state-retain.sec = 600s
 
 # If livy should impersonate the requesting users when creating a new session.
 # livy.impersonation.enabled = true
@@ -25,11 +38,13 @@
 # Comma-separated list of Livy RSC jars. By default Livy will upload jars from its installation
 # directory every time a session is started. By caching these files in HDFS, for example, startup
 # time of sessions on YARN can be reduced.
-# livy.jars =
+# livy.rsc.jars =
 
 # Comma-separated list of Livy REPL jars. By default Livy will upload jars from its installation
 # directory every time a session is started. By caching these files in HDFS, for example, startup
-# time of sessions on YARN can be reduced.
+# time of sessions on YARN can be reduced. Please list all the repl dependencies including
+# livy-repl_2.10 and livy-repl_2.11 jars, Livy will automatically pick the right dependencies in
+# session creation.
 # livy.repl.jars =
 
 # Location of PySpark archives. By default Livy will upload the file from SPARK_HOME, but
@@ -47,11 +62,11 @@
 
 # Whether to enable csrf protection, by default it is false. If it is enabled, client should add
 # http-header "X-Requested-By" in request if the http method is POST/DELETE/PUT/PATCH.
-# livy.server.csrf_protection.enabled =
+# livy.server.csrf-protection.enabled =
 
 # Whether to enable HiveContext in livy interpreter, if it is true hive-site.xml will be detected
 # on user request and then livy server classpath automatically.
-# livy.repl.enableHiveContext =
+# livy.repl.enable-hive-context =
 
 # Recovery mode of Livy. Possible values:
 # off: Default. Turn off recovery. Every time Livy shuts down, it stops and forgets all sessions.
@@ -73,7 +88,19 @@
 # livy.server.recovery.state-store.url =
 
 # If Livy can't find the yarn app within this time, consider it lost.
-# livy.server.yarn.app-lookup-timeout = 30s
+# livy.server.yarn.app-lookup-timeout = 60s
+# When the cluster is busy, we may fail to launch yarn app in app-lookup-timeout, then it would
+# cause session leakage, so we need to check session leakage.
+# How long to check livy session leakage
+# livy.server.yarn.app-leakage.check-timeout = 600s
+# how often to check livy session leakage
+# livy.server.yarn.app-leakage.check-interval = 60s
 
 # How often Livy polls YARN to refresh YARN app state.
 # livy.server.yarn.poll-interval = 1s
+#
+# Days to keep Livy server request logs.
+# livy.server.request-log-retain.days = 5
+
+# If the Livy Web UI should be included in the Livy Server. Enabled by default.
+# livy.ui.enabled = true

@@ -22,11 +22,14 @@ import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
+import com.cloudera.livy.rsc.RSCConf
+
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
 
-  override def createInterpreter(): Interpreter = new SparkInterpreter(new SparkConf())
+  override def createInterpreter(): Interpreter =
+    new SparkInterpreter(new SparkConf())
 
   it should "execute `1 + 2` == 3" in withInterpreter { interpreter =>
     val response = interpreter.execute("1 + 2")

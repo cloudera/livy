@@ -91,6 +91,10 @@ class SparkInterpreter(conf: SparkConf)
             .filter { u => u.getProtocol == "file" && new File(u.getPath).isFile }
             // Livy rsc and repl are also in the extra jars list. Filter them out.
             .filterNot { u => Paths.get(u.toURI).getFileName.toString.startsWith("livy-") }
+            // Some bad spark packages depend on the wrong version of scala-reflect. Blacklist it.
+            .filterNot { u =>
+              Paths.get(u.toURI).getFileName.toString.contains("org.scala-lang_scala-reflect")
+            }
 
           extraJarPath.foreach { p => debug(s"Adding $p to Scala interpreter's class path...") }
           sparkIMain.addUrlsToClassPath(extraJarPath: _*)
@@ -130,6 +134,43 @@ class SparkInterpreter(conf: SparkConf)
 
   override protected def interpret(code: String): Result = {
     sparkIMain.interpret(code)
+  }
+
+  override protected[repl] def parseError(stdout: String): (String, Seq[String]) = {
+    // An example of Scala 2.10 runtime exception error message:
+    // java.lang.Exception: message
+    //     at $iwC$$iwC$$iwC$$iwC$$iwC.error(<console>:25)
+    //     at $iwC$$iwC$$iwC.error2(<console>:27)
+    //     at $iwC$$iwC.<init>(<console>:41)
+    //     at $iwC.<init>(<console>:43)
+    //     at <init>(<console>:45)
+    //     at .<init>(<console>:49)
+    //     at .<clinit>(<console>)
+    //     at .<init>(<console>:7)
+    //     at .<clinit>(<console>)
+    //     at $print(<console>)
+    //     at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+    //     at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+    // ...
+
+    val (ename, traceback) = super.parseError(stdout)
+
+    // Remove internal frames.
+    val startOfInternalFrames = traceback.indexWhere(_.contains("$iwC$$iwC.<init>"))
+    var endOfInternalFrames = traceback.indexWhere(!_.trim.startsWith("at"), startOfInternalFrames)
+    if (endOfInternalFrames == -1) {
+      endOfInternalFrames = traceback.length
+    }
+
+    val cleanedTraceback = if (startOfInternalFrames == -1) {
+      traceback
+    } else {
+      traceback.view.zipWithIndex
+        .filterNot { z => z._2 >= startOfInternalFrames && z._2 < endOfInternalFrames }
+        .map { _._1.replaceAll("(\\$iwC\\$)*\\$iwC", "<user code>") }
+    }
+
+    (ename, cleanedTraceback)
   }
 
   override protected def valueOfTerm(name: String): Option[Any] = {

@@ -35,11 +35,12 @@ requirements = [
     'futures>=3.0.5',
     'requests>=2.10.0',
     'responses>=0.5.1',
+    'requests-kerberos>=0.11.0',
 ]
 
 setup(
     name='livy-python-api',
-    version="0.3.0-SNAPSHOT",
+    version="0.4.0-SNAPSHOT",
     packages=["livy", "livy-tests"],
     package_dir={
         "": "src/main/python",

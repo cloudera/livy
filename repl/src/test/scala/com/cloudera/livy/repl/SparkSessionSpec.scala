@@ -18,10 +18,17 @@
 
 package com.cloudera.livy.repl
 
+import scala.concurrent.duration._
+import scala.language.postfixOps
+
 import org.apache.spark.SparkConf
 import org.json4s.Extraction
-import org.json4s.jackson.JsonMethods.parse
 import org.json4s.JsonAST.JValue
+import org.json4s.jackson.JsonMethods.parse
+import org.scalatest.concurrent.Eventually._
+
+import com.cloudera.livy.rsc.RSCConf
+import com.cloudera.livy.rsc.driver.StatementState
 
 class SparkSessionSpec extends BaseSessionSpec {
 
@@ -193,5 +200,75 @@ class SparkSessionSpec extends BaseSessionSpec {
     ))
 
     result should equal (expectedResult)
+  }
+
+  it should "cancel spark jobs" in withSession { session =>
+    val stmtId = session.execute(
+      """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId).state.get() == StatementState.Running)
+    }
+    session.cancel(stmtId)
+
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId).state.get() == StatementState.Cancelled)
+      session.statements(stmtId).output should include (
+        "Job 0 cancelled part of cancelled job group 0")
+    }
+  }
+
+  it should "cancel waiting statement" in withSession { session =>
+    val stmtId1 = session.execute(
+      """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+    val stmtId2 = session.execute(
+      """sc.parallelize(0 to 10).map { i => Thread.sleep(10000); i + 1 }.collect""".stripMargin)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId1).state.get() == StatementState.Running)
+    }
+
+    assert(session.statements(stmtId2).state.get() == StatementState.Waiting)
+
+    session.cancel(stmtId2)
+    assert(session.statements(stmtId2).state.get() == StatementState.Cancelled)
+
+    session.cancel(stmtId1)
+    assert(session.statements(stmtId1).state.get() == StatementState.Cancelling)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      assert(session.statements(stmtId1).state.get() == StatementState.Cancelled)
+      session.statements(stmtId1).output should include (
+        "Job 0 cancelled part of cancelled job group 0")
+    }
+  }
+
+  it should "correctly calculate progress" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
+    }
+  }
+
+  it should "not generate Spark jobs for plain Scala code" in withSession { session =>
+    val executeCode = """1 + 1"""
+
+    val stmtId = session.execute(executeCode)
+    session.progressOfStatement(stmtId) should be (0.0)
+  }
+
+  it should "handle multiple jobs in one statement" in withSession { session =>
+    val executeCode =
+      """
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+        |sc.parallelize(1 to 2, 2).map(i => (i, 1)).collect()
+      """.stripMargin
+
+    val stmtId = session.execute(executeCode)
+    eventually(timeout(30 seconds), interval(100 millis)) {
+      session.progressOfStatement(stmtId) should be(1.0)
+    }
   }
 }

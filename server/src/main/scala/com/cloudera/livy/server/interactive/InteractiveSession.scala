@@ -22,14 +22,18 @@ import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.google.common.annotations.VisibleForTesting
+import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
 import com.cloudera.livy._
@@ -40,6 +44,7 @@ import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions._
 import com.cloudera.livy.sessions.Session._
 import com.cloudera.livy.sessions.SessionState.Dead
+import com.cloudera.livy.util.LineBufferedProcess
 import com.cloudera.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -48,6 +53,7 @@ case class InteractiveRecoveryMetadata(
     appId: Option[String],
     appTag: String,
     kind: Kind,
+    heartbeatTimeoutS: Int,
     owner: String,
     proxyUser: Option[String],
     rscDriverUri: Option[URI],
@@ -55,7 +61,6 @@ case class InteractiveRecoveryMetadata(
   extends RecoveryMetadata
 
 object InteractiveSession extends Logging {
-  private[interactive] val LIVY_REPL_JARS = "livy.repl.jars"
   private[interactive] val SPARK_YARN_IS_PYTHON = "spark.yarn.isPython"
 
   val RECOVERY_SESSION_TYPE = "interactive"
@@ -82,18 +87,21 @@ object InteractiveSession extends Logging {
         SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
         SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
         SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
-        "spark.executor.instances" -> request.numExecutors.map(_.toString)
+        "spark.executor.instances" -> request.numExecutors.map(_.toString),
+        "spark.app.name" -> request.name.map(_.toString),
+        "spark.yarn.queue" -> request.queue
       )
 
       userOpts.foreach { case (key, opt) =>
         opt.foreach { value => builderProperties.put(key, value) }
       }
 
-      info(s"Creating LivyClient for sessionId: $id")
+      builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
+
+      info(s"Creating Interactive session $id: [owner: $owner, request: $request]")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
-        .setConf("spark.app.name", s"livy-session-$id")
-        .setConf("livy.client.sessionId", id.toString)
+        .setConf("livy.client.session-id", id.toString)
         .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "com.cloudera.livy.repl.ReplDriver")
         .setConf(RSCConf.Entry.PROXY_USER.key(), proxyUser.orNull)
         .setURI(new URI("rsc:/"))
@@ -108,6 +116,7 @@ object InteractiveSession extends Logging {
       client,
       SessionState.Starting(),
       request.kind,
+      request.heartbeatTimeoutInSecond,
       livyConf,
       owner,
       proxyUser,
@@ -133,6 +142,7 @@ object InteractiveSession extends Logging {
       client,
       SessionState.Recovering(),
       metadata.kind,
+      metadata.heartbeatTimeoutS,
       livyConf,
       metadata.owner,
       metadata.proxyUser,
@@ -140,7 +150,8 @@ object InteractiveSession extends Logging {
       mockApp)
   }
 
-  private def prepareBuilderProp(
+  @VisibleForTesting
+  private[interactive] def prepareBuilderProp(
     conf: Map[String, String],
     kind: Kind,
     livyConf: LivyConf): mutable.Map[String, String] = {
@@ -149,7 +160,16 @@ object InteractiveSession extends Logging {
     builderProperties ++= conf
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
-      Option(livyConf.get(LIVY_REPL_JARS)).map(_.split(",").toList).getOrElse {
+      Option(livyConf.get(LivyConf.REPL_JARS)).map { jars =>
+        val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
+        jars.split(",").filter { name => new Path(name).getName match {
+            // Filter out unmatched scala jars
+            case regex(ver) => ver == scalaVersion
+            // Keep all the java jars end with ".jar"
+            case _ => name.endsWith(".jar")
+          }
+        }.toList
+      }.getOrElse {
         val home = sys.env("LIVY_HOME")
         val jars = Option(new File(home, s"repl_$scalaVersion-jars"))
           .filter(_.isDirectory())
@@ -292,6 +312,10 @@ object InteractiveSession extends Logging {
     }
     builderProperties.put(RSCConf.Entry.SESSION_KIND.key, kind.toString)
 
+    // Set Livy.rsc.jars from livy conf to rsc conf, RSC conf will take precedence if both are set.
+    Option(livyConf.get(LivyConf.RSC_JARS)).foreach(
+      builderProperties.getOrElseUpdate(RSCConf.Entry.LIVY_JARS.key(), _))
+
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
 
@@ -327,18 +351,24 @@ class InteractiveSession(
     client: Option[RSCClient],
     initialState: SessionState,
     val kind: Kind,
+    heartbeatTimeoutS: Int,
     livyConf: LivyConf,
     owner: String,
     override val proxyUser: Option[String],
     sessionStore: SessionStore,
     mockApp: Option[SparkApp]) // For unit test.
   extends Session(id, owner, livyConf)
+  with SessionHeartbeat
   with SparkAppListener {
 
   import InteractiveSession._
 
   private var serverSideState: SessionState = initialState
 
+  override protected val heartbeatTimeout: FiniteDuration = {
+    val heartbeatTimeoutInSecond = heartbeatTimeoutS
+    Duration(heartbeatTimeoutInSecond, TimeUnit.SECONDS)
+  }
   private val operations = mutable.Map[Long, String]()
   private val operationCounter = new AtomicLong(0)
   private var rscDriverUri: Option[URI] = None
@@ -347,12 +377,15 @@ class InteractiveSession(
 
   _appId = appIdHint
   sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
+  heartbeat()
 
   private val app = mockApp.orElse {
     if (livyConf.isRunningOnYarn()) {
+      val driverProcess = client.flatMap { c => Option(c.getDriverProcess) }
+        .map(new LineBufferedProcess(_))
       // When Livy is running with YARN, SparkYarnApp can provide better YARN integration.
       // (e.g. Reflect YARN application state to session state).
-      Option(SparkApp.create(appTag, appId, None, livyConf, Some(this)))
+      Option(SparkApp.create(appTag, appId, driverProcess, livyConf, Some(this)))
     } else {
       // When Livy is running with other cluster manager, SparkApp doesn't provide any
       // additional benefit over controlling RSCDriver using RSCClient. Don't use it.
@@ -388,6 +421,9 @@ class InteractiveSession(
 
       override def onJobSucceeded(job: JobHandle[Void], result: Void): Unit = {
         transition(SessionState.Running())
+        info(s"Interactive session $id created [appid: ${appId.orNull}, owner: $owner, proxyUser:" +
+          s" $proxyUser, state: ${state.toString}, kind: ${kind.toString}, " +
+          s"info: ${appInfo.asJavaMap}]")
       }
 
       private def errorOut(): Unit = {
@@ -397,6 +433,10 @@ class InteractiveSession(
         if (serverSideState != SessionState.ShuttingDown()) {
           transition(SessionState.Error())
           stop()
+          app.foreach { a =>
+            info(s"Failed to ping RSC driver for session $id. Killing application.")
+            a.kill()
+          }
         }
       }
     })
@@ -405,7 +445,8 @@ class InteractiveSession(
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
 
   override def recoveryMetadata: RecoveryMetadata =
-    InteractiveRecoveryMetadata(id, appId, appTag, kind, owner, proxyUser, rscDriverUri)
+    InteractiveRecoveryMetadata(
+      id, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt, owner, proxyUser, rscDriverUri)
 
   override def state: SessionState = {
     if (serverSideState.isInstanceOf[SessionState.Running]) {
@@ -461,6 +502,12 @@ class InteractiveSession(
 
     val id = client.get.submitReplCode(content.code).get
     client.get.getReplJobResults(id, 1).get().statements(0)
+  }
+
+  def cancelStatement(statementId: Int): Unit = {
+    ensureRunning()
+    recordActivity()
+    client.get.cancelReplCode(statementId)
   }
 
   def runJob(job: Array[Byte]): Long = {

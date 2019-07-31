@@ -19,12 +19,11 @@
 package com.cloudera.livy.server.interactive
 
 import java.util.concurrent.atomic.AtomicInteger
-import javax.servlet.http.HttpServletRequest
+import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.Future
 
-import org.json4s.JsonAST._
 import org.json4s.jackson.Json4sScalaModule
 import org.mockito.Matchers._
 import org.mockito.Mockito._
@@ -79,6 +78,14 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
             statement
           }
         })
+      when(session.cancelStatement(anyInt())).thenAnswer(
+        new Answer[Unit] {
+          override def answer(args: InvocationOnMock): Unit = {
+            statements = IndexedSeq(
+              new Statement(statementCounter.get(), StatementState.Cancelled, null))
+          }
+        }
+      )
 
       session
     }
@@ -114,12 +121,22 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
     jpost[Map[String, Any]]("/0/statements", ExecuteRequest("foo")) { data =>
       data("id") should be (0)
+      data("progress") should be (0.0)
       data("output") shouldBe 1
     }
 
     jget[Map[String, Any]]("/0/statements") { data =>
       data("total_statements") should be (1)
       data("statements").asInstanceOf[Seq[Map[String, Any]]](0)("id") should be (0)
+    }
+
+    jpost[Map[String, Any]]("/0/statements/0/cancel", null, HttpServletResponse.SC_OK) { data =>
+      data should equal(Map("msg" -> "canceled"))
+    }
+
+    jget[Map[String, Any]]("/0/statements") { data =>
+      data("total_statements") should be (1)
+      data("statements").asInstanceOf[Seq[Map[String, Any]]](0)("state") should be ("cancelled")
     }
 
     jdelete[Map[String, Any]]("/0") { data =>

@@ -23,7 +23,7 @@
 
   <groupId>com.cloudera.livy</groupId>
   <artifactId>livy-main</artifactId>
-  <version>0.3.0-SNAPSHOT</version>
+  <version>0.4.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>livy-main</name>
@@ -42,7 +42,7 @@
   </organization>
 
   <properties>
-    <hadoop.version>2.6.0-cdh5.5.0</hadoop.version>
+    <hadoop.version>2.7.3</hadoop.version>
     <hadoop.scope>compile</hadoop.scope>
     <spark.version>1.6.2</spark.version>
     <commons-codec.version>1.9</commons-codec.version>
@@ -71,6 +71,8 @@
     <test.redirectToFile>true</test.redirectToFile>
     <execution.root>${user.dir}</execution.root>
     <spark.home>${execution.root}/dev/spark</spark.home>
+    <!--  used for testing, NCSARequestLog use it for access log  -->
+    <livy.log.dir>${basedir}/target</livy.log.dir>
 
     <!-- Set this to "true" to skip R tests. -->
     <skipRTests>false</skipRTests>
@@ -178,18 +180,23 @@
     <module>assembly</module>
     <module>client-common</module>
     <module>client-http</module>
+    <module>core</module>
     <module>core/scala-2.10</module>
     <module>core/scala-2.11</module>
     <module>coverage</module>
     <module>examples</module>
     <module>python-api</module>
+    <module>repl</module>
     <module>repl/scala-2.10</module>
     <module>repl/scala-2.11</module>
     <module>rsc</module>
+    <module>scala</module>
+    <module>scala-api</module>
     <module>scala-api/scala-2.10</module>
     <module>scala-api/scala-2.11</module>
     <module>server</module>
     <module>test-lib</module>
+    <module>integration-test/minicluster-dependencies</module>
     <module>integration-test/minicluster-dependencies/scala-2.10</module>
     <module>integration-test/minicluster-dependencies/scala-2.11</module>
     <module>integration-test</module>
@@ -620,6 +627,13 @@
                 <goal>testCompile</goal>
               </goals>
             </execution>
+            <execution>
+              <id>scala-compile-first</id>
+              <phase>process-resources</phase>
+              <goals>
+                <goal>compile</goal>
+              </goals>
+            </execution>
           </executions>
           <configuration>
             <scalaVersion>${scala.version}</scalaVersion>
@@ -693,6 +707,7 @@
             <environmentVariables>
               <LIVY_TEST>true</LIVY_TEST>
               <SPARK_HOME>${spark.home}</SPARK_HOME>
+              <LIVY_LOG_DIR>${livy.log.dir}</LIVY_LOG_DIR>
             </environmentVariables>
             <systemProperties>
               <java.awt.headless>true</java.awt.headless>
@@ -783,11 +798,6 @@
             <phase>pre-site</phase>
           </execution>
         </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>net.alchim31.maven</groupId>
-        <artifactId>scala-maven-plugin</artifactId>
       </plugin>
 
       <plugin>
@@ -930,11 +940,6 @@
       </plugin>
 
       <plugin>
-        <groupId>org.scalatest</groupId>
-        <artifactId>scalatest-maven-plugin</artifactId>
-      </plugin>
-
-      <plugin>
         <groupId>org.jacoco</groupId>
         <artifactId>jacoco-maven-plugin</artifactId>
         <version>0.7.7.201606060606</version>
@@ -1002,6 +1007,40 @@
         <spark.version>2.0.1</spark.version>
       </properties>
     </profile>
+
+    <profile>
+      <id>spark-2.1</id>
+      <activation>
+        <property>
+          <name>spark-2.1</name>
+        </property>
+      </activation>
+      <properties>
+        <spark.version>2.1.0</spark.version>
+      </properties>
+    </profile>
+
+    <profile>
+      <id>skip-parent-modules</id>
+      <activation>
+        <file>
+          <missing>src/main/resources/build.marker</missing>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest-maven-plugin</artifactId>
+          </plugin>
+          <plugin>
+            <groupId>net.alchim31.maven</groupId>
+            <artifactId>scala-maven-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
   </profiles>
 
 </project>

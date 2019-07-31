@@ -30,6 +30,7 @@ import threading
 import tempfile
 import shutil
 import pickle
+import textwrap
 
 if sys.version >= '3':
     unicode = str
@@ -97,6 +98,7 @@ class JobContextImpl(object):
         self.hive_ctx = None
         self.streaming_ctx = None
         self.local_tmp_dir_path = local_tmp_dir_path
+        self.spark_session = global_dict.get('spark')
 
     def sc(self):
         return self.sc
@@ -142,6 +144,9 @@ class JobContextImpl(object):
                 self.stop_streaming_ctx()
             if self.sc is not None:
                 self.sc.stop()
+
+    def spark_session(self):
+        return self.spark_session
 
 
 class PySparkJobProcessorImpl(object):
@@ -402,6 +407,9 @@ def magic_table(name):
     for row in value:
         cols = []
         data.append(cols)
+        
+        if 'Row' == row.__class__.__name__:
+            row = row.asDict()
 
         if not isinstance(row, (list, tuple, dict)):
             row = [row]
@@ -423,11 +431,14 @@ def magic_table(name):
                 }
                 headers[name] = header
             else:
-                # Reject columns that have a different type.
-                if header['type'] != col_type:
-                    exc_type = Exception
-                    exc_value = 'table rows have different types'
-                    return execute_reply_error(exc_type, exc_value, None)
+                # Reject columns that have a different type. (allow none value)
+                if col_type != "NULL_TYPE" and header['type'] != col_type:
+                    if header['type'] == "NULL_TYPE":
+                        header['type'] = col_type
+                    else:
+                        exc_type = Exception
+                        exc_value = 'table rows have different types'
+                        return execute_reply_error(exc_type, exc_value, None)
 
             cols.append(col)
 
@@ -524,8 +535,21 @@ def main():
             exec('from pyspark.sql import HiveContext', global_dict)
             exec('from pyspark.streaming import StreamingContext', global_dict)
             exec('import pyspark.cloudpickle as cloudpickle', global_dict)
+
             if spark_major_version >= "2":
                 exec('from pyspark.shell import spark', global_dict)
+            else:
+                # LIVY-294, need to check whether HiveContext can work properly,
+                # fallback to SQLContext if HiveContext can not be initialized successfully.
+                # Only for spark-1.
+                code = textwrap.dedent("""
+                    import py4j
+                    from pyspark.sql import SQLContext
+                    try:
+                      sqlContext.tables()
+                    except py4j.protocol.Py4JError:
+                      sqlContext = SQLContext(sc)""")
+                exec(code, global_dict)
 
             #Start py4j callback server
             from py4j.protocol import ENTRY_POINT_OBJECT_ID

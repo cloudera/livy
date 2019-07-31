@@ -80,7 +80,7 @@ public class Utils {
   public static String join(Iterable<String> strs, String sep) {
     StringBuilder sb = new StringBuilder();
     for (String s : strs) {
-      if (s != null) {
+      if (s != null && !s.isEmpty()) {
         sb.append(s).append(sep);
       }
     }

@@ -19,10 +19,11 @@
 package com.cloudera.livy.repl
 
 import org.apache.spark.SparkConf
-import org.json4s.{DefaultFormats, JValue}
+import org.json4s.{DefaultFormats, JNull, JValue}
 import org.json4s.JsonDSL._
 import org.scalatest._
 
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
 
 abstract class PythonBaseInterpreterSpec extends BaseInterpreterSpec {
@@ -117,6 +118,46 @@ abstract class PythonBaseInterpreterSpec extends BaseInterpreterSpec {
           ("data" -> List(
             List[JValue](1, "a"),
             List[JValue](3, "b")
+          ))
+        )
+    ))
+  }
+
+  it should "do table magic with None type value" in withInterpreter { interpreter =>
+    val response = interpreter.execute(
+      """x = [{"a":"1", "b":None}, {"a":"2", "b":2}]
+        |%table x
+      """.stripMargin)
+
+    response should equal(Interpreter.ExecuteSuccess(
+      APPLICATION_LIVY_TABLE_JSON -> (
+        ("headers" -> List(
+          ("type" -> "STRING_TYPE") ~ ("name" -> "a"),
+          ("type" -> "INT_TYPE") ~ ("name" -> "b")
+        )) ~
+          ("data" -> List(
+            List[JValue]("1", JNull),
+            List[JValue]("2", 2)
+          ))
+        )
+    ))
+  }
+
+  it should "do table magic with None type Row" in withInterpreter { interpreter =>
+    val response = interpreter.execute(
+      """x = [{"a":None, "b":None}, {"a":"2", "b":2}]
+        |%table x
+      """.stripMargin)
+
+    response should equal(Interpreter.ExecuteSuccess(
+      APPLICATION_LIVY_TABLE_JSON -> (
+        ("headers" -> List(
+          ("type" -> "STRING_TYPE") ~ ("name" -> "a"),
+          ("type" -> "INT_TYPE") ~ ("name" -> "b")
+        )) ~
+          ("data" -> List(
+            List[JValue](JNull, JNull),
+            List[JValue]("2", 2)
           ))
         )
     ))

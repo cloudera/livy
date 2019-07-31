@@ -23,6 +23,11 @@ sealed trait SessionState {
   def isActive: Boolean
 }
 
+sealed trait FinishedSessionState extends SessionState {
+  /** When session is finished. */
+  def time: Long
+}
+
 object SessionState {
 
   def apply(s: String): SessionState = {
@@ -83,19 +88,19 @@ object SessionState {
     override def toString: String = "shutting_down"
   }
 
-  case class Error(time: Long = System.nanoTime()) extends SessionState {
+  case class Error(time: Long = System.nanoTime()) extends FinishedSessionState {
     override def isActive: Boolean = true
 
     override def toString: String = "error"
   }
 
-  case class Dead(time: Long = System.nanoTime()) extends SessionState {
+  case class Dead(time: Long = System.nanoTime()) extends FinishedSessionState {
     override def isActive: Boolean = false
 
     override def toString: String = "dead"
   }
 
-  case class Success(time: Long = System.nanoTime()) extends SessionState {
+  case class Success(time: Long = System.nanoTime()) extends FinishedSessionState {
     override def isActive: Boolean = false
 
     override def toString: String = "success"

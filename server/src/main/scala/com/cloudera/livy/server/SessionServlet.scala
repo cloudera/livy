@@ -44,6 +44,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   with ApiVersioningSupport
   with MethodOverride
   with UrlGeneratorSupport
+  with GZipSupport
 {
   /**
    * Creates a new session based on the current request. The implementation is responsible for

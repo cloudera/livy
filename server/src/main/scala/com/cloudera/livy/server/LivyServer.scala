@@ -25,17 +25,19 @@ import javax.servlet._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-import org.apache.hadoop.security.SecurityUtil
+import org.apache.hadoop.security.{SecurityUtil, UserGroupInformation}
 import org.apache.hadoop.security.authentication.server._
 import org.eclipse.jetty.servlet.FilterHolder
 import org.scalatra.metrics.MetricsBootstrap
 import org.scalatra.metrics.MetricsSupportExtensions._
+import org.scalatra.ScalatraServlet
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import com.cloudera.livy._
 import com.cloudera.livy.server.batch.BatchSessionServlet
 import com.cloudera.livy.server.interactive.InteractiveSessionServlet
 import com.cloudera.livy.server.recovery.{SessionStore, StateStore}
+import com.cloudera.livy.server.ui.UIServlet
 import com.cloudera.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import com.cloudera.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import com.cloudera.livy.utils.LivySparkUtils._
@@ -86,10 +88,38 @@ class LivyServer extends Logging {
     livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
       sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
 
+    if (UserGroupInformation.isSecurityEnabled) {
+      // If Hadoop security is enabled, run kinit periodically. runKinit() should be called
+      // before any Hadoop operation, otherwise Kerberos exception will be thrown.
+      executor = Executors.newScheduledThreadPool(1,
+        new ThreadFactory() {
+          override def newThread(r: Runnable): Thread = {
+            val thread = new Thread(r)
+            thread.setName("kinit-thread")
+            thread.setDaemon(true)
+            thread
+          }
+        }
+      )
+      val launch_keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
+      val launch_principal = SecurityUtil.getServerPrincipal(
+        livyConf.get(LAUNCH_KERBEROS_PRINCIPAL), host)
+      require(launch_keytab != null,
+        s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
+      require(launch_principal != null,
+        s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
+      if (!runKinit(launch_keytab, launch_principal)) {
+        error("Failed to run kinit, stopping the server.")
+        sys.exit(1)
+      }
+      startKinitThread(launch_keytab, launch_principal)
+    }
+
     testRecovery(livyConf)
 
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
+      SparkYarnApp.init(livyConf)
       Future { SparkYarnApp.yarnClient }
     }
 
@@ -100,6 +130,34 @@ class LivyServer extends Logging {
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/com/cloudera/livy/server")
+
+    val livyVersionServlet = new JsonServlet {
+      before() { contentType = "application/json" }
+
+      get("/") {
+        Map("version" -> LIVY_VERSION,
+          "user" -> LIVY_BUILD_USER,
+          "revision" -> LIVY_REVISION,
+          "branch" -> LIVY_BRANCH,
+          "date" -> LIVY_BUILD_DATE,
+          "url" -> LIVY_REPO_URL)
+      }
+    }
+
+    // Servlet for hosting static files such as html, css, and js
+    // Necessary since Jetty cannot set it's resource base inside a jar
+    val staticResourceServlet = new ScalatraServlet {
+      get("/*") {
+        getClass.getResourceAsStream("ui/static/" + params("splat"))
+      }
+    }
+
+    def uiRedirectServlet(path: String) = new ScalatraServlet {
+      get("/") {
+        redirect(path)
+      }
+    }
+
     server.context.addEventListener(
       new ServletContextListener() with MetricsBootstrap with ServletApiImplicits {
 
@@ -125,7 +183,18 @@ class LivyServer extends Logging {
             val batchServlet = new BatchSessionServlet(batchSessionManager, sessionStore, livyConf)
             mount(context, batchServlet, "/batches/*")
 
-            context.mountMetricsAdminServlet("/")
+            if (livyConf.getBoolean(UI_ENABLED)) {
+              val uiServlet = new UIServlet
+              mount(context, uiServlet, "/ui/*")
+              mount(context, staticResourceServlet, "/static/*")
+              mount(context, uiRedirectServlet("/ui/"), "/*")
+            } else {
+              mount(context, uiRedirectServlet("/metrics"), "/*")
+            }
+
+            context.mountMetricsAdminServlet("/metrics")
+
+            mount(context, livyVersionServlet, "/version/*")
           } catch {
             case e: Throwable =>
               error("Exception thrown when initializing server", e)
@@ -154,31 +223,7 @@ class LivyServer extends Logging {
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"SPNEGO auth enabled (principal = $principal)")
 
-        // run kinit periodically
-        executor = Executors.newScheduledThreadPool(1,
-          new ThreadFactory() {
-            override def newThread(r: Runnable): Thread = {
-              val thread = new Thread(r)
-              thread.setName("kinit-thread")
-              thread.setDaemon(true)
-              thread
-            }
-          }
-        )
-        val launch_keytab = livyConf.get(LAUNCH_KERBEROS_KEYTAB)
-        val launch_principal = SecurityUtil.getServerPrincipal(
-          livyConf.get(LAUNCH_KERBEROS_PRINCIPAL), server.host)
-        require(launch_keytab != null,
-          s"Kerberos requires ${LAUNCH_KERBEROS_KEYTAB.key} to be provided.")
-        require(launch_principal != null,
-          s"Kerberos requires ${LAUNCH_KERBEROS_PRINCIPAL.key} to be provided.")
-        if (!runKinit(launch_keytab, launch_principal)) {
-          error("Failed to run kinit, stopping the server.")
-          sys.exit(1)
-        }
-        startKinitThread(launch_keytab, launch_principal)
-
-      case null =>
+     case null =>
         // Nothing to do.
 
       case other =>
@@ -211,8 +256,8 @@ class LivyServer extends Logging {
       }
     })
 
-    _serverUrl = Some(s"http://${server.host}:${server.port}")
-    sys.props("livy.server.serverUrl") = _serverUrl.get
+    _serverUrl = Some(s"${server.protocol}://${server.host}:${server.port}")
+    sys.props("livy.server.server-url") = _serverUrl.get
   }
 
   def runKinit(keytab: String, principal: String): Boolean = {

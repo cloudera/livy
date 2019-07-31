@@ -26,8 +26,8 @@ import org.apache.spark.SparkConf
 import org.apache.spark.api.java.JavaSparkContext
 
 import com.cloudera.livy.Logging
+import com.cloudera.livy.rsc.{BaseProtocol, ReplJobResults, RSCConf}
 import com.cloudera.livy.rsc.BaseProtocol.ReplState
-import com.cloudera.livy.rsc.{BaseProtocol, RSCConf, ReplJobResults}
 import com.cloudera.livy.rsc.driver._
 import com.cloudera.livy.rsc.rpc.Rpc
 import com.cloudera.livy.sessions._
@@ -45,11 +45,12 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   override protected def initializeContext(): JavaSparkContext = {
     interpreter = kind match {
       case PySpark() => PythonInterpreter(conf, PySpark())
-      case PySpark3() => PythonInterpreter(conf, PySpark3())
+      case PySpark3() =>
+        PythonInterpreter(conf, PySpark3())
       case Spark() => new SparkInterpreter(conf)
       case SparkR() => SparkRInterpreter(conf)
     }
-    session = new Session(interpreter, { s => broadcast(new ReplState(s.toString)) })
+    session = new Session(livyConf, interpreter, { s => broadcast(new ReplState(s.toString)) })
 
     Option(Await.result(session.start(), Duration.Inf))
       .map(new JavaSparkContext(_))
@@ -70,6 +71,10 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
     session.execute(msg.code)
   }
 
+  def handle(ctx: ChannelHandlerContext, msg: BaseProtocol.CancelReplJobRequest): Unit = {
+    session.cancel(msg.id)
+  }
+
   /**
    * Return statement results. Results are sorted by statement id.
    */
@@ -86,17 +91,25 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
         session.statements.filterKeys(id => id >= msg.from && id < until).values.toArray
       }
     }
+
+    // Update progress of statements when queried
+    statements.foreach { s =>
+      s.updateProgress(session.progressOfStatement(s.id))
+    }
+
     new ReplJobResults(statements.sortBy(_.id))
   }
 
   override protected def createWrapper(msg: BaseProtocol.BypassJobRequest): BypassJobWrapper = {
-    interpreter match {
-      case pi: PythonInterpreter => pi.createWrapper(this, msg)
+    kind match {
+      case PySpark() | PySpark3() => new BypassJobWrapper(this, msg.id,
+        new BypassPySparkJob(msg.serializedJob, this))
       case _ => super.createWrapper(msg)
     }
   }
 
   override protected def addFile(path: String): Unit = {
+    require(interpreter != null)
     interpreter match {
       case pi: PythonInterpreter => pi.addFile(path)
       case _ => super.addFile(path)
@@ -104,6 +117,7 @@ class ReplDriver(conf: SparkConf, livyConf: RSCConf)
   }
 
   override protected def addJarOrPyFile(path: String): Unit = {
+    require(interpreter != null)
     interpreter match {
       case pi: PythonInterpreter => pi.addPyFile(this, conf, path)
       case _ => super.addJarOrPyFile(path)

@@ -163,6 +163,19 @@ public class RSCDriver extends BaseProtocol {
     // on the cluster, it would be tricky to solve that problem in a generic way.
     livyConf.set(RPC_SERVER_ADDRESS, null);
 
+    if (livyConf.getBoolean(TEST_STUCK_START_DRIVER)) {
+      // Test flag is turned on so we will just infinite loop here. It should cause
+      // timeout and we should still see yarn application being cleaned up.
+      LOG.info("Infinite looping as test flag TEST_STUCK_START_SESSION is turned on.");
+      while(true) {
+        try {
+          TimeUnit.MINUTES.sleep(10);
+        } catch (InterruptedException e) {
+          LOG.warn("Interrupted during test sleep.", e);
+        }
+      }
+    }
+
     // Bring up the RpcServer an register the secret provided by the Livy server as a client.
     LOG.info("Starting RPC server...");
     this.server = new RpcServer(livyConf);

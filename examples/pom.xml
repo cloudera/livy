@@ -19,58 +19,58 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.cloudera.livy</groupId>
-        <artifactId>livy-main</artifactId>
-        <version>0.3.0-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
-    </parent>
-
+  <parent>
     <groupId>com.cloudera.livy</groupId>
-    <artifactId>livy-examples</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
+    <artifactId>livy-main</artifactId>
+    <version>0.4.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
 
-    <properties>
-        <skipTests>true</skipTests>
-        <skip>true</skip>
-        <skipDeploy>true</skipDeploy>
-    </properties>
+  <groupId>com.cloudera.livy</groupId>
+  <artifactId>livy-examples</artifactId>
+  <version>0.4.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
 
-    <dependencies>
-        <dependency>
-            <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-api</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-scala-api_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.cloudera.livy</groupId>
-            <artifactId>livy-client-http</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-core_${scala.binary.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-sql_${scala.binary.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-hive_${scala.binary.version}</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming_${scala.binary.version}</artifactId>
-        </dependency>
-    </dependencies>
+  <properties>
+    <skipTests>true</skipTests>
+    <skip>true</skip>
+    <skipDeploy>true</skipDeploy>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-scala-api_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.cloudera.livy</groupId>
+      <artifactId>livy-client-http</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-core_${scala.binary.version}</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-hive_${scala.binary.version}</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-streaming_${scala.binary.version}</artifactId>
+    </dependency>
+  </dependencies>
 
 </project>

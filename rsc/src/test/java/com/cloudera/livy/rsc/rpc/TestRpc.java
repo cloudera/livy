@@ -18,6 +18,8 @@
 package com.cloudera.livy.rsc.rpc;
 
 import java.io.Closeable;
+import java.io.IOException;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.CountDownLatch;
@@ -186,9 +188,37 @@ public class TestRpc {
     assertEquals(outbound.message, reply.message);
   }
 
+  @Test
+  public void testPortRange() throws Exception {
+    String portRange = "a~b";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
+    try {
+      autoClose(new RpcServer(emptyConfig));
+    } catch (Exception ee) {
+      assertTrue(ee instanceof NumberFormatException);
+    }
+    portRange = "11000";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
+    try {
+      autoClose(new RpcServer(emptyConfig));
+    } catch (Exception ee) {
+      assertTrue(ee instanceof ArrayIndexOutOfBoundsException);
+    }
+    portRange = "11000~11110";
+    emptyConfig.set(LAUNCHER_PORT_RANGE, portRange);
+    String [] portRangeData = portRange.split("~");
+    int startPort = Integer.parseInt(portRangeData[0]);
+    int endPort = Integer.parseInt(portRangeData[1]);
+    RpcServer server = autoClose(new RpcServer(emptyConfig));
+    assertTrue(startPort <= server.getPort() && server.getPort() <= endPort);
+  }
+
   private void transfer(Rpc serverRpc, Rpc clientRpc) {
     EmbeddedChannel client = (EmbeddedChannel) clientRpc.getChannel();
     EmbeddedChannel server = (EmbeddedChannel) serverRpc.getChannel();
+
+    server.runPendingTasks();
+    client.runPendingTasks();
 
     int count = 0;
     while (!client.outboundMessages().isEmpty()) {

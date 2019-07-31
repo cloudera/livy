@@ -32,6 +32,8 @@ object LivySparkUtils extends Logging {
   // For each Spark version we supported, we need to add this mapping relation in case Scala
   // version cannot be detected from "spark-submit --version".
   private val _defaultSparkScalaVersion = SortedMap(
+    // Spark 2.1 + Scala 2.11
+    (2, 1) -> "2.11",
     // Spark 2.0 + Scala 2.11
     (2, 0) -> "2.11",
     // Spark 1.6 + Scala 2.10
@@ -40,7 +42,7 @@ object LivySparkUtils extends Logging {
 
   // Supported Spark version
   private val MIN_VERSION = (1, 6)
-  private val MAX_VERSION = (2, 1)
+  private val MAX_VERSION = (2, 2)
 
   private val sparkVersionRegex = """version (.*)""".r.unanchored
   private val scalaVersionRegex = """Scala version (.*), Java""".r.unanchored
@@ -143,11 +145,11 @@ object LivySparkUtils extends Logging {
    * @return Two element tuple, one is major version and the other is minor version
    */
   def formatSparkVersion(version: String): (Int, Int) = {
-    val versionPattern = """(\d)+\.(\d)+(?:[\.-]\d*)*""".r
-    version match {
-      case versionPattern(major, minor) =>
-        (major.toInt, minor.toInt)
-      case _ =>
+    val versionPattern = """^(\d+)\.(\d+)(\..*)?$""".r
+    versionPattern.findFirstMatchIn(version) match {
+      case Some(m) =>
+        (m.group(1).toInt, m.group(2).toInt)
+      case None =>
         throw new IllegalArgumentException(s"Fail to parse Spark version from $version")
     }
   }

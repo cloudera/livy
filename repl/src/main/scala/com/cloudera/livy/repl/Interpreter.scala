@@ -40,15 +40,15 @@ trait Interpreter {
   /**
    * Start the Interpreter.
    *
-   * @return A SparkContext, which may be null.
+   * @return A SparkContext
    */
   def start(): SparkContext
 
   /**
-   * Execute the code and return the result as a Future as it may
+   * Execute the code and return the result, it may
    * take some time to execute.
    */
-  def execute(code: String): ExecuteResponse
+  protected[repl] def execute(code: String): ExecuteResponse
 
   /** Shut down the interpreter. */
   def close(): Unit

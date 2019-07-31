@@ -23,6 +23,8 @@ import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 import org.scalatest._
 
+import com.cloudera.livy.rsc.RSCConf
+
 class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   implicit val formats = DefaultFormats
@@ -81,8 +83,25 @@ class SparkRInterpreterSpec extends BaseInterpreterSpec {
 
   it should "report an error if accessing an unknown variable" in withInterpreter { interpreter =>
     val response = interpreter.execute("x")
+    assert(response.isInstanceOf[Interpreter.ExecuteError])
+    val errorResponse = response.asInstanceOf[Interpreter.ExecuteError]
+    errorResponse.ename should be ("Error")
+    assert(errorResponse.evalue.contains("object 'x' not found"))
+  }
+
+
+  it should "not hang when executing incomplete statements" in withInterpreter { interpreter =>
+    val response = interpreter.execute("x[")
+    response should equal(Interpreter.ExecuteError(
+      "Error",
+        """[1] "Error in parse(text = \"x[\"): <text>:2:0: unexpected end of input\n1: x[\n   ^""""
+    ))
+  }
+
+  it should "escape the statement" in withInterpreter { interpreter =>
+    val response = interpreter.execute("print(\"a\")")
     response should equal(Interpreter.ExecuteSuccess(
-      TEXT_PLAIN -> "Error: object 'x' not found"
+      TEXT_PLAIN -> "[1] \"a\""
     ))
   }
 

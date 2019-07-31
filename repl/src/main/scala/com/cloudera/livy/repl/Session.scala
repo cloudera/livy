@@ -18,11 +18,14 @@
 
 package com.cloudera.livy.repl
 
+import java.util.{LinkedHashMap => JLinkedHashMap}
+import java.util.Map.Entry
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.concurrent.TrieMap
+import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration._
 
 import org.apache.spark.SparkContext
 import org.json4s.jackson.JsonMethods.{compact, render}
@@ -30,6 +33,7 @@ import org.json4s.DefaultFormats
 import org.json4s.JsonDSL._
 
 import com.cloudera.livy.Logging
+import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.rsc.driver.{Statement, StatementState}
 import com.cloudera.livy.sessions._
 
@@ -44,17 +48,33 @@ object Session {
   val TRACEBACK = "traceback"
 }
 
-class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Unit = { _ => } )
-  extends Logging
-{
+class Session(
+    livyConf: RSCConf,
+    interpreter: Interpreter,
+    stateChangedCallback: SessionState => Unit = { _ => })
+  extends Logging {
   import Session._
 
-  private implicit val executor = ExecutionContext.fromExecutorService(
+  private val interpreterExecutor = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor())
+
+  private val cancelExecutor = ExecutionContext.fromExecutorService(
+    Executors.newSingleThreadExecutor())
+
   private implicit val formats = DefaultFormats
 
+  @volatile private[repl] var _sc: Option[SparkContext] = None
+
   private var _state: SessionState = SessionState.NotStarted()
-  private val _statements = TrieMap[Int, Statement]()
+
+  // Number of statements kept in driver's memory
+  private val numRetainedStatements = livyConf.getInt(RSCConf.Entry.RETAINED_STATEMENT_NUMBER)
+
+  private val _statements = new JLinkedHashMap[Int, Statement] {
+    protected override def removeEldestEntry(eldest: Entry[Int, Statement]): Boolean = {
+      size() > numRetainedStatements
+    }
+  }.asScala
 
   private val newStatementId = new AtomicInteger(0)
 
@@ -64,12 +84,12 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     val future = Future {
       changeState(SessionState.Starting())
       val sc = interpreter.start()
+      _sc = Option(sc)
       changeState(SessionState.Idle())
       sc
-    }
-    future.onFailure { case _ =>
-      changeState(SessionState.Error())
-    }
+    }(interpreterExecutor)
+
+    future.onFailure { case _ => changeState(SessionState.Error()) }(interpreterExecutor)
     future
   }
 
@@ -77,27 +97,100 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
 
   def state: SessionState = _state
 
-  def statements: collection.Map[Int, Statement] = _statements.readOnlySnapshot()
+  def statements: collection.Map[Int, Statement] = _statements.synchronized {
+    _statements.toMap
+  }
 
   def execute(code: String): Int = {
     val statementId = newStatementId.getAndIncrement()
-    _statements(statementId) = new Statement(statementId, StatementState.Waiting, null)
-    Future {
-      _statements(statementId) = new Statement(statementId, StatementState.Running, null)
+    val statement = new Statement(statementId, StatementState.Waiting, null)
+    _statements.synchronized { _statements(statementId) = statement }
 
-      _statements(statementId) =
-        new Statement(statementId, StatementState.Available, executeCode(statementId, code))
-    }
+    Future {
+      setJobGroup(statementId)
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Running)
+
+      if (statement.state.get() == StatementState.Running) {
+        statement.output = executeCode(statementId, code)
+      }
+
+      statement.compareAndTransit(StatementState.Running, StatementState.Available)
+      statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+      statement.updateProgress(1.0)
+    }(interpreterExecutor)
+
     statementId
   }
 
+  def cancel(statementId: Int): Unit = {
+    val statementOpt = _statements.synchronized { _statements.get(statementId) }
+    if (statementOpt.isEmpty) {
+      return
+    }
+
+    val statement = statementOpt.get
+    if (statement.state.get().isOneOf(
+      StatementState.Available, StatementState.Cancelled, StatementState.Cancelling)) {
+      return
+    } else {
+      // statement 1 is running and statement 2 is waiting. User cancels
+      // statement 2 then cancels statement 1. The 2nd cancel call will loop and block the 1st
+      // cancel call since cancelExecutor is single threaded. To avoid this, set the statement
+      // state to cancelled when cancelling a waiting statement.
+      statement.compareAndTransit(StatementState.Waiting, StatementState.Cancelled)
+      statement.compareAndTransit(StatementState.Running, StatementState.Cancelling)
+    }
+
+    info(s"Cancelling statement $statementId...")
+
+    Future {
+      val deadline = livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TIMEOUT).millis.fromNow
+
+      while (statement.state.get() == StatementState.Cancelling) {
+        if (deadline.isOverdue()) {
+          info(s"Failed to cancel statement $statementId.")
+          statement.compareAndTransit(StatementState.Cancelling, StatementState.Cancelled)
+        } else {
+          _sc.foreach(_.cancelJobGroup(statementId.toString))
+          if (statement.state.get() == StatementState.Cancelling) {
+            Thread.sleep(livyConf.getTimeAsMs(RSCConf.Entry.JOB_CANCEL_TRIGGER_INTERVAL))
+          }
+        }
+      }
+
+      if (statement.state.get() == StatementState.Cancelled) {
+        info(s"Statement $statementId cancelled.")
+      }
+    }(cancelExecutor)
+  }
+
   def close(): Unit = {
-    executor.shutdown()
+    interpreterExecutor.shutdown()
+    cancelExecutor.shutdown()
     interpreter.close()
   }
 
-  def clearStatements(): Unit = synchronized {
-    _statements.clear()
+  /**
+   * Get the current progress of given statement id.
+   */
+  def progressOfStatement(stmtId: Int): Double = {
+    val jobGroup = statementIdToJobGroup(stmtId)
+
+    _sc.map { sc =>
+      val jobIds = sc.statusTracker.getJobIdsForGroup(jobGroup)
+      val jobs = jobIds.flatMap { id => sc.statusTracker.getJobInfo(id) }
+      val stages = jobs.flatMap { job =>
+        job.stageIds().flatMap(sc.statusTracker.getStageInfo)
+      }
+
+      val taskCount = stages.map(_.numTasks).sum
+      val completedTaskCount = stages.map(_.numCompletedTasks).sum
+      if (taskCount == 0) {
+        0.0
+      } else {
+        completedTaskCount.toDouble / taskCount
+      }
+    }.getOrElse(0.0)
   }
 
   private def changeState(newState: SessionState): Unit = {
@@ -107,7 +200,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
     stateChangedCallback(newState)
   }
 
-  private def executeCode(executionCount: Int, code: String): String = synchronized {
+  private def executeCode(executionCount: Int, code: String): String = {
     changeState(SessionState.Busy())
 
     def transitToIdle() = {
@@ -133,7 +226,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
           (EXECUTION_COUNT -> executionCount) ~
           (ENAME -> "Error") ~
           (EVALUE -> "incomplete statement") ~
-          (TRACEBACK -> List())
+          (TRACEBACK -> Seq.empty[String])
 
         case Interpreter.ExecuteError(ename, evalue, traceback) =>
           transitToIdle()
@@ -151,7 +244,7 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
           (EXECUTION_COUNT -> executionCount) ~
           (ENAME -> "Error") ~
           (EVALUE -> f"Interpreter died:\n$message") ~
-          (TRACEBACK -> List())
+          (TRACEBACK -> Seq.empty[String])
       }
     } catch {
       case e: Throwable =>
@@ -163,9 +256,35 @@ class Session(interpreter: Interpreter, stateChangedCallback: SessionState => Un
         (EXECUTION_COUNT -> executionCount) ~
         (ENAME -> f"Internal Error: ${e.getClass.getName}") ~
         (EVALUE -> e.getMessage) ~
-        (TRACEBACK -> List())
+        (TRACEBACK -> Seq.empty[String])
     }
 
     compact(render(resultInJson))
+  }
+
+  private def setJobGroup(statementId: Int): String = {
+    val jobGroup = statementIdToJobGroup(statementId)
+    val cmd = Kind(interpreter.kind) match {
+      case Spark() =>
+        // A dummy value to avoid automatic value binding in scala REPL.
+        s"""val _livyJobGroup$jobGroup = sc.setJobGroup("$jobGroup",""" +
+          s""""Job group for statement $jobGroup")"""
+      case PySpark() | PySpark3() =>
+        s"""sc.setJobGroup("$jobGroup", "Job group for statement $jobGroup")"""
+      case SparkR() =>
+        interpreter.asInstanceOf[SparkRInterpreter].sparkMajorVersion match {
+          case "1" =>
+            s"""setJobGroup(sc, "$jobGroup", "Job group for statement $jobGroup", """ +
+              "FALSE)"
+          case "2" =>
+            s"""setJobGroup("$jobGroup", "Job group for statement $jobGroup", FALSE)"""
+        }
+    }
+    // Set the job group
+    executeCode(statementId, cmd)
+  }
+
+  private def statementIdToJobGroup(statementId: Int): String = {
+    statementId.toString
   }
 }

@@ -19,7 +19,10 @@ package com.cloudera.livy.rsc.rpc;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.SocketException;
 import java.security.SecureRandom;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -61,18 +64,78 @@ public class RpcServer implements Closeable {
   private static final SecureRandom RND = new SecureRandom();
 
   private final String address;
-  private final Channel channel;
+  private Channel channel;
   private final EventLoopGroup group;
   private final int port;
   private final ConcurrentMap<String, ClientInfo> pendingClients;
   private final RSCConf config;
-
+  private final String portRange;
+  private static enum PortRangeSchema{START_PORT, END_PORT, MAX};
+  private final String PORT_DELIMITER = "~";
+  /**
+   * Creating RPC Server
+   * @param lconf
+   * @throws IOException
+   * @throws InterruptedException
+   */
   public RpcServer(RSCConf lconf) throws IOException, InterruptedException {
     this.config = lconf;
+    this.portRange = config.get(LAUNCHER_PORT_RANGE);
     this.group = new NioEventLoopGroup(
-        this.config.getInt(RPC_MAX_THREADS),
-        Utils.newDaemonThreadFactory("RPC-Handler-%d"));
-    this.channel = new ServerBootstrap()
+      this.config.getInt(RPC_MAX_THREADS),
+      Utils.newDaemonThreadFactory("RPC-Handler-%d"));
+    int [] portData = getPortNumberAndRange();
+    int startingPortNumber = portData[PortRangeSchema.START_PORT.ordinal()];
+    int endPort = portData[PortRangeSchema.END_PORT.ordinal()];
+    boolean isContected = false;
+    for(int tries = startingPortNumber ; tries<=endPort ; tries++){
+      try {
+        this.channel = getChannel(tries);
+        isContected = true;
+        break;
+      } catch(SocketException e){
+        LOG.debug("RPC not able to connect port " + tries + " " + e.getMessage());
+      }
+    }
+    if(!isContected) {
+      throw new IOException("Unable to connect to provided ports " + this.portRange);
+    }
+    this.port = ((InetSocketAddress) channel.localAddress()).getPort();
+    this.pendingClients = new ConcurrentHashMap<>();
+    LOG.info("Connected to the port " + this.port);
+    String address = config.get(RPC_SERVER_ADDRESS);
+    if (address == null) {
+      address = config.findLocalAddress();
+    }
+    this.address = address;
+  }
+
+  /**
+   * Get Port Numbers
+   */
+  private int[] getPortNumberAndRange() throws ArrayIndexOutOfBoundsException,
+    NumberFormatException {
+    String[] split = this.portRange.split(PORT_DELIMITER);
+    int [] portRange = new int [PortRangeSchema.MAX.ordinal()];
+    try {
+      portRange[PortRangeSchema.START_PORT.ordinal()] =
+      Integer.parseInt(split[PortRangeSchema.START_PORT.ordinal()]);
+      portRange[PortRangeSchema.END_PORT.ordinal()] =
+      Integer.parseInt(split[PortRangeSchema.END_PORT.ordinal()]);
+    } catch(ArrayIndexOutOfBoundsException e) {
+      LOG.error("Port Range format is not correct " + this.portRange);
+      throw e;
+    } catch(NumberFormatException e) {
+      LOG.error("Port are not in numeric format " + this.portRange);
+      throw e;
+    }
+    return portRange;
+  }
+  /**
+   * @throws InterruptedException
+   **/
+  private Channel getChannel(int portNumber) throws BindException, InterruptedException {
+    Channel channel = new ServerBootstrap()
       .group(group)
       .channel(NioServerSocketChannel.class)
       .childHandler(new ChannelInitializer<SocketChannel>() {
@@ -97,19 +160,11 @@ public class RpcServer implements Closeable {
       .option(ChannelOption.SO_BACKLOG, 1)
       .option(ChannelOption.SO_REUSEADDR, true)
       .childOption(ChannelOption.SO_KEEPALIVE, true)
-      .bind(0)
+      .bind(portNumber)
       .sync()
       .channel();
-    this.port = ((InetSocketAddress) channel.localAddress()).getPort();
-    this.pendingClients = new ConcurrentHashMap<>();
-
-    String address = config.get(RPC_SERVER_ADDRESS);
-    if (address == null) {
-      address = config.findLocalAddress();
-    }
-    this.address = address;
+    return channel;
   }
-
   /**
    * Tells the RPC server to expect connections from clients.
    *
@@ -310,3 +365,4 @@ public class RpcServer implements Closeable {
   }
 
 }
+

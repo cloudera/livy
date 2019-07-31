@@ -29,14 +29,13 @@ import scala.util.control.NonFatal
 
 import com.cloudera.livy.{LivyConf, Logging}
 import com.cloudera.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
-import com.cloudera.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
+import com.cloudera.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession, SessionHeartbeatWatchdog}
 import com.cloudera.livy.server.recovery.SessionStore
 import com.cloudera.livy.sessions.Session.RecoveryMetadata
 
 object SessionManager {
   val SESSION_RECOVERY_MODE_OFF = "off"
   val SESSION_RECOVERY_MODE_RECOVERY = "recovery"
-  val SESSION_TIMEOUT = LivyConf.Entry("livy.server.session.timeout", "1h")
 }
 
 class BatchSessionManager(
@@ -56,9 +55,13 @@ class InteractiveSessionManager(
     sessionStore,
     "interactive",
     mockSessions)
+  with SessionHeartbeatWatchdog[InteractiveSession, InteractiveRecoveryMetadata]
+  {
+    start()
+  }
 
 class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
-    livyConf: LivyConf,
+    protected val livyConf: LivyConf,
     sessionRecovery: R => S,
     sessionStore: SessionStore,
     sessionType: String,
@@ -72,8 +75,11 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   protected[this] final val idCounter = new AtomicInteger(0)
   protected[this] final val sessions = mutable.LinkedHashMap[Int, S]()
 
+  private[this] final val sessionTimeoutCheck = livyConf.getBoolean(LivyConf.SESSION_TIMEOUT_CHECK)
   private[this] final val sessionTimeout =
-    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(SessionManager.SESSION_TIMEOUT))
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_TIMEOUT))
+  private[this] final val sessionStateRetainedInSec =
+    TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_STATE_RETAIN_TIME))
 
   mockSessions.getOrElse(recover()).foreach(register)
   new GarbageCollector().start()
@@ -128,8 +134,20 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
   def collectGarbage(): Future[Iterable[Unit]] = {
     def expired(session: Session): Boolean = {
-      val currentTime = System.nanoTime()
-      currentTime - session.lastActivity > math.max(sessionTimeout, session.timeout)
+      session.state match {
+        case s: FinishedSessionState =>
+          val currentTime = System.nanoTime()
+          currentTime - s.time > sessionStateRetainedInSec
+        case _ =>
+          if (!sessionTimeoutCheck) {
+            false
+          } else if (session.isInstanceOf[BatchSession]) {
+            false
+          } else {
+            val currentTime = System.nanoTime()
+            currentTime - session.lastActivity > sessionTimeout
+          }
+      }
     }
 
     Future.sequence(all().filter(expired).map(delete))

@@ -21,24 +21,31 @@ package com.cloudera.livy.client.http;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.util.concurrent.TimeUnit;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
+import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.Credentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.*;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.NoConnectionReuseStrategy;
+import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
@@ -71,7 +78,7 @@ class LivyConnection {
     RequestConfig reqConfig = new RequestConfig() {
       @Override
       public int getConnectTimeout() {
-        return (int) config.getTimeAsMs(CONNETION_TIMEOUT);
+        return (int) config.getTimeAsMs(CONNECTION_TIMEOUT);
       }
 
       @Override
@@ -83,26 +90,46 @@ class LivyConnection {
       public boolean isAuthenticationEnabled() {
         return true;
       }
-    };
-
-    Credentials dummyCredentials = new Credentials() {
-      @Override
-      public String getPassword() {
-        return null;
-      }
 
       @Override
-      public Principal getUserPrincipal() {
-        return null;
+      public boolean isContentCompressionEnabled() {
+        return config.getBoolean(CONTENT_COMPRESS_ENABLE);
       }
     };
 
-    // This is needed to get Kerberos credentials from the environment, instead of
-    // requiring the application to manually obtain the credentials.
-    System.setProperty("javax.security.auth.useSubjectCredsOnly", "false");
+    Credentials credentials;
+    // If user info is specified in the url, pass them to the CredentialsProvider.
+    if (uri.getUserInfo() != null) {
+      String[] userInfo = uri.getUserInfo().split(":");
+      if (userInfo.length < 1) {
+        throw new IllegalArgumentException("Malformed user info in the url.");
+      }
+      try {
+        String username = URLDecoder.decode(userInfo[0], StandardCharsets.UTF_8.name());
+        String password = "";
+        if (userInfo.length > 1) {
+          password = URLDecoder.decode(userInfo[1], StandardCharsets.UTF_8.name());
+        }
+        credentials = new UsernamePasswordCredentials(username, password);
+      } catch (Exception e) {
+        throw new IllegalArgumentException("User info in the url contains bad characters.", e);
+      }
+    } else {
+      credentials = new Credentials() {
+        @Override
+        public String getPassword() {
+          return null;
+        }
+
+        @Override
+        public Principal getUserPrincipal() {
+          return null;
+        }
+      };
+    }
 
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
-    credsProvider.setCredentials(AuthScope.ANY, dummyCredentials);
+    credsProvider.setCredentials(AuthScope.ANY, credentials);
 
     HttpClientBuilder builder = HttpClientBuilder.create()
       .disableAutomaticRetries()
@@ -114,6 +141,14 @@ class LivyConnection {
       .setMaxConnTotal(1)
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
+
+    if (config.isSpnegoEnabled()) {
+      Registry<AuthSchemeProvider> authSchemeProviderRegistry =
+        RegistryBuilder.<AuthSchemeProvider>create()
+          .register(AuthSchemes.SPNEGO, new SPNegoSchemeFactory())
+          .build();
+      builder.setDefaultAuthSchemeRegistry(authSchemeProviderRegistry);
+    }
 
     this.server = uri;
     this.client = builder.build();

@@ -21,10 +21,11 @@ package com.cloudera.livy.test
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.regex.Pattern
 
-import scala.language.postfixOps
-
 import org.apache.hadoop.yarn.api.records.YarnApplicationState
+import org.scalatest.concurrent.Eventually._
 import org.scalatest.OptionValues._
+import scala.concurrent.duration._
+import scala.language.postfixOps
 
 import com.cloudera.livy.rsc.RSCConf
 import com.cloudera.livy.sessions._
@@ -69,7 +70,10 @@ class InteractiveIT extends BaseIntegrationTestSuite {
       s.run("sqlContext").verifyResult(startsWith("<pyspark.sql.context.HiveContext"))
       s.run("sc.parallelize(range(100)).map(lambda x: x * 2).reduce(lambda x, y: x + y)")
         .verifyResult("9900")
-
+      s.run("from pyspark.sql.types import Row").verifyResult("")
+      s.run("x = [Row(age=1, name=u'a'), Row(age=2, name=u'b'), Row(age=3, name=u'c')]")
+        .verifyResult("")
+      s.run("%table x").verifyResult(".*headers.*type.*name.*data.*")
       s.run("abcde").verifyError(ename = "NameError", evalue = "name 'abcde' is not defined")
       s.run("raise KeyError, 'foo'").verifyError(ename = "KeyError", evalue = "'foo'")
     }
@@ -111,6 +115,19 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     }
   }
 
+  test("should kill RSCDriver if it didn't register itself in time") {
+    val testConfName =
+      s"${RSCConf.LIVY_SPARK_PREFIX}${RSCConf.Entry.TEST_STUCK_START_DRIVER.key()}"
+    withNewSession(Spark(), Map(testConfName -> "true"), false) { s =>
+      eventually(timeout(2 minutes), interval(5 seconds)) {
+        val appId = s.appId()
+        appId should not be null
+        val appReport = cluster.yarnClient.getApplicationReport(appId)
+        appReport.getYarnApplicationState() shouldBe YarnApplicationState.KILLED
+      }
+    }
+  }
+
   test("user jars are properly imported in Scala interactive sessions") {
     // Include a popular Java library to test importing user jars.
     val sparkConf = Map("spark.jars.packages" -> "org.codehaus.plexus:plexus-utils:3.0.24")
@@ -131,14 +148,23 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     }
   }
 
+  test("heartbeat should kill expired session") {
+    // Set it to 2s because verifySessionIdle() is calling GET every second.
+    val heartbeatTimeout = Duration.create("2s")
+    withNewSession(Spark(), Map.empty, true, heartbeatTimeout.toSeconds.toInt) { s =>
+      // If the test reaches here, that means verifySessionIdle() is successfully keeping the
+      // session alive. Now verify heartbeat is killing expired session.
+      Thread.sleep(heartbeatTimeout.toMillis * 2)
+      s.verifySessionDoesNotExist()
+    }
+  }
+
   test("recover interactive session") {
     withNewSession(Spark()) { s =>
       val stmt1 = s.run("1")
       stmt1.verifyResult("res0: Int = 1")
 
-      // Restart Livy.
-      cluster.stopLivy()
-      cluster.runLivy()
+      restartLivy()
 
       // Verify session still exists.
       s.verifySessionIdle()
@@ -148,9 +174,7 @@ class InteractiveIT extends BaseIntegrationTestSuite {
 
       s.stop()
 
-      // Restart Livy.
-      cluster.stopLivy()
-      cluster.runLivy()
+      restartLivy()
 
       // Verify deleted session doesn't show up after recovery.
       s.verifySessionDoesNotExist()
@@ -162,10 +186,13 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     }
   }
 
-  private def withNewSession[R]
-    (kind: Kind, sparkConf: Map[String, String] = Map.empty, waitForIdle: Boolean = true)
+  private def withNewSession[R] (
+      kind: Kind,
+      sparkConf: Map[String, String] = Map.empty,
+      waitForIdle: Boolean = true,
+      heartbeatTimeoutInSecond: Int = 0)
     (f: (LivyRestClient#InteractiveSession) => R): R = {
-    withSession(livyClient.startSession(kind, sparkConf)) { s =>
+    withSession(livyClient.startSession(kind, sparkConf, heartbeatTimeoutInSecond)) { s =>
       if (waitForIdle) {
         s.verifySessionIdle()
       }

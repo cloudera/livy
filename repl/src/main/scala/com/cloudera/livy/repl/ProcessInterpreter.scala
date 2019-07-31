@@ -28,6 +28,7 @@ import org.apache.spark.SparkContext
 import org.json4s.JValue
 
 import com.cloudera.livy.{Logging, Utils}
+import com.cloudera.livy.client.common.ClientConf
 
 private sealed trait Request
 private case class ExecuteRequest(code: String, promise: Promise[JValue]) extends Request
@@ -41,21 +42,21 @@ private case class ShutdownRequest(promise: Promise[Unit]) extends Request
  * @param process
  */
 abstract class ProcessInterpreter(process: Process)
-  extends Interpreter
-  with Logging
-{
+  extends Interpreter with Logging {
   protected[this] val stdin = new PrintWriter(process.getOutputStream)
   protected[this] val stdout = new BufferedReader(new InputStreamReader(process.getInputStream), 1)
 
   override def start(): SparkContext = {
     waitUntilReady()
 
-    // At this point there should be an already active SparkContext that can be retrieved
-    // using SparkContext.getOrCreate. But we don't really support running "pre-compiled"
-    // jobs against pyspark or sparkr, so just return null here.
-    null
+    if (ClientConf.TEST_MODE) {
+      null.asInstanceOf[SparkContext]
+    } else {
+      SparkContext.getOrCreate()
+    }
   }
-  override def execute(code: String): Interpreter.ExecuteResponse = {
+
+  override protected[repl] def execute(code: String): Interpreter.ExecuteResponse = {
     try {
       sendExecuteRequest(code)
     } catch {
@@ -127,6 +128,7 @@ abstract class ProcessInterpreter(process: Process)
       val exitCode = process.waitFor()
       if (exitCode != 0) {
         error(f"Process has died with $exitCode")
+        error(stderrLines.mkString("\n"))
       }
     }
   }

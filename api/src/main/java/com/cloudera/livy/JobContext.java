@@ -38,10 +38,10 @@ public interface JobContext {
   /** The shared SparkContext instance. */
   JavaSparkContext sc();
 
-  /** The shared SQLContext inststance. */
+  /** The shared SQLContext instance. */
   SQLContext sqlctx();
 
-  /** The shared HiveContext inststance. */
+  /** The shared HiveContext instance. */
   HiveContext hivectx();
 
   /** Returns the JavaStreamingContext which has already been created. */
@@ -63,4 +63,8 @@ public interface JobContext {
    */
   File getLocalTmpDir();
 
+  /**
+   * Returns SparkSession if it existed, otherwise throws Exception.
+   */
+  <E> E sparkSession() throws Exception;
 }

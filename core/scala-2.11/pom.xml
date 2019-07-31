@@ -20,13 +20,13 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.cloudera.livy</groupId>
   <artifactId>livy-core_2.11</artifactId>
-  <version>0.3.0-SNAPSHOT</version>
+  <version>0.4.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
   <parent>
     <groupId>com.cloudera.livy</groupId>
     <artifactId>livy-core-parent</artifactId>
-    <version>0.3.0-SNAPSHOT</version>
+    <version>0.4.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -34,4 +34,21 @@
     <scala.version>${scala-2.11.version}</scala.version>
     <scala.binary.version>2.11</scala.binary.version>
   </properties>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
 </project>

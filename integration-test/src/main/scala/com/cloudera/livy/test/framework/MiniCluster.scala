@@ -157,6 +157,7 @@ object MiniLivyMain extends MiniClusterBase {
       LivyConf.LIVY_SPARK_MASTER.key -> "yarn",
       LivyConf.LIVY_SPARK_DEPLOY_MODE.key -> "cluster",
       LivyConf.LIVY_SPARK_SCALA_VERSION.key -> getSparkScalaVersion(),
+      LivyConf.HEARTBEAT_WATCHDOG_INTERVAL.key -> "1s",
       LivyConf.YARN_POLL_INTERVAL.key -> "500ms",
       LivyConf.RECOVERY_MODE.key -> "recovery",
       LivyConf.RECOVERY_STATE_STORE.key -> "filesystem",
@@ -175,7 +176,7 @@ object MiniLivyMain extends MiniClusterBase {
     // server. Do it atomically since it's used by MiniCluster to detect when the Livy server
     // is up and ready.
     eventually(timeout(30 seconds), interval(1 second)) {
-      val serverUrlConf = Map("livy.server.serverUrl" -> server.serverUrl())
+      val serverUrlConf = Map("livy.server.server-url" -> server.serverUrl())
       saveProperties(serverUrlConf, new File(configPath + "/serverUrl.conf"))
     }
   }
@@ -237,16 +238,16 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     assert(tempDir.mkdir(), "Cannot create temp test dir.")
     sparkConfDir = mkdir("spark-conf")
 
-    val sparkScalaVersion = getSparkScalaVersion()
-    val classPathFile =
-      new File(s"minicluster-dependencies/scala-$sparkScalaVersion/target/classpath")
-    assert(classPathFile.isFile,
-      s"Cannot read MiniCluster classpath file: ${classPathFile.getCanonicalPath}")
-    val sparkClassPath =
-      FileUtils.readFileToString(classPathFile, Charset.defaultCharset())
-
     // When running a real Spark cluster, don't set the classpath.
     val extraCp = if (!isRealSpark()) {
+      val sparkScalaVersion = getSparkScalaVersion()
+      val classPathFile =
+        new File(s"minicluster-dependencies/scala-$sparkScalaVersion/target/classpath")
+      assert(classPathFile.isFile,
+        s"Cannot read MiniCluster classpath file: ${classPathFile.getCanonicalPath}")
+      val sparkClassPath =
+        FileUtils.readFileToString(classPathFile, Charset.defaultCharset())
+
       val dummyJar = Files.createTempFile(Paths.get(tempDir.toURI), "dummy", "jar").toFile
       Map(
         SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sparkClassPath,
@@ -296,12 +297,12 @@ class MiniCluster(config: Map[String, String]) extends Cluster with MiniClusterU
     val localLivy = start(MiniLivyMain.getClass, confFile, extraJavaArgs = jacocoArgs)
 
     val props = loadProperties(confFile)
-    livyUrl = props("livy.server.serverUrl")
+    livyUrl = props("livy.server.server-url")
 
     // Wait until Livy server responds.
     val httpClient = new AsyncHttpClient()
     eventually(timeout(30 seconds), interval(1 second)) {
-      val res = httpClient.prepareGet(livyUrl).execute().get()
+      val res = httpClient.prepareGet(livyUrl + "/metrics").execute().get()
       assert(res.getStatusCode() == HttpServletResponse.SC_OK)
     }
 

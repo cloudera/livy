@@ -18,8 +18,8 @@
 
 package com.cloudera.livy.repl
 
+import java.util.Properties
 import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, TimeUnit}
-
 
 import org.mockito.Mockito.when
 import org.mockito.invocation.InvocationOnMock
@@ -32,18 +32,27 @@ import org.scalatest.time._
 
 import com.cloudera.livy.LivyBaseUnitTestSuite
 import com.cloudera.livy.repl.Interpreter.ExecuteResponse
+import com.cloudera.livy.rsc.RSCConf
 
 class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
   override implicit val patienceConfig =
     PatienceConfig(timeout = scaled(Span(10, Seconds)), interval = scaled(Span(100, Millis)))
 
+  private val rscConf = new RSCConf(new Properties())
+
   describe("Session") {
     it("should call state changed callbacks in happy path") {
-      val expectedStateTransitions = Array("not_started", "starting", "idle", "busy", "idle")
+      val expectedStateTransitions =
+        Array("not_started", "starting", "idle", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]
-      val session = new Session(interpreter, { s => actualStateTransitions.add(s.toString) })
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
+      val session =
+        new Session(rscConf, interpreter, { s => actualStateTransitions.add(s.toString) })
 
       session.start()
 
@@ -55,10 +64,15 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
     }
 
     it("should not transit to idle if there're any pending statements.") {
-      val expectedStateTransitions = Array("not_started", "busy", "busy", "idle")
+      val expectedStateTransitions =
+        Array("not_started", "busy", "busy", "busy", "idle", "busy", "idle")
       val actualStateTransitions = new ConcurrentLinkedQueue[String]()
 
       val interpreter = mock[Interpreter]
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
       val blockFirstExecuteCall = new CountDownLatch(1)
       when(interpreter.execute("")).thenAnswer(new Answer[Interpreter.ExecuteResponse] {
         override def answer(invocation: InvocationOnMock): ExecuteResponse = {
@@ -66,7 +80,8 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
           null
         }
       })
-      val session = new Session(interpreter, { s => actualStateTransitions.add(s.toString) })
+      val session =
+        new Session(rscConf, interpreter, { s => actualStateTransitions.add(s.toString) })
 
       for (_ <- 1 to 2) {
         session.execute("")
@@ -75,6 +90,37 @@ class SessionSpec extends FunSpec with Eventually with LivyBaseUnitTestSuite {
       blockFirstExecuteCall.countDown()
       eventually {
         actualStateTransitions.toArray shouldBe expectedStateTransitions
+      }
+    }
+
+    it("should remove old statements when reaching threshold") {
+      val interpreter = mock[Interpreter]
+      when(interpreter.kind).thenAnswer(new Answer[String] {
+        override def answer(invocationOnMock: InvocationOnMock): String = "spark"
+      })
+
+      rscConf.set(RSCConf.Entry.RETAINED_STATEMENT_NUMBER, 2)
+      val session = new Session(rscConf, interpreter)
+      session.start()
+
+      session.statements.size should be (0)
+      session.execute("")
+      session.statements.size should be (1)
+      session.statements.map(_._1).toSet should be (Set(0))
+      session.execute("")
+      session.statements.size should be (2)
+      session.statements.map(_._1).toSet should be (Set(0, 1))
+      session.execute("")
+      eventually {
+        session.statements.size should be (2)
+        session.statements.map(_._1).toSet should be (Set(1, 2))
+      }
+
+      // Continue submitting statements, total statements in memory should be 2.
+      session.execute("")
+      eventually {
+        session.statements.size should be (2)
+        session.statements.map(_._1).toSet should be (Set(2, 3))
       }
     }
   }

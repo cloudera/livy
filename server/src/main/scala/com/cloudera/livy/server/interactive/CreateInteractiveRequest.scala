@@ -21,7 +21,6 @@ package com.cloudera.livy.server.interactive
 import com.cloudera.livy.sessions.{Kind, Spark}
 
 class CreateInteractiveRequest {
-
   var kind: Kind = Spark()
   var proxyUser: Option[String] = None
   var jars: List[String] = List()
@@ -36,5 +35,23 @@ class CreateInteractiveRequest {
   var queue: Option[String] = None
   var name: Option[String] = None
   var conf: Map[String, String] = Map()
+  var heartbeatTimeoutInSecond: Int = 0
 
+  override def toString: String = {
+    s"[kind: $kind, " +
+      s"proxyUser: $proxyUser, " +
+      (if (jars.nonEmpty) s"jars: ${jars.mkString(",")}, " else "") +
+      (if (pyFiles.nonEmpty) s"pyFiles: ${pyFiles.mkString(",")}, " else "") +
+      (if (files.nonEmpty) s"files: ${files.mkString(",")}, " else "") +
+      (if (archives.nonEmpty) s"archives: ${archives.mkString(",")}, " else "") +
+      (if (driverMemory.isDefined) s"driverMemory: ${driverMemory.get}, " else "") +
+      (if (driverCores.isDefined) s"driverCores: ${driverCores.get}, " else "") +
+      (if (executorMemory.isDefined) s"executorMemory: ${executorMemory.get}, " else "") +
+      (if (executorCores.isDefined) s"executorCores: ${executorCores.get}, " else "") +
+      (if (numExecutors.isDefined) s"numExecutors: ${numExecutors.get}, " else "") +
+      (if (queue.isDefined) s"queue: ${queue.get}, " else "") +
+      (if (name.isDefined) s"name: ${name.get}, " else "") +
+      (if (conf.nonEmpty) s"conf: ${conf.mkString(",")}, " else "") +
+      s"heartbeatTimeoutInSecond: $heartbeatTimeoutInSecond]"
+  }
 }

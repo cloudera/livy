@@ -31,10 +31,8 @@ import org.json4s.JsonDSL._
 import com.cloudera.livy.Logging
 
 object AbstractSparkInterpreter {
-  private val EXCEPTION_STACK_TRACE_REGEX = """(.+?)\n((?:[  |\t].+?\n?)*)""".r
-  private val KEEP_NEWLINE_REGEX = """(?=\n)""".r
+  private[repl] val KEEP_NEWLINE_REGEX = """(?<=\n)""".r
   private val MAGIC_REGEX = "^%(\\w+)\\W*(.*)".r
-  val USER_CODE_FRAME_NAME = "<user code>"
 }
 
 abstract class AbstractSparkInterpreter extends Interpreter with Logging {
@@ -52,12 +50,13 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
 
   protected def valueOfTerm(name: String): Option[Any]
 
-  override def execute(code: String): Interpreter.ExecuteResponse = restoreContextClassLoader {
-    require(isStarted())
+  override protected[repl] def execute(code: String): Interpreter.ExecuteResponse =
+    restoreContextClassLoader {
+      require(isStarted())
 
-    executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
-      (TEXT_PLAIN, JString(""))
-    )))
+      executeLines(code.trim.split("\n").toList, Interpreter.ExecuteSuccess(JObject(
+        (TEXT_PLAIN, JString(""))
+      )))
   }
 
   private def executeMagic(magic: String, rest: String): Interpreter.ExecuteResponse = {
@@ -225,28 +224,31 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
               )
             case Results.Incomplete => Interpreter.ExecuteIncomplete()
             case Results.Error =>
-              def parseStdout(stdout: String): (String, Seq[String]) = {
-                stdout match {
-                  case EXCEPTION_STACK_TRACE_REGEX(ename, tracebackLines) =>
-                    var traceback = KEEP_NEWLINE_REGEX.pattern.split(tracebackLines)
-                    val interpreterFrameIdx = traceback.indexWhere(_.contains("$iwC$$iwC.<init>"))
-                    if (interpreterFrameIdx >= 0) {
-                      traceback = traceback
-                        // Remove Interpreter frames
-                        .take(interpreterFrameIdx)
-                        // Replace weird internal class name
-                        .map(_.replaceAll("(\\$iwC\\$)*\\$iwC", "<user code>"))
-                      // TODO Proper translate line number in stack trace for $iwC$$iwC.
-                    }
-                    (ename.trim, traceback)
-                  case _ => (stdout, Seq.empty)
-                }
-              }
-              val (ename, traceback) = parseStdout(readStdout())
+              val (ename, traceback) = parseError(readStdout())
               Interpreter.ExecuteError("Error", ename, traceback)
           }
         }
     }
+  }
+
+  protected[repl] def parseError(stdout: String): (String, Seq[String]) = {
+    // An example of Scala compile error message:
+    // <console>:27: error: type mismatch;
+    //  found   : Int
+    //  required: Boolean
+
+    // An example of Scala runtime exception error message:
+    // java.lang.RuntimeException: message
+    //   at .error(<console>:11)
+    //   ... 32 elided
+
+    // Return the first line as ename. Lines following as traceback.
+
+    val lines = KEEP_NEWLINE_REGEX.split(stdout)
+    val ename = lines.headOption.map(_.trim).getOrElse("unknown error")
+    val traceback = lines.tail
+
+    (ename, traceback)
   }
 
   protected def restoreContextClassLoader[T](fn: => T): T = {
